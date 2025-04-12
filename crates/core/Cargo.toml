@@ -1,0 +1,8 @@
+[package]
+name = "deimos-core"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+lazy_static = "1.4.0"
+destiny-pkg.workspace = true

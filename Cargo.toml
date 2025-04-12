@@ -1,0 +1,47 @@
+[package]
+name = "deimos"
+version = "0.0.0"
+edition = "2021"
+
+[[bin]]
+name = "deimos"
+path = "src/main.rs"
+
+[workspace]
+members = [
+    "crates/data",
+    "crates/core",
+]
+
+[workspace.dependencies]
+anyhow = "1"
+d3d11 = { git = "https://github.com/cohaereo/d3d11-rs.git" }
+destiny-pkg = "0.17"
+glam = "0.30"
+tiger-parse = { version = "0.2.0", git = "https://github.com/v4nguard/tiger-parse.git", features = [
+    "check_types",
+    "check_types_strict",
+    "destiny_pkg",
+    "check_types_debug",
+]}
+
+[dependencies]
+deimos-core = { path = "./crates/core" }
+deimos-data = { path = "./crates/data" }
+
+anyhow.workspace = true
+d3d11.workspace = true
+destiny-pkg.workspace = true
+glam.workspace = true
+gltf = { package = "gltf-json", version = "1.4.1" }
+tiger-parse.workspace = true
+serde_json = "1.0.140"
+env_logger = "0.11.8"
+bytemuck = "1.22.0"
+
+[profile.dev.package.destiny-pkg]
+opt-level = 3
+
+
+[profile.dev.package.deimos-data]
+opt-level = 3

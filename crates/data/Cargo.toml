@@ -1,0 +1,17 @@
+[package]
+name = "deimos-data"
+version = "0.0.0"
+edition = "2021"
+
+[lib]
+path = "./lib.rs"
+
+[dependencies]
+deimos-core = { path = "../core" }
+
+anyhow.workspace = true
+bitflags = "2"
+destiny-pkg.workspace = true
+d3d11.workspace = true
+glam.workspace = true
+tiger-parse.workspace = true
