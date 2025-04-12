@@ -84,7 +84,7 @@ fn main() -> anyhow::Result<()> {
                 extras: Default::default(),
                 attributes: Default::default(),
                 indices: Some(ib_accessor),
-                mode: Checked::Valid(gltf::mesh::Mode::Triangles),
+                mode: Checked::Valid(gltf::mesh::Mode::TriangleStrip),
                 material: None,
                 targets: None,
             };
@@ -207,27 +207,32 @@ fn load_index_buffer(
         let range = p.index_start as usize..(p.index_start + p.index_count) as usize;
         let start = new_indices.len();
         let mut i = 0;
+        let mut next_degenerate = 0;
+        let mut degenerate_count = 0;
         for start in range {
-            if start + 3 > indices.len() {
-                break;
-            }
+            if indices[start] == u32::MAX {
+                let last = new_indices.last().copied().unwrap_or(0);
+                new_indices.push(last);
+                new_indices.push(last);
+                next_degenerate = 1;
+                if i % 2 != 0 {
+                    next_degenerate += 1;
+                }
 
-            let tri = &indices[start..start + 3];
-            if tri.contains(&u32::MAX) {
+                if degenerate_count == 0 {
+                    next_degenerate += 1;
+                }
+
+                degenerate_count += 1;
                 i = 0;
-                continue;
+            } else {
+                while next_degenerate > 0 {
+                    new_indices.push(indices[start]);
+                    next_degenerate -= 1;
+                }
+                new_indices.push(indices[start]);
             }
 
-            let flip_vertices = i % 2 != 0;
-            if flip_vertices {
-                new_indices.push(tri[1]);
-                new_indices.push(tri[0]);
-                new_indices.push(tri[2]);
-            } else {
-                new_indices.push(tri[0]);
-                new_indices.push(tri[1]);
-                new_indices.push(tri[2]);
-            }
             i += 1;
         }
 
