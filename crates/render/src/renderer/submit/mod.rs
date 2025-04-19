@@ -1,0 +1,291 @@
+// pub mod bloom;
+pub mod buffers;
+pub mod gbuffer;
+// pub mod lighting;
+pub mod lowlevel;
+// pub mod transparent;
+// pub mod water;
+
+use deimos_core::convar::ConVars;
+use deimos_data::tfx::{FeatureRendererSubscription, PipelineState};
+use glam::{Mat4, Vec4};
+
+use crate::{
+    camera::Camera,
+    cmd_event_span,
+    gpu::command_list::CommandList,
+    tfx::{
+        externs::{self, TextureView},
+        scope::TempFrameScope,
+    },
+};
+
+use super::Renderer;
+
+impl Renderer {
+    pub fn submit_world(
+        &self,
+        cmd: &mut CommandList,
+        cam_view: Mat4,
+        cam_proj: Mat4,
+        render_time: f32,
+        delta_time: f32,
+    ) {
+        cmd_event_span!(cmd, "submit_world");
+
+        self.active_feature_renderers
+            .store(self.calculate_active_feature_renderers());
+
+        let gpu = &self.gpu;
+
+        self.prepare_externs(cmd, cam_view, cam_proj, render_time, delta_time);
+
+        self.globals.scopes.view.bind(cmd).unwrap();
+
+        self.submit_gbuffer_generation(cmd);
+
+        // self.submit_lighting(cmd);
+
+        self.clear_surface(cmd, self.shading_result, [0., 0., 0., 1.0]);
+        self.bind_surfaces(cmd, &[self.shading_result], None);
+        cmd.output_merger_set_depth_stencil_state(None, 0);
+
+        cmd.state = PipelineState::new(Some(0), Some(0), Some(0), Some(0));
+        if ConVars::get_flag("render.global_lighting") {
+            self.execute_global_pipeline(
+                cmd,
+                &self.globals.pipelines.global_lighting_and_shading_gel,
+                "global_lighting_and_shading_gel",
+            );
+        } else {
+            self.execute_global_pipeline(
+                cmd,
+                &self.globals.pipelines.deferred_shading,
+                "deferred_shading",
+            );
+        }
+
+        self.shading_result_read
+            .lock()
+            .update(&cmd, self.surfaces.get(self.shading_result));
+
+        // self.submit_transparent(cmd);
+
+        // self.shading_result_read
+        //     .lock()
+        //     .update(&cmd, self.surfaces.get(self.shading_result));
+
+        // self.submit_water(cmd);
+
+        // if ConVars::get_flag("render.feature.volumetrics") {
+        //     self.apply_volume_fog(cmd);
+        // }
+
+        // self.submit_bloom(cmd);
+
+        {
+            self.shading_result_read
+                .lock()
+                .update(&cmd, self.surfaces.get(self.shading_result));
+            self.surfaces.get(self.shading_result).bind_single(cmd);
+            cmd.state = PipelineState::new(Some(0), Some(0), Some(0), Some(0));
+            // cmd.flush_states();
+            self.execute_global_pipeline(
+                cmd,
+                self.globals
+                    .pipelines
+                    // .screen_area_global_lut3d_no_tonemap,
+                    .get_specialized_lut3d_pipeline(true, false, false),
+                "screen_area_global_lut3d",
+            );
+        }
+        {
+            cmd.state = PipelineState::new(Some(0), Some(0), Some(0), Some(0));
+            cmd.flush_states();
+            cmd.rasterizer_set_viewports(&[d3d11::Viewport::builder()
+                .width(gpu.swapchain_resolution().0 as f32)
+                .height(gpu.swapchain_resolution().1 as f32)
+                .build()]);
+            cmd.vertex_set_shader(Some(&self.common.blit_vs));
+            cmd.pixel_set_shader(Some(&self.common.blit_ps));
+            cmd.set_input_topology(deimos_data::tfx::PrimitiveType::TriangleStrip);
+            cmd.clear_render_target_view(&gpu.acquire_rtv(), &[0., 0., 0., 1.0]);
+            cmd.output_merger_set_render_targets(&[Some(gpu.acquire_rtv())], None);
+            let srv_shading_result = self.surfaces.get(self.shading_result).srv.clone();
+            cmd.pixel_set_shader_resources(0, &[srv_shading_result]);
+            cmd.draw(4, 0);
+        }
+    }
+
+    fn prepare_externs(
+        &self,
+        cmd: &mut CommandList,
+        cam_view: Mat4,
+        cam_proj: Mat4,
+        render_time: f32,
+        delta_time: f32,
+    ) {
+        let fb_res = self.surfaces.framebuffer_resolution();
+
+        // let cam_view = Mat4::from_cols(
+        //     [-0.962532818, -0.027713167, -0.269745320, 0.000000000].into(),
+        //     [-0.271165162, 0.098371163, 0.957492828, 0.000000000].into(),
+        //     [0.000000000, 0.994763792, -0.102200322, 0.000000000].into(),
+        //     [15.103929520, -31.395317078, -47.990650177, 1.000000000].into(),
+        // );
+        // let cam_proj = Mat4::from_cols(
+        //     [0.827271998, 0.000000000, 0.000000000, 0.000000000].into(),
+        //     [0.000000000, 1.470705628, 0.000000000, 0.000000000].into(),
+        //     [0.000000000, 0.000000000, 0.000002623, -1.000000000].into(),
+        //     [0.000000000, 0.000000000, 0.150000393, 0.000000000].into(),
+        // );
+
+        let ext = self.externs.get_mut();
+        ext.view.update(cam_view, cam_proj, fb_res);
+
+        ext.frame = externs::Frame {
+            game_time: render_time, //self.start_time.elapsed().as_secs_f32();
+            render_time,            //self.start_time.elapsed().as_secs_f32();
+            delta_game_time: delta_time,
+            exposure_time: 0.016666668,
+            // exposure_scale: 7.71489,
+            exposure_scale: 1.0,
+            exposure_illum_relative: 0.25438,
+            ..ext.frame.clone()
+        };
+
+        let irr_lookup = &self.globals.textures.iridescence_lookup;
+        ext.frame.iridescence_lookup = irr_lookup.view.clone().into();
+
+        // let near = Camera::NEAR;
+        // let far = Camera::FAR;
+        // ext.deferred.depth_constants = Vec4::new(
+        //     1.0 / far,
+        //     (far - near) / (far * near),
+        //     0.00000000,
+        //     0.00000000,
+        // );
+
+        // ext.deferred.deferred_depth = self.gbuffers.depth_proxy.lock().srv.clone().into();
+        // ext.deferred.deferred_rt0 = self.gbuffers.albedo.into();
+        // ext.deferred.deferred_rt1 = self.gbuffers.normal.into();
+        // ext.deferred.deferred_rt2 = self.gbuffers.third.into();
+
+        // ext.deferred.light_diffuse = self.lighting.light_diffuse.into();
+        // ext.deferred.light_specular = self.lighting.light_specular.into();
+        // ext.deferred.light_specular_ibl = self.lighting.light_specular_ibl.into();
+
+        // ext.deferred.sky_hemisphere_mips = self.common.temporary_sky_hemisphere.view.clone().into();
+
+        // ext.decal.depth_read = self.gbuffers.depth_proxy.lock().srv.clone().into();
+        // ext.decal.normals_read = self.gbuffers.normal_read.into();
+        // ext.decal.depth_constants = ext.deferred.depth_constants;
+
+        // ext.shadow_mask.unk00 = self.gpu.placeholder_white.view.clone().into();
+        // ext.shadow_mask.unk08 = self.lighting.ssao.into();
+        // ext.shadow_mask.unk10 = self.gbuffers.uber_depth_half.into();
+
+        // if let Some(vao_srv) = self.surfaces.get(self.lighting.vertex_ao).srv.clone() {
+        //     ext.cubemaps.vertex_ao = vao_srv.into();
+        // }
+
+        // ext.atmosphere.unk38 = self.common.temporary_depth_lookup.view.clone().into();
+        // ext.atmosphere.unk88 = self.common.temporary_atmos.view.clone().into();
+
+        // ext.screen_area = ScreenArea {
+        //     unk00: self.shading_result_read.lock().srv.clone().into(),
+        //     unk10: self.common.default_lut.view.clone().into(), // LUT
+        //     unk18: self.common.temporary_bloom.view.clone().into(), // bloom
+        //     unk20: self.lighting.distortion.into(),             // distortion
+        //     unk28: TextureView::None,                           // health overlay
+        //     unk30: self.common.temporary_vignette.view.clone().into(), // vignette
+        //     unk48: 0.9968,
+        //     unk70: Vec4::new(0.13281, 0.23611, 0.00, 0.00), // distortion related
+        //     unkd0: Vec4::new(0.3, 0.5, 0.0, 0.02),
+        //     unkc0: 0.05,
+        //     unke0: Vec4::new(0.3, 0.5, 0.0, 0.5),
+        //     ..Default::default()
+        // };
+
+        // let depth_res = self.surfaces.get(self.gbuffers.depth).resolution();
+        // ext.uber_depth = UberDepth {
+        //     original_depth: self.gbuffers.depth_proxy.lock().srv.clone().into(),
+        //     unk30: self.gbuffers.uber_depth_half.into(),
+        //     unk40: self.gbuffers.uber_depth_quarter.into(),
+        //     unk50: ext.deferred.depth_constants,
+        //     unk70: Vec4::new(0.0, 0.0, depth_res.0 as f32, depth_res.1 as f32),
+        //     ..Default::default()
+        // };
+
+        // ext.transparent = Transparent {
+        //     unk28: self.lighting.volumetrics_rt0.into(),
+        //     unk38: self.common.temporary_atmos.view.clone().into(),
+        //     unk50: Vec4::new(1.15643, 0.00, 0.70, 44.00),
+        //     unk60: Vec4::new(0.00, 0.00, -0.00938, 0.05583),
+        //     unk70: Vec4::new(0.00, 0.00, -0.01315, 0.10422),
+        //     unk80: Vec4::new(0.00, 0.00, -0.00815, 0.16667),
+        //     unk90: Vec4::new(0.00, 0.00, 0.00, 0.00),
+        //     ..Default::default()
+        // };
+
+        // TODO(cohae): use the actual frame scope instead of the temporary `frame_scope`
+        self.globals.scopes.frame.bind(cmd).unwrap();
+        let _ = self.frame_scope.write(
+            &cmd,
+            &TempFrameScope {
+                game_time: ext.frame.game_time, //self.start_time.elapsed().as_secs_f32(),
+                render_time: ext.frame.render_time, //self.start_time.elapsed().as_secs_f32(),
+                delta_game_time: ext.frame.delta_game_time,
+                exposure_time: ext.frame.exposure_time,
+
+                // exposure_scale: 1.,
+                // exposure_illum_relative_glow: 1.,
+                // exposure_illum_relative: 1.,
+                // exposure_scale_for_shading: 1.,
+                exposure_scale: ext.frame.exposure_scale,
+                exposure_illum_relative_glow: ext.frame.exposure_illum_relative * 16.0,
+                exposure_scale_for_shading: ext.frame.exposure_scale,
+                exposure_illum_relative: ext.frame.exposure_illum_relative,
+                random_seed_scales: Vec4::new(
+                    (render_time * 60.0 + 33.75) * 1.258699,
+                    (render_time * 60.0 + 60.0) * 0.9583125,
+                    (render_time * 60.0 + 60.0) * 8.789123,
+                    (render_time * 60.0 + 33.75) * 2.311535,
+                ),
+                unk3: Vec4::new(0.5, 0.5, 0.0, 0.0),
+                unk4: Vec4::new(1.0, 1.0, 0.0, 1.0),
+                unk5: Vec4::new(0.00, -f32::NAN, 512.00, 0.00),
+                unk6: Vec4::ONE,
+            },
+        );
+        self.frame_scope
+            .bind(&cmd, crate::gpu::ShaderStage::Vertex, 13);
+        self.frame_scope
+            .bind(&cmd, crate::gpu::ShaderStage::Pixel, 13);
+    }
+
+    fn calculate_active_feature_renderers(&self) -> FeatureRendererSubscription {
+        let mut sub = FeatureRendererSubscription::all();
+        macro_rules! remove_feature_if_unset {
+            ($convar:expr, $flag:ident) => {
+                if !ConVars::get_flag(concat!("render.feature.", $convar)) {
+                    sub.remove(FeatureRendererSubscription::$flag);
+                }
+            };
+        }
+
+        remove_feature_if_unset!("static_objects", STATIC_OBJECTS);
+        remove_feature_if_unset!("rigid_objects", RIGID_OBJECT);
+        remove_feature_if_unset!("chunked_lights", CHUNKED_LIGHTS);
+        remove_feature_if_unset!("deferred_lights", DEFERRED_LIGHTS);
+        remove_feature_if_unset!("sky_transparent", SKY_TRANSPARENT);
+        remove_feature_if_unset!("decals", DECALS);
+        remove_feature_if_unset!("dynamic_decals", DYNAMIC_DECALS);
+        remove_feature_if_unset!("road_decals", ROAD_DECALS);
+        remove_feature_if_unset!("water", WATER);
+        remove_feature_if_unset!("volumetrics", VOLUMETRICS);
+        remove_feature_if_unset!("cubemaps", CUBEMAPS);
+
+        sub
+    }
+}

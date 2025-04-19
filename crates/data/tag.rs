@@ -1,9 +1,8 @@
 use std::fmt::{Debug, Display, Formatter};
 
 use anyhow::Context;
-use deimos_core::package_manager;
-use destiny_pkg::{TagHash, TagHash64};
 use tiger_parse::{PackageManagerExt, TigerReadable};
+use tiger_pkg::{package_manager, TagHash, TagHash64};
 
 #[derive(Clone)]
 pub struct Tag<T: TigerReadable>(pub T, TagHash);
@@ -154,13 +153,13 @@ impl<T: TigerReadable> TigerReadable for WideTag<T> {
             WideHash::Hash32(h) => Ok(WideTag(
                 package_manager()
                     .read_tag_struct(h)
-                    .with_context(|| format!("Failed to read tag {h}"))?,
+                    .map_err(|e| tiger_parse::Error::TagReadFailed(e.to_string()))?,
                 h,
             )),
             WideHash::Hash64(h) => Ok(WideTag(
                 package_manager()
                     .read_tag64_struct(h)
-                    .with_context(|| format!("Failed to read tag {h}"))?,
+                    .map_err(|e| tiger_parse::Error::TagReadFailed(e.to_string()))?,
                 tag.hash32(),
             )),
         }

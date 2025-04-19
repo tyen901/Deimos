@@ -1,7 +1,7 @@
 use std::ops::{BitOr, BitOrAssign, Range};
 
-use destiny_pkg::TagHash;
 use tiger_parse::tiger_tag;
+use tiger_pkg::TagHash;
 
 use crate::tfx::{LodCategory, PrimitiveType, RenderStage};
 

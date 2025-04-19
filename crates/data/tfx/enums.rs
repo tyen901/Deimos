@@ -85,7 +85,7 @@ impl TigerReadable for RenderStage {
     ) -> tiger_parse::Result<Self> {
         match u8::read_ds_endian(reader, endian)? {
             x if x <= 22 => Ok(unsafe { transmute(x) }),
-            x => anyhow::bail!("Invalid RenderStage value {x}"),
+            x => Err(tiger_parse::Error::EnumVariantOutOfRange(x as usize)),
         }
     }
 

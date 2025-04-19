@@ -10,8 +10,10 @@ path = "./lib.rs"
 deimos-core = { path = "../core" }
 
 anyhow.workspace = true
+assert-offset = "0.1"
 bitflags = "2"
-destiny-pkg.workspace = true
 d3d11.workspace = true
 glam.workspace = true
+paste = "1"
+tiger-pkg.workspace = true
 tiger-parse.workspace = true

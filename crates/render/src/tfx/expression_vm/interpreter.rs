@@ -1,0 +1,589 @@
+use core::f32;
+
+use anyhow::{ensure, Context};
+use d3d11::SamplerState;
+use deimos_data::tfx::ShaderStage;
+use glam::{Mat4, Vec4, Vec4Swizzles};
+
+use crate::{tfx::externs::ExternIndex, Renderer};
+
+use super::opcodes::Opcode;
+
+#[derive(Default)]
+pub struct TempObjectChannels {
+    pub position: Vec4,
+}
+
+pub struct InterpreterState<'a> {
+    data: &'a [u8],
+    pub ip: usize,
+    object_channels: Option<&'a TempObjectChannels>,
+
+    stack: [Vec4; 32],
+    stack_pointer: usize,
+
+    temp: [Vec4; 16],
+    debug: bool,
+}
+
+impl<'a> InterpreterState<'a> {
+    pub fn new(data: &'a [u8]) -> Self {
+        Self {
+            ip: 0,
+            data,
+            object_channels: None,
+            stack: [Vec4::ZERO; 32],
+            stack_pointer: 0,
+            temp: [Vec4::ZERO; 16],
+            debug: false,
+        }
+    }
+
+    pub fn with_object_channels(mut self, object_channels: &'a TempObjectChannels) -> Self {
+        self.object_channels = Some(object_channels);
+        self
+    }
+
+    pub fn with_debug(mut self, debug: bool) -> Self {
+        self.debug = debug;
+        self
+    }
+
+    fn data_ptr(&self) -> &[u8] {
+        &self.data[self.ip..]
+    }
+
+    #[must_use = "Pushed value must be stored in the cache register"]
+    #[inline(always)]
+    fn push(&mut self, value: Vec4) -> anyhow::Result<Vec4> {
+        #[cfg(debug_assertions)]
+        anyhow::ensure!(
+            self.stack_pointer < self.stack.len(),
+            "Stack overflow (ip=0x{:X}, sp={})",
+            self.ip,
+            self.stack_pointer
+        );
+        self.stack_pointer += 1;
+        self.stack[self.stack_pointer] = value;
+        Ok(value)
+    }
+
+    // #[inline(always)]
+    // fn pop(&mut self) -> anyhow::Result<Vec4> {
+    //     anyhow::ensure!(self.stack_pointer < 16, "Stack underflow");
+    //     let value = self.stack[self.stack_pointer];
+    //     self.stack_pointer += 1;
+    //     Ok(value)
+    // }
+
+    #[inline(always)]
+    fn get(&self, index_relative: isize) -> anyhow::Result<Vec4> {
+        let index = self.stack_pointer as isize + index_relative;
+        #[cfg(debug_assertions)]
+        anyhow::ensure!(
+            (0..16).contains(&index),
+            "Stack index out of bounds (ip=0x{:X})",
+            self.ip
+        );
+        Ok(self.stack[index as usize])
+    }
+
+    // Pops the top value off the stack and returns the value at the new top of the stack (or ZERO if the stack is empty)
+    #[inline(always)]
+    fn pop_top(&mut self) -> Vec4 {
+        self.stack_pointer = self.stack_pointer.saturating_sub(1);
+        self.stack
+            .get(self.stack_pointer)
+            .copied()
+            .unwrap_or(Vec4::ZERO)
+    }
+
+    #[inline(always)]
+    fn stack_top(&mut self) -> &mut Vec4 {
+        &mut self.stack[self.stack_pointer]
+    }
+
+    // // Pops the top N values off the stack and returns the value at the new top of the stack (or ZERO if the stack is empty)
+    // fn pop_n(&mut self, n: usize) -> Vec4 {
+    //     self.stack_pointer = self.stack_pointer.saturating_add(n);
+    //     self.stack
+    //         .get(self.stack_pointer)
+    //         .copied()
+    //         .unwrap_or(Vec4::ZERO)
+    // }
+
+    // #[profiling::function]
+    pub fn evaluate(
+        &mut self,
+        context: &d3d11::DeviceContext,
+        constants: &[Vec4],
+        samplers: &[Option<SamplerState>],
+        out: &mut [Vec4],
+    ) -> anyhow::Result<()> {
+        let mut cached_top = Vec4::ZERO;
+
+        macro_rules! set_top {
+            ($value:expr) => {{
+                cached_top = $value;
+                *self.stack_top() = cached_top;
+            }};
+        }
+
+        'exec: while self.ip < self.data.len() {
+            let ptr = self.data_ptr();
+            let Ok(op) = Opcode::try_from(ptr[0]) else {
+                anyhow::bail!("Invalid opcode: 0x{:02X} @ ip 0x{:X}", ptr[0], self.ip);
+            };
+
+            match op {
+                Opcode::ExtReturn => {
+                    break 'exec;
+                }
+                Opcode::Add | Opcode::Add_ => {
+                    cached_top += self.get(-1)?;
+                    self.stack_pointer -= 1;
+                    *self.stack_top() = cached_top;
+                }
+                Opcode::Subtract => {
+                    cached_top = self.get(-1)? - cached_top;
+                    self.stack_pointer -= 1;
+                    *self.stack_top() = cached_top;
+                }
+                Opcode::Multiply | Opcode::Multiply_ => {
+                    cached_top *= self.get(-1)?;
+                    self.stack_pointer -= 1;
+                    *self.stack_top() = cached_top;
+                }
+                Opcode::UnkDivide => {
+                    let v0 = cached_top;
+                    let v1 = self.get(-1)?;
+                    const EPSILON: Vec4 = Vec4::splat(9.9999997e-20);
+
+                    let abs_v0 = v0.abs();
+                    let v20 = abs_v0.cmpgt(EPSILON); // |v0| > epsilon
+
+                    // Compute safe_part: signum(v1) * INFINITY
+                    let safe_part = {
+                        let sign = v1.signum();
+                        sign * Vec4::INFINITY
+                    };
+
+                    // Select between actual division and safe_part based on v20
+                    cached_top = Vec4::select(v20, v1 / v0, safe_part);
+
+                    self.stack_pointer -= 1;
+                    *self.stack_top() = cached_top;
+                }
+                Opcode::Min => {
+                    cached_top = cached_top.min(self.get(-1)?);
+                    self.stack_pointer -= 1;
+                    *self.stack_top() = cached_top;
+                }
+                Opcode::Max => {
+                    cached_top = cached_top.max(self.get(-1)?);
+                    self.stack_pointer -= 1;
+                    *self.stack_top() = cached_top;
+                }
+                Opcode::Dot => {
+                    cached_top = Vec4::splat(self.get(-1)?.dot(cached_top));
+                    self.stack_pointer -= 1;
+                    *self.stack_top() = cached_top;
+                }
+                Opcode::Merge1_3 => {
+                    let a0 = cached_top;
+                    let a1 = self.get(-1)?;
+                    self.stack_pointer -= 1;
+                    cached_top = Vec4::new(a1.x, a0.x, a0.y, a0.z);
+                    *self.stack_top() = cached_top;
+                }
+                Opcode::Merge2_2 => {
+                    let a0 = cached_top;
+                    let a1 = self.get(-1)?;
+                    self.stack_pointer -= 1;
+                    cached_top = Vec4::new(a1.x, a1.y, a0.x, a0.y);
+                    *self.stack_top() = cached_top;
+                }
+                Opcode::Merge3_1 => {
+                    let a0 = cached_top;
+                    let a1 = self.get(-1)?;
+                    self.stack_pointer -= 1;
+                    set_top!(Vec4::new(a1.x, a1.y, a1.z, a0.x));
+                }
+                Opcode::Cubic => {
+                    let x = cached_top;
+                    let coefficients = self.get(-1)?;
+                    self.stack_pointer -= 1;
+
+                    let high = coefficients.x * x + coefficients.yyyy();
+                    let low = coefficients.z * x + coefficients.wwww();
+                    let x2 = x * x;
+
+                    set_top!(high * x2 + low);
+                }
+                Opcode::Lerp => {
+                    let s = cached_top;
+                    let y = self.get(-1)?;
+                    let x = self.get(-2)?;
+                    self.stack_pointer -= 2;
+                    set_top!((y - x) * s + x);
+                }
+                Opcode::MultiplyAdd => {
+                    let c = cached_top;
+                    let b = self.get(-1)?;
+                    let a = self.get(-2)?;
+                    self.stack_pointer -= 2;
+                    set_top!(a * b + c);
+                }
+                Opcode::Clamp => {
+                    let min = cached_top;
+                    let max = self.get(-1)?;
+                    let value = self.get(-2)?;
+                    self.stack_pointer -= 2;
+                    set_top!(value.clamp(min, max));
+                }
+                Opcode::Floor => {
+                    set_top!(cached_top.floor());
+                }
+                Opcode::Ceil => {
+                    set_top!(cached_top.ceil());
+                }
+                Opcode::Round => {
+                    set_top!(cached_top.round());
+                }
+                Opcode::Frac => {
+                    set_top!(cached_top.fract());
+                }
+                Opcode::Negate => {
+                    set_top!(-cached_top);
+                }
+                Opcode::Splat => {
+                    set_top!(cached_top.xxxx());
+                }
+                Opcode::Permute => {
+                    let fields = ptr[1];
+                    let x = (fields >> 6) & 0b11;
+                    let y = (fields >> 4) & 0b11;
+                    let z = (fields >> 2) & 0b11;
+                    let w = fields & 0b11;
+
+                    set_top!(Vec4::new(
+                        cached_top[x as usize],
+                        cached_top[y as usize],
+                        cached_top[z as usize],
+                        cached_top[w as usize],
+                    ));
+                }
+                Opcode::Saturate => {
+                    set_top!(cached_top.clamp(Vec4::ZERO, Vec4::ONE))
+                }
+                Opcode::Unknown0x25 => {
+                    set_top!(super::helpers::bytecode_op_25(cached_top));
+                }
+                Opcode::Triangle => {
+                    set_top!(super::helpers::bytecode_op_triangle(cached_top));
+                }
+                Opcode::Jitter => {
+                    set_top!(super::helpers::bytecode_op_jitter(cached_top));
+                }
+                Opcode::Wander => {
+                    set_top!(super::helpers::bytecode_op_wander(cached_top));
+                }
+                Opcode::Rand => {
+                    set_top!(super::helpers::bytecode_op_rand(cached_top));
+                }
+                Opcode::TransformVec4 => {
+                    let value = cached_top;
+                    let w_axis = self.get(-1)?;
+                    let z_axis = self.get(-2)?;
+                    let y_axis = self.get(-3)?;
+                    let x_axis = self.get(-4)?;
+
+                    let mat = Mat4::from_cols(x_axis, y_axis, z_axis, w_axis);
+                    self.stack_pointer -= 4;
+
+                    set_top!(mat.mul_vec4(value));
+                }
+                Opcode::VectorRotationsSin => {
+                    set_top!(super::helpers::_trig_helper_vector_sin_rotations_estimate(
+                        cached_top
+                    ));
+                }
+                Opcode::VectorRotationsCos => {
+                    set_top!(super::helpers::_trig_helper_vector_cos_rotations_estimate(
+                        cached_top
+                    ));
+                }
+                Opcode::VectorRotationsSinCos => {
+                    set_top!(
+                        super::helpers::_trig_helper_vector_sin_cos_rotations_estimate(cached_top)
+                    );
+                }
+                Opcode::PushConstVec4 => {
+                    let index = ptr[1];
+                    anyhow::ensure!(index < constants.len() as u8, "Invalid constant index");
+                    cached_top = self.push(constants[index as usize])?;
+                }
+                Opcode::LerpConstant => {
+                    let constant_start = ptr[1];
+                    ensure!(
+                        (constant_start + 1) < constants.len() as u8,
+                        "Invalid constant index"
+                    );
+                    let a = constants[constant_start as usize];
+                    let b = constants[(constant_start + 1) as usize];
+                    let t = cached_top;
+
+                    cached_top = a + t * (b - a);
+                    *self.stack_top() = cached_top;
+                }
+                Opcode::Spline8Const => {
+                    let constant_start = ptr[1];
+                    ensure!(
+                        (constant_start + 9) < constants.len() as u8,
+                        "Invalid constant index"
+                    );
+
+                    let cl = &constants[constant_start as usize..];
+                    cached_top = super::helpers::bytecode_op_spline8_const(
+                        cached_top, cl[0], cl[1], cl[2], cl[3], cl[4], cl[5], cl[6], cl[7], cl[8],
+                        cl[9],
+                    );
+                }
+                // Push a temporary value onto the stack
+                Opcode::PushTemp => {
+                    let slot = ptr[1];
+                    anyhow::ensure!(slot < self.temp.len() as u8, "Invalid temp slot");
+                    cached_top = self.push(self.temp[slot as usize])?;
+                }
+                // Pop a temporary value from the stack and store it in the specified temp slot
+                Opcode::PopTemp => {
+                    let slot = ptr[1];
+                    anyhow::ensure!(slot < self.temp.len() as u8, "Invalid temp slot");
+                    self.temp[slot as usize] = cached_top;
+                    cached_top = self.pop_top();
+                }
+                Opcode::PopTextureView => {
+                    let shader_stage = ShaderStage::from_index(ptr[1] >> 5)
+                        .context("Invalid shader stage value")?;
+                    let slot = ptr[1] & 0x1F;
+                    let bits = cached_top.x.to_bits();
+
+                    let index = ExternIndex::try_from((bits >> 24) as u8)
+                        .ok()
+                        .context("Invalid extern index on pop texture view")?;
+                    let offset = bits & 0xFFFFFF;
+
+                    let srv = Renderer::instance()
+                        .externs
+                        .get_texture_srv(index, offset as usize);
+                    let bind = match shader_stage {
+                        ShaderStage::Pixel => d3d11::DeviceContext::pixel_set_shader_resources,
+                        ShaderStage::Vertex => d3d11::DeviceContext::vertex_set_shader_resources,
+                        ShaderStage::Geometry => {
+                            d3d11::DeviceContext::geometry_set_shader_resources
+                        }
+                        ShaderStage::Hull => d3d11::DeviceContext::hull_set_shader_resources,
+                        ShaderStage::Compute => d3d11::DeviceContext::compute_set_shader_resources,
+                        ShaderStage::Domain => d3d11::DeviceContext::domain_set_shader_resources,
+                    };
+
+                    bind(context, slot as u32, &[Some(srv)]);
+                }
+                Opcode::PopSamplerState => {
+                    let shader_stage = ShaderStage::from_index(ptr[1] >> 5)
+                        .context("Invalid shader stage value")?;
+                    let slot = ptr[1] & 0x1F;
+                    let index = cached_top.x.to_bits();
+                    cached_top = self.pop_top();
+                    anyhow::ensure!(index < samplers.len() as u32, "Invalid sampler index");
+                    let sampler = &samplers[index as usize];
+                    let bind = match shader_stage {
+                        ShaderStage::Pixel => d3d11::DeviceContext::pixel_set_samplers,
+                        ShaderStage::Vertex => d3d11::DeviceContext::vertex_set_samplers,
+                        ShaderStage::Geometry => d3d11::DeviceContext::geometry_set_samplers,
+                        ShaderStage::Hull => d3d11::DeviceContext::hull_set_samplers,
+                        ShaderStage::Compute => d3d11::DeviceContext::compute_set_samplers,
+                        ShaderStage::Domain => d3d11::DeviceContext::domain_set_samplers,
+                    };
+
+                    bind(
+                        context,
+                        slot as u32,
+                        &[Some(sampler.clone().context("Invalid sampler")?)],
+                    );
+                }
+                Opcode::PopUav => {
+                    let shader_stage = ShaderStage::from_index(ptr[1] >> 5)
+                        .context("Invalid shader stage value")?;
+                    if shader_stage != ShaderStage::Compute {
+                        anyhow::bail!("Invalid shader stage for binding a UAV");
+                    }
+                    let slot = ptr[1] & 0x1F;
+                    let bits = cached_top.x.to_bits();
+
+                    let index = ExternIndex::try_from((bits >> 24) as u8)
+                        .ok()
+                        .context("Invalid extern index on pop texture view")?;
+                    let offset = bits & 0xFFFFFF;
+
+                    let uav = Renderer::instance().externs.get_uav(index, offset as usize);
+                    context.compute_set_unordered_access_views(slot as u32, &[Some(uav)], None);
+                }
+                Opcode::PushSamplerState => {
+                    let index = ptr[1];
+                    anyhow::ensure!(index < samplers.len() as u8, "Invalid sampler index");
+                    cached_top =
+                        self.push(Vec4::new(f32::from_bits(index as u32), 0.0, 0.0, 0.0))?;
+                }
+                Opcode::PushExternInputFloat => {
+                    let extern_id = ExternIndex::try_from(ptr[1])
+                        .ok()
+                        .context("Invalid extern index")?;
+                    let offset = ptr[2];
+                    let val = *Renderer::instance()
+                        .externs
+                        .get_extern_value::<f32>(extern_id, offset as usize * 4)
+                        .with_context(|| {
+                            format!(
+                                "Failed to get float extern value for {:?} @ 0x{:X}",
+                                extern_id,
+                                offset as usize * 4
+                            )
+                        })?;
+
+                    cached_top = self.push(Vec4::splat(val))?;
+                }
+                Opcode::PushExternInputVec4 => {
+                    let extern_id = ExternIndex::try_from(ptr[1])
+                        .ok()
+                        .context("Invalid extern index")?;
+                    let offset = ptr[2];
+
+                    let val = *Renderer::instance()
+                        .externs
+                        .get_extern_value::<Vec4>(extern_id, offset as usize * 16)
+                        .with_context(|| {
+                            format!(
+                                "Failed to get vec4 extern value for {:?} @ 0x{:X}",
+                                extern_id,
+                                offset as usize * 16
+                            )
+                        })?;
+
+                    cached_top = self.push(val)?;
+                }
+                Opcode::PushExternInputMat4 => {
+                    let extern_id = ExternIndex::try_from(ptr[1])
+                        .ok()
+                        .context("Invalid extern index")?;
+                    let offset = ptr[2];
+
+                    let val = Renderer::instance()
+                        .externs
+                        .get_extern_value::<Mat4>(extern_id, offset as usize * 16)
+                        .with_context(|| {
+                            format!(
+                                "Failed to get mat4 extern value for {:?} @ 0x{:X}",
+                                extern_id,
+                                offset as usize * 16
+                            )
+                        })?;
+
+                    self.push(val.x_axis)?;
+                    self.push(val.y_axis)?;
+                    self.push(val.z_axis)?;
+                    cached_top = self.push(val.w_axis)?;
+                }
+                Opcode::PushExternInputTextureView => {
+                    let extern_id = ExternIndex::try_from(ptr[1])
+                        .ok()
+                        .context("Invalid extern index")?;
+                    let offset = ptr[2] as u32 * 8;
+
+                    let bits = (extern_id as u32) << 24 | (offset & 0xFFFFFF);
+                    cached_top = self.push(Vec4::new(f32::from_bits(bits), 0.0, 0.0, 0.0))?;
+                }
+                Opcode::PushExternInputUav => {
+                    let extern_id = ExternIndex::try_from(ptr[1])
+                        .ok()
+                        .context("Invalid extern index")?;
+                    let offset = ptr[2] as u32 * 8;
+
+                    let bits = (extern_id as u32) << 24 | (offset & 0xFFFFFF);
+                    cached_top = self.push(Vec4::new(f32::from_bits(bits), 0.0, 0.0, 0.0))?;
+                }
+                Opcode::PushFromOutput => {
+                    let element = ptr[1] as usize;
+                    anyhow::ensure!(element < out.len(), "Invalid output element index");
+                    cached_top = self.push(out[element])?;
+                }
+                Opcode::PopOutput => {
+                    let element = ptr[1] as usize;
+                    anyhow::ensure!(element < out.len(), "Invalid output element index");
+                    out[element] = cached_top;
+                    cached_top = self.pop_top();
+                }
+                Opcode::PopOutputMat4 => {
+                    let start_element = ptr[1] as usize;
+                    anyhow::ensure!(
+                        (start_element + 3) < out.len(),
+                        "Invalid mat4 output starting element index"
+                    );
+
+                    let w_axis = cached_top;
+                    let z_axis = self.get(-1)?;
+                    let y_axis = self.get(-2)?;
+                    let x_axis = self.get(-3)?;
+
+                    out[start_element] = x_axis;
+                    out[start_element + 1] = y_axis;
+                    out[start_element + 2] = z_axis;
+                    out[start_element + 3] = w_axis;
+
+                    self.stack_pointer -= 4;
+                    cached_top = self.get(0)?;
+                }
+                Opcode::Unknown0x4D => {
+                    let channel = ptr[1];
+                    let val = match channel {
+                        0 => Vec4::ZERO, // Unsure, used as lerp paramter for warmind memories
+                        1 => self
+                            .object_channels
+                            .map(|c| c.position)
+                            .unwrap_or(Vec4::ZERO),
+                        _ => Vec4::ONE,
+                    };
+
+                    cached_top = self.push(val)?;
+                }
+                Opcode::Unknown0x3A | Opcode::PushGlobalChannelVector => {
+                    let channel = ptr[1];
+                    // Direct indexing is safe here, as globals is 256 elements long
+                    let val = Renderer::instance().externs.globals[channel as usize];
+                    // let val = match channel {
+                    //     124 => Vec4::X * 0.1,  // 138 in tfs
+                    //     125 => Vec4::X * 1.0,  // 139 in tfs
+                    //     128 => Vec4::X * 10.0, // ????
+                    //     _ => Vec4::ONE,
+                    // };
+                    cached_top = self.push(val)?;
+                }
+                u => {
+                    anyhow::bail!("Unimplemented opcode: {u:?} / 0x{:02X}", ptr[0]);
+                }
+            }
+
+            if self.debug {
+                println!("{}: {:?} {:?}", self.ip, op, &self.data_ptr()[1..op.size()]);
+                // Print stack
+                for (i, val) in self.stack.iter().enumerate() {
+                    println!("  [{}] {:?}", i, val);
+                }
+            }
+
+            self.ip += op.size();
+        }
+
+        Ok(())
+    }
+}

@@ -4,29 +4,30 @@ use std::{
     mem::transmute,
 };
 
-use destiny_pkg::TagHash;
 use glam::Vec4;
 use tiger_parse::{tiger_tag, Endian, TigerReadable};
+use tiger_pkg::TagHash;
 
 use crate::tfx::enums::ShaderStage;
 
 #[derive(Clone)]
-#[tiger_tag(id = 0x00000000)]
+#[tiger_tag(id = 0x808031D8)]
 pub struct STechnique {
     pub file_size: u64,
     pub bind_mode: TechniqueBindMode,
     pub unkc: u32,
     pub unk10: u32,
     pub unk14: u32,
+    pub unk18: u32,
+    pub unk1c: u32,
 
     pub used_scopes: TfxScopeBits,
     pub compatible_scopes: TfxScopeBits,
 
     pub states: PipelineState,
-    pub unk24: u32,
-    pub unk28: [u32; 8],
+    pub unk34: [u32; 9],
 
-    // 0x48
+    // 0x58
     pub shader_vertex: STechniqueShader,
     pub shader_hull: STechniqueShader,
     pub shader_domain: STechniqueShader,
@@ -91,8 +92,6 @@ pub struct STechniqueShader {
     pub shader: TagHash,
     pub unk4: u32,
     pub constants: SDynamicConstants,
-
-    pub unk78: [u32; 6],
 }
 
 #[derive(Debug, Clone)]
@@ -104,22 +103,22 @@ pub struct SMaterialTextureAssignment {
 }
 
 #[derive(Clone)]
-#[tiger_tag(size = 0x68)]
+#[tiger_tag(size = 0x80)]
 pub struct SDynamicConstants {
     pub textures: Vec<SMaterialTextureAssignment>,
     pub unk10: u64,
-    pub bytecode: Vec<u8>,
-    pub bytecode_constants: Vec<Vec4>,
-    pub samplers: Vec<SSamplerReference>,
-    pub unk30: Vec<Vec4>,
-    pub unk40: [u32; 8],
+    pub bytecode: Vec<u8>,                // 0x18
+    pub bytecode_constants: Vec<Vec4>,    // 0x28
+    pub samplers: Vec<SSamplerReference>, // 0x38
+    pub unk30: Vec<Vec4>,                 // 0x48
+    pub unk40: [u32; 8],                  // 0x58
 
-    pub constant_buffer_slot: i32, // 0x60
-    pub constant_buffer: TagHash,
+    pub constant_buffer_slot: i32, // 0x78
+    pub constant_buffer: TagHash,  // 0x7c
 }
 
 #[derive(Clone)]
-#[tiger_tag(id = 0x00000000)]
+#[tiger_tag(id = 0x8080013F)]
 pub struct SSamplerReference {
     pub sampler: TagHash,
     pub unk4: u32,
@@ -129,7 +128,7 @@ pub struct SSamplerReference {
 
 bitflags::bitflags! {
     #[derive(Debug, Clone, Copy)]
-    pub struct TfxScopeBits: u32 {
+    pub struct TfxScopeBits: u64 {
         const FRAME                        = 1 << 0;
         const VIEW                         = 1 << 1;
         const RIGID_MODEL                  = 1 << 2;
@@ -167,7 +166,7 @@ bitflags::bitflags! {
 // TODO(cohae): tiger-parse doesnt work with bitflags, so we have to implement this manually
 impl TigerReadable for TfxScopeBits {
     fn read_ds_endian<R: Read + Seek>(reader: &mut R, endian: Endian) -> tiger_parse::Result<Self> {
-        let bits: u32 = u32::read_ds_endian(reader, endian)?;
+        let bits: u64 = u64::read_ds_endian(reader, endian)?;
         Ok(Self::from_bits_truncate(bits))
     }
 

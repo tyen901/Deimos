@@ -1,0 +1,288 @@
+use std::ops::{Add, BitAnd, Mul, Shr, Sub};
+
+use glam::{IVec4, UVec4, Vec4, Vec4Swizzles};
+
+fn lerp(start: f32, end: f32, t: f32) -> f32 {
+    start + (end - start) * t
+}
+
+fn _trig_helper_vector_pseudo_sin_rotations_clamped(a: Vec4) -> Vec4 {
+    a * (a.abs() * -16.0 + 8.0)
+}
+
+fn _trig_helper_vector_pseudo_sin_rotations(a: Vec4) -> Vec4 {
+    let w = a - a.round(); // wrap to [-0.5, 0.5] range
+    _trig_helper_vector_pseudo_sin_rotations_clamped(w)
+}
+
+pub fn bytecode_op_triangle(x: Vec4) -> Vec4 {
+    let wrapped = x - x.round(); // wrap to [-0.5, 0.5] range
+    let abs_wrap = wrapped.abs(); // abs turns into triangle wave between [0, 0.5]
+
+    abs_wrap * 2.0 // scale to [0, 1] range
+}
+
+pub fn bytecode_op_jitter(x: Vec4) -> Vec4 {
+    let rotations =
+        x.xxxx() * Vec4::new(4.67, 2.99, 1.08, 1.35) + Vec4::new(0.52, 0.37, 0.16, 0.79);
+
+    // optimized scaled-sum-of-sines
+    let a = rotations - rotations.round(); // wrap to [-0.5, 0.5] range
+    let ma = a.abs() * -16.0 + 8.0;
+    let sa = a * 0.25;
+    let v = sa.dot(ma) + 0.5;
+
+    // hermite smooth interpolation (3*v^2 - 2*v^3)
+    let v2 = v * v;
+    let jitter_result = (-2.0 * v + 3.0) * v2;
+
+    Vec4::splat(jitter_result)
+}
+
+pub fn bytecode_op_wander(x: Vec4) -> Vec4 {
+    let rot0 = x.xxxx() * Vec4::new(4.08, 1.02, 3.0 / 5.37, 3.0 / 9.67)
+        + Vec4::new(0.92, 0.33, 0.26, 0.54);
+    let rot1 = x.xxxx() * Vec4::new(1.83, 3.09, 0.39, 0.87) + Vec4::new(0.12, 0.37, 0.16, 0.79);
+    let sines0 = _trig_helper_vector_pseudo_sin_rotations(rot0);
+    let sines1 = _trig_helper_vector_pseudo_sin_rotations(rot1) * Vec4::new(0.02, 0.02, 0.28, 0.28);
+    let wander_result = 0.5 + sines0.dot(sines1);
+
+    Vec4::splat(wander_result)
+}
+
+pub fn bytecode_op_rand(x: Vec4) -> Vec4 {
+    // these magic numbers are 1/(prime/1000000)
+    let v0 = x.x.floor();
+    let mut val0 = Vec4::splat(v0).dot(Vec4::new(
+        1.0 / 1.043501,
+        1.0 / 0.794471,
+        1.0 / 0.113777,
+        1.0 / 0.015101,
+    ));
+    val0 = val0.fract();
+
+    //			val0=	bbs(val0);		// Blum-Blum-Shub randomimzer
+    val0 = val0 * val0 * 251.0;
+    val0 = val0.fract();
+
+    Vec4::splat(val0)
+}
+
+pub fn bytecode_op_rand_smooth(x: Vec4) -> Vec4 {
+    let v = x.x;
+    let v0 = v.round();
+    let v1 = v0 + 1.0;
+    let f = v - v0;
+    let f2 = f * f;
+
+    // hermite smooth interpolation (3*f^2 - 2*f^3)
+    let smooth_f = (-2.0 * f + 3.0) * f2;
+
+    // these magic numbers are 1/(prime/1000000)
+    let mut val0 = Vec4::splat(v0).dot(Vec4::new(
+        1.0 / 1.043501,
+        1.0 / 0.794471,
+        1.0 / 0.113777,
+        1.0 / 0.015101,
+    ));
+    let mut val1 = Vec4::splat(v1).dot(Vec4::new(
+        1.0 / 1.043501,
+        1.0 / 0.794471,
+        1.0 / 0.113777,
+        1.0 / 0.015101,
+    ));
+
+    val0 = val0.fract();
+    val1 = val1.fract();
+
+    //			val0=	bbs(val0);		// Blum-Blum-Shub randomimzer
+    val0 = val0 * val0 * 251.0;
+    val0 = val0.fract();
+
+    //			val10=	bbs(val1);		// Blum-Blum-Shub randomimzer
+    val1 = val1 * val1 * 251.0;
+    val1 = val1.fract();
+
+    let rand_smooth_result = lerp(val0, val1, smooth_f);
+
+    Vec4::splat(rand_smooth_result)
+}
+
+pub fn _trig_helper_vector_sin_rotations_estimate_clamped(a: Vec4) -> Vec4 {
+    let y = a * (-16.0 * a.abs() + 8.0);
+    y * (0.225 * y.abs() + 0.775)
+}
+
+pub fn _trig_helper_vector_sin_rotations_estimate(a: Vec4) -> Vec4 {
+    let w = a - a.round(); // wrap to [-0.5, 0.5] range
+    _trig_helper_vector_sin_rotations_estimate_clamped(w)
+}
+
+pub fn _trig_helper_vector_cos_rotations_estimate(a: Vec4) -> Vec4 {
+    _trig_helper_vector_sin_rotations_estimate(a + 0.25)
+}
+
+pub fn _trig_helper_vector_sin_cos_rotations_estimate(a: Vec4) -> Vec4 {
+    _trig_helper_vector_sin_rotations_estimate(a + Vec4::new(0.0, 0.25, 0.0, 0.25))
+}
+
+pub fn bytecode_op_gradient4_const(
+    x: Vec4,
+    base_color: Vec4,
+    cred: Vec4,
+    cgreen: Vec4,
+    cblue: Vec4,
+    calpha: Vec4,
+    thresholds: Vec4,
+) -> Vec4 {
+    // Compute the weighting of each gradient delta based upon the X position of evaluation.
+    let c_offsets_from_x = x - thresholds;
+    let c_segment_interval = thresholds.yzw().extend(1.0) - thresholds;
+    let c_safe_division = if c_offsets_from_x.cmpgt(Vec4::ZERO).all() {
+        Vec4::ONE
+    } else {
+        Vec4::ZERO
+    };
+    let c_division = if c_offsets_from_x != Vec4::ZERO {
+        c_offsets_from_x / c_segment_interval
+    } else {
+        c_safe_division
+    };
+    let c_percentages = c_division.clamp(Vec4::ZERO, Vec4::ONE); // Saturate
+
+    // Compute the influence that each of the colors will contribute to the final color.
+    let x_influence = cred * c_percentages;
+    let y_influence = cgreen * c_percentages;
+    let z_influence = cblue * c_percentages;
+    let w_influence = calpha * c_percentages;
+
+    // Add the colors into the base color
+    base_color
+        + Vec4::new(
+            Vec4::ONE.dot(x_influence),
+            Vec4::ONE.dot(y_influence),
+            Vec4::ONE.dot(z_influence),
+            Vec4::ONE.dot(w_influence),
+        )
+}
+
+fn _fake_bitwise_ops_fake_xor(a: Vec4, b: Vec4) -> Vec4 {
+    (a + b).rem_euclid(Vec4::splat(2.))
+}
+
+#[inline]
+fn step(y: Vec4, x: Vec4) -> Vec4 {
+    Vec4::select(x.cmpge(y), Vec4::ONE, Vec4::ZERO)
+}
+
+pub fn bytecode_op_spline8_const(
+    x: Vec4,
+    c3: Vec4,
+    c2: Vec4,
+    c1: Vec4,
+    c0: Vec4,
+    d3: Vec4,
+    d2: Vec4,
+    d1: Vec4,
+    d0: Vec4,
+    c_thresholds: Vec4,
+    d_thresholds: Vec4,
+) -> Vec4 {
+    let c_high = c3 * x + c2;
+    let c_low = c1 * x + c0;
+    let d_high = d3 * x + d2;
+    let d_low = d1 * x + d0;
+
+    let x2 = x * x;
+
+    let c_evaluated_spline = c_high * x2 + c_low;
+    let d_evaluated_spline = d_high * x2 + d_low;
+
+    let c_threshold_mask = step(c_thresholds, x);
+    let d_threshold_mask = step(d_thresholds, x);
+
+    let c_channel_mask = _fake_bitwise_ops_fake_xor(c_threshold_mask, c_threshold_mask.yzww())
+        .xyz()
+        .extend(c_threshold_mask.w);
+
+    let d_channel_mask = _fake_bitwise_ops_fake_xor(d_threshold_mask, d_threshold_mask.yzww())
+        .xyz()
+        .extend(d_threshold_mask.w);
+
+    let c_spline_result_in_4 = c_evaluated_spline * c_channel_mask;
+    let d_spline_result_in_4 = d_evaluated_spline * d_channel_mask;
+
+    let c_spline_result = c_spline_result_in_4.x
+        + c_spline_result_in_4.y
+        + c_spline_result_in_4.z
+        + c_spline_result_in_4.w;
+    let d_spline_result = d_spline_result_in_4.x
+        + d_spline_result_in_4.y
+        + d_spline_result_in_4.z
+        + d_spline_result_in_4.w;
+
+    let spline_result = if d_threshold_mask.x > 0.0 {
+        d_spline_result
+    } else {
+        c_spline_result
+    };
+
+    Vec4::splat(spline_result)
+}
+
+// TODO(cohae): Fuzztest against original SIMD code
+pub fn bytecode_op_25(v: Vec4) -> Vec4 {
+    const XMMWORD_7FF73A1FCBD0: UVec4 = UVec4::splat(0x0000007F);
+    const XMMWORD_7FF73A1FCBE0: UVec4 = UVec4::splat(0x007FFFFF);
+    const XMMWORD_7FF73A1FCBF0: Vec4 = Vec4::splat(f32::from_bits(0x34000000));
+    const XMMWORD_7FF73A1FCBA0: Vec4 = Vec4::new(1.4232545, -0.585_421_1, 0.16216666, 0.0);
+    const XMMWORD_7FF73A1F8070: UVec4 = UVec4::splat(0x7F800000);
+
+    // let   v1 = Vec4::mul(
+    //     _mm_cvtepi32_ps(_mm_and_si128(_mm_load_si128((const __m128i *)&XMMWORD_7FF73A1FCBE0), *a1)),
+    //     (__m128)XMMWORD_7FF73A1FCBF0);
+
+    let v1 = Vec4::mul(
+        Vec4::from_bits_uvec4(XMMWORD_7FF73A1FCBE0 & v.as_bits_uvec4()),
+        XMMWORD_7FF73A1FCBF0,
+    );
+
+    let rhs = (IVec4::sub(
+        UVec4::shr(
+            UVec4::bitand(XMMWORD_7FF73A1F8070, v.as_bits_uvec4()),
+            0x17i32,
+        )
+        .as_ivec4(),
+        XMMWORD_7FF73A1FCBD0.as_ivec4(),
+    ))
+    .as_vec4();
+
+    Vec4::add(
+        Vec4::add(
+            Vec4::mul(
+                Vec4::add(
+                    XMMWORD_7FF73A1FCBA0.yyyy(),
+                    Vec4::mul(XMMWORD_7FF73A1FCBA0.zzzz(), v1),
+                ),
+                Vec4::mul(v1, v1),
+            ),
+            Vec4::mul(XMMWORD_7FF73A1FCBA0.xxxx(), v1),
+        ),
+        rhs,
+    )
+}
+
+trait Vec4SimdExt {
+    fn as_bits_uvec4(self) -> UVec4;
+    fn from_bits_uvec4(bits: UVec4) -> Self;
+}
+
+impl Vec4SimdExt for Vec4 {
+    fn as_bits_uvec4(self) -> UVec4 {
+        UVec4::from_slice(bytemuck::cast_slice(&self.to_array()))
+    }
+
+    fn from_bits_uvec4(bits: UVec4) -> Self {
+        Vec4::from_slice(bytemuck::cast_slice(&bits.to_array()))
+    }
+}

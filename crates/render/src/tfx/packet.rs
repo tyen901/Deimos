@@ -1,0 +1,89 @@
+use std::any::Any;
+
+use assert_offset::AssertOffsets;
+use bumpalo::Bump;
+use glam::{Mat4, Quat, Vec3, Vec4};
+
+use crate::object::RenderObjectHandle;
+
+#[derive(Default)]
+pub struct FramePacket<'a> {
+    pub alloc: Bump,
+    pub frame_nodes: Vec<FrameNode<'a>>,
+    // pub view_nodes: Vec<ViewNode>,
+}
+
+impl<'a> FramePacket<'a> {
+    pub fn reset(&mut self) {
+        self.alloc.reset();
+        self.frame_nodes.clear();
+        // self.view_nodes.clear();
+    }
+}
+
+#[repr(C)]
+#[derive(AssertOffsets)]
+pub struct FrameNode<'a> {
+    pub render_object_handle: RenderObjectHandle,
+    #[offset(0x8)]
+    pub data: Box<dyn Any, &'a Bump>,
+    #[offset(0x20)]
+    pub distance: f32, // TODO: Needs to be on view node
+}
+
+#[repr(C)]
+struct ViewNode {
+    pub frame_node: u32,
+    // TODO
+    // /// Distance between the view and the object
+    // pub distance: f32,
+}
+
+#[repr(C)]
+/// Compact representation of a local->world transform
+#[derive(AssertOffsets, Debug, Clone)]
+pub struct CompactTransform {
+    #[offset(0)]
+    x: Vec4,
+    #[offset(16)]
+    y: Vec4,
+    #[offset(32)]
+    z: Vec4,
+}
+
+impl CompactTransform {
+    pub const IDENTITY: Self = Self {
+        x: Vec4::X,
+        y: Vec4::Y,
+        z: Vec4::Z,
+    };
+
+    pub fn to_mat4(&self) -> Mat4 {
+        Mat4::from_cols(
+            self.x.with_w(0.0),
+            self.y.with_w(0.0),
+            self.z.with_w(0.0),
+            Vec4::new(self.x.w, self.y.w, self.z.w, 1.0),
+        )
+    }
+
+    pub fn from_mat4(mat: Mat4) -> Self {
+        let pos = mat.w_axis;
+        Self {
+            x: mat.x_axis.with_w(pos.x),
+            y: mat.y_axis.with_w(pos.y),
+            z: mat.z_axis.with_w(pos.z),
+        }
+    }
+
+    pub fn translation(&self) -> Vec3 {
+        Vec3::new(self.x.w, self.y.w, self.z.w)
+    }
+}
+
+// #[repr(C)]
+// pub struct UniformTransform {
+//     pub rotation: Quat,
+//     pub translation: Vec3,
+//     pub scale: f32,
+// }
