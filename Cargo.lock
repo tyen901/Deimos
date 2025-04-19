@@ -566,7 +566,7 @@ dependencies = [
 [[package]]
 name = "d3d11"
 version = "0.1.0"
-source = "git+https://github.com/cohaereo/d3d11-rs.git#8330f7ec65aa6b45b872a11bbc36e73f2382d1fd"
+source = "git+https://github.com/cohaereo/d3d11-rs.git#81fc58f2b2114646e85b1b814e0682827e1a3943"
 dependencies = [
  "bitflags 2.9.0",
  "bon",
@@ -579,7 +579,7 @@ dependencies = [
 [[package]]
 name = "d3d11-sys"
 version = "0.1.0"
-source = "git+https://github.com/cohaereo/d3d11-rs.git#8330f7ec65aa6b45b872a11bbc36e73f2382d1fd"
+source = "git+https://github.com/cohaereo/d3d11-rs.git#81fc58f2b2114646e85b1b814e0682827e1a3943"
 dependencies = [
  "windows-core",
  "windows-targets 0.52.6",
@@ -702,6 +702,7 @@ dependencies = [
  "glam",
  "hashbrown",
  "hlsldecompiler",
+ "int-enum",
  "itertools 0.14.0",
  "lazy_static",
  "parking_lot",
@@ -860,7 +861,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "976dd42dc7e85965fe702eb8164f21f450704bdde31faefd6471dba214cb594e"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1106,6 +1107,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "879f10e63c20629ecabbb64a8010319738c66a5cd0c29b02d63d272b03751d01"
 dependencies = [
  "generic-array",
+]
+
+[[package]]
+name = "int-enum"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e366a1634cccc76b4cfd3e7580de9b605e4d93f1edac48d786c1f867c0def495"
+dependencies = [
+ "proc-macro2",
+ "proc-macro2-diagnostics",
+ "quote",
+ "syn 2.0.100",
 ]
 
 [[package]]
@@ -1594,6 +1607,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "proc-macro2-diagnostics"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af066a9c399a26e020ada66a034357a868728e72cd426f3adcd35f80d88d88c8"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.100",
+ "version_check",
+]
+
+[[package]]
 name = "profiling"
 version = "1.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1804,7 +1829,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

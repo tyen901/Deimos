@@ -42,5 +42,6 @@ pub fn hook(panic: &PanicHookInfo) {
         _ => unimplemented!(),
     }
 
-    eprint!("{}", style.paint(msg))
+    eprint!("{}", style.paint(&msg));
+    std::fs::write("panic.log", msg).ok();
 }

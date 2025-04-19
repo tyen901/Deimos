@@ -5,10 +5,10 @@ use std::{
 };
 
 use glam::Vec4;
-use tiger_parse::{tiger_tag, Endian, TigerReadable};
+use tiger_parse::{tiger_tag, Endian, Padding, TigerReadable};
 use tiger_pkg::TagHash;
 
-use crate::tfx::enums::ShaderStage;
+use crate::{tag::WideHash, tfx::enums::ShaderStage};
 
 #[derive(Clone)]
 #[tiger_tag(id = 0x808031D8)]
@@ -95,11 +95,12 @@ pub struct STechniqueShader {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_tag(id = 0x00000000)]
+#[tiger_tag(id = 0x808086C6)]
 pub struct SMaterialTextureAssignment {
     /// Material slot to assign to
     pub slot: u32,
-    pub texture: TagHash,
+    _pad: Padding<4>,
+    pub texture: WideHash,
 }
 
 #[derive(Clone)]
@@ -111,10 +112,12 @@ pub struct SDynamicConstants {
     pub bytecode_constants: Vec<Vec4>,    // 0x28
     pub samplers: Vec<SSamplerReference>, // 0x38
     pub unk30: Vec<Vec4>,                 // 0x48
-    pub unk40: [u32; 8],                  // 0x58
+    pub unk40: [u32; 2],                  // 0x58
 
-    pub constant_buffer_slot: i32, // 0x78
-    pub constant_buffer: TagHash,  // 0x7c
+    pub constant_buffer_slot: i32, // 0x60
+    pub constant_buffer: TagHash,  // 0x64
+
+    pub unk68: [u32; 6], // 0x68
 }
 
 #[derive(Clone)]

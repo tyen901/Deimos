@@ -77,7 +77,7 @@ impl Scope {
     }
 
     pub fn bind(&self, cmd: &mut CommandList) -> anyhow::Result<()> {
-        let _s = info_span!("Bind scope", scope = %self.scope.name.0).entered();
+        // let _s = info_span!("Bind scope", scope = %self.scope.name.0).entered();
         if let Some(stage) = &self.stage_vertex {
             stage.bind(cmd)?;
         }

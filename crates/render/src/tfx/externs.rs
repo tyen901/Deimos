@@ -326,17 +326,35 @@ extern_struct! {
         0x00 => target_width: f32,
         0x04 => target_height: f32,
         0x10 => unk10: Vec4 > default(Vec4::ZERO),
-        0x20 => world_to_camera: Mat4,
-        0x60 => camera_to_projective: Mat4,
-        0xA0 => camera_to_world: Mat4,
-        0xE0 => projective_to_camera: Mat4,
-        0x120 => world_to_projective: Mat4,
-        0x160 => projective_to_world: Mat4,
-        0x1A0 => target_pixel_to_world: Mat4,
-        0x1E0 => target_pixel_to_camera: Mat4,
-        0x220 => unk220: Mat4,
-        0x260 => tptow_no_proj_w: Mat4,
-        0x2A0 => unk2a0: Mat4,
+        0x10 => view_miscellaneous: Vec4 > default(Vec4::ZERO),
+        0x20 => position: Vec4,
+        // TODO(cohae): Used for shadow generation it seems
+        0x30 => unk30: Vec4 > default(Vec4::ZERO),
+        // TODO: the void here is added with Marathon, need to figure out what goes here
+
+        0xE0 => camera_to_world: Mat4,
+        0x120 => unk120: Mat4,
+        0x160 => unk160: Mat4,
+        0x1A0 => world_to_projective: Mat4,
+        0x260 => target_pixel_to_camera: Mat4,
+
+        // Bungie fucked a good portion of this extern with Marathon, everything prefixed with 0x8_ here needs to be figured out again
+        0x8_60 => world_to_camera: Mat4,
+        0x8_A0 => camera_to_projective: Mat4,
+        // 0x8_E0 => camera_to_world: Mat4,
+        0x8_120 => projective_to_camera: Mat4,
+        // 0x8_160 => world_to_projective: Mat4,
+        0x8_1A0 => projective_to_world: Mat4,
+        0x8_1E0 => target_pixel_to_world: Mat4,
+        // 0x8_220 => target_pixel_to_camera: Mat4,
+        0x8_260 => unk220: Mat4,
+        0x8_2A0 => tptow_no_proj_w: Mat4,
+        0x8_2E0 => unk2a0: Mat4,
+
+        // Newly added to view scope with Marathon
+        0x3E0 => unk3e0: Mat4,
+        0x420 => unk420: Mat4,
+        0x460 => unk460: Vec4,
     }
 }
 

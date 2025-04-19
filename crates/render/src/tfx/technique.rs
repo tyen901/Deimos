@@ -101,7 +101,7 @@ impl Technique {
         cmd: &mut CommandList,
         channels: Option<&TempObjectChannels>,
     ) -> anyhow::Result<()> {
-        let _s = info_span!("Bind technique", technique = %self.hash).entered();
+        // let _s = info_span!("Bind technique", technique = %self.hash).entered();
         // let states = renderer.gpu.current_states.load().select(&self.tech.states);
         let states = cmd
             .state
@@ -199,9 +199,10 @@ impl TechniqueStage {
 
         let dynamic_constants = DynamicConstants::load(gpu, &shader.constants)?;
 
-        let recompile = is_renderdoc_connected()
-            && !Renderer::is_initialized() // Only recompile from shaders that are loaded before the renderer is initialized (mainly globals)
-            && !matches!(stage, ShaderStage::Geometry | ShaderStage::Compute); // Geometry shaders are broken, skip em
+        let recompile = false;
+        // let recompile = is_renderdoc_connected()
+        //     && !Renderer::is_initialized() // Only recompile from shaders that are loaded before the renderer is initialized (mainly globals)
+        //     && !matches!(stage, ShaderStage::Geometry | ShaderStage::Compute); // Geometry shaders are broken, skip em
         let shader_module = if recompile {
             ShaderModule::load_recompile(gpu, shader.shader, &dynamic_constants)
         } else {
@@ -229,6 +230,7 @@ impl TechniqueStage {
         cmd: &mut CommandList,
         channels: Option<&TempObjectChannels>,
     ) -> anyhow::Result<()> {
+        self.shader_module.bind(cmd);
         self.dynamic_constants.bind(cmd, self.stage, channels)?;
 
         Ok(())

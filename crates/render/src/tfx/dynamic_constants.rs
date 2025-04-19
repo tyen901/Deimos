@@ -60,7 +60,9 @@ impl DynamicConstants {
                 .map(|tex| {
                     (
                         tex.slot,
-                        Renderer::instance().asset_manager.try_load(tex.texture),
+                        Renderer::instance()
+                            .asset_manager
+                            .try_load(tex.texture.hash32()),
                     )
                 })
                 .collect(),

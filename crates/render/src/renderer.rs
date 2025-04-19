@@ -41,7 +41,7 @@ pub struct Renderer {
     pub externs: ThreadMutCell<Externs>,
 
     pub objects: RwLock<Arena<RenderObject>>,
-    pub frame_packet: RwLock<FramePacket<'static>>,
+    pub frame_packet: RwLock<FramePacket>,
     pub globals: RenderGlobals,
 
     // pub ao: RwLock<Option<SStaticAmbientOcclusion>>,

@@ -323,14 +323,14 @@ pub fn load_static_map(taghash: TagHash) -> anyhow::Result<StaticMapTemp> {
                         //         map.models.push(renderer);
                         //     }
                         // }
-                        // MapNodeResource::SStaticTerrainPatchesComponent(terrain) => {
-                        //     let renderer = TerrainPatchesRenderer::load(
-                        //         &gpu,
-                        //         terrain.terrain,
-                        //         terrain.identifier,
-                        //     )?;
-                        //     map.terrain.push(renderer);
-                        // }
+                        MapNodeResource::SStaticTerrainPatchesComponent(terrain) => {
+                            let renderer = TerrainPatchesRenderer::load(
+                                &gpu,
+                                terrain.terrain,
+                                terrain.identifier,
+                            )?;
+                            map.terrain.push(renderer);
+                        }
                         // MapNodeResource::SStaticAmbientOcclusionComponent(ao) => {
                         //     let renderer = Renderer::instance();
                         //     *renderer.ao.write() = Some((*ao.ao).clone());

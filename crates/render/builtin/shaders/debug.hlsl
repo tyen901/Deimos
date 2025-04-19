@@ -72,28 +72,28 @@ float3 linearToSrgb(float3 r0)
 float4 mainPS(VSOutput input)
     : SV_TARGET
 {
-    // float4 rt0 = gbuffer_albedo.Sample(samplerState, input.uv);
+    float4 rt0 = gbuffer_albedo.Sample(samplerState, input.uv);
     float4 rt1 = gbuffer_normal.Sample(samplerState, input.uv);
-    // float4 rt2 = gbuffer_third.Sample(samplerState, input.uv);
+    float4 rt2 = gbuffer_third.Sample(samplerState, input.uv);
     float depth = deferred_depth.Sample(samplerState, input.uv).x;
     if (depth == 0)
         return float4(0, 0, 0, 1.00f);
 
     // TODO after break: lil shading on the result, no biggie
-    // float3 albedo = rt0.rgb;
+    float3 albedo = rt0.rgb;
     float3 normal = rt1.xyz * 2.0 - 1.0;
     // float smoothness = length(normal) * 4 - 3;
     // normal = normalize(normal);
     // float metalness = rt2.r;
-    // float textureEmissive = saturate(rt2.g * 2.0 - 1.0);
-    // float textureAo = saturate(rt2.g * 2.0);
+    float textureEmissive = saturate(rt2.g * 2.0 - 1.0);
+    float textureAo = saturate(rt2.g * 2.0);
     // float transmission = saturate(rt2.g);
     // float vertexAo = rt2.a;
     // return float4(linearToSrgb(vertexAo.xxx), 1.0f);
 
     // // float aoFactor = saturate(textureAo * vertexAo);
     // float aoFactor = saturate(textureAo);
-    // float3 finalColor = albedo.rgb;
+    float3 finalColor = albedo.rgb;
 
     // Simple Phong shading
     // float3 lightDir = -normalize(float3(-0.618537, 0.102473, -0.779045));
@@ -101,15 +101,15 @@ float4 mainPS(VSOutput input)
     float3 ambient = float(0.15).xxx;
     float3 diffuse = max(dot(normal, lightDir), 0.0) * (1 - ambient);
 
-    // Final color
+    // // Final color
     float3 light = (ambient + diffuse);
-    float4 shaded = shading_result.Sample(samplerState, input.uv);
-    return shaded;
+    // float4 shaded = shading_result.Sample(samplerState, input.uv);
+    // return shaded;
     // float3 finalColor = shaded.rgb * light;
     // return float4(finalColor, 1.0f);
 
     // float3 light = light_diffuse.Sample(samplerState, input.uv).rgb;
     // return float4(linearToSrgb(light), 1.0f);
-    // light = max(textureEmissive.xxx, light);
-    // return float4(linearToSrgb(finalColor) * light, 1.0f);
+    light = max(textureEmissive.xxx, light);
+    return float4(linearToSrgb(finalColor) * light, 1.0f);
 }

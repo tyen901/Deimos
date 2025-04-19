@@ -1,8 +1,10 @@
 use anyhow::Context;
+use int_enum::IntEnum;
 
 use crate::tfx::externs::ExternIndex;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[repr(u8)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, IntEnum)]
 pub enum Opcode {
     Add = 0x1,
     Add_ = 0x6,
@@ -47,47 +49,48 @@ pub enum Opcode {
     Wander = 0x29,
     Rand = 0x2A,
     RandSmooth = 0x2B,
+
     Unknown0x2C = 0x2C,
     Unknown0x2D = 0x2D,
-    TransformVec4 = 0x2E,
-    Unknown0x2F = 0x2F,
-    Unknown0x30 = 0x30,
-    Unknown0x31 = 0x31,
-    Unknown0x32 = 0x32,
-    Unknown0x33 = 0x33,
-    PushConstVec4 = 0x34,
-    LerpConstant = 0x35,
-    Unknown0x36 = 0x36,
-    Unknown0x37 = 0x37,
-    Spline8Const = 0x38,
-    Unknown0x39 = 0x39,
-    Unknown0x3A = 0x3A,
-    Unknown0x3B = 0x3B,
-    PushExternInputFloat = 0x3C,
-    PushExternInputVec4 = 0x3D,
-    PushExternInputMat4 = 0x3E,
-    PushExternInputTextureView = 0x3F,
-    PushExternInputU32 = 0x40,
-    PushExternInputUav = 0x41,
-    PushFromOutput = 0x42,
-    PopOutput = 0x43,
-    PopOutputMat4 = 0x44,
-    PushTemp = 0x45,
-    PopTemp = 0x46,
-    PopTextureView = 0x47,
-    Unknown0x48 = 0x48,
-    PopSamplerState = 0x49,
-    PopUav = 0x4A,
-    Unknown0x4B = 0x4B,
-    PushSamplerState = 0x4C,
-    Unknown0x4D = 0x4D,
-    PushGlobalChannelVector = 0x4E,
-    Unknown0x4F = 0x4F,
-    Unknown0x50 = 0x50,
-    Unknown0x51 = 0x51,
-    Unknown0x52 = 0x52,
-    Unknown0x53 = 0x53,
-    Unknown0x54 = 0x54,
+    TransformVec4 = 0x35,
+    Unknown0x2F = 0x36,
+    Unknown0x30 = 0x37,
+    Unknown0x31 = 0x38,
+    Unknown0x32 = 0x39,
+    Unknown0x33 = 0x3a,
+    PushConstVec4 = 0x3b,
+    LerpConstant = 0x3c,
+    Unknown0x36 = 0x3d,
+    Unknown0x37 = 0x3e,
+    Spline8Const = 0x3f,
+    Unknown0x39 = 0x40,
+    Unknown0x3A = 0x41,
+    Unknown0x3B = 0x42,
+    PushExternInputFloat = 0x43,
+    PushExternInputVec4 = 0x44,
+    PushExternInputMat4 = 0x45,
+    PushExternInputTextureView = 0x46,
+    PushExternInputU32 = 0x47,
+    PushExternInputUav = 0x48,
+    PushFromOutput = 0x49,
+    PopOutput = 0x4b,
+    PopOutputMat4 = 0x4c,
+    PushTemp = 0x8c,
+    PopTemp = 0x4d,
+    PopTextureView = 0x4e,
+    Unknown0x48 = 0x4f,
+    PopSamplerState = 0x50,
+    PopUav = 0x51,
+    Unknown0x4B = 0x52,
+    PushSamplerState = 0x53,
+    Unknown0x4D = 0x54,
+    PushGlobalChannelVector = 0x55,
+    Unknown0x4F = 0x56,
+    Unknown0x50 = 0x57,
+    Unknown0x51 = 0x58,
+    Unknown0x52 = 0x59,
+    Unknown0x53 = 0x5a,
+    Unknown0x54 = 0x5b,
 
     // Extended instruction set (only used internally by the interpreter)
     ExtReturn = 0x80,
@@ -193,19 +196,6 @@ impl Opcode {
     }
 }
 
-impl TryFrom<u8> for Opcode {
-    type Error = ();
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            // Tiger opcodes
-            x if (0x1..=0x54).contains(&x) => Ok(unsafe { std::mem::transmute(x) }),
-            // Internal opcodes
-            x if (0x80..=0x80).contains(&x) => Ok(unsafe { std::mem::transmute(x) }),
-            _ => Err(()),
-        }
-    }
-}
-
 pub fn disassemble(data: &[u8]) -> anyhow::Result<Vec<String>> {
     let mut result = Vec::new();
     let mut i = 0;
@@ -215,10 +205,16 @@ pub fn disassemble(data: &[u8]) -> anyhow::Result<Vec<String>> {
         };
 
         let opcode_size = opcode.size();
-        let mut line = format!("{:02X}: {} ", i, pascal_to_snake(&format!("{opcode:?}")));
+        let mut line = format!(
+            "{:02X}: {:02X} {} ",
+            i,
+            data[i],
+            pascal_to_snake(&format!("{opcode:?}"))
+        );
         for j in 1..opcode_size {
             line.push_str(&format!("{:02X} ", data[i + j]));
         }
+        // println!("{line}");
         result.push(line);
         i += opcode_size;
     }

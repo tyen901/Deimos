@@ -9,7 +9,6 @@ pub struct SScope {
     pub name: Pointer<NullString>,
 
     #[tag(offset = 0x48)]
-    // TODO(cohae): Order *might* be incorrect
     pub stage_pixel: SScopeStage,
     pub stage_vertex: SScopeStage,
     pub stage_geometry: SScopeStage,

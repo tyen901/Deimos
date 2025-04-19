@@ -2,6 +2,7 @@ pub mod cbuffer;
 pub mod command_list;
 pub mod debug_text;
 mod global_state;
+pub mod spinner;
 // pub mod profiler;
 pub mod state;
 pub mod swapchain;
@@ -56,7 +57,8 @@ impl Gpu {
             u => panic!("Can't open window for {u:?}"),
         };
 
-        let device = d3d11::Device::create(Some(adapter)).context("Failed to create device")?;
+        let device =
+            d3d11::Device::create(Some(adapter), false).context("Failed to create device")?;
         let context = device.get_immediate_context();
 
         let swap_chain = d3d11::dxgi::SwapChain::create(

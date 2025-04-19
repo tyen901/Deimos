@@ -7,27 +7,36 @@ use glam::{Mat4, Quat, Vec3, Vec4};
 use crate::object::RenderObjectHandle;
 
 #[derive(Default)]
-pub struct FramePacket<'a> {
-    pub alloc: Bump,
-    pub frame_nodes: Vec<FrameNode<'a>>,
+pub struct FramePacket {
+    // pub alloc: Bump,
+    pub frame_nodes: Vec<FrameNode>,
     // pub view_nodes: Vec<ViewNode>,
 }
 
-impl<'a> FramePacket<'a> {
+impl FramePacket {
     pub fn reset(&mut self) {
-        self.alloc.reset();
+        // self.alloc.reset();
         self.frame_nodes.clear();
         // self.view_nodes.clear();
+    }
+
+    pub fn push_static_render_object(&mut self, render_object_handle: RenderObjectHandle) {
+        self.frame_nodes.push(FrameNode {
+            render_object_handle,
+            data: Box::new(()),
+            distance: f32::MAX,
+        });
     }
 }
 
 #[repr(C)]
 #[derive(AssertOffsets)]
-pub struct FrameNode<'a> {
+pub struct FrameNode {
     pub render_object_handle: RenderObjectHandle,
     #[offset(0x8)]
-    pub data: Box<dyn Any, &'a Bump>,
-    #[offset(0x20)]
+    pub data: Box<dyn Any>,
+    // pub data: Box<dyn Any, &'a Bump>,
+    #[offset(0x18)]
     pub distance: f32, // TODO: Needs to be on view node
 }
 

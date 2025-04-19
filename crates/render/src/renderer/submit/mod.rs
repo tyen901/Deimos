@@ -11,11 +11,10 @@ use deimos_data::tfx::{FeatureRendererSubscription, PipelineState};
 use glam::{Mat4, Vec4};
 
 use crate::{
-    camera::Camera,
     cmd_event_span,
     gpu::command_list::CommandList,
     tfx::{
-        externs::{self, TextureView},
+        externs::{self},
         scope::TempFrameScope,
     },
 };
@@ -99,20 +98,44 @@ impl Renderer {
                 "screen_area_global_lut3d",
             );
         }
+        // {
+        //     cmd.state = PipelineState::new(Some(0), Some(0), Some(0), Some(0));
+        //     cmd.flush_states();
+        //     cmd.rasterizer_set_viewports(&[d3d11::Viewport::builder()
+        //         .width(gpu.swapchain_resolution().0 as f32)
+        //         .height(gpu.swapchain_resolution().1 as f32)
+        //         .build()]);
+        //     cmd.vertex_set_shader(Some(&self.common.blit_vs));
+        //     cmd.pixel_set_shader(Some(&self.common.blit_ps));
+        //     cmd.set_input_topology(deimos_data::tfx::PrimitiveType::TriangleStrip);
+        //     cmd.clear_render_target_view(&gpu.acquire_rtv(), &[0., 0., 0., 1.0]);
+        //     cmd.output_merger_set_render_targets(&[Some(gpu.acquire_rtv())], None);
+        //     let srv_shading_result = self.surfaces.get(self.shading_result).srv.clone();
+        //     cmd.pixel_set_shader_resources(0, &[srv_shading_result]);
+        //     cmd.draw(4, 0);
+        // }
         {
-            cmd.state = PipelineState::new(Some(0), Some(0), Some(0), Some(0));
-            cmd.flush_states();
             cmd.rasterizer_set_viewports(&[d3d11::Viewport::builder()
                 .width(gpu.swapchain_resolution().0 as f32)
                 .height(gpu.swapchain_resolution().1 as f32)
                 .build()]);
-            cmd.vertex_set_shader(Some(&self.common.blit_vs));
-            cmd.pixel_set_shader(Some(&self.common.blit_ps));
-            cmd.set_input_topology(deimos_data::tfx::PrimitiveType::TriangleStrip);
             cmd.clear_render_target_view(&gpu.acquire_rtv(), &[0., 0., 0., 1.0]);
             cmd.output_merger_set_render_targets(&[Some(gpu.acquire_rtv())], None);
-            let srv_shading_result = self.surfaces.get(self.shading_result).srv.clone();
-            cmd.pixel_set_shader_resources(0, &[srv_shading_result]);
+
+            cmd.state = PipelineState::new(Some(0), Some(0), Some(0), Some(0));
+            cmd.flush_states();
+            cmd.vertex_set_shader(Some(&self.debug_vs));
+            cmd.pixel_set_shader(Some(&self.debug_ps));
+            cmd.set_input_topology(deimos_data::tfx::PrimitiveType::TriangleStrip);
+            cmd.pixel_set_shader_resources(
+                0,
+                &[
+                    self.surfaces.get(self.gbuffers.albedo).srv.clone(),
+                    self.surfaces.get(self.gbuffers.normal).srv.clone(),
+                    self.surfaces.get(self.gbuffers.third).srv.clone(),
+                    Some(self.gbuffers.depth_proxy.lock().srv.clone()),
+                ],
+            );
             cmd.draw(4, 0);
         }
     }

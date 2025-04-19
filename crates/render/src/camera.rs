@@ -48,4 +48,12 @@ impl Camera {
     pub fn forward(&self) -> Vec3 {
         self.rotation.mul_vec3(Vec3::X)
     }
+
+    pub fn right(&self) -> Vec3 {
+        self.rotation.mul_vec3(-Vec3::Y)
+    }
+
+    pub fn up(&self) -> Vec3 {
+        self.rotation.mul_vec3(Vec3::Z)
+    }
 }

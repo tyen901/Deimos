@@ -88,11 +88,11 @@ impl TerrainPatchesRenderer {
         // gpu_event!(renderer.gpu, format!("terrain_patch {}", self.hash));
         gpu_span!();
 
-        // Layout 22/60
+        // Layout 22(tfs/mara)/60(sk)
         //  - int4 v0 : POSITION0, // Format DXGI_FORMAT_R16G16B16A16_SINT size 8
         //  - float4 v1 : NORMAL0, // Format DXGI_FORMAT_R16G16B16A16_SNORM size 8
         //  - float2 v2 : TEXCOORD1, // Format DXGI_FORMAT_R16G16_FLOAT size 4
-        cmd.set_input_layout(60);
+        cmd.set_input_layout(22);
         cmd.set_input_topology(deimos_data::tfx::PrimitiveType::TriangleStrip);
 
         if let (Some(vertex0), Some(vertex1), Some(index)) = (

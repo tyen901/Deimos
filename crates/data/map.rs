@@ -60,5 +60,49 @@ pub struct SMapNodeEntry {
 tiger_variant_enum! {
     [Unknown(true)]
     enum MapNodeResource {
+        SStaticTerrainPatchesComponent
     }
+}
+
+// #[tiger_tag(id = 0x80806F38)]
+// pub struct SStaticAmbientOcclusionComponent {
+//     pub ao: Tag<SStaticAmbientOcclusion>,
+// }
+
+// #[tiger_tag(id = 0x808071B3)]
+// pub struct SStaticInstancesCollectionComponent {
+//     pub instances: TagHash,
+// }
+
+// #[tiger_tag(id = 0x80806F91)]
+// pub struct SSkyObjectCollectionComponent {
+//     pub objects: Tag<SSkyObjectCollection>,
+// }
+
+// #[tiger_tag(id = 0x80806F5A)]
+// pub struct SLightCollectionComponent {
+//     pub lights: Tag<SLightCollection>,
+// }
+
+// #[tiger_tag(id = 0x80806DE0)]
+// pub struct SWaterPlaneComponent {
+//     pub model: TagHash,
+// }
+
+// #[tiger_tag(id = 0x80807133)]
+// pub struct SShadowingLightComponent {
+//     pub light: Tag<SShadowingLight>,
+// }
+
+// #[tiger_tag(id = 0x80806E62)]
+// pub struct SDecalCollectionComponent {
+//     pub decals: TagHash,
+// }
+
+#[derive(Clone, Debug)]
+#[tiger_tag(id = 0x80808563)]
+pub struct SStaticTerrainPatchesComponent {
+    pub identifier: u64,
+    pub terrain: TagHash,
+    pub terrain_bounds: TagHash,
 }

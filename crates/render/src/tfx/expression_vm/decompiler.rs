@@ -335,7 +335,7 @@ impl<'a> DecompilerState<'a> {
 
                     let field = Externs::get_extern_field_name(extern_id, offset as usize * 4)
                         .map(str::to_string)
-                        .unwrap_or(format!("0x{:X}", offset * 4));
+                        .unwrap_or(format!("0x{:X}", offset as usize * 4));
 
                     cached_top = self.push(format!("extern<float>({extern_id:?}->{field})"))?;
                 }
@@ -347,7 +347,7 @@ impl<'a> DecompilerState<'a> {
 
                     let field = Externs::get_extern_field_name(extern_id, offset as usize * 16)
                         .map(str::to_string)
-                        .unwrap_or(format!("0x{:X}", offset * 16));
+                        .unwrap_or(format!("0x{:X}", offset as usize * 16));
                     cached_top = self.push(format!("extern<float4>({extern_id:?}->{field})",))?;
                 }
                 Opcode::PushExternInputMat4 => {
@@ -358,7 +358,7 @@ impl<'a> DecompilerState<'a> {
 
                     let field = Externs::get_extern_field_name(extern_id, offset as usize * 16)
                         .map(str::to_string)
-                        .unwrap_or(format!("0x{:X}", offset * 16));
+                        .unwrap_or(format!("0x{:X}", offset as usize * 16));
                     cached_top = self.push(format!("extern<float4x4>({extern_id:?}->{field})"))?;
                 }
                 Opcode::PushExternInputTextureView => {}

@@ -54,7 +54,7 @@ impl RenderStates {
         let globs = &data.unk8.first().context("No render globals found")?.unk8.0;
 
         let element_set = &globs.input_layouts.elements_c;
-        for l in &globs.input_layouts.mapping.layouts {
+        for l in globs.input_layouts.mapping.layouts.iter() {
             let mut layout_elements = vec![];
             for (buffer_index, &(element_index, is_instance_data)) in [
                 (l.buffer_0, l.buffer_0_instanced),
@@ -82,6 +82,18 @@ impl RenderStates {
                     });
                 }
             }
+
+            // println!("Layout {}", l.index);
+            // for (ei, element) in layout_elements.iter().enumerate() {
+            //     println!(
+            //         " - {} v{ei} : {}{}, // Format {:?} size {}",
+            //         element.hlsl_type,
+            //         element.semantic_name,
+            //         element.semantic_index,
+            //         element.format,
+            //         element.stride
+            //     );
+            // }
 
             let layout = Self::create_input_layout(device, &layout_elements)?;
             layout.set_debug_name(format!("stream_input_layout_{}", l.index));
