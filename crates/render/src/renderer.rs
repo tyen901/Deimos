@@ -73,7 +73,7 @@ impl Renderer {
     pub fn new(gpu: Arc<Gpu>, swapchain_resolution: (u32, u32)) -> anyhow::Result<Self> {
         ConVars::register("render.sky", true);
         ConVars::register("render.global_lighting", false);
-        ConVars::register("render.threaded_submit", !is_renderdoc_connected());
+        ConVars::register("render.threaded_submit", true);
         ConVars::register("render.patch_light_shader", false);
         ConVars::register("render.vertex_ao_workaround", true);
         ConVars::register("render.vao_buffer", false);
@@ -120,7 +120,7 @@ impl Renderer {
             frame_packet: RwLock::new(FramePacket::default()),
             // ao: RwLock::new(None),
             // ao_buffer: Mutex::new(None),
-            submit_jobs: submit::lowlevel::SubmitJobManager::new(4),
+            submit_jobs: submit::lowlevel::SubmitJobManager::new(12),
 
             shading_result_read: Mutex::new(
                 SurfaceProxy::new(&gpu, surfaces.get(shading_result), None, false)

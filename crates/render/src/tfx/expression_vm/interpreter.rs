@@ -112,7 +112,7 @@ impl<'a> InterpreterState<'a> {
     //         .unwrap_or(Vec4::ZERO)
     // }
 
-    // #[profiling::function]
+    #[profiling::function]
     pub fn evaluate(
         &mut self,
         context: &d3d11::DeviceContext,
@@ -134,6 +134,7 @@ impl<'a> InterpreterState<'a> {
             let Ok(op) = Opcode::try_from(ptr[0]) else {
                 anyhow::bail!("Invalid opcode: 0x{:02X} @ ip 0x{:X}", ptr[0], self.ip);
             };
+            // profiling::scope!("evaluate_opcode", &format!("{op:?}"));
 
             match op {
                 Opcode::ExtReturn => {
@@ -157,7 +158,7 @@ impl<'a> InterpreterState<'a> {
                 Opcode::UnkDivide => {
                     let v0 = cached_top;
                     let v1 = self.get(-1)?;
-                    const EPSILON: Vec4 = Vec4::splat(9.9999997e-20);
+                    const EPSILON: Vec4 = Vec4::splat(1e-19);
 
                     let abs_v0 = v0.abs();
                     let v20 = abs_v0.cmpgt(EPSILON); // |v0| > epsilon

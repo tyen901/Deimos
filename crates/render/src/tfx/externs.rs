@@ -73,6 +73,7 @@ externs! {
     view: View
 }
 
+#[profiling::all_functions]
 impl Externs {
     pub fn get_texture_srv(&self, index: ExternIndex, offset: usize) -> d3d11::ShaderResourceView {
         let v: Option<&TextureView> = self.get_extern_value(index, offset);
@@ -97,6 +98,16 @@ impl Externs {
         index: ExternIndex,
         offset: usize,
     ) -> (d3d11::ShaderResourceView, d3d11::UnorderedAccessView) {
+        // First try with a read lock
+        if let Some((texture, uav)) = self
+            .placeholder_textures
+            .read()
+            .get(&(index, offset as u32))
+        {
+            return (texture.view.clone(), uav.clone());
+        }
+
+        // If not found, upgrade to write lock
         let mut placeholder_textures = self.placeholder_textures.write();
 
         let (texture, uav) = placeholder_textures

@@ -142,9 +142,11 @@ impl<T> ConstantBuffer<T> {
         mode: d3d11::MapType,
         f: impl FnOnce(SubresourceMapGuard<d3d11::Buffer>),
     ) -> anyhow::Result<()> {
-        let ptr = ctx
-            .map(&self.buffer, 0, mode, false)
-            .context("Failed to map ConstantBuffer")?;
+        let ptr = {
+            profiling::scope!("map");
+            ctx.map(&self.buffer, 0, mode, false)
+                .context("Failed to map ConstantBuffer")?
+        };
 
         f(ptr);
 

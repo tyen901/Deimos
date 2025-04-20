@@ -138,7 +138,7 @@ fn asset_loader_threads(
         let gpu_clone = gpu.clone();
         threads.push(
             std::thread::Builder::new()
-                .name(format!("dawn_asset_loader_{i}"))
+                .name(format!("asset_loader_{i}"))
                 .spawn(move || {
                     asset_loader_loop(rx_clone, gpu_clone);
                 })

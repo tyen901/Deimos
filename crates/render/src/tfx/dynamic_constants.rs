@@ -104,7 +104,7 @@ impl DynamicConstants {
                     interpreter = interpreter.with_object_channels(channels);
                 }
                 if let Err(e) =
-                    interpreter.evaluate(&cmd, &self.bytecode_constants, &self.samplers, data)
+                    interpreter.evaluate(cmd, &self.bytecode_constants, &self.samplers, data)
                 {
                     error!("Failed to evaluate expression bytecode: {:?}", e);
 

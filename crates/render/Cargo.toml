@@ -20,7 +20,7 @@ d3d11.workspace = true
 ddsfile = "0.5.2"
 glam.workspace = true
 hashbrown = "0.15.1"
-hlsldecompiler = { git = "https://github.com/cohaereo/hlsldecompiler-rs.git" }
+# hlsldecompiler = { git = "https://github.com/cohaereo/hlsldecompiler-rs.git" }
 itertools.workspace = true
 lazy_static = "1"
 parking_lot.workspace = true

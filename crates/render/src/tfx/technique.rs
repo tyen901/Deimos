@@ -199,15 +199,16 @@ impl TechniqueStage {
 
         let dynamic_constants = DynamicConstants::load(gpu, &shader.constants)?;
 
-        let recompile = false;
+        // let recompile = false;
         // let recompile = is_renderdoc_connected()
         //     && !Renderer::is_initialized() // Only recompile from shaders that are loaded before the renderer is initialized (mainly globals)
         //     && !matches!(stage, ShaderStage::Geometry | ShaderStage::Compute); // Geometry shaders are broken, skip em
-        let shader_module = if recompile {
-            ShaderModule::load_recompile(gpu, shader.shader, &dynamic_constants)
-        } else {
+        let shader_module =
+        //     = if recompile {
+        //     ShaderModule::load_recompile(gpu, shader.shader, &dynamic_constants)
+        // } else {
             ShaderModule::load(gpu, shader.shader)
-        }
+        // }
         .with_context(|| format!("Failed to load shader module {}", shader.shader))?
         .with_name(&format!(
             "{} {} (Technique {})",
@@ -326,104 +327,104 @@ impl ShaderModule {
         Self::load_raw(gpu, &bytecode, stage)
     }
 
-    pub fn load_recompile(
-        gpu: &Gpu,
-        hash: TagHash,
-        dynamic_constants: &DynamicConstants,
-    ) -> anyhow::Result<Self> {
-        if matches!(hash.0, 0x80B35874) {
-            warn!("Shader {hash} can't be decompiled correctly, skipping");
-            return Self::load(gpu, hash);
-        }
+    // pub fn load_recompile(
+    //     gpu: &Gpu,
+    //     hash: TagHash,
+    //     dynamic_constants: &DynamicConstants,
+    // ) -> anyhow::Result<Self> {
+    //     if matches!(hash.0, 0x80B35874) {
+    //         warn!("Shader {hash} can't be decompiled correctly, skipping");
+    //         return Self::load(gpu, hash);
+    //     }
 
-        info!("Recompiling shader {hash} to include TFX information");
+    //     info!("Recompiling shader {hash} to include TFX information");
 
-        let entry = package_manager()
-            .get_entry(hash)
-            .context("Entry not found")?;
-        ensure!(
-            entry.file_type == 33 && entry.file_subtype <= 6,
-            "Shader header type mismatch"
-        );
+    //     let entry = package_manager()
+    //         .get_entry(hash)
+    //         .context("Entry not found")?;
+    //     ensure!(
+    //         entry.file_type == 33 && entry.file_subtype <= 6,
+    //         "Shader header type mismatch"
+    //     );
 
-        let data_original = package_manager()
-            .read_tag(entry.reference)
-            .context("Failed to read shader data")?;
+    //     let data_original = package_manager()
+    //         .read_tag(entry.reference)
+    //         .context("Failed to read shader data")?;
 
-        let Ok(mut decompiled) = hlsldecompiler::decompile(&data_original) else {
-            return Self::load(gpu, hash);
-        };
+    //     let Ok(mut decompiled) = hlsldecompiler::decompile(&data_original) else {
+    //         return Self::load(gpu, hash);
+    //     };
 
-        let mut texture_slots = vec![];
+    //     let mut texture_slots = vec![];
 
-        for (t, _) in &dynamic_constants.textures {
-            texture_slots.push((*t, format!("fixed_{t}")));
-        }
+    //     for (t, _) in &dynamic_constants.textures {
+    //         texture_slots.push((*t, format!("fixed_{t}")));
+    //     }
 
-        if let Ok(externs) = get_texture_externs_from_bytecode(&dynamic_constants.bytecode) {
-            for (slot, extern_, offset) in externs {
-                if let Some(fieldname) = Externs::get_extern_field_name(extern_, offset as usize) {
-                    texture_slots.push((slot, format!("extern_{extern_:?}_{fieldname}")));
-                } else {
-                    texture_slots.push((slot, format!("extern_{extern_:?}_0x{offset:02X}")));
-                }
-            }
-        }
+    //     if let Ok(externs) = get_texture_externs_from_bytecode(&dynamic_constants.bytecode) {
+    //         for (slot, extern_, offset) in externs {
+    //             if let Some(fieldname) = Externs::get_extern_field_name(extern_, offset as usize) {
+    //                 texture_slots.push((slot, format!("extern_{extern_:?}_{fieldname}")));
+    //             } else {
+    //                 texture_slots.push((slot, format!("extern_{extern_:?}_0x{offset:02X}")));
+    //             }
+    //         }
+    //     }
 
-        let mut pre_comments = String::new();
+    //     let mut pre_comments = String::new();
 
-        let mut cb0 = vec![];
-        for v in &dynamic_constants.initial_constants {
-            cb0.push(format!("float4({}, {}, {}, {})", v.x, v.y, v.z, v.w));
-        }
+    //     let mut cb0 = vec![];
+    //     for v in &dynamic_constants.initial_constants {
+    //         cb0.push(format!("float4({}, {}, {}, {})", v.x, v.y, v.z, v.w));
+    //     }
 
-        if let Err(e) = expression_vm::decompiler::DecompilerState::new(&dynamic_constants.bytecode)
-            .evaluate(&dynamic_constants.bytecode_constants, &mut cb0)
-        {
-            writeln!(&mut pre_comments, "// Error decompiling bytecode: {e}")?;
-        }
+    //     if let Err(e) = expression_vm::decompiler::DecompilerState::new(&dynamic_constants.bytecode)
+    //         .evaluate(&dynamic_constants.bytecode_constants, &mut cb0)
+    //     {
+    //         writeln!(&mut pre_comments, "// Error decompiling bytecode: {e}")?;
+    //     }
 
-        writeln!(&mut pre_comments, "// TFX data:")?;
-        for (slot, val) in cb0.iter().enumerate() {
-            writeln!(&mut pre_comments, "//     cb0[{slot}]: {val}")?;
-        }
-        writeln!(&mut pre_comments)?;
+    //     writeln!(&mut pre_comments, "// TFX data:")?;
+    //     for (slot, val) in cb0.iter().enumerate() {
+    //         writeln!(&mut pre_comments, "//     cb0[{slot}]: {val}")?;
+    //     }
+    //     writeln!(&mut pre_comments)?;
 
-        decompiled.insert_str(0, &pre_comments);
+    //     decompiled.insert_str(0, &pre_comments);
 
-        for (slot, name) in texture_slots {
-            // Regex should match the slot number + whitespace or period
-            let regex = Regex::new(&format!(r"\bt{slot}\s")).unwrap();
-            decompiled = regex
-                .replace_all(&decompiled, format!("{name} "))
-                .to_string();
+    //     for (slot, name) in texture_slots {
+    //         // Regex should match the slot number + whitespace or period
+    //         let regex = Regex::new(&format!(r"\bt{slot}\s")).unwrap();
+    //         decompiled = regex
+    //             .replace_all(&decompiled, format!("{name} "))
+    //             .to_string();
 
-            let regex = Regex::new(&format!(r"\bt{slot}\.")).unwrap();
-            decompiled = regex
-                .replace_all(&decompiled, format!("{name}."))
-                .to_string();
-        }
+    //         let regex = Regex::new(&format!(r"\bt{slot}\.")).unwrap();
+    //         decompiled = regex
+    //             .replace_all(&decompiled, format!("{name}."))
+    //             .to_string();
+    //     }
 
-        let stage = match entry.file_subtype {
-            0 => ShaderStage::Pixel,
-            1 => ShaderStage::Vertex,
-            2 => ShaderStage::Geometry,
-            3..=5 => {
-                anyhow::bail!("Unsupported shader type: {}", entry.file_subtype);
-            }
-            6 => ShaderStage::Compute,
-            _ => unreachable!(),
-        };
+    //     let stage = match entry.file_subtype {
+    //         0 => ShaderStage::Pixel,
+    //         1 => ShaderStage::Vertex,
+    //         2 => ShaderStage::Geometry,
+    //         3..=5 => {
+    //             anyhow::bail!("Unsupported shader type: {}", entry.file_subtype);
+    //         }
+    //         6 => ShaderStage::Compute,
+    //         _ => unreachable!(),
+    //     };
 
-        let compiled = match Self::compile(gpu, &decompiled, stage) {
-            Ok(compiled) => compiled,
-            Err(e) => {
-                println!("Failed to compile shader: {e:?}");
-                // Compile failed, load original shader from disk (this happens often with compute/geometry shaders)
-                return Self::load(gpu, hash);
-            }
-        };
+    //     let compiled = match Self::compile(gpu, &decompiled, stage) {
+    //         Ok(compiled) => compiled,
+    //         Err(e) => {
+    //             println!("Failed to compile shader: {e:?}");
+    //             // Compile failed, load original shader from disk (this happens often with compute/geometry shaders)
+    //             return Self::load(gpu, hash);
+    //         }
+    //     };
 
-        Ok(compiled)
-    }
+    //     Ok(compiled)
+    // }
 }

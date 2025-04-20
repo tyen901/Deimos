@@ -63,3 +63,6 @@ opt-level = 3
 
 [profile.dev.package.deimos-data]
 opt-level = 3
+
+[features]
+tracy = ["profiling/profile-with-tracy"]
