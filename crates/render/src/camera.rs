@@ -4,10 +4,11 @@ use glam::{Mat4, Quat, Vec3, Vec4};
 pub struct Camera {
     pub position: Vec3,
     pub rotation: Quat,
-    pub fov: f32,
+    pub fov_y: f32,
 
     pub near: f32,
     pub far: f32,
+    pub aspect_ratio: f32,
 }
 
 impl Default for Camera {
@@ -15,9 +16,10 @@ impl Default for Camera {
         Camera {
             position: Vec3::ZERO,
             rotation: Quat::IDENTITY,
-            fov: 90.0,
+            fov_y: 90.0,
             near: Self::NEAR,
             far: Self::FAR,
+            aspect_ratio: 16. / 9.,
         }
     }
 }
@@ -35,13 +37,22 @@ impl Camera {
     }
 
     pub fn projection_matrix(&self, aspect_ratio: f32) -> glam::Mat4 {
-        let f = 1.0 / f32::tan(0.5 * self.fov.to_radians());
+        let f = 1.0 / f32::tan(0.5 * self.fov_y.to_radians());
         let far = (1. / self.far) * self.near;
         Mat4::from_cols(
             Vec4::new(f / aspect_ratio, 0.0, 0.0, 0.0),
             Vec4::new(0.0, f, 0.0, 0.0),
             Vec4::new(0.0, 0.0, far, -1.0),
             Vec4::new(0.0, 0.0, self.near, 0.0),
+        )
+    }
+
+    pub fn projection_matrix_standard(&self) -> glam::Mat4 {
+        Mat4::perspective_rh(
+            self.fov_y.to_radians(),
+            self.aspect_ratio,
+            self.near,
+            self.far,
         )
     }
 

@@ -3,7 +3,10 @@ use std::any::Any;
 use deimos_data::tfx::{features::dynamic::RenderStageSubscription, RenderStage};
 use glam::Mat4;
 
-use crate::{gpu::command_list::CommandList, tfx::packet::CompactTransform, Renderer};
+use crate::{
+    gpu::command_list::CommandList, tfx::packet::CompactTransform, visibility::frustum::Frustum,
+    Renderer,
+};
 
 // pub mod cubemap;
 // pub mod decals;
@@ -15,6 +18,11 @@ pub mod static_geometry;
 pub mod terrain_patches;
 
 pub trait FeatureRenderer {
+    /// Returns false if the render object should be discarded
+    fn visibility_test(&mut self, frustum: &Frustum) -> bool {
+        true
+    }
+
     // TODO(cohae): Storing the extracted data in the render object seems a bit excessive when the frame node data is guaranteed to be valid for the duration of this call, do we really need it?
     fn extract_and_prepare(
         &mut self,

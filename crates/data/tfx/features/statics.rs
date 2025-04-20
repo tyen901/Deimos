@@ -3,7 +3,10 @@ use tiger_pkg::TagHash;
 
 use crate::{
     tag::Tag,
-    tfx::{common::AxisAlignedBBox, LodCategory, PrimitiveType, RenderStage},
+    tfx::{
+        common::{AxisAlignedBBox, SOcclusionBounds},
+        LodCategory, PrimitiveType, RenderStage,
+    },
 };
 
 #[derive(Debug)]
@@ -66,8 +69,8 @@ pub struct SStaticMeshGroup {
 #[derive(Debug, Clone)]
 #[tiger_tag(id = 0x8080A7F1, size = 0x98)]
 pub struct SStaticMeshInstances {
-    // #[tag(offset = 0x18)]
-    // pub occlusion_bounds: Tag<SOcclusionBounds>,
+    #[tag(offset = 0x18)]
+    pub occlusion_bounds: Tag<SOcclusionBounds>,
     #[tag(offset = 0x40)]
     pub transforms: Vec<SStaticInstanceTransform>,
     pub unk50: u64,

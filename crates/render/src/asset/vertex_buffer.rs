@@ -18,8 +18,17 @@ pub struct VertexBuffer {
 }
 
 impl VertexBuffer {
-    #[profiling::function]
     pub fn load_data(device: &d3d11::Device, data: &[u8], stride: u32) -> anyhow::Result<Self> {
+        Self::load_data_ex(device, data, stride, false)
+    }
+
+    #[profiling::function]
+    pub fn load_data_ex(
+        device: &d3d11::Device,
+        data: &[u8],
+        stride: u32,
+        cpu_writable: bool,
+    ) -> anyhow::Result<Self> {
         let bind_flags = if matches!(stride, 1 | 4) {
             BindFlags::VERTEX_BUFFER | BindFlags::SHADER_RESOURCE
         } else {
@@ -28,8 +37,17 @@ impl VertexBuffer {
         let buffer = device.create_buffer(
             &BufferDesc::builder()
                 .byte_width(data.len() as u32)
-                .usage(d3d11::Usage::Default)
+                .usage(if cpu_writable {
+                    d3d11::Usage::Dynamic
+                } else {
+                    d3d11::Usage::Default
+                })
                 .bind_flags(bind_flags)
+                .cpu_access_flags(if cpu_writable {
+                    d3d11::CpuAccessFlags::WRITE
+                } else {
+                    d3d11::CpuAccessFlags::empty()
+                })
                 .build(),
             Some(data),
         )?;
@@ -75,6 +93,16 @@ impl VertexBuffer {
             Some(&[0]),
         )
         .expect("Failed to bind vertex buffer");
+    }
+
+    /// # Safety
+    ///
+    /// The caller must ensure that the data fits within the buffer.
+    pub unsafe fn write(&self, cmd: &mut CommandList, data: &[u8]) -> anyhow::Result<()> {
+        let m = cmd.map(&self.buffer, 0, d3d11::MapType::WriteDiscard, false)?;
+        m.data.copy_from(data.as_ptr() as _, data.len());
+
+        Ok(())
     }
 }
 

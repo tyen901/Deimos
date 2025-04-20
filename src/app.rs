@@ -7,9 +7,10 @@ use deimos_render::{
     gpu::{command_list::CommandList, debug_text::DebugTextAlign, spinner::FullscreenSpinner},
     object::{RenderObject, RenderObjectHandle},
     tfx::packet::FrameNode,
+    visibility::frustum::Frustum,
     Gpu, Renderer,
 };
-use glam::{vec2, IVec2, Quat, Vec2, Vec3};
+use glam::{vec2, vec3, IVec2, Quat, Vec2, Vec3};
 use sdl3::{keyboard::Keycode, video::Window};
 use tiger_pkg::{package_manager, TagHash};
 
@@ -25,6 +26,7 @@ pub struct App {
     last_frame_time: Instant,
     start_time: Instant,
     camera: Camera,
+    frametime_history: Vec<f32>,
 
     // map: StaticMapTemp,
     static_render_objects: Vec<RenderObjectHandle>,
@@ -56,6 +58,11 @@ impl App {
             )));
         }
 
+        let camera = Camera {
+            position: vec3(0.0, 0.0, 30.0),
+            ..Default::default()
+        };
+
         Ok(Self {
             input: MouseKeyboardState::new(sdl.clone(), window.clone()),
             spinner: FullscreenSpinner::create(&renderer.gpu)?,
@@ -65,7 +72,8 @@ impl App {
 
             last_frame_time: Instant::now(),
             start_time: Instant::now(),
-            camera: Camera::default(),
+            camera,
+            frametime_history: Vec::new(),
             // map,
             static_render_objects,
             yaw_pitch: Vec2::ZERO,
@@ -105,6 +113,11 @@ impl App {
         let delta_time = (now - self.last_frame_time).as_secs_f32();
         self.last_frame_time = now;
 
+        self.frametime_history.push(delta_time);
+        if self.frametime_history.len() > 500 {
+            self.frametime_history.remove(0);
+        }
+
         let mut movement = Vec3::ZERO;
         if self.input.is_key_down(Keycode::W) {
             movement += self.camera.forward();
@@ -140,19 +153,23 @@ impl App {
             * Quat::from_rotation_y(self.yaw_pitch.y.to_radians());
 
         let resolution = self.renderer.surfaces.framebuffer_resolution();
-        let proj = self
-            .camera
-            .projection_matrix(resolution.0 as f32 / resolution.1 as f32);
+        self.camera.aspect_ratio = resolution.0 as f32 / resolution.1 as f32;
+        let proj = self.camera.projection_matrix(self.camera.aspect_ratio);
         // proj.z_axis.z = 2.6226E-06;
 
         let view = self.camera.view_matrix();
+        let frustum = Frustum::from_camera(&self.camera);
+        // Renderer::instance()
+        //     .immediate
+        //     .lock()
+        //     .frustum(&frustum, 0x00ffff);
 
         self.renderer.frame_packet.write().reset();
 
         {
             let mut fp = self.renderer.frame_packet.write();
             for t in &self.static_render_objects {
-                fp.push_static_render_object(t.clone());
+                fp.push_static_render_object(*t);
             }
         }
 
@@ -165,6 +182,26 @@ impl App {
                 let context = gpu.context();
 
                 context.clear_render_target_view(&gpu.acquire_rtv(), &[0.0, 0.0, 0.0, 1.0]);
+
+                {
+                    profiling::scope!("visibility");
+                    self.renderer
+                        .frame_packet
+                        .write()
+                        .frame_nodes
+                        .retain(|node| {
+                            if let Some(render_object) = self
+                                .renderer
+                                .objects
+                                .write()
+                                .get_mut(node.render_object_handle.into())
+                            {
+                                render_object.visibility_test(&frustum)
+                            } else {
+                                true
+                            }
+                        });
+                }
 
                 for node in self.renderer.frame_packet.read().frame_nodes.iter() {
                     if let Some(render_object) = self
@@ -217,7 +254,7 @@ impl App {
                 context.output_merger_set_render_targets(&[Some(gpu.acquire_rtv())], None);
                 context.output_merger_set_depth_stencil_state(None, 0);
                 context.rasterizer_set_state(None);
-                self.spinner.draw(&gpu);
+                self.spinner.draw(gpu);
             }
 
             {
@@ -241,6 +278,18 @@ impl App {
                     [0, 255, 255, 255],
                     DebugTextAlign::BottomLeft,
                 );
+                let average_frame_time = self.frametime_history.iter().sum::<f32>()
+                    / self.frametime_history.len() as f32;
+                debug_text.add_string(
+                    format!(
+                        "Average frame time {:.2} ms / {:.2} FPS",
+                        average_frame_time * 1000.0,
+                        1.0 / average_frame_time
+                    ),
+                    IVec2::new(2, -1),
+                    [0, 255, 255, 255],
+                    DebugTextAlign::BottomLeft,
+                );
             }
 
             // if self.show_debug_text
@@ -259,7 +308,7 @@ impl App {
             }
         }
 
-        self.renderer.present_frame(true);
+        self.renderer.present_frame(false);
 
         self.input.update_keystates();
         profiling::finish_frame!();

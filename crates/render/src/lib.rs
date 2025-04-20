@@ -10,6 +10,7 @@ pub mod camera;
 pub mod object;
 pub mod tfx;
 pub mod util;
+pub mod visibility;
 
 #[macro_use]
 extern crate tracing;

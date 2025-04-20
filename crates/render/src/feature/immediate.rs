@@ -1,8 +1,9 @@
 use anyhow::Context;
 use d3d11::{dxgi, InputElementDesc, ShaderTarget};
-use glam::Vec3;
+use deimos_data::tfx::common::AxisAlignedBBox;
+use glam::{vec3, Vec3, Vec4Swizzles};
 
-use crate::{gpu::command_list::CommandList, gpu_span, Gpu};
+use crate::{gpu::command_list::CommandList, gpu_span, visibility::frustum::Frustum, Gpu};
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -150,5 +151,76 @@ impl ImmediateShapeRenderer {
         cmd.pixel_set_shader(&self.shader_ps);
 
         cmd.draw(self.vbuffer_len as u32, 0);
+    }
+}
+
+// Shape methods
+impl ImmediateShapeRenderer {
+    #[inline]
+    pub fn line(&mut self, start: Vec3, end: Vec3, color: u32) {
+        self.add_vertices(&[
+            ImmediateVertex { pos: start, color },
+            ImmediateVertex { pos: end, color },
+        ]);
+    }
+
+    pub fn aabb_world(&mut self, bb: &AxisAlignedBBox, color: u32) {
+        let a = bb.min.xyz();
+        let b = bb.max.xyz();
+
+        // +Z
+        // ^  .1------b
+        // |.' |    .'|
+        // +------2'  | +X
+        // |   |  |   | /
+        // |  ,+--+---3
+        // |.'    | .'
+        // a------+'   -> -Y
+
+        // Point axis (A)
+        self.line(a, vec3(b.x, a.y, a.z), color); // X
+        self.line(a, vec3(a.x, b.y, a.z), color); // Y
+        self.line(a, vec3(a.x, a.y, b.z), color); // Z
+
+        // Point axis (B)
+        self.line(b, vec3(a.x, b.y, b.z), color); // X
+        self.line(b, vec3(b.x, a.y, b.z), color); // Y
+        self.line(b, vec3(b.x, b.y, a.z), color); // Z
+
+        let c1 = vec3(b.x, a.y, b.z);
+        let c2 = vec3(a.x, b.y, b.z);
+        let c3 = vec3(b.x, b.y, a.z);
+
+        // Infill corner 1
+        self.line(c1, vec3(c1.x, c1.y, a.z), color);
+        self.line(c1, vec3(a.x, c1.y, c1.z), color);
+
+        // Infill corner 2
+        self.line(c2, vec3(c2.x, a.y, c2.z), color);
+        self.line(c2, vec3(c2.x, c2.y, a.z), color);
+
+        // Infill corner 3
+        self.line(c3, vec3(a.x, c3.y, c3.z), color);
+        self.line(c3, vec3(c3.x, a.y, c3.z), color);
+    }
+
+    pub fn frustum(&mut self, frust: &Frustum, color: u32) {
+        // Near
+        self.line(frust.points[0], frust.points[1], color);
+        self.line(frust.points[1], frust.points[2], color);
+        self.line(frust.points[2], frust.points[3], color);
+        self.line(frust.points[3], frust.points[0], color);
+
+        // // Connecting lines
+        self.line(frust.points[0], frust.points[4], color);
+        self.line(frust.points[1], frust.points[5], color);
+        self.line(frust.points[2], frust.points[6], color);
+        self.line(frust.points[3], frust.points[7], color);
+
+        // Far
+        self.line(frust.points[4], frust.points[5], color);
+        self.line(frust.points[5], frust.points[6], color);
+        self.line(frust.points[6], frust.points[7], color);
+        self.line(frust.points[7], frust.points[4], color);
     }
 }

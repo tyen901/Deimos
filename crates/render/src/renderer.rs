@@ -80,6 +80,7 @@ impl Renderer {
         ConVars::register("render.ssao", true);
 
         ConVars::register("render.feature.static_objects", true);
+        ConVars::register("render.feature.terrain_patches", true);
         ConVars::register("render.feature.rigid_objects", true);
         ConVars::register("render.feature.chunked_lights", true);
         ConVars::register("render.feature.deferred_lights", true);

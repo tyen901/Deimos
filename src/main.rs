@@ -61,7 +61,7 @@ fn main() -> anyhow::Result<()> {
 
     let map_marsh = TagHash(0x80A8C43F);
     let map_perimeter = TagHash(0x80A75EAC);
-    let mut app = App::new(sdl_context.clone(), window, map_marsh)?;
+    let mut app = App::new(sdl_context.clone(), window, map_perimeter)?;
 
     let mut event_pump = sdl_context.event_pump().unwrap();
     'app: loop {

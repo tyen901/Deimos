@@ -138,6 +138,18 @@ impl Renderer {
             );
             cmd.draw(4, 0);
         }
+
+        {
+            profiling::scope!("prepare/submit immediate geometry");
+            cmd.output_merger_set_render_targets(
+                &[Some(gpu.acquire_rtv())],
+                self.surfaces.get(self.gbuffers.depth).dsv.as_ref(),
+            );
+            cmd.state = PipelineState::new(Some(0), Some(2), Some(2), Some(0));
+            cmd.flush_states();
+            self.immediate.lock().prepare(gpu);
+            self.immediate.lock().submit(cmd);
+        }
     }
 
     fn prepare_externs(
@@ -298,6 +310,7 @@ impl Renderer {
         }
 
         remove_feature_if_unset!("static_objects", STATIC_OBJECTS);
+        remove_feature_if_unset!("terrain_patches", TERRAIN_PATCH);
         remove_feature_if_unset!("rigid_objects", RIGID_OBJECT);
         remove_feature_if_unset!("chunked_lights", CHUNKED_LIGHTS);
         remove_feature_if_unset!("deferred_lights", DEFERRED_LIGHTS);

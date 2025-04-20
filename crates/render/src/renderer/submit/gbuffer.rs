@@ -54,12 +54,6 @@ impl Renderer {
             );
             cmd.set_depth_mode(DepthMode::Reverse);
             cmd.state_override.reset();
-
-            {
-                profiling::scope!("prepare/submit immediate geometry");
-                self.immediate.lock().prepare(gpu);
-                self.immediate.lock().submit(cmd);
-            }
         }
 
         self.gbuffers

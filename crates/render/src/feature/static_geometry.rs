@@ -8,6 +8,7 @@ use anyhow::Context;
 use deimos_data::{
     map::{MapNodeResource, SBubbleParent, SMapNodeTable},
     tfx::{
+        common::AxisAlignedBBox,
         features::{
             dynamic::{RenderStageSubscription, SDynamicMeshMaterialVariants},
             statics::{SStaticInstanceTransform, SStaticMesh, SStaticSpecialMesh, SUnk808082D5},
@@ -115,7 +116,8 @@ pub struct StaticInstancesRenderer {
     instance_buffer: ConstantBuffer<u8>,
     instance_id_buffer: VertexBuffer,
     model: StaticModel,
-    transforms: Vec<SStaticInstanceTransform>,
+    visible_instance_ids: Vec<u32>,
+    transforms: Vec<(SStaticInstanceTransform, AxisAlignedBBox)>,
     identifier: u64,
 
     constants_dirty: bool,
@@ -124,7 +126,7 @@ pub struct StaticInstancesRenderer {
 impl StaticInstancesRenderer {
     pub fn new(
         gpu: &Arc<Gpu>,
-        transforms: &[SStaticInstanceTransform],
+        transforms: Vec<(SStaticInstanceTransform, AxisAlignedBBox)>,
         model_hash: TagHash,
         identifier: u64,
     ) -> anyhow::Result<Self> {
@@ -136,17 +138,18 @@ impl StaticInstancesRenderer {
         // Instance IDs dictate from where in the instance buffer to read the transform data. This is calculated as the ID * 0x40 (in bytes).
         // In the past, the engine would skip the 32 bytes where the quantization information was stored, but the offset must now be an exact multiple of 0x40 bytes.
         // cb0[0].x dictates where the quantization information is stored. For now I've opted to just skip the first instance and use that slot for the quantization information.
-        let instance_ids = (0..transforms.len() as u32).map(|i| i + 1).collect_vec();
+        let visible_instance_ids = (0..transforms.len() as u32).map(|i| i + 1).collect_vec();
 
         let instance_id_buffer =
-            VertexBuffer::load_data(gpu, bytemuck::cast_slice(&instance_ids), 4)?;
+            VertexBuffer::load_data_ex(gpu, bytemuck::cast_slice(&visible_instance_ids), 4, true)?;
 
         trace!(instances = transforms.len(), model_hash=%model_hash, "Loading model");
         Ok(Self {
             instance_buffer: cbuffer,
             instance_id_buffer,
             model: StaticModel::load(model_hash)?,
-            transforms: transforms.to_vec(),
+            visible_instance_ids,
+            transforms,
             identifier,
             constants_dirty: true,
         })
@@ -185,7 +188,7 @@ impl StaticInstancesRenderer {
 
             cmd.draw_indexed_instanced(
                 part.index_count,
-                self.transforms.len() as _,
+                self.visible_instance_ids.len() as u32,
                 part.index_start,
                 0,
                 0,
@@ -212,7 +215,7 @@ impl StaticInstancesRenderer {
 
             cmd.draw_indexed_instanced(
                 mesh.index_count,
-                self.transforms.len() as _,
+                self.visible_instance_ids.len() as u32,
                 mesh.index_start,
                 0,
                 0,
@@ -251,7 +254,7 @@ impl StaticInstancesRenderer {
         //     [0.0, 0.0, model.mesh_scale, model.mesh_offset.z],
         //     [0.0, 0.0, 0.0, 1.0],
         // ]);
-        for transform in &self.transforms {
+        for (transform, _) in &self.transforms {
             let instance_transform = Mat4::from_scale_rotation_translation(
                 Vec3::splat(transform.scale),
                 transform.rotation,
@@ -334,7 +337,16 @@ pub fn load_static_map(taghash: TagHash) -> anyhow::Result<StaticMapTemp> {
 
                                 let renderer = StaticInstancesRenderer::new(
                                     &gpu,
-                                    &instances.instances.transforms[range],
+                                    instances.instances.transforms[range.clone()]
+                                        .iter()
+                                        .cloned()
+                                        .zip(
+                                            instances.instances.occlusion_bounds.bounds[range]
+                                                .iter()
+                                                .map(|b| &b.bb)
+                                                .cloned(),
+                                        )
+                                        .collect(),
                                     model,
                                     instances.instances.vertex_ao_identifier,
                                 )?;
@@ -563,6 +575,17 @@ pub fn load_static_map(taghash: TagHash) -> anyhow::Result<StaticMapTemp> {
 // }
 
 impl FeatureRenderer for StaticInstancesRenderer {
+    fn visibility_test(&mut self, frustum: &crate::visibility::frustum::Frustum) -> bool {
+        self.visible_instance_ids.clear();
+        for (i, (_, b)) in self.transforms.iter().enumerate() {
+            if frustum.aabb_intersecting(b) {
+                self.visible_instance_ids.push(1 + i as u32);
+            }
+        }
+
+        !self.visible_instance_ids.is_empty()
+    }
+
     fn extract_and_prepare(
         &mut self,
         renderer: &Renderer,
@@ -578,6 +601,12 @@ impl FeatureRenderer for StaticInstancesRenderer {
     }
 
     fn submit(&self, cmd: &mut CommandList, stage: RenderStage) {
+        // Safety: there's never more instances than we allocated space for (hopefully)
+        unsafe {
+            self.instance_id_buffer
+                .write(cmd, bytemuck::cast_slice(&self.visible_instance_ids))
+                .unwrap();
+        }
         self.render(cmd, stage);
     }
 

@@ -8,6 +8,7 @@ use crate::{
     feature::{FeatureRenderer, FeatureRendererData},
     gpu::command_list::CommandList,
     util::arena,
+    visibility::frustum::Frustum,
     Renderer,
 };
 
@@ -62,6 +63,10 @@ impl RenderObject {
 }
 
 impl RenderObject {
+    pub fn visibility_test(&mut self, frustum: &Frustum) -> bool {
+        self.renderer.visibility_test(frustum)
+    }
+
     pub fn extract_and_prepare(&mut self, renderer: &Renderer, data: &dyn Any) {
         self.renderer
             .extract_and_prepare(renderer, &mut *self.data, data);

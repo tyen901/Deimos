@@ -127,9 +127,9 @@ impl TerrainPatchesRenderer {
                 continue;
             }
 
-            cb11.bind(&cmd, ShaderStage::Vertex, 11);
+            cb11.bind(cmd, ShaderStage::Vertex, 11);
             if let Some(dyemap) = self.dyemaps[part.group_index as usize].get() {
-                dyemap.bind(&cmd, 14, deimos_data::tfx::ShaderStage::Pixel);
+                dyemap.bind(cmd, 14, deimos_data::tfx::ShaderStage::Pixel);
             }
 
             cmd.draw_indexed(part.index_count as _, part.index_start as _, 0);
@@ -177,6 +177,10 @@ impl TerrainPatchesRenderer {
 }
 
 impl FeatureRenderer for TerrainPatchesRenderer {
+    fn visibility_test(&mut self, frustum: &crate::visibility::frustum::Frustum) -> bool {
+        frustum.aabb_intersecting(&self.terrain.bounds)
+    }
+
     fn extract_and_prepare(
         &mut self,
         renderer: &Renderer,
