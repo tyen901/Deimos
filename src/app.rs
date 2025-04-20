@@ -1,6 +1,6 @@
 use std::{f32, rc::Rc, sync::Arc, time::Instant};
 
-use deimos_data::tfx::TfxFeatureRenderer;
+use deimos_data::{map::SBubbleParent, tfx::TfxFeatureRenderer};
 use deimos_render::{
     camera::Camera,
     gpu::{command_list::CommandList, debug_text::DebugTextAlign, spinner::FullscreenSpinner},
@@ -11,9 +11,11 @@ use deimos_render::{
 };
 use glam::{vec2, vec3, IVec2, Quat, Vec2, Vec3};
 use sdl3::{keyboard::Keycode, video::Window};
+use tiger_parse::TigerReadable;
 use tiger_pkg::{package_manager, TagHash};
 
 use crate::{
+    cli::AppArgs,
     input::{MouseButton, MouseKeyboardState},
     map::load_static_map,
 };
@@ -37,12 +39,28 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(sdl: Rc<sdl3::Sdl>, window: Rc<Window>, map: TagHash) -> anyhow::Result<Self> {
+    pub fn new(sdl: Rc<sdl3::Sdl>, window: Rc<Window>, args: AppArgs) -> anyhow::Result<Self> {
         let gpu = Arc::new(Gpu::create(&window)?);
         let renderer = Arc::new(Renderer::new(gpu.clone(), window.size())?);
         Renderer::set_instance(renderer.clone());
 
-        let map = load_static_map(map)?;
+        let Some(map_hash) = args.map else {
+            println!("No map specified. Available maps:");
+            for (t, _) in package_manager().get_all_by_reference(SBubbleParent::ID.unwrap()) {
+                println!(
+                    " - {t} ({})",
+                    package_manager().package_paths[&t.pkg_id()].filename
+                );
+            }
+
+            return Err(anyhow::anyhow!("No map specified. Use `-m MAP_HASH`"));
+        };
+
+        // let map_marsh = TagHash(0x80A8C43F);
+        // let map_perimeter = TagHash(0x80A75EAC);
+        // std::random::random::<usize>() % 2
+
+        let map = load_static_map(map_hash)?;
 
         let mut static_render_objects = Vec::new();
         for t in map.terrain {
@@ -116,7 +134,7 @@ impl App {
         self.last_frame_time = now;
 
         self.frametime_history.push(delta_time);
-        if self.frametime_history.len() > 500 {
+        if self.frametime_history.len() > 100 {
             self.frametime_history.remove(0);
         }
 
@@ -138,7 +156,7 @@ impl App {
         }
         movement = movement.normalize_or(Vec3::ZERO);
         if self.input.is_key_down(Keycode::LCtrl) {
-            movement /= 2.5;
+            movement /= 5.0;
         }
         if self.input.is_key_down(Keycode::LShift) {
             movement *= 2.5;

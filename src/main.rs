@@ -2,10 +2,14 @@ use std::{path::PathBuf, rc::Rc, sync::Arc};
 
 use anyhow::Context;
 use app::App;
+use clap::Parser;
+use cli::AppArgs;
 use tiger_pkg::{PackageManager, TagHash};
 
 mod app;
+mod cli;
 mod input;
+mod map;
 mod panic_hook;
 
 #[macro_use]
@@ -21,23 +25,31 @@ fn main() -> anyhow::Result<()> {
         .with_file(false)
         .init();
 
-    let Some(steamapp) = game_detector::steam::get_all_apps()
-        .context("Failed to enumerate Steam apps")?
-        .into_iter()
-        .find(|a| a.appid == MARATHON_APP_ID)
-    else {
-        error!("Failed to find Marathon app in Steam library");
-        return Ok(());
-    };
+    let args = AppArgs::parse();
 
-    info!(
-        "Found Marathon Alpha installation at '{}'",
+    let game_path = if let Some(path) = &args.gamedir {
+        path.clone()
+    } else {
+        let Some(steamapp) = game_detector::steam::get_all_apps()
+            .context("Failed to enumerate Steam apps")?
+            .into_iter()
+            .find(|a| a.appid == MARATHON_APP_ID)
+        else {
+            error!("Failed to find Marathon app in Steam library. If you don't have Marathon installed through Steam, then you can specify the path to the game directory using the --gamedir/-g argument.");
+            return Ok(());
+        };
+
+        info!(
+            "Found Marathon Alpha installation at '{}'",
+            steamapp.game_path
+        );
+
         steamapp.game_path
-    );
+    };
 
     let pm = Arc::new(
         PackageManager::new(
-            PathBuf::from(&steamapp.game_path).join("packages"),
+            PathBuf::from(&game_path).join("packages"),
             tiger_pkg::GameVersion::Marathon(tiger_pkg::MarathonVersion::MarathonAlpha),
             None,
         )
@@ -59,9 +71,7 @@ fn main() -> anyhow::Result<()> {
             .expect("Failed to create window"),
     );
 
-    let map_marsh = TagHash(0x80A8C43F);
-    let map_perimeter = TagHash(0x80A75EAC);
-    let mut app = App::new(sdl_context.clone(), window, map_perimeter)?;
+    let mut app = App::new(sdl_context.clone(), window, args)?;
 
     let mut event_pump = sdl_context.event_pump().unwrap();
     'app: loop {
