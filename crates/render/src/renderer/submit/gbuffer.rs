@@ -22,15 +22,9 @@ impl Renderer {
         {
             cmd_event_span!(cmd, "generate_gbuffer");
 
-            if ConVars::get_flag("render.vao_buffer") {
-                // if let Some(ao_vb) = self.ao_buffer.lock().as_ref().and_then(|h| h.get()) {
-                //     cmd.vertex_set_shader_resources(0, &[ao_vb.srv.clone()]);
-                // }
-            }
-
             cmd.state = PipelineState::new(Some(0), Some(2), Some(2), Some(0));
 
-            self.submit_stage_multi(cmd, RenderStage::GenerateGbuffer, 12);
+            self.submit_stage_multi(cmd, RenderStage::GenerateGbuffer, 6);
         }
 
         {
@@ -71,7 +65,7 @@ impl Renderer {
         self.gbuffers
             .third_proxy
             .lock()
-            .update(&cmd, self.surfaces.get(self.gbuffers.third));
+            .update(cmd, self.surfaces.get(self.gbuffers.third));
 
         // TODO(cohae): Can we reduce boilerplate for these kinds of pipelines?
         if ConVars::get_flag("render.vertex_ao_workaround") {

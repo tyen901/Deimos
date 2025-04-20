@@ -4,7 +4,7 @@ use deimos_data::tfx::TfxFeatureRenderer;
 use deimos_render::{
     camera::Camera,
     feature::static_geometry::{load_static_map, StaticMapTemp},
-    gpu::{debug_text::DebugTextAlign, spinner::FullscreenSpinner},
+    gpu::{command_list::CommandList, debug_text::DebugTextAlign, spinner::FullscreenSpinner},
     object::{RenderObject, RenderObjectHandle},
     tfx::packet::FrameNode,
     Gpu, Renderer,
@@ -199,7 +199,9 @@ impl App {
             }
 
             if !self.renderer.frame_packet.read().frame_nodes.is_empty() {
-                let mut cmd = self.renderer.gpu.create_command_list();
+                let gpu = &self.renderer.gpu;
+                // let mut cmd = self.renderer.gpu.create_command_list();
+                let mut cmd = CommandList::from_device_context(gpu, gpu.context().clone());
                 self.renderer.submit_world(
                     &mut cmd,
                     view,
@@ -208,7 +210,7 @@ impl App {
                     delta_time,
                 );
                 // let cmd = self.draw_world(delta_time);
-                self.renderer.gpu.submit_command_list(cmd);
+                // self.renderer.gpu.submit_command_list(cmd);
             } else {
                 let gpu = &self.renderer.gpu;
                 let context = gpu.context();

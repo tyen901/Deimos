@@ -29,10 +29,15 @@ impl Deref for CommandList {
 }
 
 impl CommandList {
-    pub fn create(gpu: &Arc<Gpu>) -> Self {
+    pub fn new(gpu: &Arc<Gpu>) -> Self {
         let context = gpu
             .create_deferred_context()
             .expect("Failed to create deferred context");
+
+        Self::from_device_context(gpu, context)
+    }
+
+    pub fn from_device_context(gpu: &Arc<Gpu>, context: d3d11::DeviceContext) -> Self {
         CommandList {
             parent: gpu.clone(),
             annotation: context.get_user_defined_annotation(),

@@ -124,9 +124,10 @@ impl Gpu {
     }
 
     pub fn create_command_list(self: &Arc<Self>) -> command_list::CommandList {
-        command_list::CommandList::create(&self)
+        command_list::CommandList::new(self)
     }
 
+    #[profiling::function]
     pub fn submit_command_list(&self, cmd: command_list::CommandList) {
         self.context().execute_command_list(
             &cmd.finish_command_list(false)
