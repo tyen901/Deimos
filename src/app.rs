@@ -3,7 +3,6 @@ use std::{f32, rc::Rc, sync::Arc, time::Instant};
 use deimos_data::tfx::TfxFeatureRenderer;
 use deimos_render::{
     camera::Camera,
-    feature::static_geometry::{load_static_map, StaticMapTemp},
     gpu::{command_list::CommandList, debug_text::DebugTextAlign, spinner::FullscreenSpinner},
     object::{RenderObject, RenderObjectHandle},
     tfx::packet::FrameNode,
@@ -14,7 +13,10 @@ use glam::{vec2, vec3, IVec2, Quat, Vec2, Vec3};
 use sdl3::{keyboard::Keycode, video::Window};
 use tiger_pkg::{package_manager, TagHash};
 
-use crate::input::{MouseButton, MouseKeyboardState};
+use crate::{
+    input::{MouseButton, MouseKeyboardState},
+    map::load_static_map,
+};
 
 pub struct App {
     pub window: Rc<Window>,
