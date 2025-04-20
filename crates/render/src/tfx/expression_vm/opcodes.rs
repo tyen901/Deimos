@@ -49,48 +49,86 @@ pub enum Opcode {
     Wander = 0x29,
     Rand = 0x2A,
     RandSmooth = 0x2B,
-
     Unknown0x2C = 0x2C,
     Unknown0x2D = 0x2D,
-    TransformVec4 = 0x35,
-    Unknown0x2F = 0x36,
-    Unknown0x30 = 0x37,
-    Unknown0x31 = 0x38,
-    Unknown0x32 = 0x39,
-    Unknown0x33 = 0x3a,
+    TransformVec4 = 0x2E,
+
     PushConstVec4 = 0x3b,
     LerpConstant = 0x3c,
-    Unknown0x36 = 0x3d,
-    Unknown0x37 = 0x3e,
+    LerpConstantSaturated = 0x3d,
+    Spline4Const = 0x3e,
     Spline8Const = 0x3f,
-    Unknown0x39 = 0x40,
-    Unknown0x3A = 0x41,
-    Unknown0x3B = 0x42,
+    Spline8ChainConst = 0x40,
+    Gradient4Const = 0x41,
+    Unk3b = 0x42,
     PushExternInputFloat = 0x43,
     PushExternInputVec4 = 0x44,
     PushExternInputMat4 = 0x45,
     PushExternInputTextureView = 0x46,
     PushExternInputU32 = 0x47,
     PushExternInputUav = 0x48,
-    PushFromOutput = 0x49,
+    Unk42 = 0x49,
+    PushFromOutput = 0x4a,
     PopOutput = 0x4b,
     PopOutputMat4 = 0x4c,
     PushTemp = 0x4d,
     PopTemp = 0x4e,
     PopTextureView = 0x4f,
-    Unknown0x48 = 0x50,
+    Unk49 = 0x50,
     PopSamplerState = 0x51,
     PopUav = 0x52,
-    Unknown0x4B = 0x53,
+    Unk4c = 0x53,
     PushSamplerState = 0x54,
-    Unknown0x4D = 0x55,
+    PushObjectChannelVector = 0x55,
     PushGlobalChannelVector = 0x56,
-    Unknown0x4F = 0x57,
-    Unknown0x50 = 0x58,
-    Unknown0x51 = 0x59,
-    Unknown0x52 = 0x5a,
-    Unknown0x53 = 0x5b,
-    Unknown0x54 = 0x5c,
+    Unk50 = 0x57,
+    Unk51 = 0x58,
+    PushTexDimensions = 0x59,
+    PushTexTilingParams = 0x5a,
+    PushTexTileLayerCount = 0x5b,
+    Unk55 = 0x5c,
+    Unk56 = 0x5d,
+    Unk57 = 0x5e,
+    Unk58 = 0x5f,
+
+    // Unknown0x2F = 0x36,
+    // Unknown0x30 = 0x37,
+    // Unknown0x31 = 0x38,
+    // Unknown0x32 = 0x39,
+    // Unknown0x33 = 0x3a,
+    // PushConstVec4 = 0x3b,
+    // LerpConstant = 0x3c,
+    // Unknown0x36 = 0x3d,
+    // Unknown0x37 = 0x3e,
+    // Spline8Const = 0x3f,
+    // Unknown0x39 = 0x40,
+    // Unknown0x3A = 0x41,
+    // Unknown0x3B = 0x42,
+    // PushExternInputFloat = 0x43,
+    // PushExternInputVec4 = 0x44,
+    // PushExternInputMat4 = 0x45,
+    // PushExternInputTextureView = 0x46,
+    // PushExternInputU32 = 0x47,
+    // PushExternInputUav = 0x48,
+    // PushFromOutput = 0x49,
+    // PopOutput = 0x4b,
+    // PopOutputMat4 = 0x4c,
+    // PushTemp = 0x4d,
+    // PopTemp = 0x4e,
+    // PopTextureView = 0x4f,
+    // Unknown0x48 = 0x50,
+    // PopSamplerState = 0x51,
+    // PopUav = 0x52,
+    // Unknown0x4B = 0x53,
+    // PushSamplerState = 0x54,
+    // Unknown0x4D = 0x55,
+    // PushGlobalChannelVector = 0x56,
+    // Unknown0x4F = 0x57,
+    // Unknown0x50 = 0x58,
+    // Unknown0x51 = 0x59,
+    // Unknown0x52 = 0x5a,
+    // Unknown0x53 = 0x5b,
+    // Unknown0x54 = 0x5c,
 
     // Extended instruction set (only used internally by the interpreter)
     ExtReturn = 0x80,
@@ -148,41 +186,29 @@ impl Opcode {
             | Opcode::TransformVec4
             | Opcode::Unknown0x24
             | Opcode::Unknown0x2C
-            | Opcode::Unknown0x2D
-            | Opcode::Unknown0x2F
-            | Opcode::Unknown0x30
-            | Opcode::Unknown0x31
-            | Opcode::Unknown0x32
-            | Opcode::Unknown0x33
-            | Opcode::Unknown0x50
-            | Opcode::Unknown0x51
-            | Opcode::Unknown0x52
-            | Opcode::Unknown0x53
-            | Opcode::Unknown0x54 => 1,
+            | Opcode::Unknown0x2D => 1,
 
             Opcode::PopOutput
             | Opcode::PushTemp
             | Opcode::PopTemp
             | Opcode::PopSamplerState
             | Opcode::PushSamplerState
-            | Opcode::Unknown0x36
-            | Opcode::Unknown0x37
-            | Opcode::Unknown0x39
-            | Opcode::Unknown0x3A
-            | Opcode::Unknown0x3B
             | Opcode::PushFromOutput
             | Opcode::PopOutputMat4
             | Opcode::PopTextureView
-            | Opcode::Unknown0x48
-            | Opcode::Unknown0x4D
             | Opcode::PushGlobalChannelVector
             | Opcode::PushConstVec4
             | Opcode::LerpConstant
             | Opcode::Spline8Const
             | Opcode::Permute
             | Opcode::PopUav
-            | Opcode::Unknown0x4B
-            | Opcode::Unknown0x4F => 2,
+            | Opcode::PushTexDimensions
+            | Opcode::PushTexTilingParams
+            | Opcode::LerpConstantSaturated
+            | Opcode::Spline4Const
+            | Opcode::Spline8ChainConst
+            | Opcode::Gradient4Const
+            | Opcode::PushTexTileLayerCount => 2,
 
             Opcode::PushExternInputFloat
             | Opcode::PushExternInputVec4
@@ -191,7 +217,19 @@ impl Opcode {
             | Opcode::PushExternInputU32
             | Opcode::PushExternInputUav => 3,
 
+            Opcode::PushObjectChannelVector => 5,
+
             Opcode::ExtReturn => 1,
+
+            // Unknowns
+            Opcode::Unk42
+            | Opcode::Unk51
+            | Opcode::Unk55
+            | Opcode::Unk56
+            | Opcode::Unk57
+            | Opcode::Unk58 => 1,
+
+            Opcode::Unk3b | Opcode::Unk49 | Opcode::Unk4c | Opcode::Unk50 => 2,
         }
     }
 }

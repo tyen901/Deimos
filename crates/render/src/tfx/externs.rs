@@ -313,11 +313,11 @@ extern_struct! {
         0x160 => unk160: Vec4,
         0x170 => unk170: Vec4,
         0x180 => unk180: Vec4,
-        0x190 => unk190: f32,
-        0x194 => unk194: f32,
+        0x190 => unk190: Vec4,
         // When not zero, causes a weird noise pattern on cutout textures
-        0x1a0 => unk1a0: Vec4 > default(Vec4::W),
+        0x1A0 => unk1a0: Vec4 > default(Vec4::W),
         0x1B0 => unk1b0: Vec4 > default(Vec4::Z),
+        0x1C0 => unk1c0: Vec4 > default(Vec4::ZERO),
     }
 }
 

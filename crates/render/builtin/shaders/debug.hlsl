@@ -77,7 +77,7 @@ float4 mainPS(VSOutput input)
     float4 rt2 = gbuffer_third.Sample(samplerState, input.uv);
     float depth = deferred_depth.Sample(samplerState, input.uv).x;
     if (depth == 0)
-        return float4(0, 0, 0, 1.00f);
+        return float4(0.58, 0.78, 1, 1);
 
     // TODO after break: lil shading on the result, no biggie
     float3 albedo = rt0.rgb;

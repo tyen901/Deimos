@@ -2,12 +2,7 @@ use std::{path::PathBuf, rc::Rc, sync::Arc};
 
 use anyhow::Context;
 use app::App;
-use deimos_data::map::SBubbleParent;
-use deimos_render::tfx::expression_vm;
-use glam::Vec4;
-use tiger_parse::TigerReadable;
 use tiger_pkg::{PackageManager, TagHash};
-use tracing_subscriber::fmt::format::FmtSpan;
 
 mod app;
 mod input;
@@ -50,10 +45,6 @@ fn main() -> anyhow::Result<()> {
     );
     tiger_pkg::initialize(&pm);
 
-    // for (t, bubble) in pm.get_all_by_reference(SBubbleParent::ID.unwrap()) {
-    //     println!("Bubble {} ({})", t, pm.package_paths[&t.pkg_id()].filename);
-    // }
-
     let sdl_context = Rc::new(sdl3::init().expect("Failed to initialize SDL"));
     let video_subsystem = sdl_context
         .video()
@@ -70,7 +61,7 @@ fn main() -> anyhow::Result<()> {
 
     let map_marsh = TagHash(0x80A8C43F);
     let map_perimeter = TagHash(0x80A75EAC);
-    let mut app = App::new(sdl_context.clone(), window, map_perimeter)?;
+    let mut app = App::new(sdl_context.clone(), window, map_marsh)?;
 
     let mut event_pump = sdl_context.event_pump().unwrap();
     'app: loop {

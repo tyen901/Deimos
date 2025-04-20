@@ -543,20 +543,20 @@ impl<'a> InterpreterState<'a> {
                     self.stack_pointer -= 4;
                     cached_top = self.get(0)?;
                 }
-                Opcode::Unknown0x4D => {
-                    let channel = ptr[1];
-                    let val = match channel {
-                        0 => Vec4::ZERO, // Unsure, used as lerp paramter for warmind memories
-                        1 => self
-                            .object_channels
-                            .map(|c| c.position)
-                            .unwrap_or(Vec4::ZERO),
-                        _ => Vec4::ONE,
-                    };
+                // Opcode::Unknown0x4D => {
+                //     let channel = ptr[1];
+                //     let val = match channel {
+                //         0 => Vec4::ZERO, // Unsure, used as lerp paramter for warmind memories
+                //         1 => self
+                //             .object_channels
+                //             .map(|c| c.position)
+                //             .unwrap_or(Vec4::ZERO),
+                //         _ => Vec4::ONE,
+                //     };
 
-                    cached_top = self.push(val)?;
-                }
-                Opcode::Unknown0x3A | Opcode::PushGlobalChannelVector => {
+                //     cached_top = self.push(val)?;
+                // }
+                Opcode::Unk50 | Opcode::PushGlobalChannelVector => {
                     let channel = ptr[1];
                     // Direct indexing is safe here, as globals is 256 elements long
                     let val = Renderer::instance().externs.globals[channel as usize];

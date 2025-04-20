@@ -389,11 +389,11 @@ impl<'a> DecompilerState<'a> {
                     self.stack_pointer -= 1;
                     cached_top = self.get(0)?;
                 }
-                Opcode::Unknown0x4D => {
-                    let channel = ptr[1];
-                    cached_top = self.push(format!("object_channels[{channel}]"))?;
+                Opcode::PushObjectChannelVector => {
+                    let channel = u32::from_be_bytes([ptr[1], ptr[2], ptr[3], ptr[4]]);
+                    cached_top = self.push(format!("object_channels[{channel:08X}]"))?;
                 }
-                Opcode::Unknown0x3A | Opcode::PushGlobalChannelVector => {
+                Opcode::PushGlobalChannelVector => {
                     let channel = ptr[1];
                     cached_top = self.push(format!("global_channels[{channel}]"))?;
                 }
