@@ -10,18 +10,19 @@ use deimos_data::{
     tfx::{
         features::{
             dynamic::{RenderStageSubscription, SDynamicMeshMaterialVariants},
-            statics::{SStaticInstanceTransform, SStaticMesh, SStaticSpecialMesh},
+            statics::{SStaticInstanceTransform, SStaticMesh, SStaticSpecialMesh, SUnk808082D5},
         },
         RenderStage, TfxFeatureRenderer,
     },
 };
 use glam::{Mat4, Quat, Vec3, Vec4, Vec4Swizzles};
+use itertools::Itertools;
 use tiger_parse::{Endian, PackageManagerExt, TigerReadable};
 use tiger_pkg::package_manager;
 use tiger_pkg::TagHash;
 
 use crate::{
-    asset::Handle,
+    asset::{vertex_buffer::VertexBuffer, Handle},
     gpu::{cbuffer::ConstantBuffer, command_list::CommandList, ShaderStage},
     object::{RenderObject, RenderObjectHandle},
     tfx::{packet::CompactTransform, technique::Technique},
@@ -111,7 +112,8 @@ impl StaticModel {
 }
 
 pub struct StaticInstancesRenderer {
-    cbuffer: ConstantBuffer<u8>,
+    instance_buffer: ConstantBuffer<u8>,
+    instance_id_buffer: VertexBuffer,
     model: StaticModel,
     transforms: Vec<SStaticInstanceTransform>,
     identifier: u64,
@@ -126,12 +128,23 @@ impl StaticInstancesRenderer {
         model_hash: TagHash,
         identifier: u64,
     ) -> anyhow::Result<Self> {
-        let cbuffer =
-            ConstantBuffer::create_array(gpu, transforms.len() * size_of::<Mat4>(), None)?;
+        let cbuffer = ConstantBuffer::create_raw(
+            gpu,
+            transforms.len() * size_of::<Mat4>() + 4 * size_of::<Vec4>(),
+        )?;
+
+        // Instance IDs dictate from where in the instance buffer to read the transform data. This is calculated as the ID * 0x40 (in bytes).
+        // In the past, the engine would skip the 32 bytes where the quantization information was stored, but the offset must now be an exact multiple of 0x40 bytes.
+        // cb0[0].x dictates where the quantization information is stored. For now I've opted to just skip the first instance and use that slot for the quantization information.
+        let instance_ids = (0..transforms.len() as u32).map(|i| i + 1).collect_vec();
+
+        let instance_id_buffer =
+            VertexBuffer::load_data(gpu, bytemuck::cast_slice(&instance_ids), 4)?;
 
         trace!(instances = transforms.len(), model_hash=%model_hash, "Loading model");
         Ok(Self {
-            cbuffer,
+            instance_buffer: cbuffer,
+            instance_id_buffer,
             model: StaticModel::load(model_hash)?,
             transforms: transforms.to_vec(),
             identifier,
@@ -141,7 +154,7 @@ impl StaticInstancesRenderer {
 
     #[profiling::function]
     pub fn render(&self, cmd: &mut CommandList, stage: RenderStage) {
-        self.cbuffer.bind(&cmd, ShaderStage::Vertex, 11);
+        self.instance_buffer.bind(cmd, ShaderStage::Vertex, 2);
 
         let opaque_meshes = &self.model.model.opaque_meshes;
         for (i, group) in opaque_meshes
@@ -159,6 +172,7 @@ impl StaticInstancesRenderer {
             if buffers.bind(cmd).is_none() {
                 continue;
             }
+            self.instance_id_buffer.bind_single(cmd, 2);
 
             if let Some(technique) = &self.model.materials.get(i).and_then(Handle::get) {
                 technique.bind(cmd);
@@ -228,6 +242,9 @@ impl StaticInstancesRenderer {
             ]))
             .unwrap();
 
+        // Quantization block padding
+        buffer.write_all(&[0u8; 32]).unwrap();
+
         // let model_transform = Mat4::from_cols_array_2d(&[
         //     [model.mesh_scale, 0.0, 0.0, model.mesh_offset.x],
         //     [0.0, model.mesh_scale, 0.0, model.mesh_offset.y],
@@ -236,13 +253,14 @@ impl StaticInstancesRenderer {
         // ]);
         for transform in &self.transforms {
             let instance_transform = Mat4::from_scale_rotation_translation(
-                transform.scale,
+                Vec3::splat(transform.scale),
                 transform.rotation,
                 transform.translation,
             )
             .transpose();
+            // let instance_transform = Mat4::IDENTITY;
 
-            let matrix = instance_transform;
+            // let matrix = instance_transform;
             // let vertex_ao_offset = if let Some(vao_base) = vao_base {
             //     transform.vertex_ao_offset + vao_base
             // } else {
@@ -251,9 +269,9 @@ impl StaticInstancesRenderer {
 
             buffer
                 .write_all(bytemuck::cast_slice(&[
-                    matrix.x_axis,
-                    matrix.y_axis,
-                    matrix.z_axis,
+                    instance_transform.x_axis,
+                    instance_transform.y_axis,
+                    instance_transform.z_axis,
                     Vec4::new(
                         1.0,
                         1.0,
@@ -272,7 +290,7 @@ impl StaticInstancesRenderer {
         }
 
         unsafe {
-            self.cbuffer.write_array(ctx, &buffer).unwrap();
+            self.instance_buffer.write_array(ctx, &buffer).unwrap();
         }
     }
 }
@@ -304,25 +322,25 @@ pub fn load_static_map(taghash: TagHash) -> anyhow::Result<StaticMapTemp> {
             for node in datatable.data_entries {
                 if let Some(ref resource) = *node.data_resource {
                     match resource {
-                        // MapNodeResource::SStaticInstancesCollectionComponent(c) => {
-                        //     let instances: S80806EF4 =
-                        //         package_manager().read_tag_struct(c.instances)?;
+                        MapNodeResource::SStaticInstancesCollectionComponent(c) => {
+                            let instances: SUnk808082D5 =
+                                package_manager().read_tag_struct(c.instances)?;
 
-                        //     for group in &instances.instances.instance_groups {
-                        //         let model =
-                        //             instances.instances.statics[group.static_index as usize];
-                        //         let range = (group.instance_start as usize)
-                        //             ..(group.instance_start + group.instance_count) as usize;
+                            for group in &instances.instances.instance_groups {
+                                let model =
+                                    instances.instances.statics[group.static_index as usize];
+                                let range = (group.instance_start as usize)
+                                    ..(group.instance_start + group.instance_count) as usize;
 
-                        //         let renderer = StaticInstancesRenderer::new(
-                        //             &gpu,
-                        //             &instances.instances.transforms[range],
-                        //             model,
-                        //             instances.instances.vertex_ao_identifier,
-                        //         )?;
-                        //         map.models.push(renderer);
-                        //     }
-                        // }
+                                let renderer = StaticInstancesRenderer::new(
+                                    &gpu,
+                                    &instances.instances.transforms[range],
+                                    model,
+                                    instances.instances.vertex_ao_identifier,
+                                )?;
+                                map.models.push(renderer);
+                            }
+                        }
                         MapNodeResource::SStaticTerrainPatchesComponent(terrain) => {
                             let renderer = TerrainPatchesRenderer::load(
                                 &gpu,

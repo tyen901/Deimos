@@ -566,7 +566,7 @@ dependencies = [
 [[package]]
 name = "d3d11"
 version = "0.1.0"
-source = "git+https://github.com/cohaereo/d3d11-rs.git#81fc58f2b2114646e85b1b814e0682827e1a3943"
+source = "git+https://github.com/cohaereo/d3d11-rs.git#000204865a57091d535e51702db889495a367aeb"
 dependencies = [
  "bitflags 2.9.0",
  "bon",
@@ -579,7 +579,7 @@ dependencies = [
 [[package]]
 name = "d3d11-sys"
 version = "0.1.0"
-source = "git+https://github.com/cohaereo/d3d11-rs.git#81fc58f2b2114646e85b1b814e0682827e1a3943"
+source = "git+https://github.com/cohaereo/d3d11-rs.git#000204865a57091d535e51702db889495a367aeb"
 dependencies = [
  "windows-core",
  "windows-targets 0.52.6",
@@ -1224,7 +1224,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc2f4eb4bc735547cfed7c0a4922cbd04a4655978c09b54f1f7b228750664c34"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]

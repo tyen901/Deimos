@@ -48,6 +48,13 @@ impl App {
                 Box::new(()),
             )));
         }
+        for s in map.models {
+            static_render_objects.push(renderer.add_object(RenderObject::new(
+                TfxFeatureRenderer::StaticObjects,
+                Box::new(s),
+                Box::new(()),
+            )));
+        }
 
         Ok(Self {
             input: MouseKeyboardState::new(sdl.clone(), window.clone()),

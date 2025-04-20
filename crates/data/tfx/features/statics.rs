@@ -7,7 +7,7 @@ use crate::{
 };
 
 #[derive(Debug)]
-#[tiger_tag(id = 0x80806D44)]
+#[tiger_tag(id = 0x80808635)]
 pub struct SStaticMesh {
     pub file_size: u64,
     /// GenerateGbuffer/DepthPrepass/ShadowGenerate
@@ -23,7 +23,7 @@ pub struct SStaticMesh {
 }
 
 #[derive(Debug)]
-#[tiger_tag(id = 0x80806D30, size = 0x60)]
+#[tiger_tag(id = 0x80808620, size = 0x60)]
 pub struct SStaticMeshData {
     pub file_size: u64,
     pub mesh_groups: Vec<SStaticMeshGroup>,
@@ -40,7 +40,7 @@ pub struct SStaticMeshData {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_tag(id = 0x80806D37)]
+#[tiger_tag(id = 0x80808627)]
 pub struct SStaticMeshPart {
     pub index_start: u32,
     pub index_count: u32,
@@ -51,7 +51,7 @@ pub struct SStaticMeshPart {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_tag(id = 0x80806D38)]
+#[tiger_tag(id = 0x80808628)]
 pub struct SStaticMeshGroup {
     pub part_index: u16,
     pub render_stage: RenderStage,
@@ -64,7 +64,7 @@ pub struct SStaticMeshGroup {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_tag(id = 0x808093AD, size = 0x98)]
+#[tiger_tag(id = 0x8080A7F1, size = 0x98)]
 pub struct SStaticMeshInstances {
     // #[tag(offset = 0x18)]
     // pub occlusion_bounds: Tag<SOcclusionBounds>,
@@ -74,45 +74,57 @@ pub struct SStaticMeshInstances {
     pub unk58: [u64; 4],
     pub statics: Vec<TagHash>,
     pub instance_groups: Vec<SStaticMeshInstanceGroup>,
-    pub unk98: [u32; 2],
+    pub vertex_ao_identifier: u64,
     pub bounds: AxisAlignedBBox,
 }
 
 #[derive(Debug, Clone)]
-#[tiger_tag(id = 0x80806D28)]
+#[tiger_tag(id = 0x80808618)]
 pub struct SStaticMeshInstanceGroup {
-    pub instance_count: u16,
-    pub instance_start: u16,
-    pub static_index: u16,
-    pub unk6: u16,
+    pub instance_start: u32,
+    pub instance_count: u32,
+    pub static_index: u32,
+    pub unk6: u32,
 }
 
 #[derive(Debug, Clone)]
-#[tiger_tag(id = 0x80806D40)]
+#[tiger_tag(id = 0x8080862F)]
 pub struct SStaticInstanceTransform {
     pub rotation: glam::Quat,
     pub translation: glam::Vec3,
-    pub scale: glam::Vec3,
-    pub unk28: u32,
-    pub unk2c: u32,
+    pub scale: f32,
+
+    pub unk20: [u32; 4],
     pub unk30: [u32; 4],
+    pub unk40: [u32; 4],
+    pub unk50: [u32; 4],
+    // pub unk28: u32,
+    // pub unk2c: u32,
+    // pub unk30: [u32; 4],
 }
 
 #[derive(Debug, Clone)]
-#[tiger_tag(id = 0x80806D2F)]
+#[tiger_tag(id = 0x8080861F)]
 pub struct SStaticSpecialMesh {
     pub render_stage: RenderStage,
     pub input_layout_index: u8,
     pub lod: LodCategory,
-    pub unk3: i8,
     pub primitive_type: PrimitiveType,
-    pub unk5: u8,
-    pub unk6: u16,
+
+    // 0x4
     pub index_buffer: TagHash,
     pub vertex0_buffer: TagHash,
     pub vertex1_buffer: TagHash,
+    // 0x10
     pub color_buffer: TagHash,
     pub index_start: u32,
     pub index_count: u32,
     pub technique: TagHash,
+}
+
+#[derive(Debug)]
+#[tiger_tag(id = 0x808082D5, size = 0x24)]
+pub struct SUnk808082D5 {
+    pub unk0: u64,
+    pub instances: Tag<SStaticMeshInstances>,
 }

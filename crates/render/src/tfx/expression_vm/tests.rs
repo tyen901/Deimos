@@ -5,7 +5,7 @@ use crate::tfx::expression_vm::interpreter::InterpreterState;
 use super::opcodes::Opcode;
 
 fn test_setup() -> (d3d11::Device, d3d11::DeviceContext) {
-    let device = d3d11::Device::create(None).expect("Failed to create device");
+    let device = d3d11::Device::create(None, false).expect("Failed to create device");
     let context = device.get_immediate_context();
     (device, context)
 }

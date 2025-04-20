@@ -60,7 +60,8 @@ pub struct SMapNodeEntry {
 tiger_variant_enum! {
     [Unknown(true)]
     enum MapNodeResource {
-        SStaticTerrainPatchesComponent
+        SStaticTerrainPatchesComponent,
+        SStaticInstancesCollectionComponent
     }
 }
 
@@ -69,10 +70,10 @@ tiger_variant_enum! {
 //     pub ao: Tag<SStaticAmbientOcclusion>,
 // }
 
-// #[tiger_tag(id = 0x808071B3)]
-// pub struct SStaticInstancesCollectionComponent {
-//     pub instances: TagHash,
-// }
+#[tiger_tag(id = 0x808085B0)]
+pub struct SStaticInstancesCollectionComponent {
+    pub instances: TagHash,
+}
 
 // #[tiger_tag(id = 0x80806F91)]
 // pub struct SSkyObjectCollectionComponent {

@@ -326,12 +326,14 @@ extern_struct! {
         0x00 => target_width: f32,
         0x04 => target_height: f32,
         0x10 => unk10: Vec4 > default(Vec4::ZERO),
-        0x10 => view_miscellaneous: Vec4 > default(Vec4::ZERO),
         0x20 => position: Vec4,
+        0x30 => view_miscellaneous: Vec4 > default(Vec4::ZERO),
         // TODO(cohae): Used for shadow generation it seems
-        0x30 => unk30: Vec4 > default(Vec4::ZERO),
+        0x40 => unk40: Vec4 > default(Vec4::ZERO),
+        0x50 => unk50: Vec4,
         // TODO: the void here is added with Marathon, need to figure out what goes here
 
+        0xA0 => camera_to_projective: Mat4,
         0xE0 => camera_to_world: Mat4,
         0x120 => unk120: Mat4,
         0x160 => unk160: Mat4,
@@ -340,7 +342,7 @@ extern_struct! {
 
         // Bungie fucked a good portion of this extern with Marathon, everything prefixed with 0x8_ here needs to be figured out again
         0x8_60 => world_to_camera: Mat4,
-        0x8_A0 => camera_to_projective: Mat4,
+        // 0x8_A0 => camera_to_projective: Mat4,
         // 0x8_E0 => camera_to_world: Mat4,
         0x8_120 => projective_to_camera: Mat4,
         // 0x8_160 => world_to_projective: Mat4,
@@ -388,12 +390,16 @@ impl View {
                 1. / view_height as f32,
                 1.0,
             ));
+
         self.camera_to_world = self.world_to_camera.inverse();
         self.world_to_projective = self.camera_to_projective * self.world_to_camera;
         self.projective_to_world = self.world_to_projective.inverse();
         self.projective_to_camera = self.camera_to_projective.inverse();
         self.target_pixel_to_camera = self.projective_to_camera * target_pixel_to_projective;
         self.target_pixel_to_world = self.camera_to_world * self.target_pixel_to_camera;
+
+        self.position = self.camera_to_world.w_axis;
+        self.unk40 = Vec4::Z - self.world_to_projective.w_axis;
 
         self.unk220 = self.projective_to_world * Self::VIEWSPACE_UNORM_TO_SNORM;
 
@@ -413,7 +419,7 @@ impl View {
     }
 
     pub fn position(&self) -> Vec3 {
-        self.camera_to_world.w_axis.xyz()
+        self.position.xyz()
     }
 }
 

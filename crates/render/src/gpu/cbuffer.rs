@@ -1,12 +1,19 @@
 use std::marker::PhantomData;
 
 use anyhow::Context;
-use d3d11::{BindFlags, BufferDesc, CpuAccessFlags, SubresourceMapGuard, Usage};
+use d3d11::{
+    dxgi,
+    srv::{SrvBufferExFlags, SrvDimension},
+    BindFlags, BufferDesc, CpuAccessFlags, ResourceMiscFlags, ShaderResourceViewDesc,
+    SubresourceMapGuard, Usage,
+};
 
 use super::{Gpu, ShaderStage};
 
 pub struct ConstantBuffer<T: Sized> {
     buffer: d3d11::Buffer,
+    /// SRVs for use with raw byte buffers
+    srv: Option<d3d11::ShaderResourceView>,
     size: usize,
     _marker: PhantomData<T>,
 }
@@ -32,6 +39,7 @@ impl<T> ConstantBuffer<T> {
 
         Ok(Self {
             buffer,
+            srv: None,
             size: size_aligned,
             _marker: Default::default(),
         })
@@ -72,6 +80,41 @@ impl<T> ConstantBuffer<T> {
         Ok(Self {
             buffer,
             size: size_aligned,
+            srv: None,
+            _marker: Default::default(),
+        })
+    }
+
+    pub fn create_raw(gpu: &Gpu, size: usize) -> anyhow::Result<Self> {
+        let size_aligned = (size + 15) & !15;
+
+        let buffer = gpu.create_buffer(
+            &BufferDesc::builder()
+                .usage(Usage::Dynamic)
+                .bind_flags(BindFlags::SHADER_RESOURCE)
+                .misc_flags(ResourceMiscFlags::BUFFER_ALLOW_RAW_VIEWS)
+                .cpu_access_flags(CpuAccessFlags::WRITE)
+                .byte_width(size_aligned as u32)
+                .build(),
+            None,
+        )?;
+
+        let srv = gpu.create_shader_resource_view(
+            &buffer,
+            &ShaderResourceViewDesc::builder()
+                .format(dxgi::Format::R32Typeless)
+                .view_dimension(SrvDimension::BufferEx {
+                    first_element: 0,
+                    num_elements: (size_aligned / 4) as u32,
+                    flags: SrvBufferExFlags::RAW,
+                })
+                .build(),
+        )?;
+
+        Ok(Self {
+            buffer,
+            size: size_aligned,
+            srv: Some(srv),
             _marker: Default::default(),
         })
     }
@@ -134,6 +177,27 @@ impl<T> ConstantBuffer<T> {
     }
 
     pub fn bind(&self, context: &d3d11::DeviceContext, stage: ShaderStage, slot: u32) {
+        if self.srv.is_some() {
+            self.bind_srv(context, stage, slot);
+        } else {
+            self.bind_cbuffer(context, stage, slot);
+        }
+    }
+
+    fn bind_srv(&self, context: &d3d11::DeviceContext, stage: ShaderStage, slot: u32) {
+        match stage {
+            ShaderStage::Vertex => context.vertex_set_shader_resources(slot, &[self.srv.clone()]),
+            ShaderStage::Pixel => context.pixel_set_shader_resources(slot, &[self.srv.clone()]),
+            ShaderStage::Domain => context.domain_set_shader_resources(slot, &[self.srv.clone()]),
+            ShaderStage::Hull => context.hull_set_shader_resources(slot, &[self.srv.clone()]),
+            ShaderStage::Geometry => {
+                context.geometry_set_shader_resources(slot, &[self.srv.clone()])
+            }
+            ShaderStage::Compute => context.compute_set_shader_resources(slot, &[self.srv.clone()]),
+        }
+    }
+
+    fn bind_cbuffer(&self, context: &d3d11::DeviceContext, stage: ShaderStage, slot: u32) {
         match stage {
             ShaderStage::Vertex => {
                 context.vertex_set_constant_buffers(slot, &[Some(self.buffer.clone())])

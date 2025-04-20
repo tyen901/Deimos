@@ -22,7 +22,7 @@ use crate::{
     gpu::{cbuffer::ConstantBuffer, debug_text::DebugTextRenderer},
     object::{RenderObject, RenderObjectHandle},
     tfx::{externs::Externs, packet::FramePacket, scope::TempFrameScope},
-    util::{arena::Arena, threading::ThreadMutCell},
+    util::{arena::Arena, is_renderdoc_connected, threading::ThreadMutCell},
     Gpu,
 };
 
@@ -73,7 +73,7 @@ impl Renderer {
     pub fn new(gpu: Arc<Gpu>, swapchain_resolution: (u32, u32)) -> anyhow::Result<Self> {
         ConVars::register("render.sky", true);
         ConVars::register("render.global_lighting", false);
-        ConVars::register("render.threaded_submit", true);
+        ConVars::register("render.threaded_submit", !is_renderdoc_connected());
         ConVars::register("render.patch_light_shader", false);
         ConVars::register("render.vertex_ao_workaround", true);
         ConVars::register("render.vao_buffer", false);
