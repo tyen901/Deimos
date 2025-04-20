@@ -1,7 +1,7 @@
 > [!WARNING]
 > ## Deimos is a work in progress tool. Don't expect everything to work yet
 
-![Deimos](./assets/deimos.png)
+<img src="https://raw.githubusercontent.com/cohaereo/Deimos/refs/heads/main/assets/deimos.png" width=300 height=300>
 
 # Deimos - the Marathon tool that does everything
 
