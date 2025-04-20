@@ -18,6 +18,7 @@ extern crate tracing;
 const MARATHON_APP_ID: u64 = 3547690;
 
 fn main() -> anyhow::Result<()> {
+    fix_windows_console();
     std::panic::set_hook(Box::new(panic_hook::hook));
     tracing_subscriber::fmt()
         .pretty()
@@ -86,4 +87,29 @@ fn main() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+fn fix_windows_console() {
+    #[cfg(target_os = "windows")]
+    {
+        pub type Handle = *mut std::ffi::c_void;
+
+        extern "C" {
+            fn SetConsoleMode(handle: Handle, mode: u32) -> i32;
+            fn GetStdHandle(handle: u32) -> Handle;
+        }
+
+        const STD_OUTPUT_HANDLE: u32 = -11i32 as u32;
+        const ENABLE_PROCESSED_OUTPUT: u32 = 1u32;
+        const ENABLE_VIRTUAL_TERMINAL_PROCESSING: u32 = 4u32;
+        unsafe {
+            let stdout = GetStdHandle(STD_OUTPUT_HANDLE);
+            if !stdout.is_null() {
+                SetConsoleMode(
+                    stdout,
+                    ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING,
+                );
+            }
+        }
+    }
 }
