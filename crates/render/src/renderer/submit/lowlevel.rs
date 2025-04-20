@@ -1,10 +1,9 @@
-use std::time::Duration;
-use std::{sync::Arc, thread::JoinHandle};
+use std::thread::JoinHandle;
 
-use crossbeam::channel::{unbounded, Sender};
+use crossbeam::channel::{unbounded, Receiver, Sender};
 use deimos_core::convar::ConVars;
 use deimos_data::tfx::{FeatureRendererSubscription, RenderStage};
-use parking_lot::{Condvar, Mutex};
+use parking_lot::RwLock;
 
 use crate::gpu::command_list::CommandList;
 use crate::gpu::state::GpuState;
@@ -88,15 +87,37 @@ impl Renderer {
             jobs.push(j);
         }
 
-        for j in jobs {
-            if let Some(command_list) = self.submit_jobs.await_job(j) {
-                // We only need to restore state on the last job
-                profiling::scope!("execute_command_list", &format!("job={:?}", j));
-                cmd.execute_command_list(&command_list.finish_command_list(false).unwrap(), false);
-            } else {
-                error!("Submit job {j:?} got dropped?");
+        let mut resolved = vec![];
+        loop {
+            for j in &jobs {
+                if let Some(command_list) = self.submit_jobs.poll_job(*j) {
+                    // We only need to restore state on the last job
+                    profiling::scope!("execute_command_list", &format!("job={:?}", j));
+                    cmd.execute_command_list(
+                        &command_list.finish_command_list(false).unwrap(),
+                        false,
+                    );
+
+                    resolved.push(j);
+                }
             }
+
+            if resolved.len() == jobs.len() {
+                break;
+            }
+
+            // std::thread::yield_now();
         }
+
+        // for j in jobs {
+        //     if let Some(command_list) = self.submit_jobs.await_job(j) {
+        //         // We only need to restore state on the last job
+        //         profiling::scope!("execute_command_list", &format!("job={:?}", j));
+        //         cmd.execute_command_list(&command_list.finish_command_list(false).unwrap(), false);
+        //     } else {
+        //         error!("Submit job {j:?} got dropped?");
+        //     }
+        // }
 
         gpu_state.restore(cmd);
     }
@@ -109,7 +130,7 @@ pub struct SubmitJobDesc {
     pub index: usize,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct SubmitJobId(usize);
 
 pub struct JobResult {
@@ -118,28 +139,26 @@ pub struct JobResult {
 
 pub struct SubmitJobManager {
     next_job_id: AtomicUsize,
-    jobs: Arc<Mutex<HashMap<usize, Option<JobResult>>>>,
-    condvar: Arc<Condvar>,
-    sender: Sender<(usize, SubmitJobDesc)>,
+    pending_jobs: RwLock<HashMap<SubmitJobId, Option<JobResult>>>,
+    result_rx: Receiver<(SubmitJobId, JobResult)>,
+    job_tx: Sender<(SubmitJobId, SubmitJobDesc)>,
     thread_handles: Vec<JoinHandle<()>>,
 }
 
 impl SubmitJobManager {
     pub fn new(thread_count: usize) -> Self {
-        let (sender, receiver) = unbounded();
-        let jobs = Arc::new(Mutex::new(HashMap::new()));
-        let condvar = Arc::new(Condvar::new());
+        let (job_tx, job_rx) = unbounded();
+        let (result_tx, result_rx) = unbounded();
         let mut thread_handles = Vec::new();
 
         for i in 0..thread_count {
-            let receiver = receiver.clone();
-            let jobs = jobs.clone();
-            let condvar = condvar.clone();
+            let job_rx = job_rx.clone();
+            let result_tx = result_tx.clone();
 
             let handle = std::thread::Builder::new()
                 .name(format!("render_submit_{i}"))
                 .spawn(move || {
-                    while let Ok((job_id, job_desc)) = receiver.recv() {
+                    while let Ok((job_id, job_desc)) = job_rx.recv() {
                         let SubmitJobDesc {
                             node_range,
                             stage,
@@ -149,7 +168,7 @@ impl SubmitJobManager {
                         let _ = index;
                         profiling::scope!(
                             "threaded_submit_job",
-                            &format!("job_id={job_id} index={index} stage={stage:?}")
+                            &format!("job_id={job_id:?} index={index} stage={stage:?}")
                         );
 
                         let renderer = Renderer::instance();
@@ -160,9 +179,7 @@ impl SubmitJobManager {
                             FeatureRendererSubscription::all(),
                         );
 
-                        let mut jobs = jobs.lock();
-                        jobs.insert(job_id, Some(JobResult { cmd }));
-                        condvar.notify_all();
+                        result_tx.send((job_id, JobResult { cmd })).unwrap();
                     }
                 })
                 .expect("Failed to spawn submit thread");
@@ -172,46 +189,74 @@ impl SubmitJobManager {
 
         Self {
             next_job_id: AtomicUsize::new(0),
-            jobs,
-            condvar,
-            sender,
+            job_tx,
+            result_rx,
+            pending_jobs: RwLock::new(HashMap::new()),
             thread_handles,
         }
     }
 
     pub fn submit_job(&self, job_desc: SubmitJobDesc) -> SubmitJobId {
-        let job_id = self.next_job_id.fetch_add(1, Ordering::SeqCst);
-        self.jobs.lock().insert(job_id, None);
-        self.sender.send((job_id, job_desc)).unwrap();
-        SubmitJobId(job_id)
+        let job_id = SubmitJobId(self.next_job_id.fetch_add(1, Ordering::SeqCst));
+        self.pending_jobs.write().insert(job_id, None);
+        self.job_tx.send((job_id, job_desc)).unwrap();
+        job_id
     }
 
-    pub fn await_job(&self, job_id: SubmitJobId) -> Option<CommandList> {
-        let mut jobs = self.jobs.lock();
-        if !jobs.contains_key(&job_id.0) {
+    fn collect_jobs(&self) {
+        if self.result_rx.is_empty() {
+            return;
+        }
+
+        let mut pending_jobs = self.pending_jobs.write();
+        for (job_id, result) in self.result_rx.try_iter() {
+            pending_jobs.insert(job_id, Some(result));
+        }
+    }
+
+    // pub fn await_job(&self, job_id: SubmitJobId) -> Option<CommandList> {
+    //     let mut jobs = self.jobs.write();
+    //     if !jobs.contains_key(&job_id.0) {
+    //         // Job id doesn't exist or has already been awaited
+    //         return None;
+    //     }
+
+    //     loop {
+    //         if self.thread_handles.iter().any(|c| c.is_finished()) {
+    //             panic!("Submission thread died");
+    //         }
+
+    //         // Check if the job has been completed, if not, skip to the next iteration
+    //         if jobs.get(&job_id.0).unwrap().is_some() {
+    //             let res = jobs.remove(&job_id.0).unwrap().unwrap();
+    //             return Some(res.cmd);
+    //         }
+    //         // self.condvar.wait_for(&mut jobs, Duration::from_millis(100));
+    //     }
+    // }
+
+    pub fn poll_job(&self, job_id: SubmitJobId) -> Option<CommandList> {
+        self.collect_jobs();
+
+        let jobs_read = self.pending_jobs.read();
+        if !jobs_read.contains_key(&job_id) {
             // Job id doesn't exist or has already been awaited
             return None;
         }
 
-        loop {
-            if self.thread_handles.iter().any(|c| c.is_finished()) {
-                panic!("Submission thread died");
-            }
-
-            // Check if the job has been completed, if not, skip to the next iteration
-            if jobs.get(&job_id.0).unwrap().is_some() {
-                let res = jobs.remove(&job_id.0).unwrap().unwrap();
-                return Some(res.cmd);
-            }
-            self.condvar.wait_for(&mut jobs, Duration::from_millis(100));
+        if jobs_read.get(&job_id).unwrap().is_some() {
+            drop(jobs_read);
+            let res = self.pending_jobs.write().remove(&job_id).unwrap().unwrap();
+            return Some(res.cmd);
         }
+        None
     }
 }
 
 impl Drop for SubmitJobManager {
     fn drop(&mut self) {
-        // Replace the sender with a dummy sender to signal the threads to exit
-        self.sender = unbounded().0;
+        // Replace the sender with a dummy sender to signal the threads to exit by dropping the channel
+        self.job_tx = unbounded().0;
         for handle in self.thread_handles.drain(..) {
             handle.join().expect("Failed to join thread");
         }

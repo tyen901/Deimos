@@ -39,7 +39,7 @@ impl Renderer {
             self.gbuffers
                 .depth_proxy
                 .lock()
-                .update(&cmd, self.surfaces.get(self.gbuffers.depth));
+                .update(cmd, self.surfaces.get(self.gbuffers.depth));
 
             self.surfaces
                 .copy(cmd, self.gbuffers.normal, self.gbuffers.normal_read);

@@ -268,7 +268,7 @@ pub enum DepthMode {
 #[macro_export]
 macro_rules! cmd_event_span {
     ($cmd:ident, $name:expr) => {
-        profiling::scope!($name);
+        profiling::scope!(&format!("cmd-{}", $name));
         let _gpu_span = $cmd.begin_event_span($name);
     };
 }
