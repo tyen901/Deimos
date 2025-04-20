@@ -118,6 +118,7 @@ pub struct StaticInstancesRenderer {
     model: StaticModel,
     visible_instance_ids: Vec<u32>,
     transforms: Vec<(SStaticInstanceTransform, AxisAlignedBBox)>,
+    bounds: AxisAlignedBBox,
     identifier: u64,
 
     constants_dirty: bool,
@@ -148,6 +149,7 @@ impl StaticInstancesRenderer {
             instance_buffer: cbuffer,
             instance_id_buffer,
             model: StaticModel::load(model_hash)?,
+            bounds: transforms.iter().map(|(_, b)| b.clone()).sum(),
             visible_instance_ids,
             transforms,
             identifier,
@@ -576,6 +578,10 @@ pub fn load_static_map(taghash: TagHash) -> anyhow::Result<StaticMapTemp> {
 
 impl FeatureRenderer for StaticInstancesRenderer {
     fn visibility_test(&mut self, frustum: &crate::visibility::frustum::Frustum) -> bool {
+        if !frustum.aabb_intersecting(&self.bounds) {
+            return false;
+        }
+
         self.visible_instance_ids.clear();
         for (i, (_, b)) in self.transforms.iter().enumerate() {
             if frustum.aabb_intersecting(b) {
