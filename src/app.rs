@@ -151,7 +151,10 @@ impl App {
         if self.input.is_key_down(Keycode::D) {
             movement += self.camera.right();
         }
-        if self.input.is_key_down(Keycode::Space) {
+        if self.input.is_key_down(Keycode::Q) {
+            movement -= self.camera.up();
+        }
+        if self.input.is_key_down(Keycode::E) {
             movement += self.camera.up();
         }
         movement = movement.normalize_or(Vec3::ZERO);
@@ -159,6 +162,9 @@ impl App {
             movement /= 5.0;
         }
         if self.input.is_key_down(Keycode::LShift) {
+            movement *= 2.0;
+        }
+        if self.input.is_key_down(Keycode::Space) {
             movement *= 2.5;
         }
 
