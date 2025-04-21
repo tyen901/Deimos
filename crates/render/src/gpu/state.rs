@@ -13,7 +13,7 @@ pub struct GpuState {
 
     state_vs: GpuStageState,
     state_ps: GpuStageState,
-    state_cs: GpuStageState,
+    // state_cs: GpuStageState,
     viewports: [d3d11::Viewport; 8],
     rtvs: [Option<d3d11::RenderTargetView>; 8],
     dsv: Option<d3d11::DepthStencilView>,
@@ -23,7 +23,7 @@ pub struct GpuState {
 struct GpuStageState {
     cbuffers: [Option<d3d11::Buffer>; d3d11::DeviceContext::CONSTANT_BUFFER_SLOT_COUNT],
     samplers: [Option<d3d11::SamplerState>; d3d11::DeviceContext::SAMPLER_SLOT_COUNT],
-    srvs: [Option<d3d11::ShaderResourceView>; d3d11::DeviceContext::SHADER_RESOURCE_SLOT_COUNT],
+    // srvs: [Option<d3d11::ShaderResourceView>; d3d11::DeviceContext::SHADER_RESOURCE_SLOT_COUNT],
 }
 
 impl GpuState {
@@ -41,18 +41,18 @@ impl GpuState {
             state_vs: GpuStageState {
                 cbuffers: cmd.vertex_get_constant_buffers(),
                 samplers: cmd.vertex_get_samplers(),
-                srvs: cmd.vertex_get_shader_resources(),
+                // srvs: cmd.vertex_get_shader_resources(),
             },
             state_ps: GpuStageState {
                 cbuffers: cmd.pixel_get_constant_buffers(),
                 samplers: cmd.pixel_get_samplers(),
-                srvs: cmd.pixel_get_shader_resources(),
+                // srvs: cmd.pixel_get_shader_resources(),
             },
-            state_cs: GpuStageState {
-                cbuffers: cmd.compute_get_constant_buffers(),
-                samplers: cmd.compute_get_samplers(),
-                srvs: cmd.compute_get_shader_resources(),
-            },
+            // state_cs: GpuStageState {
+            //     cbuffers: cmd.compute_get_constant_buffers(),
+            //     samplers: cmd.compute_get_samplers(),
+            //     srvs: cmd.compute_get_shader_resources(),
+            // },
             viewports: cmd.rasterizer_get_viewports(),
             rtvs,
             dsv,
@@ -68,15 +68,24 @@ impl GpuState {
         cmd.current_depth_bias = self.current_depth_bias;
         cmd.current_input_layout = self.current_input_layout;
         cmd.current_input_topology = self.current_input_topology;
-        cmd.vertex_set_constant_buffers(0, &self.state_vs.cbuffers);
-        cmd.vertex_set_samplers(0, &self.state_vs.samplers);
-        cmd.vertex_set_shader_resources(0, &self.state_vs.srvs);
-        cmd.pixel_set_constant_buffers(0, &self.state_ps.cbuffers);
-        cmd.pixel_set_samplers(0, &self.state_ps.samplers);
-        cmd.pixel_set_shader_resources(0, &self.state_ps.srvs);
-        cmd.compute_set_constant_buffers(0, &self.state_cs.cbuffers);
-        cmd.compute_set_samplers(0, &self.state_cs.samplers);
-        cmd.compute_set_shader_resources(0, &self.state_cs.srvs);
+        {
+            profiling::scope!("restore_vs");
+            cmd.vertex_set_constant_buffers(12, &self.state_vs.cbuffers[12..=13]);
+            cmd.vertex_set_samplers(0, &self.state_vs.samplers[0..1]);
+            // cmd.vertex_set_constant_buffers(0, &self.state_vs.cbuffers);
+            // cmd.vertex_set_samplers(0, &self.state_vs.samplers);
+            // cmd.vertex_set_shader_resources(0, &self.state_vs.srvs);
+        }
+
+        {
+            profiling::scope!("restore_ps");
+            cmd.pixel_set_constant_buffers(12, &self.state_ps.cbuffers[12..=13]);
+            cmd.pixel_set_samplers(0, &self.state_ps.samplers[0..1]);
+            // cmd.pixel_set_constant_buffers(0, &self.state_ps.cbuffers);
+            // cmd.pixel_set_samplers(0, &self.state_ps.samplers);
+            // cmd.pixel_set_shader_resources(0, &self.state_ps.srvs);
+        }
+
         cmd.rasterizer_set_viewports(&self.viewports);
         cmd.output_merger_set_render_targets(&self.rtvs, self.dsv.as_ref());
         cmd.flush_states();
