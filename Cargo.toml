@@ -59,6 +59,9 @@ nu-ansi-term = "0.50.1"
 native-dialog = "0.7.0"
 clap = { version = "4.5.37", features = ["derive"] }
 
+[build-dependencies]
+embed-resource = "3.0.1"
+
 [profile.dev.package.tiger-pkg]
 opt-level = 3
 
