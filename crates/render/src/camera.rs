@@ -1,5 +1,7 @@
 use glam::{Mat4, Quat, Vec3, Vec4};
 
+use crate::visibility::frustum::Frustum;
+
 // A simple camera controller (X forward, Z up)
 pub struct Camera {
     pub position: Vec3,
@@ -9,6 +11,7 @@ pub struct Camera {
     pub near: f32,
     pub far: f32,
     pub aspect_ratio: f32,
+    pub frustum: Frustum,
 }
 
 impl Default for Camera {
@@ -20,6 +23,7 @@ impl Default for Camera {
             near: Self::NEAR,
             far: Self::FAR,
             aspect_ratio: 16. / 9.,
+            frustum: Frustum::default(),
         }
     }
 }
@@ -27,6 +31,10 @@ impl Default for Camera {
 impl Camera {
     pub const NEAR: f32 = 0.05;
     pub const FAR: f32 = 50000.0;
+
+    pub fn update(&mut self) {
+        self.frustum = Frustum::from_camera(self);
+    }
 
     pub fn view_matrix(&self) -> glam::Mat4 {
         glam::Mat4::look_at_rh(

@@ -4,8 +4,7 @@ use deimos_data::tfx::{features::dynamic::RenderStageSubscription, RenderStage};
 use glam::Mat4;
 
 use crate::{
-    gpu::command_list::CommandList, tfx::packet::CompactTransform, visibility::frustum::Frustum,
-    Renderer,
+    camera::Camera, gpu::command_list::CommandList, tfx::packet::CompactTransform, Renderer,
 };
 
 // pub mod cubemap;
@@ -19,7 +18,7 @@ pub mod terrain_patches;
 
 pub trait FeatureRenderer {
     /// Returns false if the render object should be discarded
-    fn visibility_test(&mut self, frustum: &Frustum) -> bool {
+    fn visibility_test(&mut self, _camera: &Camera) -> bool {
         true
     }
 

@@ -678,6 +678,7 @@ dependencies = [
  "d3d11",
  "deimos-core",
  "glam",
+ "int-enum",
  "paste",
  "tiger-parse",
  "tiger-pkg",
@@ -861,7 +862,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "976dd42dc7e85965fe702eb8164f21f450704bdde31faefd6471dba214cb594e"
 dependencies = [
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1219,7 +1220,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc2f4eb4bc735547cfed7c0a4922cbd04a4655978c09b54f1f7b228750664c34"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -1825,7 +1826,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -2084,7 +2085,7 @@ dependencies = [
 [[package]]
 name = "tiger-parse"
 version = "0.4.0"
-source = "git+https://github.com/v4nguard/tiger-parse.git#9612bdbbc7b10d25a2de9221f8d1359a31dd4ab6"
+source = "git+https://github.com/v4nguard/tiger-parse.git#8a558d03f018522bed0990f46f438edb81a9906a"
 dependencies = [
  "disqualified",
  "glam",
@@ -2098,7 +2099,7 @@ dependencies = [
 [[package]]
 name = "tiger-parse-derive"
 version = "0.1.0"
-source = "git+https://github.com/v4nguard/tiger-parse.git#9612bdbbc7b10d25a2de9221f8d1359a31dd4ab6"
+source = "git+https://github.com/v4nguard/tiger-parse.git#8a558d03f018522bed0990f46f438edb81a9906a"
 dependencies = [
  "darling",
  "proc-macro2",
@@ -2245,7 +2246,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "69fff37da548239c3bf9e64a12193d261e8b22b660991c6fd2df057c168f435f"
 dependencies = [
  "cc",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]

@@ -4,7 +4,7 @@ use std::{
 };
 
 use bitflags::bitflags;
-use tiger_parse::TigerReadable;
+use tiger_parse::{tiger_tag, TigerReadable};
 
 use super::features::dynamic::RenderStageSubscription;
 
@@ -288,39 +288,15 @@ impl TigerReadable for PrimitiveType {
 }
 
 #[allow(non_camel_case_types, clippy::derive_ord_xor_partial_ord)]
-#[derive(Debug, PartialEq, Eq, Ord, Copy, Clone)]
-#[repr(u8)]
-pub enum LodCategory {
-    /// main geometry lod0
-    Lod_0_0 = 0,
-    /// grip/stock lod0
-    Lod_0_1 = 1,
-    /// stickers lod0
-    Lod_0_2 = 2,
-    /// internal geom lod0
-    Lod_0_3 = 3,
-    /// low poly geom lod1
-    Lod_1_0 = 4,
-    /// low poly geom lod2
-    Lod_2_0 = 7,
-    /// grip/stock/scope lod2
-    Lod_2_1 = 8,
-    /// low poly geom lod3
-    Lod_3_0 = 9,
-    /// detail lod0
-    Lod_Detail = 10,
-}
+#[derive(PartialEq, Eq, Ord, Copy, Clone)]
+#[tiger_tag]
+pub struct LodCategory(u8);
 
-impl TigerReadable for LodCategory {
-    fn read_ds_endian<R: std::io::prelude::Read + std::io::prelude::Seek>(
-        reader: &mut R,
-        endian: tiger_parse::Endian,
-    ) -> tiger_parse::Result<Self> {
-        Ok(unsafe { transmute(u8::read_ds_endian(reader, endian)?) })
+impl std::fmt::Debug for LodCategory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let v = self.0;
+        write!(f, "LodCategory({:08b})", v)
     }
-
-    const ZEROCOPY: bool = true;
-    const SIZE: usize = 1;
 }
 
 impl PartialOrd for LodCategory {
@@ -332,27 +308,30 @@ impl PartialOrd for LodCategory {
 impl LodCategory {
     // Remap the order of variants for sorting purposes, starting with the lowest level
     fn remap_order(&self) -> u8 {
-        match self {
-            LodCategory::Lod_Detail => 10,
-            LodCategory::Lod_0_0 => 9,
-            LodCategory::Lod_0_1 => 8,
-            LodCategory::Lod_0_2 => 7,
-            LodCategory::Lod_0_3 => 4,
-            LodCategory::Lod_1_0 => 3,
-            LodCategory::Lod_2_0 => 2,
-            LodCategory::Lod_2_1 => 1,
-            LodCategory::Lod_3_0 => 0,
-        }
+        self.0
+        // match self {
+        //     LodCategory::Lod_Detail => 10,
+        //     LodCategory::Lod_0_0 => 9,
+        //     LodCategory::Lod_0_1 => 8,
+        //     LodCategory::Lod_0_2 => 7,
+        //     LodCategory::Lod_0_3 => 4,
+        //     LodCategory::Lod_1_0 => 3,
+        //     LodCategory::Lod_2_0 => 2,
+        //     LodCategory::Lod_2_1 => 1,
+        //     LodCategory::Lod_3_0 => 0,
+        // }
     }
 
     pub fn is_highest_detail(&self) -> bool {
-        matches!(
-            self,
-            LodCategory::Lod_0_0
-                | LodCategory::Lod_0_1
-                | LodCategory::Lod_0_2
-                | LodCategory::Lod_0_3
-                | LodCategory::Lod_Detail
-        )
+        self.0 & 1 != 0
+        // (self.0 & 0b10000000) != 0
+        // matches!(
+        //     self,
+        //     LodCategory::Lod_0_0
+        //         | LodCategory::Lod_0_1
+        //         | LodCategory::Lod_0_2
+        //         | LodCategory::Lod_0_3
+        //         | LodCategory::Lod_Detail
+        // )
     }
 }

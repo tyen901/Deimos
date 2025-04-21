@@ -16,6 +16,7 @@ use tiger_pkg::TagHash;
 
 use crate::{
     asset::{vertex_buffer::VertexBuffer, Handle},
+    camera::Camera,
     gpu::{cbuffer::ConstantBuffer, command_list::CommandList, ShaderStage},
     tfx::technique::Technique,
     Gpu, Renderer,
@@ -292,14 +293,14 @@ impl StaticInstancesRenderer {
 }
 
 impl FeatureRenderer for StaticInstancesRenderer {
-    fn visibility_test(&mut self, frustum: &crate::visibility::frustum::Frustum) -> bool {
-        if !frustum.aabb_intersecting(&self.bounds) {
+    fn visibility_test(&mut self, camera: &Camera) -> bool {
+        if !camera.frustum.aabb_intersecting(&self.bounds) {
             return false;
         }
 
         self.visible_instance_ids.clear();
         for (i, (_, b)) in self.transforms.iter().enumerate() {
-            if frustum.aabb_intersecting(b) {
+            if camera.frustum.aabb_intersecting(b) {
                 self.visible_instance_ids.push(1 + i as u32);
             }
         }

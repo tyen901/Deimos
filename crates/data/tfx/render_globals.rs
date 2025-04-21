@@ -81,8 +81,8 @@ pub struct SVertexInputLayoutMapping {
     pub layouts: Vec<SVertexLayout>,
 }
 
-#[tiger_tag(id = 0x80808667, size = 0x1c)]
 #[derive(Debug)]
+#[tiger_tag(id = 0x80808667, size = 0x1c)]
 pub struct SVertexLayout {
     pub index: u8,
 

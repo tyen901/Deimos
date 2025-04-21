@@ -5,7 +5,6 @@ use deimos_render::{
     camera::Camera,
     gpu::{command_list::CommandList, debug_text::DebugTextAlign, spinner::FullscreenSpinner},
     object::{RenderObject, RenderObjectHandle},
-    visibility::frustum::Frustum,
     Gpu, Renderer,
 };
 use glam::{vec2, vec3, IVec2, Quat, Vec2, Vec3};
@@ -78,7 +77,7 @@ impl App {
         }
 
         let camera = Camera {
-            position: vec3(0.0, 0.0, 30.0),
+            position: vec3(0.0, 0.0, 100.0),
             ..Default::default()
         };
 
@@ -127,7 +126,7 @@ impl App {
     }
 
     #[profiling::function]
-    pub fn render(&mut self, event_pump: &sdl3::EventPump) {
+    pub fn render(&mut self, _event_pump: &sdl3::EventPump) {
         let now = std::time::Instant::now();
         let delta_time = (now - self.last_frame_time).as_secs_f32();
         self.last_frame_time = now;
@@ -183,7 +182,7 @@ impl App {
         // proj.z_axis.z = 2.6226E-06;
 
         let view = self.camera.view_matrix();
-        let frustum = Frustum::from_camera(&self.camera);
+        self.camera.update();
         // Renderer::instance()
         //     .immediate
         //     .lock()
@@ -221,7 +220,7 @@ impl App {
                                 .write()
                                 .get_mut(node.render_object_handle.into())
                             {
-                                render_object.visibility_test(&frustum)
+                                render_object.visibility_test(&self.camera)
                             } else {
                                 true
                             }

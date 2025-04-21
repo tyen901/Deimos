@@ -34,6 +34,7 @@ impl Deref for Plane {
     }
 }
 
+#[derive(Default)]
 pub struct Frustum {
     pub planes: [Plane; 6],
     pub points: [Vec3; 8],

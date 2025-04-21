@@ -1,5 +1,6 @@
 use glam::Vec4;
-use tiger_parse::tiger_tag;
+use int_enum::IntEnum;
+use tiger_parse::{tiger_tag, TigerReadable};
 use tiger_pkg::TagHash;
 
 use crate::tfx::common::AxisAlignedBBox;
@@ -57,5 +58,29 @@ pub struct STerrainMeshPart {
     pub index_start: u32,
     pub index_count: u16,
     pub group_index: u8,
-    pub detail_level: u8,
+    pub detail_level: TerrainDetailLevel,
+}
+
+#[repr(u8)]
+#[derive(Debug, IntEnum, PartialEq, PartialOrd)]
+pub enum TerrainDetailLevel {
+    High = 0,
+    Medium = 1,
+    Low = 2,
+    /// ???
+    Crust = 3,
+}
+
+impl TigerReadable for TerrainDetailLevel {
+    fn read_ds_endian<R: std::io::Read + std::io::Seek>(
+        reader: &mut R,
+        endian: tiger_parse::Endian,
+    ) -> tiger_parse::Result<Self> {
+        let v = u8::read_ds_endian(reader, endian)?;
+        TerrainDetailLevel::try_from(v)
+            .map_err(|_| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
+    }
+
+    const SIZE: usize = 1;
+    const ZEROCOPY: bool = true;
 }

@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use deimos_data::tfx::{
-    features::{dynamic::RenderStageSubscription, terrain::STerrain},
+    features::{
+        dynamic::RenderStageSubscription,
+        terrain::{STerrain, TerrainDetailLevel},
+    },
     RenderStage,
 };
 use glam::Vec4;
@@ -12,6 +15,7 @@ use tiger_pkg::TagHash;
 
 use crate::{
     asset::{index_buffer::IndexBuffer, texture::Texture, vertex_buffer::VertexBuffer, Handle},
+    camera::Camera,
     gpu::{cbuffer::ConstantBuffer, command_list::CommandList, ShaderStage},
     gpu_span,
     tfx::technique::Technique,
@@ -38,6 +42,7 @@ pub struct TerrainPatchesRenderer {
     dyemaps: Vec<Handle<Texture>>,
     group_cbuffers: Vec<ConstantBuffer<TerrainPatchGroupConstants>>,
     constants_dirty: bool,
+    detail_level: TerrainDetailLevel,
 
     pub vertex0_buffer: Handle<VertexBuffer>,
     pub vertex1_buffer: Handle<VertexBuffer>,
@@ -74,6 +79,7 @@ impl TerrainPatchesRenderer {
             vertex1_buffer: assets.load(terrain.vertex1_buffer),
             index_buffer: assets.load(terrain.index_buffer),
             constants_dirty: true,
+            detail_level: TerrainDetailLevel::High,
             terrain,
             techniques,
             dyemaps,
@@ -117,7 +123,7 @@ impl TerrainPatchesRenderer {
             .mesh_parts
             .iter()
             .enumerate()
-            .filter(|(_, u)| u.detail_level == 0)
+            .filter(|(_, u)| u.detail_level == self.detail_level)
         {
             let cb11 = &self.group_cbuffers[part.group_index as usize];
 
@@ -177,8 +183,17 @@ impl TerrainPatchesRenderer {
 }
 
 impl FeatureRenderer for TerrainPatchesRenderer {
-    fn visibility_test(&mut self, frustum: &crate::visibility::frustum::Frustum) -> bool {
-        frustum.aabb_intersecting(&self.terrain.bounds)
+    fn visibility_test(&mut self, camera: &Camera) -> bool {
+        let center = self.terrain.bounds.center();
+        let radius = self.terrain.bounds.radius();
+        let distance = camera.position.distance(center);
+        self.detail_level = match distance {
+            d if d > radius * 4.0 => TerrainDetailLevel::Low,
+            d if d > radius * 2.0 => TerrainDetailLevel::Medium,
+            _ => TerrainDetailLevel::High,
+        };
+
+        camera.frustum.aabb_intersecting(&self.terrain.bounds)
     }
 
     fn extract_and_prepare(

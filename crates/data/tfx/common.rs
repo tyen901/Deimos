@@ -38,6 +38,10 @@ impl AxisAlignedBBox {
         ((self.min + self.max) / 2.0).xyz()
     }
 
+    pub fn radius(&self) -> f32 {
+        self.extents().length() / 2.0
+    }
+
     pub fn points(&self) -> [Vec3; 8] {
         [
             vec3(self.min.x, self.min.y, self.min.z),

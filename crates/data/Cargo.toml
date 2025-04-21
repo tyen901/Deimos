@@ -17,3 +17,4 @@ glam.workspace = true
 paste = "1"
 tiger-pkg.workspace = true
 tiger-parse.workspace = true
+int-enum = "1.2.0"
