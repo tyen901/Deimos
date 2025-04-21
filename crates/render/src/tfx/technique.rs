@@ -7,9 +7,7 @@ use tiger_parse::PackageManagerExt;
 use tiger_pkg::{package_manager, TagHash};
 
 use crate::{
-    gpu::command_list::CommandList,
-    tfx::expression_vm::interpreter::TempObjectChannels,
-    Gpu,
+    gpu::command_list::CommandList, tfx::expression_vm::interpreter::TempObjectChannels, Gpu,
 };
 
 use super::dynamic_constants::DynamicConstants;
@@ -93,6 +91,11 @@ impl Technique {
         cmd: &mut CommandList,
         channels: Option<&TempObjectChannels>,
     ) -> anyhow::Result<()> {
+        profiling::scope!("Technique::bind", &format!("hash={}", self.hash));
+        if cmd.set_bound_technique(self.hash) {
+            return Ok(());
+        }
+
         // let _s = info_span!("Bind technique", technique = %self.hash).entered();
         // let states = renderer.gpu.current_states.load().select(&self.tech.states);
         let states = cmd

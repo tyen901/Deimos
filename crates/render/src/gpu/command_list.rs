@@ -1,6 +1,7 @@
 use std::{ops::Deref, sync::Arc};
 
 use deimos_data::tfx::{PipelineState, PrimitiveType};
+use tiger_pkg::TagHash;
 
 use super::{global_state, Gpu};
 
@@ -19,6 +20,7 @@ pub struct CommandList {
     pub(super) current_input_topology: usize,
     pub(super) current_stencil_ref: u32,
     pub(super) depth_mode: DepthMode,
+    pub(super) bound_technique: TagHash,
 }
 
 impl Deref for CommandList {
@@ -53,6 +55,7 @@ impl CommandList {
             current_input_topology: usize::MAX,
             current_stencil_ref: 0,
             depth_mode: DepthMode::Reverse,
+            bound_technique: TagHash::NONE,
         }
     }
 
@@ -75,6 +78,7 @@ impl CommandList {
         self.current_rasterizer_state = usize::MAX;
         self.current_depth_bias = usize::MAX;
         self.current_input_topology = usize::MAX;
+        self.bound_technique = TagHash::NONE;
     }
 
     pub fn flush_states(&mut self) {
@@ -157,6 +161,16 @@ impl CommandList {
                 );
             }
             self.current_depth_bias = index;
+        }
+    }
+
+    /// Returns true if the given technique is already bound
+    pub fn set_bound_technique(&mut self, index: TagHash) -> bool {
+        if self.bound_technique != index {
+            self.bound_technique = index;
+            false
+        } else {
+            true
         }
     }
 
