@@ -1,5 +1,6 @@
-use std::{io::Write, ops::Deref, sync::Arc};
+use std::{f32, io::Write, ops::Deref, sync::Arc};
 
+use deimos_core::ConVars;
 use deimos_data::tfx::{
     common::AxisAlignedBBox,
     features::{
@@ -298,9 +299,12 @@ impl FeatureRenderer for StaticInstancesRenderer {
             return false;
         }
 
+        let max_dist = ConVars::get("render.max_distance").unwrap_or(f32::INFINITY);
+
         self.visible_instance_ids.clear();
         for (i, (_, b)) in self.transforms.iter().enumerate() {
-            if camera.frustum.aabb_intersecting(b) {
+            let distance = (camera.position.distance(b.center()) - b.radius()).max(0.0);
+            if distance < max_dist && camera.frustum.aabb_intersecting(b) {
                 self.visible_instance_ids.push(1 + i as u32);
             }
         }

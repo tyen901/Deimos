@@ -3,10 +3,13 @@ cbuffer scope_view : register(b12)
     float4x4 world_to_projective : packoffset(c0);
     float4x4 camera_to_world : packoffset(c4);
 
-    float4 target : packoffset(c8);
-    float4 view_miscellaneous : packoffset(c9);
-    float4 view_unk20 : packoffset(c10);
-    float4x4 camera_to_projective : packoffset(c11);
+    float4x4 target_pixel_to_camera : packoffset(c8);
+    float4 target : packoffset(c12);
+    float4 view_miscellaneous : packoffset(c13);
+    // float4 target : packoffset(c8);
+    // float4 view_miscellaneous : packoffset(c9);
+    // float4 view_unk20 : packoffset(c10);
+    // float4x4 camera_to_projective : packoffset(c11);
 }; // cbuffer scope_view
 
 #define camera_position (transpose(camera_to_world)[3].xyz)
@@ -69,6 +72,14 @@ float3 linearToSrgb(float3 r0)
     return exp2(r0.xyz);
 }
 
+// Remaps the given value from the range [min, max] to [0, 1].
+float remap(float value, float min, float max)
+{
+    return saturate((value - min) / (max - min));
+}
+
+static float3 SkyColor = float3(0.58, 0.78, 1);
+
 float4 mainPS(VSOutput input)
     : SV_TARGET
 {
@@ -77,7 +88,15 @@ float4 mainPS(VSOutput input)
     float4 rt2 = gbuffer_third.Sample(samplerState, input.uv);
     float depth = deferred_depth.Sample(samplerState, input.uv).x;
     if (depth == 0)
-        return float4(0.58, 0.78, 1, 1);
+        return float4(SkyColor, 1);
+
+    float4 worldPos = mul(target_pixel_to_camera, float4(input.pos.xy, depth, 1));
+    worldPos /= worldPos.w;
+    worldPos = mul(camera_to_world, worldPos);
+    worldPos /= worldPos.w;
+
+    float distance = length(worldPos.xyz - camera_position);
+    float fog = remap(distance, 275.0, 350.0);
 
     // TODO after break: lil shading on the result, no biggie
     float3 albedo = rt0.rgb;
@@ -111,5 +130,6 @@ float4 mainPS(VSOutput input)
     // float3 light = light_diffuse.Sample(samplerState, input.uv).rgb;
     // return float4(linearToSrgb(light), 1.0f);
     light = max(textureEmissive.xxx, light);
-    return float4(linearToSrgb(finalColor) * light, 1.0f);
+    float3 c = linearToSrgb(finalColor) * light;
+    return float4(lerp(c, SkyColor, fog), 1.0f);
 }

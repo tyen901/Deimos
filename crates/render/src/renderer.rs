@@ -78,6 +78,7 @@ impl Renderer {
         ConVars::register("render.vertex_ao_workaround", true);
         ConVars::register("render.vao_buffer", false);
         ConVars::register("render.ssao", true);
+        ConVars::register("render.max_distance", 350.0f32);
 
         ConVars::register("render.feature.static_objects", true);
         ConVars::register("render.feature.terrain_patches", true);

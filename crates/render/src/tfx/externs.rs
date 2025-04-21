@@ -345,10 +345,10 @@ extern_struct! {
 
         0xA0 => camera_to_projective: Mat4,
         0xE0 => camera_to_world: Mat4,
-        0x120 => unk120: Mat4,
+        0x120 => target_pixel_to_camera: Mat4,
         0x160 => unk160: Mat4,
         0x1A0 => world_to_projective: Mat4,
-        0x260 => target_pixel_to_camera: Mat4,
+        0x260 => unk260: Mat4,
 
         // Bungie fucked a good portion of this extern with Marathon, everything prefixed with 0x8_ here needs to be figured out again
         0x8_60 => world_to_camera: Mat4,
