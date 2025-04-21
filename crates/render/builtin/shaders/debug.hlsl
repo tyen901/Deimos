@@ -98,11 +98,11 @@ float4 mainPS(VSOutput input)
     float distance = length(worldPos.xyz - camera_position);
     float fog = remap(distance, 275.0, 350.0);
 
-    // TODO after break: lil shading on the result, no biggie
+    // TODO after break: specular shading since we got worldpos now
     float3 albedo = rt0.rgb;
     float3 normal = rt1.xyz * 2.0 - 1.0;
-    // float smoothness = length(normal) * 4 - 3;
-    // normal = normalize(normal);
+    float smoothness = saturate(length(normal) * 4 - 3);
+    normal = normalize(normal);
     // float metalness = rt2.r;
     float textureEmissive = saturate(rt2.g * 2.0 - 1.0);
     float textureAo = saturate(rt2.g * 2.0);
@@ -114,18 +114,18 @@ float4 mainPS(VSOutput input)
     // float aoFactor = saturate(textureAo);
     float3 finalColor = albedo.rgb;
 
-    // Simple Phong shading
-    // float3 lightDir = -normalize(float3(-0.618537, 0.102473, -0.779045));
+    // Blinn-Phong shading
     float3 lightDir = -normalize(float3(-0.579228, 0.40558, -0.707107));
+    // float3 lightDir = normalize(lightPos - FragPos);
+    float3 viewDir = normalize(camera_position - worldPos.xyz);
+    float3 halfwayDir = normalize(lightDir + viewDir);
+
     float3 ambient = float(0.15).xxx;
     float3 diffuse = max(dot(normal, lightDir), 0.0) * (1 - ambient);
+    float spec = pow(max(dot(normal, halfwayDir), 0.0), 32.0) * smoothness;
 
-    // // Final color
-    float3 light = (ambient + diffuse);
-    // float4 shaded = shading_result.Sample(samplerState, input.uv);
-    // return shaded;
-    // float3 finalColor = shaded.rgb * light;
-    // return float4(finalColor, 1.0f);
+    // Final color
+    float3 light = (ambient + diffuse) + spec.xxx;
 
     // float3 light = light_diffuse.Sample(samplerState, input.uv).rgb;
     // return float4(linearToSrgb(light), 1.0f);
