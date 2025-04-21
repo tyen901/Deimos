@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::thread::JoinHandle;
 
 use crossbeam::channel::{unbounded, Receiver, Sender};
@@ -7,6 +8,7 @@ use parking_lot::RwLock;
 
 use crate::gpu::command_list::CommandList;
 use crate::gpu::state::GpuState;
+use crate::Gpu;
 
 use super::Renderer;
 use std::collections::HashMap;
@@ -67,7 +69,7 @@ impl Renderer {
             &format!("stage={stage:?} jobs={job_count}")
         );
 
-        let gpu_state = GpuState::backup(cmd);
+        let initial_state = Arc::new(GpuState::backup(cmd));
 
         let mut jobs = Vec::new();
 
@@ -76,12 +78,12 @@ impl Renderer {
             let node_start = (i * node_count) / job_count;
             let node_end = ((i + 1) * node_count) / job_count;
 
-            let mut job_cmd = self.gpu.create_command_list();
-            gpu_state.restore(&mut job_cmd);
+            // let mut job_cmd = self.gpu.create_command_list();
+            // initial_state.restore(&mut job_cmd);
             let j = self.submit_jobs.submit_job(SubmitJobDesc {
                 node_range: node_start..node_end,
                 stage,
-                cmd: job_cmd,
+                initial_state: Some(initial_state.clone()),
                 index: i,
             });
             jobs.push(j);
@@ -93,10 +95,7 @@ impl Renderer {
                 if let Some(command_list) = self.submit_jobs.poll_job(*j) {
                     // We only need to restore state on the last job
                     profiling::scope!("execute_command_list", &format!("job={:?}", j));
-                    cmd.execute_command_list(
-                        &command_list.finish_command_list(false).unwrap(),
-                        false,
-                    );
+                    cmd.execute_command_list(&command_list, false);
 
                     resolved.push(j);
                 }
@@ -119,14 +118,14 @@ impl Renderer {
         //     }
         // }
 
-        gpu_state.restore(cmd);
+        initial_state.restore(cmd);
     }
 }
 
 pub struct SubmitJobDesc {
     pub node_range: std::ops::Range<usize>,
     pub stage: RenderStage,
-    pub cmd: CommandList,
+    pub initial_state: Option<Arc<GpuState>>,
     pub index: usize,
 }
 
@@ -134,7 +133,7 @@ pub struct SubmitJobDesc {
 pub struct SubmitJobId(usize);
 
 pub struct JobResult {
-    pub cmd: CommandList,
+    pub cmd: d3d11::CommandList,
 }
 
 pub struct SubmitJobManager {
@@ -146,7 +145,7 @@ pub struct SubmitJobManager {
 }
 
 impl SubmitJobManager {
-    pub fn new(thread_count: usize) -> Self {
+    pub fn new(gpu: &Arc<Gpu>, thread_count: usize) -> Self {
         let (job_tx, job_rx) = unbounded();
         let (result_tx, result_rx) = unbounded();
         let mut thread_handles = Vec::new();
@@ -154,15 +153,17 @@ impl SubmitJobManager {
         for i in 0..thread_count {
             let job_rx = job_rx.clone();
             let result_tx = result_tx.clone();
+            let gpu = gpu.clone();
 
             let handle = std::thread::Builder::new()
                 .name(format!("render_submit_{i}"))
                 .spawn(move || {
+                    let mut command_list = gpu.create_command_list();
                     while let Ok((job_id, job_desc)) = job_rx.recv() {
                         let SubmitJobDesc {
                             node_range,
                             stage,
-                            mut cmd,
+                            initial_state,
                             index,
                         } = job_desc;
                         let _ = index;
@@ -171,15 +172,26 @@ impl SubmitJobManager {
                             &format!("job_id={job_id:?} index={index} stage={stage:?}")
                         );
 
+                        if let Some(initial_state) = initial_state {
+                            initial_state.restore(&mut command_list);
+                        }
+
                         let renderer = Renderer::instance();
                         renderer.submit_stage_range(
-                            &mut cmd,
+                            &mut command_list,
                             node_range,
                             stage,
                             FeatureRendererSubscription::all(),
                         );
 
-                        result_tx.send((job_id, JobResult { cmd })).unwrap();
+                        result_tx
+                            .send((
+                                job_id,
+                                JobResult {
+                                    cmd: command_list.finish_command_list(false).unwrap(),
+                                },
+                            ))
+                            .unwrap();
                     }
                 })
                 .expect("Failed to spawn submit thread");
@@ -235,7 +247,7 @@ impl SubmitJobManager {
     //     }
     // }
 
-    pub fn poll_job(&self, job_id: SubmitJobId) -> Option<CommandList> {
+    pub fn poll_job(&self, job_id: SubmitJobId) -> Option<d3d11::CommandList> {
         self.collect_jobs();
 
         let jobs_read = self.pending_jobs.read();

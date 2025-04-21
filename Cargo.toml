@@ -13,7 +13,7 @@ members = ["crates/data", "crates/core", "crates/render"]
 [workspace.dependencies]
 anyhow = "1"
 crossbeam = "0.8"
-d3d11 = { git = "https://github.com/cohaereo/d3d11-rs.git", features = ["profiling"] }
+d3d11 = { git = "https://github.com/cohaereo/d3d11-rs.git" }
 glam = { version = "0.30", features = ["bytemuck"] }
 itertools = "0.14"
 parking_lot = "0.12"

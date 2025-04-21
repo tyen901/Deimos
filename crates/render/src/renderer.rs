@@ -122,7 +122,7 @@ impl Renderer {
             frame_packet: RwLock::new(FramePacket::default()),
             // ao: RwLock::new(None),
             // ao_buffer: Mutex::new(None),
-            submit_jobs: submit::lowlevel::SubmitJobManager::new(6),
+            submit_jobs: submit::lowlevel::SubmitJobManager::new(&gpu, 6),
 
             shading_result_read: Mutex::new(
                 SurfaceProxy::new(&gpu, surfaces.get(shading_result), None, false)

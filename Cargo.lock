@@ -572,7 +572,6 @@ dependencies = [
  "bon",
  "d3d11-sys",
  "paste",
- "profiling",
  "static_assertions",
  "thiserror 2.0.12",
 ]
