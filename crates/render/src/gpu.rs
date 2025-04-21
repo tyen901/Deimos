@@ -43,6 +43,7 @@ pub struct Gpu {
 unsafe impl Sync for Gpu {}
 unsafe impl Send for Gpu {}
 
+#[profiling::all_functions]
 impl Gpu {
     pub fn create(window: &Rc<sdl3::video::Window>) -> anyhow::Result<Self> {
         let dxgi: IDXGIFactory = unsafe { CreateDXGIFactory() }?;
@@ -127,7 +128,6 @@ impl Gpu {
         command_list::CommandList::new(self)
     }
 
-    #[profiling::function]
     pub fn submit_command_list(&self, cmd: command_list::CommandList) {
         self.context().execute_command_list(
             &cmd.finish_command_list(false)
@@ -186,6 +186,7 @@ impl Gpu {
 }
 
 // Misc helpers
+#[profiling::all_functions]
 impl Gpu {
     pub fn compile_shader_vs_ps(
         &self,

@@ -86,8 +86,8 @@ impl GpuState {
             // cmd.pixel_set_shader_resources(0, &self.state_ps.srvs);
         }
 
-        cmd.rasterizer_set_viewports(&self.viewports);
-        cmd.output_merger_set_render_targets(&self.rtvs, self.dsv.as_ref());
+        cmd.rasterizer_set_viewports(&self.viewports[0..4]);
+        cmd.output_merger_set_render_targets(&self.rtvs[0..4], self.dsv.as_ref());
         cmd.flush_states();
     }
 }
