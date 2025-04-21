@@ -15,6 +15,8 @@ pub struct Gbuffers {
     pub normal: SurfaceHandle,
     pub normal_read: SurfaceHandle,
     pub third: SurfaceHandle,
+    pub fourth: SurfaceHandle,
+
     pub depth: SurfaceHandle,
     pub depth_half: SurfaceHandle,
     pub depth_proxy: Mutex<SurfaceProxy>,
@@ -52,6 +54,13 @@ impl Gbuffers {
             SurfaceDesc::builder("gbuffer_third", SizeRelativity::RelativeToFramebuffer)
                 .format(dxgi::Format::R8g8b8a8Typeless)
                 .view_format(dxgi::Format::R8g8b8a8Unorm)
+                .build(),
+        )?;
+        let fourth = surfaces.create_surface(
+            base_resolution,
+            SurfaceDesc::builder("gbuffer_fourth", SizeRelativity::RelativeToFramebuffer)
+                .format(dxgi::Format::R16g16b16a16Typeless)
+                .view_format(dxgi::Format::R16g16b16a16Unorm)
                 .build(),
         )?;
         // let depth = DepthState::create(gpu, base_resolution, "gbuffer_depth")?;
@@ -106,6 +115,7 @@ impl Gbuffers {
             normal,
             normal_read,
             third,
+            fourth,
             depth,
             depth_half,
             depth_proxy: Mutex::new(
@@ -135,7 +145,7 @@ impl Gbuffers {
     pub fn bind(&self, cmd: &mut CommandList, renderer: &Renderer) {
         renderer.bind_surfaces(
             cmd,
-            &[self.albedo, self.normal, self.third],
+            &[self.albedo, self.normal, self.third, self.fourth],
             Some(self.depth),
         );
     }
