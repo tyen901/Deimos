@@ -26,6 +26,48 @@ cbuffer scope_view : register(b12)
 #define maximum_depth_pre_projection (view_miscellaneous.x)
 #define view_is_first_person (view_miscellaneous.y)
 
+static float PI = 3.14159265359;
+
+float DistributionGGX(float3 N, float3 H, float roughness)
+{
+    float a = roughness * roughness;
+    float a2 = a * a;
+    float NdotH = max(dot(N, H), 0.0);
+    float NdotH2 = NdotH * NdotH;
+
+    float nom = a2;
+    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+    denom = PI * denom * denom;
+
+    return nom / denom;
+}
+
+float GeometrySchlickGGX(float NdotV, float roughness)
+{
+    float r = (roughness + 1.0);
+    float k = (r * r) / 8.0;
+
+    float nom = NdotV;
+    float denom = NdotV * (1.0 - k) + k;
+
+    return nom / denom;
+}
+
+float GeometrySmith(float3 N, float3 V, float3 L, float roughness)
+{
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotL = max(dot(N, L), 0.0);
+    float ggx2 = GeometrySchlickGGX(NdotV, roughness);
+    float ggx1 = GeometrySchlickGGX(NdotL, roughness);
+
+    return ggx1 * ggx2;
+}
+
+float3 fresnelSchlick(float cosTheta, float3 F0)
+{
+    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
 // Vertex Shader
 struct VSOutput
 {
@@ -102,8 +144,9 @@ float4 mainPS(VSOutput input)
     float3 albedo = rt0.rgb;
     float3 normal = rt1.xyz * 2.0 - 1.0;
     float smoothness = saturate(length(normal) * 4 - 3);
-    normal = normalize(normal);
-    // float metalness = rt2.r;
+    float roughness = 1 - smoothness;
+    float3 N = normalize(normal);
+    float metallic = rt2.r;
     float textureEmissive = saturate(rt2.g * 2.0 - 1.0);
     float textureAo = saturate(rt2.g * 2.0);
     // float transmission = saturate(rt2.g);
@@ -111,25 +154,38 @@ float4 mainPS(VSOutput input)
     // return float4(linearToSrgb(vertexAo.xxx), 1.0f);
 
     // // float aoFactor = saturate(textureAo * vertexAo);
-    // float aoFactor = saturate(textureAo);
-    float3 finalColor = albedo.rgb;
+    float ao = saturate(textureAo);
 
-    // Blinn-Phong shading
-    float3 lightDir = -normalize(float3(-0.579228, 0.40558, -0.707107));
-    // float3 lightDir = normalize(lightPos - FragPos);
-    float3 viewDir = normalize(camera_position - worldPos.xyz);
-    float3 halfwayDir = normalize(lightDir + viewDir);
+    float3 F0 = float(0.04).xxx;
+    F0 = lerp(F0, albedo, metallic);
 
-    float3 ambient = float(0.15).xxx;
-    float3 diffuse = max(dot(normal, lightDir), 0.0) * (1 - ambient);
-    float spec = pow(max(dot(normal, halfwayDir), 0.0), 32.0) * smoothness;
+    float3 V = normalize(camera_position - worldPos.xyz);
+    float3 L = normalize(-float3(-0.579228, 0.40558, -0.707107));
+    float3 H = normalize(V + L);
 
-    // Final color
-    float3 light = (ambient + diffuse) + spec.xxx;
+    // Cook-Torrance BRDF
+    float NDF = DistributionGGX(N, H, roughness);
+    float G = GeometrySmith(N, V, L, roughness);
+    float3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);
 
-    // float3 light = light_diffuse.Sample(samplerState, input.uv).rgb;
-    // return float4(linearToSrgb(light), 1.0f);
-    light = max(textureEmissive.xxx, light);
-    float3 c = linearToSrgb(finalColor) * light;
-    return float4(lerp(c, SkyColor, fog), 1.0f);
+    float3 numerator = NDF * G * F;
+    float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001; // + 0.0001 to prevent divide by zero
+    float3 specular = numerator / denominator;
+
+    // kS is equal to Fresnel
+    float3 kS = F;
+    float3 kD = float(1.0).xxx - kS;
+    kD *= 1.0 - metallic;
+
+    // scale light by NdotL
+    float NdotL = max(dot(N, L), 0.0);
+
+    float3 radiance = 1.3f;
+    float3 Lo = (kD * albedo / PI + specular) * radiance * NdotL;
+
+    float3 ambient = float(0.01).xxx * albedo * ao;
+
+    float3 color = ambient + Lo;
+
+    return float4(lerp(linearToSrgb(color), SkyColor, fog), 1.0f);
 }
