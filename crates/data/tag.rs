@@ -1,6 +1,5 @@
 use std::fmt::{Debug, Display, Formatter};
 
-use anyhow::Context;
 use tiger_parse::{PackageManagerExt, TigerReadable};
 use tiger_pkg::{package_manager, TagHash, TagHash64};
 

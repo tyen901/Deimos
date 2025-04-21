@@ -16,5 +16,5 @@ lazy_static! {
 pub fn is_renderdoc_connected() -> bool {
     RENDERDOC
         .as_ref()
-        .map_or(false, |r| r.lock().is_remote_access_connected())
+        .is_some_and(|r| r.lock().is_remote_access_connected())
 }

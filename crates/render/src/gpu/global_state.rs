@@ -104,7 +104,7 @@ impl RenderStates {
 
         let blend_state_descs: &[QuadBlendState] =
             unsafe { byteutil::bytes_as_slice(Self::BLEND_STATE_DESC_DATA) };
-        for (_i, desc) in blend_state_descs.iter().enumerate() {
+        for desc in blend_state_descs.iter() {
             let render_targets = [
                 desc.render_targets[0].clone(),
                 desc.render_targets[1].clone(),

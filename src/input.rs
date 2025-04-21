@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc, sync::Arc};
+use std::{collections::HashMap, rc::Rc};
 
 use glam::Vec2;
 use sdl3::{event::Event, keyboard::Keycode};
@@ -169,7 +169,7 @@ impl MouseKeyboardState {
                     );
                     self.sdl_mouse.show_cursor(false);
                 }
-                self.last_mouse_pos = Vec2::new(*x as f32, *y as f32);
+                self.last_mouse_pos = Vec2::new(*x, *y);
             }
             sdl3::event::Event::MouseWheel { y, .. } => {
                 if !handle_mouse {

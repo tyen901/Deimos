@@ -1,8 +1,7 @@
 use std::any::Any;
 
 use assert_offset::AssertOffsets;
-use bumpalo::Bump;
-use glam::{Mat4, Quat, Vec3, Vec4};
+use glam::{Mat4, Vec3, Vec4};
 
 use crate::object::RenderObjectHandle;
 

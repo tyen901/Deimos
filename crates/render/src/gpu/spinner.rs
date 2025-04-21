@@ -21,7 +21,7 @@ pub struct FullscreenSpinner {
 
 impl FullscreenSpinner {
     pub fn create(gpu: &Arc<Gpu>) -> anyhow::Result<Self> {
-        let cbuffer = ConstantBuffer::create(&gpu, None)?;
+        let cbuffer = ConstantBuffer::create(gpu, None)?;
 
         let vs_data = include_bytes!("../../builtin/shaders/procedural_spinner.vs.cso");
         let ps_data = include_bytes!("../../builtin/shaders/procedural_spinner.ps.cso");

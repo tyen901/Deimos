@@ -1,7 +1,6 @@
 use std::{collections::HashMap, fmt::Debug};
 
 use d3d11::dxgi;
-use deimos_data::tfx::texture::DxgiFormat;
 use glam::{Mat3, Mat4, Vec3, Vec4, Vec4Swizzles};
 use parking_lot::RwLock;
 
@@ -52,7 +51,7 @@ macro_rules! externs {
 
         impl Default for Externs {
             fn default() -> Self {
-                let mut globals = [Vec4::ONE; 256];
+                let globals = [Vec4::ONE; 256];
                 // globals[124] = Vec4::splat(0.1);
                 // globals[125] = Vec4::splat(0.5);
                 // globals[128] = Vec4::splat(1.5);

@@ -5,14 +5,13 @@ use deimos_render::{
     camera::Camera,
     gpu::{command_list::CommandList, debug_text::DebugTextAlign, spinner::FullscreenSpinner},
     object::{RenderObject, RenderObjectHandle},
-    tfx::packet::FrameNode,
     visibility::frustum::Frustum,
     Gpu, Renderer,
 };
 use glam::{vec2, vec3, IVec2, Quat, Vec2, Vec3};
 use sdl3::{keyboard::Keycode, video::Window};
 use tiger_parse::TigerReadable;
-use tiger_pkg::{package_manager, TagHash};
+use tiger_pkg::package_manager;
 
 use crate::{
     cli::AppArgs,

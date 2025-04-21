@@ -289,7 +289,7 @@ impl Surface {
         if let Some(rtv) = &self.rtv {
             cmd.output_merger_set_render_targets(&[Some(rtv.clone())], None);
         } else if let Some(dsv) = &self.dsv {
-            cmd.output_merger_set_render_targets(&[], Some(&dsv));
+            cmd.output_merger_set_render_targets(&[], Some(dsv));
         }
     }
 

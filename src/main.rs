@@ -4,7 +4,7 @@ use anyhow::Context;
 use app::App;
 use clap::Parser;
 use cli::AppArgs;
-use tiger_pkg::{PackageManager, TagHash};
+use tiger_pkg::PackageManager;
 
 mod app;
 mod cli;

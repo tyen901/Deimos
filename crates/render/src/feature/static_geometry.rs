@@ -1,36 +1,27 @@
-use std::{
-    io::{Cursor, Seek, SeekFrom, Write},
-    ops::{Deref, Shr},
-    sync::Arc,
-};
+use std::{io::Write, ops::Deref, sync::Arc};
 
-use anyhow::Context;
-use deimos_data::{
-    map::{MapNodeResource, SBubbleParent, SMapNodeTable},
-    tfx::{
-        common::AxisAlignedBBox,
-        features::{
-            dynamic::{RenderStageSubscription, SDynamicMeshMaterialVariants},
-            statics::{SStaticInstanceTransform, SStaticMesh, SStaticSpecialMesh, SUnk808082D5},
-        },
-        RenderStage, TfxFeatureRenderer,
+use deimos_data::tfx::{
+    common::AxisAlignedBBox,
+    features::{
+        dynamic::RenderStageSubscription,
+        statics::{SStaticInstanceTransform, SStaticMesh, SStaticSpecialMesh},
     },
+    RenderStage,
 };
-use glam::{Mat4, Quat, Vec3, Vec4, Vec4Swizzles};
+use glam::{Mat4, Vec3, Vec4};
 use itertools::Itertools;
-use tiger_parse::{Endian, PackageManagerExt, TigerReadable};
+use tiger_parse::PackageManagerExt;
 use tiger_pkg::package_manager;
 use tiger_pkg::TagHash;
 
 use crate::{
     asset::{vertex_buffer::VertexBuffer, Handle},
     gpu::{cbuffer::ConstantBuffer, command_list::CommandList, ShaderStage},
-    object::{RenderObject, RenderObjectHandle},
-    tfx::{packet::CompactTransform, technique::Technique},
+    tfx::technique::Technique,
     Gpu, Renderer,
 };
 
-use super::{shared::ModelBuffers, terrain_patches::TerrainPatchesRenderer, FeatureRenderer};
+use super::{shared::ModelBuffers, FeatureRenderer};
 
 struct SpecialMesh {
     mesh: SStaticSpecialMesh,

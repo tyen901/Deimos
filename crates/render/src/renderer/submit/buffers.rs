@@ -111,7 +111,7 @@ impl Gbuffers {
             depth_proxy: Mutex::new(
                 SurfaceProxy::new(
                     gpu,
-                    &surfaces.get(depth),
+                    surfaces.get(depth),
                     Some(dxgi::Format::R32FloatX8x24Typeless),
                     // Some(dxgi::Format::R32Float),
                     false,
@@ -120,7 +120,7 @@ impl Gbuffers {
             ),
             third_proxy: Mutex::new(SurfaceProxy::new(
                 gpu,
-                &surfaces.get(third),
+                surfaces.get(third),
                 Some(dxgi::Format::R8g8b8a8Unorm),
                 // Some(dxgi::Format::R8g8b8a8Typeless),
                 false,
@@ -232,7 +232,7 @@ impl LightBuffers {
         let volumetrics_upres = surfaces.create_surface(
             base_resolution,
             SurfaceDesc::builder(
-                format!("volumetrics_upres"),
+                "volumetrics_upres".to_string(),
                 SizeRelativity::RelativeToFramebuffer,
             )
             .format(dxgi::Format::R16g16b16a16Typeless)

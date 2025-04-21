@@ -22,7 +22,7 @@ use crate::{
     gpu::{cbuffer::ConstantBuffer, debug_text::DebugTextRenderer},
     object::{RenderObject, RenderObjectHandle},
     tfx::{externs::Externs, packet::FramePacket, scope::TempFrameScope},
-    util::{arena::Arena, is_renderdoc_connected, threading::ThreadMutCell},
+    util::{arena::Arena, threading::ThreadMutCell},
     Gpu,
 };
 

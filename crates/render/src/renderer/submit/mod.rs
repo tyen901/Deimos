@@ -66,7 +66,7 @@ impl Renderer {
 
         self.shading_result_read
             .lock()
-            .update(&cmd, self.surfaces.get(self.shading_result));
+            .update(cmd, self.surfaces.get(self.shading_result));
 
         // self.submit_transparent(cmd);
 
@@ -85,7 +85,7 @@ impl Renderer {
         {
             self.shading_result_read
                 .lock()
-                .update(&cmd, self.surfaces.get(self.shading_result));
+                .update(cmd, self.surfaces.get(self.shading_result));
             self.surfaces.get(self.shading_result).bind_single(cmd);
             cmd.state = PipelineState::new(Some(0), Some(0), Some(0), Some(0));
             // cmd.flush_states();
@@ -266,7 +266,7 @@ impl Renderer {
         // TODO(cohae): use the actual frame scope instead of the temporary `frame_scope`
         self.globals.scopes.frame.bind(cmd).unwrap();
         let _ = self.frame_scope.write(
-            &cmd,
+            cmd,
             &TempFrameScope {
                 game_time: ext.frame.game_time, //self.start_time.elapsed().as_secs_f32(),
                 render_time: ext.frame.render_time, //self.start_time.elapsed().as_secs_f32(),
@@ -294,9 +294,9 @@ impl Renderer {
             },
         );
         self.frame_scope
-            .bind(&cmd, crate::gpu::ShaderStage::Vertex, 13);
+            .bind(cmd, crate::gpu::ShaderStage::Vertex, 13);
         self.frame_scope
-            .bind(&cmd, crate::gpu::ShaderStage::Pixel, 13);
+            .bind(cmd, crate::gpu::ShaderStage::Pixel, 13);
     }
 
     fn calculate_active_feature_renderers(&self) -> FeatureRendererSubscription {

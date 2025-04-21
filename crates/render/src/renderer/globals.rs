@@ -1,7 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Context;
-use deimos_core::convar::ConVars;
 use deimos_data::tfx::render_globals::{
     SRenderGlobalLookupTextures, SRenderGlobals, SRenderGlobalsData,
 };
@@ -30,7 +29,7 @@ impl RenderGlobals {
         Ok(Self {
             scopes: GlobalScopes::load(gpu, globs),
             pipelines: GlobalPipelines::load(gpu, globs),
-            textures: GlobalTextures::load(&gpu, &globs.unk30)?,
+            textures: GlobalTextures::load(gpu, &globs.unk30)?,
             // unk34: globs.unk34.0.clone(),
         })
     }
@@ -45,10 +44,10 @@ pub struct GlobalTextures {
 impl GlobalTextures {
     pub fn load(gpu: &Gpu, data: &SRenderGlobalLookupTextures) -> anyhow::Result<Self> {
         Ok(Self {
-            specular_tint_lookup: Texture::load(&gpu, data.specular_tint_lookup_texture)?,
-            specular_lobe_lookup: Texture::load(&gpu, data.specular_lobe_lookup_texture)?,
-            specular_lobe_3d_lookup: Texture::load(&gpu, data.specular_lobe_3d_lookup_texture)?,
-            iridescence_lookup: Texture::load(&gpu, data.iridescence_lookup_texture)?,
+            specular_tint_lookup: Texture::load(gpu, data.specular_tint_lookup_texture)?,
+            specular_lobe_lookup: Texture::load(gpu, data.specular_lobe_lookup_texture)?,
+            specular_lobe_3d_lookup: Texture::load(gpu, data.specular_lobe_3d_lookup_texture)?,
+            iridescence_lookup: Texture::load(gpu, data.iridescence_lookup_texture)?,
         })
     }
 }

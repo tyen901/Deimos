@@ -1,23 +1,15 @@
-use std::{fmt::Write, ops::Deref, sync::Arc};
+use std::{ops::Deref, sync::Arc};
 
 use anyhow::{ensure, Context};
 use d3d11::DeviceChild;
-use deimos_core::convar::ConVars;
 use deimos_data::tfx::{STechnique, STechniqueShader, ShaderStage, TechniqueBindMode};
-use regex::Regex;
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::{package_manager, TagHash};
 
 use crate::{
     gpu::command_list::CommandList,
-    tfx::{
-        expression_vm::{
-            self, interpreter::TempObjectChannels, opcodes::get_texture_externs_from_bytecode,
-        },
-        externs::Externs,
-    },
-    util::is_renderdoc_connected,
-    Gpu, Renderer,
+    tfx::expression_vm::interpreter::TempObjectChannels,
+    Gpu,
 };
 
 use super::dynamic_constants::DynamicConstants;

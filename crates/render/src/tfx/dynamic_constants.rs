@@ -41,14 +41,14 @@ impl DynamicConstants {
 
             let data = package_manager().read_tag(entry.reference)?;
             let vec4s = bytemuck::cast_slice(&data);
-            let cb = ConstantBuffer::create_array(&gpu, vec4s.len(), Some(vec4s))?;
+            let cb = ConstantBuffer::create_array(gpu, vec4s.len(), Some(vec4s))?;
             (vec4s.to_vec(), Some(cb))
         } else {
             let vec4s = &constants.unk30;
             if vec4s.is_empty() {
                 (vec![], None)
             } else {
-                let cb = ConstantBuffer::create_array(&gpu, vec4s.len(), Some(vec4s))?;
+                let cb = ConstantBuffer::create_array(gpu, vec4s.len(), Some(vec4s))?;
                 (vec4s.to_vec(), Some(cb))
             }
         };
@@ -144,7 +144,7 @@ impl DynamicConstants {
 
         if self.cbuffer_slot != u32::MAX {
             if let Some(ref cbuffer) = self.cbuffer {
-                cbuffer.bind(&cmd, stage.into(), self.cbuffer_slot);
+                cbuffer.bind(cmd, stage.into(), self.cbuffer_slot);
             } else {
                 let bind = match stage {
                     ShaderStage::Pixel => d3d11::DeviceContext::pixel_set_constant_buffers,
@@ -155,13 +155,13 @@ impl DynamicConstants {
                     ShaderStage::Domain => d3d11::DeviceContext::domain_set_constant_buffers,
                 };
 
-                bind(&cmd, self.cbuffer_slot, &[None]);
+                bind(cmd, self.cbuffer_slot, &[None]);
             }
         }
 
         for &(slot, ref tex) in self.textures.iter() {
             if let Some(tex) = tex.as_ref().and_then(|t| t.get()) {
-                tex.bind(&cmd, slot, stage);
+                tex.bind(cmd, slot, stage);
             } else {
                 let bind = match stage {
                     ShaderStage::Pixel => d3d11::DeviceContext::pixel_set_shader_resources,
@@ -172,7 +172,7 @@ impl DynamicConstants {
                     ShaderStage::Domain => d3d11::DeviceContext::domain_set_shader_resources,
                 };
 
-                bind(&cmd, slot, &[None]);
+                bind(cmd, slot, &[None]);
             }
         }
 

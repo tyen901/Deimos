@@ -23,7 +23,7 @@ fn simple() {
 
     let constants = &[Vec4::new(1.0, 2.0, 3.0, 4.0), Vec4::new(5.0, 6.0, 7.0, 8.0)];
     let mut out = [Vec4::ZERO; 1];
-    InterpreterState::new(&bytecode)
+    InterpreterState::new(bytecode)
         .evaluate(&context, constants, &[], &mut out)
         .expect("Failed to evaluate");
 

@@ -153,7 +153,7 @@ impl Texture {
                         initial_data[calc_dx_subresource(i, e, mip_count)] =
                             D3D11_SUBRESOURCE_DATA {
                                 pSysMem: texture_data.as_ptr().add(offset) as _,
-                                SysMemPitch: pitch as u32,
+                                SysMemPitch: pitch,
                                 SysMemSlicePitch: 0,
                             };
                         offset += slice_pitch as usize;
@@ -202,7 +202,7 @@ impl Texture {
 
                     initial_data.push(D3D11_SUBRESOURCE_DATA {
                         pSysMem: texture_data.as_ptr().add(offset) as _,
-                        SysMemPitch: pitch as u32,
+                        SysMemPitch: pitch,
                         SysMemSlicePitch: 0,
                     });
                     offset += slice_pitch as usize;
@@ -298,7 +298,7 @@ impl Texture {
                 &desc,
                 Some(&[D3D11_SUBRESOURCE_DATA {
                     pSysMem: data.as_ptr() as _,
-                    SysMemPitch: format.calculate_pitch(width as u32, height as u32).0,
+                    SysMemPitch: format.calculate_pitch(width, height).0,
                     SysMemSlicePitch: 0,
                 }]),
             )
@@ -341,8 +341,8 @@ impl Texture {
                 .build(),
             Some(&[D3D11_SUBRESOURCE_DATA {
                 pSysMem: data.as_ptr() as _,
-                SysMemPitch: format.calculate_pitch(width as u32, height as u32).0,
-                SysMemSlicePitch: format.calculate_pitch(width as u32, height as u32).1,
+                SysMemPitch: format.calculate_pitch(width, height).0,
+                SysMemSlicePitch: format.calculate_pitch(width, height).1,
             }]),
         )?;
 
@@ -375,11 +375,11 @@ impl Texture {
         for i in 0..dds.get_num_mipmap_levels() {
             let width = dds.get_width() >> i;
             let height = dds.get_height() >> i;
-            let (pitch, slice_pitch) = format.calculate_pitch(width as u32, height as u32);
+            let (pitch, slice_pitch) = format.calculate_pitch(width, height);
 
             initial_data.push(D3D11_SUBRESOURCE_DATA {
                 pSysMem: unsafe { texture_data.as_ptr().add(offset) } as _,
-                SysMemPitch: pitch as u32,
+                SysMemPitch: pitch,
                 SysMemSlicePitch: 0,
             });
             offset += slice_pitch as usize;
