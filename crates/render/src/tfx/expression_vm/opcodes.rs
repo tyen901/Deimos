@@ -239,7 +239,7 @@ pub fn disassemble(data: &[u8]) -> anyhow::Result<Vec<String>> {
     let mut i = 0;
     while i < data.len() {
         let Ok(opcode) = Opcode::try_from(data[i]) else {
-            anyhow::bail!("Unimplemented opcode: {:02X}", data[i]);
+            anyhow::bail!("Unimplemented opcode: {:02X} ({:02X?})", data[i], data);
         };
 
         let opcode_size = opcode.size();

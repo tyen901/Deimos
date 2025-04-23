@@ -337,6 +337,18 @@ impl<'a> InterpreterState<'a> {
                     cached_top = a + t * (b - a);
                     *self.stack_top() = cached_top;
                 }
+                Opcode::Spline4Const => {
+                    let constant_start = ptr[1];
+                    ensure!(
+                        (constant_start + 4) < constants.len() as u8,
+                        "Invalid constant index"
+                    );
+
+                    let cl = &constants[constant_start as usize..];
+                    cached_top = super::helpers::bytecode_op_spline4_const(
+                        cached_top, cl[0], cl[1], cl[2], cl[3], cl[4],
+                    );
+                }
                 Opcode::Spline8Const => {
                     let constant_start = ptr[1];
                     ensure!(

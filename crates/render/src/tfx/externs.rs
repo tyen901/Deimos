@@ -69,7 +69,8 @@ macro_rules! externs {
 
 externs! {
     frame: Frame,
-    view: View
+    view: View,
+    overhead_visibility_map_main: OverheadVisibilityMapMain
 }
 
 #[profiling::all_functions]
@@ -367,6 +368,14 @@ extern_struct! {
         0x3E0 => unk3e0: Mat4,
         0x420 => unk420: Mat4,
         0x460 => unk460: Vec4,
+    }
+}
+
+extern_struct! {
+    struct OverheadVisibilityMapMain("overhead_visibility_map_main") {
+        0x00 => unk00: TextureView,
+        0x10 => unk10: Vec4,
+        0x20 => unk20: Vec4,
     }
 }
 

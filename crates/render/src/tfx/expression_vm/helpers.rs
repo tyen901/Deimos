@@ -175,6 +175,36 @@ fn step(y: Vec4, x: Vec4) -> Vec4 {
     Vec4::select(x.cmpge(y), Vec4::ONE, Vec4::ZERO)
 }
 
+pub fn bytecode_op_spline4_const(
+    v: Vec4,
+    c0: Vec4,
+    c1: Vec4,
+    c2: Vec4,
+    c3: Vec4,
+    c4: Vec4,
+) -> Vec4 {
+    unsafe {
+        use std::arch::x86_64::*;
+        let t0: __m128 = v.into();
+        let v264 = _mm_cmple_ps(c4.into(), t0);
+        let v265 = _mm_and_ps(
+            _mm_add_ps(
+                _mm_mul_ps(
+                    _mm_add_ps(_mm_mul_ps(t0, c0.into()), c1.into()),
+                    _mm_mul_ps(t0, t0),
+                ),
+                _mm_add_ps(_mm_mul_ps(c2.into(), t0), c3.into()),
+            ),
+            _mm_xor_ps(
+                v264,
+                _mm_castsi128_ps(_mm_srli_si128::<4>(_mm_castps_si128(v264))),
+            ),
+        );
+        let v266 = _mm_xor_ps(_mm_shuffle_ps::<78>(v265, v265), v265);
+        _mm_xor_ps(_mm_shuffle_ps::<27>(v266, v266), v266).into()
+    }
+}
+
 pub fn bytecode_op_spline8_const(
     x: Vec4,
     c3: Vec4,
