@@ -4,9 +4,8 @@ use anyhow::Context;
 use app::App;
 use clap::Parser;
 use cli::AppArgs;
-use deimos_render::tfx::expression_vm;
-use glam::Vec4;
 use tiger_pkg::PackageManager;
+use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 
 mod app;
 mod cli;
@@ -23,6 +22,11 @@ fn main() -> anyhow::Result<()> {
     fix_windows_console();
     std::panic::set_hook(Box::new(panic_hook::hook));
     tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::builder()
+                .with_default_directive(LevelFilter::INFO.into())
+                .from_env_lossy(),
+        )
         .pretty()
         // .with_span_events(FmtSpan::NONE)
         .with_file(false)
