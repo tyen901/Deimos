@@ -142,12 +142,15 @@ impl App {
     #[profiling::function]
     pub fn render(&mut self, _event_pump: &sdl3::EventPump) {
         let frame_start = std::time::Instant::now();
-        let refresh_rate = self
-            .window
-            .get_display()
-            .and_then(|d| d.get_mode())
-            .map(|m| m.refresh_rate)
-            .unwrap_or(60.0);
+        let refresh_rate = if !self.window.has_input_focus() && !self.window.has_mouse_focus() {
+            10.0
+        } else {
+            self.window
+                .get_display()
+                .and_then(|d| d.get_mode())
+                .map(|m| m.refresh_rate)
+                .unwrap_or(60.0)
+        };
         let frame_end =
             frame_start + std::time::Duration::from_millis((1000.0 / refresh_rate) as u64);
 
