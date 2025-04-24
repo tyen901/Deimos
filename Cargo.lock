@@ -292,6 +292,20 @@ name = "bytemuck"
 version = "1.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6b1fc10dbac614ebc03540c9dbd60e83887fda27794998c6528f1782047d540"
+dependencies = [
+ "bytemuck_derive",
+]
+
+[[package]]
+name = "bytemuck_derive"
+version = "1.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ecc273b49b3205b83d648f0690daa588925572cc5063745bfe547fe7ec8e1a1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.100",
+]
 
 [[package]]
 name = "byteorder"
@@ -644,6 +658,8 @@ dependencies = [
  "deimos-data",
  "deimos-render",
  "egui",
+ "egui-d3d11",
+ "egui-sdl3-platform",
  "embed-resource",
  "env_logger",
  "game-detector",
@@ -765,6 +781,7 @@ version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc4feb366740ded31a004a0e4452fbf84e80ef432ecf8314c485210229672fd1"
 dependencies = [
+ "bytemuck",
  "emath",
 ]
 
@@ -783,6 +800,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui-d3d11"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "d3d11",
+ "deimos-render",
+ "egui",
+ "thiserror 2.0.12",
+]
+
+[[package]]
+name = "egui-sdl3-platform"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "egui",
+ "sdl3",
+ "tracing 0.1.41",
+]
+
+[[package]]
 name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -793,6 +831,9 @@ name = "emath"
 version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e4cadcff7a5353ba72b7fea76bf2122b5ebdbc68e8155aa56dfdea90083fe1b"
+dependencies = [
+ "bytemuck",
+]
 
 [[package]]
 name = "embed-resource"
@@ -850,6 +891,7 @@ checksum = "41fcc0f5a7c613afd2dee5e4b30c3e6acafb8ad6f0edb06068811f708a67c562"
 dependencies = [
  "ab_glyph",
  "ahash",
+ "bytemuck",
  "ecolor",
  "emath",
  "epaint_default_fonts",

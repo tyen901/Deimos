@@ -35,7 +35,7 @@ pub struct Gpu {
     pub device: d3d11::Device,
     context: ReentrantMutex<d3d11::DeviceContext>,
     // TODO(cohae): Should this be moved to the Renderer?
-    swapchain: Mutex<Swapchain>,
+    pub swapchain: Mutex<Swapchain>,
 
     global_states: global_state::RenderStates,
 }

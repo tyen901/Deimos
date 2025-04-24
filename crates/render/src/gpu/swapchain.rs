@@ -27,6 +27,10 @@ impl Swapchain {
         s
     }
 
+    pub fn get_buffer(&self) -> d3d11::Texture2D {
+        self.swapchain.get_buffer(0).unwrap()
+    }
+
     // ⚠ The calling function MUST ensure that the RTV is not held/in use.
     pub fn resize(&mut self, device: &d3d11::Device, new_size: (u32, u32)) {
         drop(self.swapchain_target.take());

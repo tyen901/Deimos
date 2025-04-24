@@ -19,9 +19,13 @@ use crate::{
 };
 
 pub struct App {
+    pub sdl: Rc<sdl3::Sdl>,
     pub window: Rc<Window>,
     pub gpu: Arc<Gpu>,
     pub renderer: Arc<Renderer>,
+
+    pub egui_d3d11: egui_d3d11::D3D11Renderer,
+    pub egui_sdl3: egui_sdl3_platform::Platform,
 
     input: MouseKeyboardState,
     spinner: FullscreenSpinner,
@@ -84,7 +88,10 @@ impl App {
         Ok(Self {
             input: MouseKeyboardState::new(sdl.clone(), window.clone()),
             spinner: FullscreenSpinner::create(&renderer.gpu)?,
+            egui_d3d11: egui_d3d11::D3D11Renderer::new(&gpu)?,
+            egui_sdl3: egui_sdl3_platform::Platform::new(window.size())?,
             renderer,
+            sdl,
             window,
             gpu,
 
@@ -106,8 +113,13 @@ impl App {
             }
             sdl3::event::Event::Window { win_event, .. } => match win_event {
                 &sdl3::event::WindowEvent::Resized(new_width, new_height) => {
-                    self.renderer
-                        .resize_swapchain((new_width as u32, new_height as u32));
+                    self.egui_d3d11
+                        .resize_buffers(&self.renderer.gpu, || {
+                            self.renderer
+                                .resize_swapchain((new_width as u32, new_height as u32));
+                            Ok(())
+                        })
+                        .ok();
                 }
                 _ => {}
             },
@@ -123,6 +135,8 @@ impl App {
         };
 
         self.input.handle_event(&event, true, true);
+        self.egui_sdl3
+            .handle_event(&event, &self.sdl, &self.sdl.video().unwrap());
     }
 
     #[profiling::function]
@@ -200,12 +214,12 @@ impl App {
         {
             self.renderer.begin_frame();
 
+            let gpu = &self.renderer.gpu;
+            let mut cmd = CommandList::from_device_context(gpu, gpu.context().clone());
             {
                 profiling::scope!("prepare");
-                let gpu = &self.renderer.gpu;
-                let context = gpu.context();
 
-                context.clear_render_target_view(&gpu.acquire_rtv(), &[0.0, 0.0, 0.0, 1.0]);
+                cmd.clear_render_target_view(&gpu.acquire_rtv(), &[0.0, 0.0, 0.0, 1.0]);
 
                 {
                     profiling::scope!("visibility");
@@ -251,18 +265,15 @@ impl App {
                             .unwrap_or(std::cmp::Ordering::Equal)
                     });
 
-                context.rasterizer_set_viewports(&[d3d11::Viewport::builder()
+                cmd.rasterizer_set_viewports(&[d3d11::Viewport::builder()
                     .width(self.renderer.surfaces.framebuffer_resolution().0 as f32)
                     .height(self.renderer.surfaces.framebuffer_resolution().1 as f32)
                     .build()]);
 
-                context.output_merger_set_blend_state(None, None, 0xFFFFFFFF);
+                cmd.output_merger_set_blend_state(None, None, 0xFFFFFFFF);
             }
 
             if !self.renderer.frame_packet.read().frame_nodes.is_empty() {
-                let gpu = &self.renderer.gpu;
-                // let mut cmd = self.renderer.gpu.create_command_list();
-                let mut cmd = CommandList::from_device_context(gpu, gpu.context().clone());
                 self.renderer.submit_world(
                     &mut cmd,
                     view,
@@ -330,6 +341,18 @@ impl App {
                 context.rasterizer_set_state(None);
                 self.renderer.debug_text.lock().draw(&self.renderer.gpu);
             }
+
+            let mut ctx = self
+                .egui_sdl3
+                .begin_frame(self.window.size(), self.window.display_scale());
+            egui::Window::new("Demo Window").show(&ctx, |ui| {
+                ui.label("Hello, World!");
+            });
+            let mut output = self
+                .egui_sdl3
+                .end_frame(&mut self.sdl.video().unwrap())
+                .unwrap();
+            self.egui_d3d11.paint(&mut cmd, output, &mut ctx);
         }
 
         self.renderer.present_frame(false);

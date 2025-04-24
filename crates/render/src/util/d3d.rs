@@ -8,7 +8,7 @@ pub fn calc_dx_subresource(mip_slice: usize, array_slice: usize, mip_levels: usi
 //     fn set_debug_name(&self, name: &str);
 // }
 
-// impl D3dResource for ID3D11DeviceChild {
+// impl D3dResource for d3d11::DeviceChild {
 //     fn set_debug_name(&self, name: &str) {
 //         let name_cstr = std::ffi::CString::new(name).unwrap();
 //         unsafe {

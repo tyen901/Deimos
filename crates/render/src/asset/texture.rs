@@ -463,7 +463,7 @@ impl Texture {
     }
 
     // pub fn load_png(
-    //     device: &ID3D11Device,
+    //     device: &d3d11::Device,
     //     png: &Png,
     //     name: Option<&str>,
     // ) -> anyhow::Result<Texture> {

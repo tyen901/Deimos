@@ -8,17 +8,27 @@ name = "deimos"
 path = "src/main.rs"
 
 [workspace]
-members = ["crates/data", "crates/core", "crates/render"]
+members = [
+    "crates/data",
+    "crates/core",
+    "crates/render",
+    "crates/egui-d3d11",
+    "crates/egui-sdl3-platform",
+]
 
 [workspace.dependencies]
 anyhow = "1"
 crossbeam = "0.8"
 d3d11 = { git = "https://github.com/cohaereo/d3d11-rs.git" }
+egui = { version = "0.31.1", features = ["bytemuck"] }
 glam = { version = "0.30", features = ["bytemuck"] }
 itertools = "0.14"
 parking_lot = "0.12"
 profiling = "1"
-sdl3 = { version = "0.14", features = ["raw-window-handle", "build-from-source"] }
+sdl3 = { version = "0.14", features = [
+    "raw-window-handle",
+    "build-from-source",
+] }
 tiger-parse = { version = "0.4.0", git = "https://github.com/v4nguard/tiger-parse.git", features = [
     "check_types",
     "check_types_strict",
@@ -32,6 +42,8 @@ tracing = "0.1"
 deimos-core = { path = "./crates/core" }
 deimos-data = { path = "./crates/data" }
 deimos-render = { path = "./crates/render" }
+egui-d3d11 = { path = "./crates/egui-d3d11" }
+egui-sdl3-platform = { path = "./crates/egui-sdl3-platform" }
 
 # (De)serialization
 game-detector = { version = "0.1.5" }
@@ -45,7 +57,10 @@ anyhow.workspace = true
 bytemuck = "1.22.0"
 env_logger = "0.11.8"
 profiling.workspace = true
-tracing-subscriber = { version = "0.3", git = "https://github.com/cohaereo/tracing-lesspretty.git", features = ["env-filter", "fmt"] }
+tracing-subscriber = { version = "0.3", git = "https://github.com/cohaereo/tracing-lesspretty.git", features = [
+    "env-filter",
+    "fmt",
+] }
 tracing.workspace = true
 
 # Graphics
@@ -54,7 +69,7 @@ glam.workspace = true
 sdl3.workspace = true
 
 # UI
-egui = "0.31.1"
+egui.workspace = true
 nu-ansi-term = "0.50.1"
 native-dialog = "0.7.0"
 clap = { version = "4.5.37", features = ["derive"] }
