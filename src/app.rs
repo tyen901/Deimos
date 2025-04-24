@@ -141,9 +141,18 @@ impl App {
 
     #[profiling::function]
     pub fn render(&mut self, _event_pump: &sdl3::EventPump) {
-        let now = std::time::Instant::now();
-        let delta_time = (now - self.last_frame_time).as_secs_f32();
-        self.last_frame_time = now;
+        let frame_start = std::time::Instant::now();
+        let refresh_rate = self
+            .window
+            .get_display()
+            .and_then(|d| d.get_mode())
+            .map(|m| m.refresh_rate)
+            .unwrap_or(60.0);
+        let frame_end =
+            frame_start + std::time::Duration::from_millis((1000.0 / refresh_rate) as u64);
+
+        let delta_time = (frame_start - self.last_frame_time).as_secs_f32();
+        self.last_frame_time = frame_start;
 
         self.frametime_history.push(delta_time);
         if self.frametime_history.len() > 100 {
@@ -355,7 +364,11 @@ impl App {
             self.egui_d3d11.paint(&mut cmd, output, &mut ctx);
         }
 
-        self.renderer.present_frame(false);
+        let vsync = false;
+        self.renderer.present_frame(vsync);
+        if !vsync {
+            spin_sleep::sleep_until(frame_end);
+        }
 
         self.input.update_keystates();
         profiling::finish_frame!();
