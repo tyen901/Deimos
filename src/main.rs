@@ -12,6 +12,7 @@ mod cli;
 mod input;
 mod map;
 mod panic_hook;
+mod ui;
 
 #[macro_use]
 extern crate tracing;
@@ -95,7 +96,8 @@ fn main() -> anyhow::Result<()> {
     let window = Rc::new(
         video_subsystem
             .window("Deimos", 1920, 1080)
-            .position_centered()
+            // .position_centered()
+            .position(4228, 480)
             .resizable()
             .build()
             .expect("Failed to create window"),

@@ -5,6 +5,7 @@ use renderdoc::{RenderDoc, V100};
 pub mod arena;
 pub mod byteutil;
 pub mod d3d;
+pub mod fps_histogram;
 pub mod geometry;
 pub mod threading;
 

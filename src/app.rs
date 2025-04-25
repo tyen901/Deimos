@@ -1,12 +1,14 @@
-use std::{f32, rc::Rc, sync::Arc, time::Instant};
+use std::{collections::BTreeMap, f32, rc::Rc, sync::Arc, time::Instant};
 
 use deimos_data::{map::SBubbleParent, tfx::TfxFeatureRenderer};
 use deimos_render::{
     camera::Camera,
     gpu::{command_list::CommandList, debug_text::DebugTextAlign, spinner::FullscreenSpinner},
     object::{RenderObject, RenderObjectHandle},
+    util::fps_histogram::FrametimeHistogram,
     Gpu, Renderer,
 };
+use egui::{Color32, FontId, Margin, RichText};
 use glam::{vec2, vec3, IVec2, Quat, Vec2, Vec3};
 use sdl3::{keyboard::Keycode, video::Window};
 use tiger_parse::TigerReadable;
@@ -16,6 +18,7 @@ use crate::{
     cli::AppArgs,
     input::{MouseButton, MouseKeyboardState},
     map::load_static_map,
+    ui::UiExt,
 };
 
 pub struct App {
@@ -32,7 +35,7 @@ pub struct App {
     last_frame_time: Instant,
     start_time: Instant,
     camera: Camera,
-    frametime_history: Vec<f32>,
+    frametime_histogram: FrametimeHistogram,
 
     // map: StaticMapTemp,
     static_render_objects: Vec<RenderObjectHandle>,
@@ -85,11 +88,85 @@ impl App {
             ..Default::default()
         };
 
+        let mut fonts = egui::FontDefinitions::default();
+        fonts.font_data.insert(
+            "ppfraktionmono".into(),
+            Arc::new(egui::FontData::from_static(include_bytes!(
+                "../assets/fonts/ppfraktionmono-regular.otf"
+            ))),
+        );
+        fonts.font_data.insert(
+            "ppfraktionmono-bold".into(),
+            Arc::new(egui::FontData::from_static(include_bytes!(
+                "../assets/fonts/ppfraktionmono-bold.otf"
+            ))),
+        );
+        fonts.font_data.insert(
+            "marathonshapiro_wide".into(),
+            Arc::new(egui::FontData::from_static(include_bytes!(
+                "../assets/fonts/marathonshapiro_wide65.otf"
+            ))),
+        );
+
+        fonts
+            .families
+            .entry(egui::FontFamily::Proportional)
+            .or_default()
+            .insert(0, "ppfraktionmono".to_owned());
+        fonts
+            .families
+            .entry(egui::FontFamily::Proportional)
+            .or_default()
+            .insert(1, "ppfraktionmono-bold".to_owned());
+        fonts
+            .families
+            .entry(egui::FontFamily::Name("shapiro".into()))
+            .or_default()
+            .insert(0, "marathonshapiro_wide".to_owned());
+
+        let egui_sdl3 = egui_sdl3_platform::Platform::new(window.size())?;
+        egui_sdl3.context().set_fonts(fonts);
+        egui_sdl3.context().style_mut(|s| {
+            s.visuals.override_text_color = Some(Color32::WHITE);
+            s.spacing.button_padding = egui::vec2(30.0, 20.0);
+            s.spacing.item_spacing = egui::vec2(20.0, 10.0);
+        });
+
+        // Redefine text_styles
+        let text_styles: BTreeMap<_, _> = [
+            (
+                egui::TextStyle::Heading,
+                FontId::new(42.0, egui::FontFamily::Name("shapiro".into())),
+            ),
+            (
+                egui::TextStyle::Body,
+                FontId::new(18.0, egui::FontFamily::Proportional),
+            ),
+            (
+                egui::TextStyle::Monospace,
+                FontId::new(14.0, egui::FontFamily::Proportional),
+            ),
+            (
+                egui::TextStyle::Button,
+                FontId::new(18.0, egui::FontFamily::Name("shapiro".into())),
+            ),
+            (
+                egui::TextStyle::Small,
+                FontId::new(10.0, egui::FontFamily::Proportional),
+            ),
+        ]
+        .into();
+
+        // Mutate global styles with new text styles
+        egui_sdl3
+            .context()
+            .all_styles_mut(move |style| style.text_styles = text_styles.clone());
+
         Ok(Self {
             input: MouseKeyboardState::new(sdl.clone(), window.clone()),
             spinner: FullscreenSpinner::create(&renderer.gpu)?,
             egui_d3d11: egui_d3d11::D3D11Renderer::new(&gpu)?,
-            egui_sdl3: egui_sdl3_platform::Platform::new(window.size())?,
+            egui_sdl3,
             renderer,
             sdl,
             window,
@@ -98,7 +175,7 @@ impl App {
             last_frame_time: Instant::now(),
             start_time: Instant::now(),
             camera,
-            frametime_history: Vec::new(),
+            frametime_histogram: FrametimeHistogram::new(10),
             // map,
             static_render_objects,
             yaw_pitch: Vec2::ZERO,
@@ -157,10 +234,7 @@ impl App {
         let delta_time = (frame_start - self.last_frame_time).as_secs_f32();
         self.last_frame_time = frame_start;
 
-        self.frametime_history.push(delta_time);
-        if self.frametime_history.len() > 100 {
-            self.frametime_history.remove(0);
-        }
+        self.frametime_histogram.push(delta_time);
 
         let mut movement = Vec3::ZERO;
         if self.input.is_key_down(Keycode::W) {
@@ -306,39 +380,22 @@ impl App {
 
             {
                 let mut debug_text = self.renderer.debug_text.lock();
+                // debug_text.add_string(
+                //     format!(
+                //         "Camera Position <{:.2},{:.2},{:.2}>",
+                //         self.camera.position.x, self.camera.position.y, self.camera.position.z
+                //     ),
+                //     IVec2::new(2, -1),
+                //     [0, 255, 255, 255],
+                //     DebugTextAlign::BottomLeft,
+                // );
                 debug_text.add_string(
-                    format!(
-                        "Camera Position <{:.2},{:.2},{:.2}>",
-                        self.camera.position.x, self.camera.position.y, self.camera.position.z
-                    ),
-                    IVec2::new(2, -3),
+                    format!("{}", (1. / self.frametime_histogram.average()).round()),
+                    IVec2::new(-2, 1),
                     [0, 255, 255, 255],
-                    DebugTextAlign::BottomLeft,
-                );
-                debug_text.add_string(
-                    format!(
-                        "Frame time {:.2} ms / {:.2} FPS",
-                        delta_time * 1000.0,
-                        1.0 / delta_time
-                    ),
-                    IVec2::new(2, -2),
-                    [0, 255, 255, 255],
-                    DebugTextAlign::BottomLeft,
-                );
-                let average_frame_time = self.frametime_history.iter().sum::<f32>()
-                    / self.frametime_history.len() as f32;
-                debug_text.add_string(
-                    format!(
-                        "Average frame time {:.2} ms / {:.2} FPS",
-                        average_frame_time * 1000.0,
-                        1.0 / average_frame_time
-                    ),
-                    IVec2::new(2, -1),
-                    [0, 255, 255, 255],
-                    DebugTextAlign::BottomLeft,
+                    DebugTextAlign::TopRight,
                 );
             }
-
             // if self.show_debug_text
             {
                 let gpu = &self.renderer.gpu;
@@ -357,9 +414,53 @@ impl App {
             let mut ctx = self
                 .egui_sdl3
                 .begin_frame(self.window.size(), self.window.display_scale());
-            egui::Window::new("Demo Window").show(&ctx, |ui| {
-                ui.label("Hello, World!");
-            });
+            // egui::Window::new("Demo Window").show(&ctx, |ui| {
+            //     ui.label("Hello, World!");
+            // });
+            ctx.style_mut(|s| s.visuals.panel_fill = Color32::from_black_alpha(96));
+            egui::CentralPanel::default()
+                .frame(
+                    egui::Frame::new()
+                        .outer_margin(Margin::same(127))
+                        .inner_margin(Margin::same(64)),
+                )
+                .show(&ctx, |ui| {
+                    ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
+                        // ui.add(
+                        //     egui::Button::new(RichText::new("MAPS").color(Color32::BLACK))
+                        //         .min_size(egui::vec2(500.0, 60.0))
+                        //         .corner_radius(16)
+                        //         .fill(Color32::WHITE),
+                        // )
+                        // .on_hover_cursor(egui::CursorIcon::PointingHand);
+                        ui.with_layout(
+                            egui::Layout::left_to_right(egui::Align::Min).with_main_justify(true),
+                            |ui| {
+                                ui.d_button("MAPS");
+                            },
+                        );
+                        ui.add_space(32.0);
+                        ui.columns(3, |uis| {
+                            uis[0].heading("MODELS");
+                            uis[0].add_space(4.0);
+                            uis[0].d_button("API");
+                            uis[0].d_button("DYNAMICS");
+                            uis[0].d_button("STATICS");
+
+                            uis[1].heading("AUDIO");
+                            uis[1].add_space(4.0);
+                            uis[1].d_button("ALL SOUNDS");
+                            uis[1].d_button("WEAPON AUDIO");
+
+                            uis[2].heading("OTHER");
+                            uis[2].add_space(4.0);
+                            uis[2].d_button("STRINGS");
+                            uis[2].d_button("TEXTURES");
+                            uis[2].d_button("MATERIALS");
+                            uis[2].d_button("COLLECTIONS");
+                        });
+                    });
+                });
             let mut output = self
                 .egui_sdl3
                 .end_frame(&mut self.sdl.video().unwrap())

@@ -238,6 +238,10 @@ impl Platform {
         }
     }
 
+    pub fn context(&self) -> &egui::Context {
+        &self.egui_ctx
+    }
+
     /// Return the processed context
     pub fn begin_frame(&mut self, screen_size: (u32, u32), ppt: f32) -> egui::Context {
         self.pixels_per_point = ppt;
