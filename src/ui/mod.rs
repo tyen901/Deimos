@@ -6,6 +6,7 @@ use egui_dock::{DockArea, DockState, TabInteractionStyle};
 use google_material_symbols::GoogleMaterialSymbols;
 use tabs::{DockStateExt, Tab, TabViewer};
 
+mod scene3d;
 mod style;
 pub mod tabs;
 pub mod util;
@@ -198,8 +199,9 @@ impl Gui {
                         stroke: ctx.style().visuals.widgets.noninteractive.bg_stroke,
                         corner_radius: ctx.style().visuals.widgets.active.corner_radius,
                         bg_fill: ctx.style().visuals.window_fill(),
+                        // bg_fill: Color32::from_black_alpha(128),
                     },
-                    hline_below_active_tab_name: true,
+                    hline_below_active_tab_name: false,
                     ..Default::default()
                 };
                 style

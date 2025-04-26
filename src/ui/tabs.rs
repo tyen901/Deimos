@@ -1,6 +1,6 @@
 use std::{collections::HashSet, fmt::Display, mem::Discriminant};
 
-use egui::Margin;
+use egui::{Color32, Margin};
 use egui_dock::{DockState, NodeIndex, SurfaceIndex, TabIndex};
 use google_material_symbols::GoogleMaterialSymbols;
 
@@ -10,6 +10,7 @@ pub enum Tab {
     Home,
     Settings,
     Dynamics,
+    Maps,
 }
 
 impl Tab {
@@ -19,7 +20,7 @@ impl Tab {
 
     /// Indicates whether the tab is unique. Only one instance of each unique tab can exist.
     pub fn is_unique(&self) -> bool {
-        matches!(self, Tab::Home | Tab::Settings | Tab::Dynamics)
+        matches!(self, Tab::Home | Tab::Settings | Tab::Dynamics | Tab::Maps)
     }
 }
 
@@ -29,6 +30,7 @@ impl Display for Tab {
             Tab::Settings => GoogleMaterialSymbols::Settings.to_string(),
             Tab::Home => format!("{} HOME", GoogleMaterialSymbols::Home),
             Tab::Dynamics => format!("{} DYNAMICS", GoogleMaterialSymbols::DeployedCode),
+            Tab::Maps => format!("{} MAPS", GoogleMaterialSymbols::Map),
         };
 
         f.write_str(&s)
@@ -48,7 +50,11 @@ impl<'a> egui_dock::TabViewer for TabViewer<'a> {
 
     fn ui(&mut self, ui: &mut egui::Ui, tab: &mut Self::Tab) {
         egui::Frame::new()
-            .outer_margin(Margin::same(127))
+            .outer_margin(if tab.is_fixed() {
+                Margin::symmetric(127, 64)
+            } else {
+                Margin::ZERO
+            })
             .show(ui, |ui| {
                 ui.with_layout(
                     egui::Layout::top_down(egui::Align::Center),
@@ -68,18 +74,19 @@ impl<'a> egui_dock::TabViewer for TabViewer<'a> {
                                     self.added_nodes.push(Tab::Dynamics);
                                 }
                                 uis[0].disable();
-                                uis[0].d_button(format!(
+                                let _ =
+                                    uis[0].d_button(format!("{} MAPS", GoogleMaterialSymbols::Map));
+                                let _ = uis[0].d_button(format!(
                                     "{} STATICS",
                                     GoogleMaterialSymbols::Landscape
                                 ));
-                                uis[0].d_button(format!("{} MAPS", GoogleMaterialSymbols::Map));
 
                                 uis[1].heading("2D");
                                 uis[1].add_space(4.0);
                                 uis[1].disable();
-                                uis[1]
+                                let _ = uis[1]
                                     .d_button(format!("{} TEXTURES", GoogleMaterialSymbols::Image));
-                                uis[1].d_button(format!(
+                                let _ = uis[1].d_button(format!(
                                     "{} UI",
                                     GoogleMaterialSymbols::DesktopWindows
                                 ));
@@ -89,7 +96,20 @@ impl<'a> egui_dock::TabViewer for TabViewer<'a> {
                             ui.weak("No settings are available");
                         }
                         Tab::Dynamics => {
-                            ui.weak("Wompy");
+                            // ui.weak("Wompy");
+                            ui.painter().rect_filled(
+                                egui::Rect::from_min_size(ui.cursor().min, ui.available_size()),
+                                0,
+                                Color32::RED,
+                            );
+                        }
+                        Tab::Maps => {
+                            // ui.weak("Wompy");
+                            ui.painter().rect_filled(
+                                egui::Rect::from_min_size(ui.cursor().min, ui.available_size()),
+                                0,
+                                Color32::RED,
+                            );
                         }
                     },
                 );

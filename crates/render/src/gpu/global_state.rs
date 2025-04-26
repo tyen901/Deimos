@@ -193,7 +193,7 @@ impl RenderStates {
         });
 
         Ok(Self {
-            input_layouts: input_layouts.try_into().unwrap(),
+            input_layouts,
             blend_states,
             rasterizer_states,
             depth_stencil_states: depth_stencil_states
