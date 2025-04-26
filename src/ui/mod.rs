@@ -56,46 +56,38 @@ impl Gui {
             )),
         );
 
-        fonts
-            .families
-            .entry(egui::FontFamily::Proportional)
-            .or_default()
-            .insert(0, "ppfraktionmono".to_owned());
-        fonts
-            .families
-            .entry(egui::FontFamily::Proportional)
-            .or_default()
-            .insert(1, "ppfraktionmono-bold".to_owned());
-        fonts
-            .families
-            .entry(egui::FontFamily::Proportional)
-            .or_default()
-            .insert(2, "MaterialSymbolsRounded-Medium".to_owned());
-        fonts
-            .families
-            .entry(egui::FontFamily::Monospace)
-            .or_default()
-            .insert(0, "ppfraktionmono".to_owned());
-        fonts
-            .families
-            .entry(egui::FontFamily::Name("khinterference-regular".into()))
-            .or_default()
-            .insert(0, "khinterference-regular".to_owned());
-        fonts
-            .families
-            .entry(egui::FontFamily::Name("khinterference-regular".into()))
-            .or_default()
-            .insert(1, "MaterialSymbolsRounded-Medium".to_owned());
-        fonts
-            .families
-            .entry(egui::FontFamily::Name("shapiro".into()))
-            .or_default()
-            .insert(0, "marathonshapiro_wide".to_owned());
-        fonts
-            .families
-            .entry(egui::FontFamily::Name("shapiro".into()))
-            .or_default()
-            .insert(1, "MaterialSymbolsRounded-Medium".to_owned());
+        let mut add_with_icons = |family: egui::FontFamily, elements: &[&str]| {
+            for (i, &element) in elements.iter().enumerate() {
+                fonts
+                    .families
+                    .entry(family.clone())
+                    .or_default()
+                    .insert(i, element.to_owned());
+            }
+
+            fonts
+                .families
+                .entry(family)
+                .or_default()
+                .insert(elements.len(), "MaterialSymbolsRounded-Medium".to_owned());
+        };
+
+        add_with_icons(
+            egui::FontFamily::Proportional,
+            &["ppfraktionmono", "ppfraktionmono-bold"],
+        );
+        add_with_icons(
+            egui::FontFamily::Monospace,
+            &["ppfraktionmono", "ppfraktionmono-bold"],
+        );
+        add_with_icons(
+            egui::FontFamily::Name("khinterference".into()),
+            &["khinterference-regular"],
+        );
+        add_with_icons(
+            egui::FontFamily::Name("shapiro".into()),
+            &["marathonshapiro_wide"],
+        );
 
         let egui_sdl3 = egui_sdl3_platform::Platform::new(gpu.swapchain_resolution())?;
         egui_sdl3.context().set_fonts(fonts);
@@ -122,10 +114,7 @@ impl Gui {
             (
                 egui::TextStyle::Button,
                 // FontId::new(20.0, egui::FontFamily::Monospace),
-                FontId::new(
-                    20.0,
-                    egui::FontFamily::Name("khinterference-regular".into()),
-                ),
+                FontId::new(20.0, egui::FontFamily::Name("khinterference".into())),
             ),
             (
                 egui::TextStyle::Small,
@@ -144,7 +133,7 @@ impl Gui {
         Ok(Self {
             window,
             sdl,
-            egui_d3d11: egui_d3d11::D3D11Renderer::new(&gpu)?,
+            egui_d3d11: egui_d3d11::D3D11Renderer::new(gpu)?,
             egui_sdl3,
             tree,
         })
