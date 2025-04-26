@@ -20,80 +20,15 @@ use crate::{
     cli::AppArgs,
     input::{MouseButton, MouseKeyboardState},
     map::load_static_map,
-    ui::util::UiExt,
+    ui::{util::UiExt, Gui},
 };
-
-struct TabViewer {}
-
-impl egui_dock::TabViewer for TabViewer {
-    type Tab = String;
-
-    fn title(&mut self, tab: &mut Self::Tab) -> egui::WidgetText {
-        (&*tab).into()
-    }
-
-    fn ui(&mut self, ui: &mut egui::Ui, tab: &mut Self::Tab) {
-        ui.label(format!("Content of {tab}"));
-
-        egui::Frame::new()
-            .outer_margin(Margin::same(127))
-            .inner_margin(Margin::same(64))
-            .show(ui, |ui| {
-                ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
-                    // ui.add(
-                    //     egui::Button::new(RichText::new("MAPS").color(Color32::BLACK))
-                    //         .min_size(egui::vec2(500.0, 60.0))
-                    //         .corner_radius(16)
-                    //         .fill(Color32::WHITE),
-                    // )
-                    // .on_hover_cursor(egui::CursorIcon::PointingHand);
-                    ui.with_layout(
-                        egui::Layout::left_to_right(egui::Align::Min).with_main_justify(true),
-                        |ui| {
-                            ui.d_button("MAPS");
-                        },
-                    );
-                    ui.add_space(32.0);
-                    ui.columns(3, |uis| {
-                        uis[0].heading("MODELS");
-                        uis[0].add_space(4.0);
-                        uis[0].d_button("API");
-                        uis[0].d_button("DYNAMICS");
-                        uis[0].d_button("STATICS");
-
-                        uis[1].heading("AUDIO");
-                        uis[1].add_space(4.0);
-                        uis[1].d_button("ALL SOUNDS");
-                        uis[1].d_button("WEAPON AUDIO");
-
-                        uis[2].heading("OTHER");
-                        uis[2].add_space(4.0);
-                        uis[2].d_button("STRINGS");
-                        uis[2].d_button("TEXTURES");
-                        uis[2].d_button("MATERIALS");
-                        uis[2].d_button("COLLECTIONS");
-                    });
-                });
-            });
-    }
-
-    fn allowed_in_windows(&self, _tab: &mut Self::Tab) -> bool {
-        false
-    }
-
-    fn closeable(&mut self, _tab: &mut Self::Tab) -> bool {
-        false
-    }
-}
 
 pub struct App {
     pub sdl: Rc<sdl3::Sdl>,
     pub window: Rc<Window>,
     pub gpu: Arc<Gpu>,
     pub renderer: Arc<Renderer>,
-
-    pub egui_d3d11: egui_d3d11::D3D11Renderer,
-    pub egui_sdl3: egui_sdl3_platform::Platform,
+    pub gui: Gui,
 
     input: MouseKeyboardState,
     spinner: FullscreenSpinner,
@@ -106,8 +41,6 @@ pub struct App {
     static_render_objects: Vec<RenderObjectHandle>,
 
     yaw_pitch: Vec2,
-
-    tree: DockState<String>,
 }
 
 impl App {
@@ -151,140 +84,11 @@ impl App {
             ..Default::default()
         };
 
-        let mut fonts = egui::FontDefinitions::default();
-        fonts.font_data.insert(
-            "ppfraktionmono".into(),
-            Arc::new(egui::FontData::from_static(include_bytes!(
-                "../assets/fonts/ppfraktionmono-regular.otf"
-            ))),
-        );
-        fonts.font_data.insert(
-            "ppfraktionmono-bold".into(),
-            Arc::new(egui::FontData::from_static(include_bytes!(
-                "../assets/fonts/ppfraktionmono-bold.otf"
-            ))),
-        );
-        fonts.font_data.insert(
-            "marathonshapiro_wide".into(),
-            Arc::new(egui::FontData::from_static(include_bytes!(
-                "../assets/fonts/marathonshapiro_wide65.otf"
-            ))),
-        );
-        fonts.font_data.insert(
-            "khinterference-regular".into(),
-            Arc::new(egui::FontData::from_static(include_bytes!(
-                "../assets/fonts/khinterference-regular.otf"
-            ))),
-        );
-        fonts.font_data.insert(
-            "MaterialSymbolsRounded-Medium".into(),
-            Arc::new(egui::FontData::from_static(
-                GoogleMaterialSymbols::FONT_BYTES,
-            )),
-        );
-
-        fonts
-            .families
-            .entry(egui::FontFamily::Proportional)
-            .or_default()
-            .insert(0, "ppfraktionmono".to_owned());
-        fonts
-            .families
-            .entry(egui::FontFamily::Proportional)
-            .or_default()
-            .insert(1, "ppfraktionmono-bold".to_owned());
-        fonts
-            .families
-            .entry(egui::FontFamily::Proportional)
-            .or_default()
-            .insert(2, "MaterialSymbolsRounded-Medium".to_owned());
-        fonts
-            .families
-            .entry(egui::FontFamily::Monospace)
-            .or_default()
-            .insert(0, "ppfraktionmono".to_owned());
-        fonts
-            .families
-            .entry(egui::FontFamily::Name("khinterference-regular".into()))
-            .or_default()
-            .insert(0, "khinterference-regular".to_owned());
-        fonts
-            .families
-            .entry(egui::FontFamily::Name("khinterference-regular".into()))
-            .or_default()
-            .insert(1, "MaterialSymbolsRounded-Medium".to_owned());
-        fonts
-            .families
-            .entry(egui::FontFamily::Name("shapiro".into()))
-            .or_default()
-            .insert(0, "marathonshapiro_wide".to_owned());
-        fonts
-            .families
-            .entry(egui::FontFamily::Name("shapiro".into()))
-            .or_default()
-            .insert(1, "MaterialSymbolsRounded-Medium".to_owned());
-
-        let egui_sdl3 = egui_sdl3_platform::Platform::new(window.size())?;
-        egui_sdl3.context().set_fonts(fonts);
-        egui_sdl3.context().style_mut(|s| {
-            s.visuals.override_text_color = Some(Color32::WHITE);
-            s.spacing.button_padding = egui::vec2(30.0, 20.0);
-            s.spacing.item_spacing = egui::vec2(20.0, 10.0);
-        });
-
-        // Redefine text_styles
-        let text_styles: BTreeMap<_, _> = [
-            (
-                egui::TextStyle::Heading,
-                FontId::new(42.0, egui::FontFamily::Name("shapiro".into())),
-            ),
-            (
-                egui::TextStyle::Body,
-                FontId::new(18.0, egui::FontFamily::Proportional),
-            ),
-            (
-                egui::TextStyle::Monospace,
-                FontId::new(14.0, egui::FontFamily::Proportional),
-            ),
-            (
-                egui::TextStyle::Button,
-                // FontId::new(20.0, egui::FontFamily::Monospace),
-                FontId::new(
-                    20.0,
-                    egui::FontFamily::Name("khinterference-regular".into()),
-                ),
-            ),
-            (
-                egui::TextStyle::Small,
-                FontId::new(10.0, egui::FontFamily::Proportional),
-            ),
-        ]
-        .into();
-
-        // Mutate global styles with new text styles
-        egui_sdl3
-            .context()
-            .all_styles_mut(move |style| style.text_styles = text_styles.clone());
-
-        let mut tree = DockState::new(vec![format!("{} HOME", GoogleMaterialSymbols::Home)]);
-
-        // // You can modify the tree before constructing the dock
-        // let [a, b] =
-        //     tree.main_surface_mut()
-        //         .split_left(NodeIndex::root(), 0.3, vec!["tab3".to_owned()]);
-        // let [_, _] = tree
-        //     .main_surface_mut()
-        //     .split_below(a, 0.7, vec!["tab4".to_owned()]);
-        // let [_, _] = tree
-        //     .main_surface_mut()
-        //     .split_below(b, 0.5, vec!["tab5".to_owned()]);
-
         Ok(Self {
             input: MouseKeyboardState::new(sdl.clone(), window.clone()),
             spinner: FullscreenSpinner::create(&renderer.gpu)?,
-            egui_d3d11: egui_d3d11::D3D11Renderer::new(&gpu)?,
-            egui_sdl3,
             renderer,
+            gui: Gui::new(&gpu, sdl.clone(), window.clone())?,
             sdl,
             window,
             gpu,
@@ -296,8 +100,6 @@ impl App {
             // map,
             static_render_objects,
             yaw_pitch: Vec2::ZERO,
-
-            tree,
         })
     }
 
@@ -309,7 +111,8 @@ impl App {
             }
             sdl3::event::Event::Window { win_event, .. } => match win_event {
                 &sdl3::event::WindowEvent::Resized(new_width, new_height) => {
-                    self.egui_d3d11
+                    self.gui
+                        .egui_d3d11
                         .resize_buffers(&self.renderer.gpu, || {
                             self.renderer
                                 .resize_swapchain((new_width as u32, new_height as u32));
@@ -331,7 +134,8 @@ impl App {
         };
 
         self.input.handle_event(&event, true, true);
-        self.egui_sdl3
+        self.gui
+            .egui_sdl3
             .handle_event(&event, &self.sdl, &self.sdl.video().unwrap());
     }
 
@@ -530,22 +334,7 @@ impl App {
                 self.renderer.debug_text.lock().draw(&self.renderer.gpu);
             }
 
-            let mut ctx = self
-                .egui_sdl3
-                .begin_frame(self.window.size(), self.window.display_scale());
-            // egui::Window::new("Demo Window").show(&ctx, |ui| {
-            //     ui.label("Hello, World!");
-            // });
-            ctx.style_mut(|s| s.visuals.panel_fill = Color32::from_black_alpha(96));
-            DockArea::new(&mut self.tree)
-                .style(Style::from_egui(ctx.style().as_ref()))
-                .show_leaf_collapse_buttons(false)
-                .show(&ctx, &mut TabViewer {});
-            let mut output = self
-                .egui_sdl3
-                .end_frame(&mut self.sdl.video().unwrap())
-                .unwrap();
-            self.egui_d3d11.paint(&mut cmd, output, &mut ctx);
+            self.gui.draw(&mut cmd);
         }
 
         let vsync = false;
