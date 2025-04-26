@@ -16,37 +16,39 @@ use crate::{
     tfx::{
         externs::{self},
         scope::TempFrameScope,
+        view::View,
     },
 };
 
 use super::Renderer;
 
 impl Renderer {
-    pub fn submit_world(
-        &self,
-        cmd: &mut CommandList,
-        cam_view: Mat4,
-        cam_proj: Mat4,
-        render_time: f32,
-        delta_time: f32,
-    ) {
+    pub fn submit_world(&self, cmd: &mut CommandList, view: &View, delta_time: f32) {
         cmd_event_span!(cmd, "submit_world");
+
+        *self.surfaces.write() = view.surfaces.clone();
+        view.surfaces.resize_surfaces(view.resolution);
 
         self.active_feature_renderers
             .store(self.calculate_active_feature_renderers());
 
         let gpu = &self.gpu;
 
-        self.prepare_externs(cmd, cam_view, cam_proj, render_time, delta_time);
+        self.prepare_externs(
+            cmd,
+            view,
+            self.start_time.elapsed().as_secs_f32(),
+            delta_time,
+        );
 
         self.globals.scopes.view.bind(cmd).unwrap();
 
-        self.submit_gbuffer_generation(cmd);
+        self.submit_gbuffer_generation(cmd, view);
 
         // self.submit_lighting(cmd);
 
-        self.clear_surface(cmd, self.shading_result, [0., 0., 0., 1.0]);
-        self.bind_surfaces(cmd, &[self.shading_result], None);
+        self.clear_surface(cmd, view.shading_result, [0., 0., 0., 1.0]);
+        self.bind_surfaces(cmd, &[view.shading_result], None);
         cmd.output_merger_set_depth_stencil_state(None, 0);
 
         cmd.state = PipelineState::new(Some(0), Some(0), Some(0), Some(0));
@@ -64,15 +66,15 @@ impl Renderer {
             );
         }
 
-        self.shading_result_read
-            .lock()
-            .update(cmd, self.surfaces.get(self.shading_result));
+        // view.shading_result_read
+        //     .lock()
+        //     .update(cmd, view.surfaces.get(view.shading_result));
 
         // self.submit_transparent(cmd);
 
         // self.shading_result_read
         //     .lock()
-        //     .update(&cmd, self.surfaces.get(self.shading_result));
+        //     .update(&cmd, view.surfaces.get(self.shading_result));
 
         // self.submit_water(cmd);
 
@@ -83,10 +85,10 @@ impl Renderer {
         // self.submit_bloom(cmd);
 
         {
-            self.shading_result_read
-                .lock()
-                .update(cmd, self.surfaces.get(self.shading_result));
-            self.surfaces.get(self.shading_result).bind_single(cmd);
+            // view.shading_result_read
+            //     .lock()
+            //     .update(cmd, view.surfaces.get(view.shading_result));
+            view.surfaces.get(view.shading_result).bind_single(cmd);
             cmd.state = PipelineState::new(Some(0), Some(0), Some(0), Some(0));
             // cmd.flush_states();
             self.execute_global_pipeline(
@@ -110,7 +112,7 @@ impl Renderer {
         //     cmd.set_input_topology(deimos_data::tfx::PrimitiveType::TriangleStrip);
         //     cmd.clear_render_target_view(&gpu.acquire_rtv(), &[0., 0., 0., 1.0]);
         //     cmd.output_merger_set_render_targets(&[Some(gpu.acquire_rtv())], None);
-        //     let srv_shading_result = self.surfaces.get(self.shading_result).srv.clone();
+        //     let srv_shading_result = view.surfaces.get(self.shading_result).srv.clone();
         //     cmd.pixel_set_shader_resources(0, &[srv_shading_result]);
         //     cmd.draw(4, 0);
         // }
@@ -130,10 +132,10 @@ impl Renderer {
             cmd.pixel_set_shader_resources(
                 0,
                 &[
-                    self.surfaces.get(self.gbuffers.albedo).srv.clone(),
-                    self.surfaces.get(self.gbuffers.normal).srv.clone(),
-                    self.surfaces.get(self.gbuffers.third).srv.clone(),
-                    Some(self.gbuffers.depth_proxy.lock().srv.clone()),
+                    view.surfaces.get(view.gbuffers.albedo).srv.clone(),
+                    view.surfaces.get(view.gbuffers.normal).srv.clone(),
+                    view.surfaces.get(view.gbuffers.third).srv.clone(),
+                    Some(view.gbuffers.depth_proxy.lock().srv.clone()),
                 ],
             );
             cmd.draw(4, 0);
@@ -143,7 +145,7 @@ impl Renderer {
             profiling::scope!("prepare/submit immediate geometry");
             cmd.output_merger_set_render_targets(
                 &[Some(gpu.acquire_rtv())],
-                self.surfaces.get(self.gbuffers.depth).dsv.as_ref(),
+                view.surfaces.get(view.gbuffers.depth).dsv.as_ref(),
             );
             cmd.state = PipelineState::new(Some(0), Some(2), Some(2), Some(0));
             cmd.flush_states();
@@ -155,12 +157,11 @@ impl Renderer {
     fn prepare_externs(
         &self,
         cmd: &mut CommandList,
-        cam_view: Mat4,
-        cam_proj: Mat4,
+        view: &View,
         render_time: f32,
         delta_time: f32,
     ) {
-        let fb_res = self.surfaces.framebuffer_resolution();
+        let fb_res = view.surfaces.framebuffer_resolution();
 
         // let cam_view = Mat4::from_cols(
         //     [-0.962532818, -0.027713167, -0.269745320, 0.000000000].into(),
@@ -176,7 +177,8 @@ impl Renderer {
         // );
 
         let ext = self.externs.get_mut();
-        ext.view.update(cam_view, cam_proj, fb_res);
+        ext.view
+            .update(view.world_to_camera, view.camera_to_projective, fb_res);
 
         ext.frame = externs::Frame {
             game_time: render_time, //self.start_time.elapsed().as_secs_f32();
@@ -220,7 +222,7 @@ impl Renderer {
         // ext.shadow_mask.unk08 = self.lighting.ssao.into();
         // ext.shadow_mask.unk10 = self.gbuffers.uber_depth_half.into();
 
-        // if let Some(vao_srv) = self.surfaces.get(self.lighting.vertex_ao).srv.clone() {
+        // if let Some(vao_srv) = view.surfaces.get(self.lighting.vertex_ao).srv.clone() {
         //     ext.cubemaps.vertex_ao = vao_srv.into();
         // }
 
@@ -242,7 +244,7 @@ impl Renderer {
         //     ..Default::default()
         // };
 
-        // let depth_res = self.surfaces.get(self.gbuffers.depth).resolution();
+        // let depth_res = view.surfaces.get(self.gbuffers.depth).resolution();
         // ext.uber_depth = UberDepth {
         //     original_depth: self.gbuffers.depth_proxy.lock().srv.clone().into(),
         //     unk30: self.gbuffers.uber_depth_half.into(),

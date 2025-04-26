@@ -39,13 +39,13 @@ pub struct FrameNode {
     pub distance: f32, // TODO: Needs to be on view node
 }
 
-#[repr(C)]
-struct ViewNode {
-    pub frame_node: u32,
-    // TODO
-    // /// Distance between the view and the object
-    // pub distance: f32,
-}
+// #[repr(C)]
+// struct ViewNode {
+//     pub frame_node: u32,
+//     // TODO
+//     // /// Distance between the view and the object
+//     // pub distance: f32,
+// }
 
 #[repr(C)]
 /// Compact representation of a local->world transform

@@ -4,7 +4,10 @@ pub mod submit;
 pub mod surface;
 pub mod util;
 
-use std::sync::{Arc, OnceLock};
+use std::{
+    sync::{Arc, OnceLock},
+    time::Instant,
+};
 
 use anyhow::Context;
 use crossbeam::atomic::AtomicCell;
@@ -12,9 +15,8 @@ use d3d11::dxgi;
 use deimos_core::ConVars;
 use deimos_data::tfx::FeatureRendererSubscription;
 use globals::RenderGlobals;
-use parking_lot::{Mutex, RwLock};
-use submit::buffers::{Gbuffers, LightBuffers, WaterBuffers};
-use surface::{SizeRelativity, SurfaceDesc, SurfaceHandle, SurfaceProxy, Surfaces};
+use parking_lot::{Mutex, RwLock, RwLockReadGuard};
+use surface::Surfaces;
 
 use crate::{
     asset::{texture::Texture, AssetManager},
@@ -35,7 +37,6 @@ pub struct Renderer {
     pub gpu: Arc<Gpu>,
     pub asset_manager: AssetManager,
     // pub timestamps: TimestampManager,
-    pub surfaces: Surfaces,
     pub immediate: Mutex<ImmediateShapeRenderer>,
     pub debug_text: Mutex<DebugTextRenderer>,
     pub externs: ThreadMutCell<Externs>,
@@ -44,23 +45,16 @@ pub struct Renderer {
     pub frame_packet: RwLock<FramePacket>,
     pub globals: RenderGlobals,
 
-    // pub ao: RwLock<Option<SStaticAmbientOcclusion>>,
-    // pub ao_buffer: Mutex<Option<Handle<VertexBuffer>>>,
+    surfaces: RwLock<Arc<Surfaces>>,
     submit_jobs: submit::lowlevel::SubmitJobManager,
 
-    gbuffers: Gbuffers,
-    lighting: LightBuffers,
-    water: WaterBuffers,
-
     frame_scope: ConstantBuffer<TempFrameScope>,
-    shading_result: SurfaceHandle,
-    shading_result_read: Mutex<SurfaceProxy>,
-
     debug_vs: d3d11::VertexShader,
     debug_ps: d3d11::PixelShader,
     clear_ao_vs: d3d11::VertexShader,
     clear_ao_ps: d3d11::PixelShader,
 
+    start_time: Instant,
     common: CommonResources,
     active_feature_renderers: AtomicCell<FeatureRendererSubscription>,
 }
@@ -93,15 +87,10 @@ impl Renderer {
         ConVars::register("render.feature.volumetrics", true);
         ConVars::register("render.feature.cubemaps", false);
 
-        let surfaces = Surfaces::new(gpu.device.clone(), swapchain_resolution);
-
-        // TODO(move this to gbuffer?)
-        let shading_result = surfaces.create_surface(
-            swapchain_resolution,
-            SurfaceDesc::builder("shading_result", SizeRelativity::RelativeToFramebuffer)
-                .format(dxgi::Format::R11g11b10Float)
-                .build(),
-        )?;
+        // Placeholder surface container
+        // TODO(cohae): Can we remove this at some point?
+        // The only reason we need this is because we store surface handles in externs, so the interpreter needs to be able to access their SRVs through the renderer
+        let surfaces = Arc::new(Surfaces::new(gpu.device.clone(), (128, 128)));
 
         let (debug_vs, debug_ps) =
             gpu.compile_shader_vs_ps("debug", DEBUG_SHADER, "mainVS", "mainPS")?;
@@ -122,18 +111,9 @@ impl Renderer {
             frame_packet: RwLock::new(FramePacket::default()),
             // ao: RwLock::new(None),
             // ao_buffer: Mutex::new(None),
+            surfaces: RwLock::new(surfaces),
             submit_jobs: submit::lowlevel::SubmitJobManager::new(&gpu, 6),
-
-            shading_result_read: Mutex::new(
-                SurfaceProxy::new(&gpu, surfaces.get(shading_result), None, false)
-                    .context("Failed to create shading_result_read surface proxy")?,
-            ),
-            shading_result,
             frame_scope: ConstantBuffer::create(&gpu, None)?,
-
-            gbuffers: Gbuffers::create(&gpu, &surfaces, swapchain_resolution)?,
-            lighting: LightBuffers::create(&surfaces, swapchain_resolution)?,
-            water: WaterBuffers::create(&surfaces, swapchain_resolution)?,
 
             debug_vs,
             debug_ps,
@@ -143,7 +123,7 @@ impl Renderer {
             common: CommonResources::load(&gpu)?,
 
             gpu,
-            surfaces,
+            start_time: Instant::now(),
             active_feature_renderers: AtomicCell::new(FeatureRendererSubscription::all()),
         })
     }
@@ -166,6 +146,11 @@ impl Renderer {
         RenderObjectHandle(self.objects.write().insert(object))
     }
 
+    /// Returns a read-only reference to the currently bound view's surfaces
+    pub fn surfaces(&self) -> RwLockReadGuard<Arc<Surfaces>> {
+        self.surfaces.read()
+    }
+
     pub fn clone_object(&self, handle: RenderObjectHandle) -> Option<RenderObjectHandle> {
         let objects = self.objects.read();
         let object = objects.get(handle.into()).and_then(|o| o.dyn_clone())?;
@@ -184,7 +169,6 @@ impl Renderer {
     }
 
     pub fn resize_swapchain(&self, resolution: (u32, u32)) {
-        self.surfaces.resize_surfaces(resolution);
         self.gpu.resize_swapchain(resolution);
     }
 }

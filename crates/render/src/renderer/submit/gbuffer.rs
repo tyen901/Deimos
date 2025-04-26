@@ -6,18 +6,17 @@ use deimos_data::tfx::{
 use crate::{
     cmd_event_span,
     gpu::command_list::{CommandList, DepthMode},
+    tfx::view::View,
 };
 
 use super::Renderer;
 
 impl Renderer {
-    pub(super) fn submit_gbuffer_generation(&self, cmd: &mut CommandList) {
+    pub(super) fn submit_gbuffer_generation(&self, cmd: &mut CommandList, view: &View) {
         profiling::scope!("submit_gbuffer_generation");
 
-        let gpu = &self.gpu;
-
-        self.gbuffers.clear(cmd);
-        self.gbuffers.bind(cmd, self);
+        view.gbuffers.clear(cmd, &view.surfaces);
+        view.gbuffers.bind(cmd, self);
 
         {
             cmd_event_span!(cmd, "generate_gbuffer");
@@ -30,13 +29,13 @@ impl Renderer {
         {
             cmd_event_span!(cmd, "decals");
 
-            self.gbuffers
+            view.gbuffers
                 .depth_proxy
                 .lock()
-                .update(cmd, self.surfaces.get(self.gbuffers.depth));
+                .update(cmd, view.surfaces.get(view.gbuffers.depth));
 
-            self.surfaces
-                .copy(cmd, self.gbuffers.normal, self.gbuffers.normal_read);
+            view.surfaces
+                .copy(cmd, view.gbuffers.normal, view.gbuffers.normal_read);
             cmd.state = PipelineState::new(Some(8), Some(15), Some(2), Some(1));
             self.submit_stage(
                 cmd,
@@ -56,10 +55,10 @@ impl Renderer {
             cmd.state_override.reset();
         }
 
-        self.gbuffers
+        view.gbuffers
             .third_proxy
             .lock()
-            .update(cmd, self.surfaces.get(self.gbuffers.third));
+            .update(cmd, view.surfaces.get(view.gbuffers.third));
 
         // TODO(cohae): Can we reduce boilerplate for these kinds of pipelines?
         if ConVars::get_flag("render.vertex_ao_workaround") {
@@ -70,21 +69,21 @@ impl Renderer {
             cmd.set_input_topology(deimos_data::tfx::PrimitiveType::TriangleStrip);
             cmd.pixel_set_shader_resources(
                 0,
-                &[Some(self.gbuffers.third_proxy.lock().srv.clone())],
+                &[Some(view.gbuffers.third_proxy.lock().srv.clone())],
             );
             cmd.draw(4, 0);
         }
 
         // {
         //     cmd.state = PipelineState::new(Some(0), Some(2), Some(0), Some(0));
-        //     let depth_half_surf = self.surfaces.get(self.gbuffers.depth_half);
+        //     let depth_half_surf = view.surfaces.get(view.gbuffers.depth_half);
         //     depth_half_surf.clear_depth(cmd, 0.0, 0);
         //     depth_half_surf.bind_single(cmd);
-        //     let depth_full_surf = self.surfaces.get(self.gbuffers.depth);
+        //     let depth_full_surf = view.surfaces.get(view.gbuffers.depth);
 
         //     {
         //         let hdao = &mut self.externs.get_mut().hdao;
-        //         hdao.unk60_source = self.gbuffers.depth_proxy.lock().srv.clone().into();
+        //         hdao.unk60_source = view.gbuffers.depth_proxy.lock().srv.clone().into();
         //         hdao.unk70_dest_res = depth_half_surf.resolution_with_recip();
         //         hdao.unk80_source_res = depth_full_surf.resolution_with_recip();
         //     }
@@ -106,24 +105,24 @@ impl Renderer {
     //         cmd_event_span!(cmd, "[uber_depth_default]");
 
     //         self.globals.pipelines.uber_depth_default.bind(cmd).unwrap();
-    //         let (width, height) = self.surfaces.get(self.gbuffers.depth).resolution();
+    //         let (width, height) = view.surfaces.get(view.gbuffers.depth).resolution();
     //         cmd.dispatch(width.div_ceil(16), height.div_ceil(16), 1);
     //         cmd.compute_set_unordered_access_views(0, &[None, None, None, None], None);
     //     }
 
     //     cmd_event_span!(cmd, "[downsample_max_min_avg_no_swizzle]");
     //     self.externs.get_mut().downsample_texture_generic = DownsampleTextureGeneric {
-    //         source: self.gbuffers.uber_depth_quarter.into(),
+    //         source: view.gbuffers.uber_depth_quarter.into(),
     //         resolution_dest: self
     //             .surfaces
-    //             .get(self.gbuffers.uber_depth_eighth)
+    //             .get(view.gbuffers.uber_depth_eighth)
     //             .resolution_with_recip(),
     //         resolution_source: self
     //             .surfaces
-    //             .get(self.gbuffers.uber_depth_quarter)
+    //             .get(view.gbuffers.uber_depth_quarter)
     //             .resolution_with_recip(),
     //     };
-    //     self.bind_surfaces(cmd, &[self.gbuffers.uber_depth_eighth], None);
+    //     self.bind_surfaces(cmd, &[view.gbuffers.uber_depth_eighth], None);
     //     cmd.state = PipelineState::new(Some(0), Some(0), Some(0), Some(0));
     //     self.execute_global_pipeline(
     //         cmd,

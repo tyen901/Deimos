@@ -167,7 +167,7 @@ impl TextureView {
     pub fn get_srv(&self) -> Option<d3d11::ShaderResourceView> {
         match self {
             TextureView::Surface(surface) => {
-                Renderer::instance().surfaces.get(*surface).srv.clone()
+                Renderer::instance().surfaces().get(*surface).srv.clone()
             }
             TextureView::Resource(texture) => Some(texture.get()?.view.clone()),
             TextureView::Raw(srv) => Some(srv.clone()),
@@ -184,7 +184,7 @@ impl Debug for TextureView {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             TextureView::None => write!(f, "None"),
-            TextureView::Surface(surface) => write!(f, "Surface({:?})", surface),
+            TextureView::Surface(surface) => write!(f, "Surface({surface:?})"),
             TextureView::Resource(texture) => write!(f, "Resource({})", texture.tag()),
             TextureView::Raw(_) => write!(f, "Raw"),
         }
@@ -220,7 +220,7 @@ impl Debug for Uav {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Uav::None => write!(f, "None"),
-            Uav::Surface(surface) => write!(f, "Surface({:?})", surface),
+            Uav::Surface(surface) => write!(f, "Surface({surface:?})"),
         }
     }
 }
@@ -228,7 +228,7 @@ impl Debug for Uav {
 impl Uav {
     pub fn get_uav(&self) -> Option<d3d11::UnorderedAccessView> {
         match self {
-            Uav::Surface(surface) => Renderer::instance().surfaces.get(*surface).uav.clone(),
+            Uav::Surface(surface) => Renderer::instance().surfaces().get(*surface).uav.clone(),
             Uav::None => None,
         }
     }
@@ -564,7 +564,7 @@ impl TryFrom<u8> for ExternIndex {
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         if value <= ExternIndex::UiHdrTransform as u8 {
-            Ok(unsafe { std::mem::transmute(value) })
+            Ok(unsafe { std::mem::transmute::<u8, ExternIndex>(value) })
         } else {
             Err(())
         }

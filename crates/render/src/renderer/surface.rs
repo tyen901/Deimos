@@ -502,8 +502,7 @@ impl Renderer {
         surface: SurfaceHandle,
         color: impl Into<[f32; 4]>,
     ) {
-        let surface = self.surfaces.get(surface);
-        surface.clear_color(cmd, color.into());
+        self.surfaces().get(surface).clear_color(cmd, color.into());
     }
 
     pub fn clear_surface_depth(
@@ -513,8 +512,9 @@ impl Renderer {
         depth: f32,
         stencil: u8,
     ) {
-        let surface = self.surfaces.get(surface);
-        surface.clear_depth(cmd, depth, stencil);
+        self.surfaces()
+            .get(surface)
+            .clear_depth(cmd, depth, stencil);
     }
 
     pub fn bind_surfaces(
@@ -526,19 +526,19 @@ impl Renderer {
         if !color.is_empty() {
             let viewports: SmallVec<[d3d11::Viewport; 4]> = color
                 .iter()
-                .map(|s| self.surfaces.get(*s).viewport())
+                .map(|s| self.surfaces().get(*s).viewport())
                 .collect();
             cmd.rasterizer_set_viewports(&viewports);
         } else if let Some(depth) = depth {
-            let viewport = self.surfaces.get(depth).viewport();
+            let viewport = self.surfaces().get(depth).viewport();
             cmd.rasterizer_set_viewports(&[viewport]);
         }
 
         let rtvs = color
             .iter()
-            .map(|s| self.surfaces.get(*s).rtv.clone())
+            .map(|s| self.surfaces().get(*s).rtv.clone())
             .collect::<Vec<_>>();
-        let dsv = depth.and_then(|s| self.surfaces.get(s).dsv.clone());
+        let dsv = depth.and_then(|s| self.surfaces().get(s).dsv.clone());
 
         cmd.output_merger_set_render_targets(&rtvs, dsv.as_ref());
     }
