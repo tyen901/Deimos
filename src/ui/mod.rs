@@ -2,10 +2,11 @@ use std::{collections::BTreeMap, rc::Rc, sync::Arc};
 
 use deimos_render::{gpu::command_list::CommandList, Gpu};
 use egui::{Color32, FontId};
-use egui_dock::{DockArea, DockState};
+use egui_dock::{DockArea, DockState, SurfaceIndex, TabIndex};
 use google_material_symbols::GoogleMaterialSymbols;
-use tabs::{Tab, TabViewer};
+use tabs::{DockStateExt, Tab, TabViewer};
 
+mod style;
 pub mod tabs;
 pub mod util;
 
@@ -16,6 +17,8 @@ pub struct Gui {
     pub egui_d3d11: egui_d3d11::D3D11Renderer,
     pub egui_sdl3: egui_sdl3_platform::Platform,
     tree: DockState<Tab>,
+
+    added_nodes: Vec<Tab>,
 }
 
 impl Gui {
@@ -92,9 +95,7 @@ impl Gui {
         let egui_sdl3 = egui_sdl3_platform::Platform::new(gpu.swapchain_resolution())?;
         egui_sdl3.context().set_fonts(fonts);
         egui_sdl3.context().style_mut(|s| {
-            s.visuals.override_text_color = Some(Color32::WHITE);
-            s.spacing.button_padding = egui::vec2(30.0, 20.0);
-            s.spacing.item_spacing = egui::vec2(20.0, 10.0);
+            *s = style::gui_style();
         });
 
         // Redefine text_styles
@@ -113,8 +114,7 @@ impl Gui {
             ),
             (
                 egui::TextStyle::Button,
-                // FontId::new(20.0, egui::FontFamily::Monospace),
-                FontId::new(20.0, egui::FontFamily::Name("khinterference".into())),
+                FontId::new(24.0, egui::FontFamily::Name("khinterference".into())),
             ),
             (
                 egui::TextStyle::Small,
@@ -128,7 +128,10 @@ impl Gui {
             .context()
             .all_styles_mut(move |style| style.text_styles = text_styles.clone());
 
-        let tree = DockState::new(vec![Tab::Settings, Tab::Home]);
+        let mut tree = DockState::new(vec![Tab::Settings, Tab::Home]);
+        if let Some(tab_ref) = tree.find_tab(|t| matches!(t, Tab::Home)) {
+            tree.set_active_tab(tab_ref);
+        }
 
         Ok(Self {
             window,
@@ -136,6 +139,7 @@ impl Gui {
             egui_d3d11: egui_d3d11::D3D11Renderer::new(gpu)?,
             egui_sdl3,
             tree,
+            added_nodes: Vec::new(),
         })
     }
 
@@ -145,9 +149,26 @@ impl Gui {
             .begin_frame(self.window.size(), self.window.display_scale());
         ctx.style_mut(|s| s.visuals.panel_fill = Color32::from_black_alpha(96));
         DockArea::new(&mut self.tree)
-            .style(egui_dock::Style::from_egui(ctx.style().as_ref()))
+            .show_add_buttons(false)
+            .style({
+                let mut style = egui_dock::Style::from_egui(ctx.style().as_ref());
+                // style.tab_bar.fill_tab_bar = true;
+                style.tab_bar.height = 32.0;
+                style.tab_bar.bg_fill = Color32::from_gray(4);
+                style
+            })
             .show_leaf_collapse_buttons(false)
-            .show(&ctx, &mut TabViewer);
+            .show(
+                &ctx,
+                &mut TabViewer {
+                    added_nodes: &mut self.added_nodes,
+                },
+            );
+
+        for tab in self.added_nodes.drain(..) {
+            self.tree.push_to_focused_leaf(tab);
+        }
+
         let output = self
             .egui_sdl3
             .end_frame(&mut self.sdl.video().unwrap())

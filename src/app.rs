@@ -4,25 +4,16 @@
 
 use std::{f32, rc::Rc, sync::Arc, time::Instant};
 
-use deimos_data::{map::SBubbleParent, tfx::TfxFeatureRenderer};
 use deimos_render::{
     camera::Camera,
     gpu::{command_list::CommandList, debug_text::DebugTextAlign, spinner::FullscreenSpinner},
-    object::{RenderObject, RenderObjectHandle},
     util::fps_histogram::FrametimeHistogram,
     Gpu, Renderer,
 };
-use glam::{vec2, vec3, IVec2, Quat, Vec2, Vec3};
-use sdl3::{keyboard::Keycode, video::Window};
-use tiger_parse::TigerReadable;
-use tiger_pkg::package_manager;
+use glam::{vec3, IVec2};
+use sdl3::video::Window;
 
-use crate::{
-    cli::AppArgs,
-    input::{MouseButton, MouseKeyboardState},
-    map::load_static_map,
-    ui::Gui,
-};
+use crate::{cli::AppArgs, ui::Gui};
 
 pub struct App {
     pub sdl: Rc<sdl3::Sdl>,
@@ -31,17 +22,11 @@ pub struct App {
     pub renderer: Arc<Renderer>,
     pub gui: Gui,
 
-    input: MouseKeyboardState,
     spinner: FullscreenSpinner,
     last_frame_time: Instant,
     start_time: Instant,
     camera: Camera,
     frametime_histogram: FrametimeHistogram,
-
-    // map: StaticMapTemp,
-    static_render_objects: Vec<RenderObjectHandle>,
-
-    yaw_pitch: Vec2,
 }
 
 impl App {
@@ -50,43 +35,12 @@ impl App {
         let renderer = Arc::new(Renderer::new(gpu.clone(), window.size())?);
         Renderer::set_instance(renderer.clone());
 
-        let Some(map_hash) = args.map else {
-            println!("No map specified. Available maps:");
-            for (t, _) in package_manager().get_all_by_reference(SBubbleParent::ID.unwrap()) {
-                println!(
-                    " - {t} ({})",
-                    package_manager().package_paths[&t.pkg_id()].filename
-                );
-            }
-
-            return Err(anyhow::anyhow!("No map specified. Use `-m MAP_HASH`"));
-        };
-
-        let map = load_static_map(map_hash)?;
-
-        let mut static_render_objects = Vec::new();
-        for t in map.terrain {
-            static_render_objects.push(renderer.add_object(RenderObject::new(
-                TfxFeatureRenderer::TerrainPatch,
-                Box::new(t),
-                Box::new(()),
-            )));
-        }
-        for s in map.models {
-            static_render_objects.push(renderer.add_object(RenderObject::new(
-                TfxFeatureRenderer::StaticObjects,
-                Box::new(s),
-                Box::new(()),
-            )));
-        }
-
         let camera = Camera {
             position: vec3(0.0, 0.0, 100.0),
             ..Default::default()
         };
 
         Ok(Self {
-            input: MouseKeyboardState::new(sdl.clone(), window.clone()),
             spinner: FullscreenSpinner::create(&renderer.gpu)?,
             renderer,
             gui: Gui::new(&gpu, sdl.clone(), window.clone())?,
@@ -98,9 +52,6 @@ impl App {
             start_time: Instant::now(),
             camera,
             frametime_histogram: FrametimeHistogram::new(10),
-            // map,
-            static_render_objects,
-            yaw_pitch: Vec2::ZERO,
         })
     }
 
@@ -134,7 +85,6 @@ impl App {
             _ => {}
         };
 
-        self.input.handle_event(&event, true, true);
         self.gui
             .egui_sdl3
             .handle_event(&event, &self.sdl, &self.sdl.video().unwrap());
@@ -160,46 +110,6 @@ impl App {
 
         self.frametime_histogram.push(delta_time);
 
-        let mut movement = Vec3::ZERO;
-        if self.input.is_key_down(Keycode::W) {
-            movement += self.camera.forward();
-        }
-        if self.input.is_key_down(Keycode::S) {
-            movement -= self.camera.forward();
-        }
-        if self.input.is_key_down(Keycode::A) {
-            movement -= self.camera.right();
-        }
-        if self.input.is_key_down(Keycode::D) {
-            movement += self.camera.right();
-        }
-        if self.input.is_key_down(Keycode::Q) {
-            movement -= self.camera.up();
-        }
-        if self.input.is_key_down(Keycode::E) {
-            movement += self.camera.up();
-        }
-        movement = movement.normalize_or(Vec3::ZERO);
-        if self.input.is_key_down(Keycode::LCtrl) {
-            movement /= 5.0;
-        }
-        if self.input.is_key_down(Keycode::LShift) {
-            movement *= 2.0;
-        }
-        if self.input.is_key_down(Keycode::Space) {
-            movement *= 2.5;
-        }
-
-        self.camera.position += movement * delta_time * 40.0;
-
-        if self.input.is_mouse_button_down(MouseButton::Left) {
-            self.yaw_pitch += (self.input.mouse_delta / 10.0) * vec2(-1.0, 1.3);
-            self.yaw_pitch.y = self.yaw_pitch.y.clamp(-89.0, 89.0)
-        }
-
-        self.camera.rotation = Quat::from_rotation_z(self.yaw_pitch.x.to_radians())
-            * Quat::from_rotation_y(self.yaw_pitch.y.to_radians());
-
         let resolution = self.renderer.surfaces.framebuffer_resolution();
         self.camera.aspect_ratio = resolution.0 as f32 / resolution.1 as f32;
         let proj = self.camera.projection_matrix(self.camera.aspect_ratio);
@@ -214,12 +124,12 @@ impl App {
 
         self.renderer.frame_packet.write().reset();
 
-        {
-            let mut fp = self.renderer.frame_packet.write();
-            for t in &self.static_render_objects {
-                fp.push_static_render_object(*t);
-            }
-        }
+        // {
+        //     let mut fp = self.renderer.frame_packet.write();
+        //     for t in &self.static_render_objects {
+        //         fp.push_static_render_object(*t);
+        //     }
+        // }
 
         {
             self.renderer.begin_frame();
@@ -344,7 +254,6 @@ impl App {
             spin_sleep::sleep_until(frame_end);
         }
 
-        self.input.update_keystates();
         profiling::finish_frame!();
     }
 }

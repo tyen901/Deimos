@@ -691,6 +691,8 @@ version = "0.0.0"
 dependencies = [
  "lazy_static",
  "parking_lot",
+ "serde",
+ "toml",
  "tracing 0.1.41",
 ]
 
@@ -934,17 +936,10 @@ dependencies = [
  "bytemuck",
  "ecolor",
  "emath",
- "epaint_default_fonts",
  "nohash-hasher",
  "parking_lot",
  "profiling",
 ]
-
-[[package]]
-name = "epaint_default_fonts"
-version = "0.31.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc7e7a64c02cf7a5b51e745a9e45f60660a286f151c238b9d397b3e923f5082f"
 
 [[package]]
 name = "equivalent"

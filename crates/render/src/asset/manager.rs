@@ -140,7 +140,7 @@ fn asset_loader_threads(
             std::thread::Builder::new()
                 .name(format!("asset_loader_{i}"))
                 .spawn(move || {
-                    asset_loader_loop(rx_clone, gpu_clone);
+                    asset_loader_loop(rx_clone, gpu_clone, i);
                 })
                 .expect("Failed to spawn asset loader thread"),
         );
@@ -149,10 +149,10 @@ fn asset_loader_threads(
     (tx, threads)
 }
 
-fn asset_loader_loop(rx: crossbeam::channel::Receiver<LoadRequest>, gpu: Arc<Gpu>) {
+fn asset_loader_loop(rx: crossbeam::channel::Receiver<LoadRequest>, gpu: Arc<Gpu>, id: usize) {
     use crate::asset::texture::Texture;
 
-    info!("Asset loader thread started");
+    info!("Asset loader thread #{id} started");
     for request in rx {
         match request.type_id {
             Texture::ASSET_TYPE => {

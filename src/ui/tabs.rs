@@ -1,6 +1,7 @@
-use std::fmt::Display;
+use std::{collections::HashSet, fmt::Display, mem::Discriminant};
 
 use egui::Margin;
+use egui_dock::{DockState, NodeIndex, SurfaceIndex, TabIndex};
 use google_material_symbols::GoogleMaterialSymbols;
 
 use super::util::UiExt;
@@ -8,22 +9,32 @@ use super::util::UiExt;
 pub enum Tab {
     Home,
     Settings,
+    Dynamics,
+}
+
+impl Tab {
+    pub fn is_fixed(&self) -> bool {
+        matches!(self, Tab::Home | Tab::Settings)
+    }
 }
 
 impl Display for Tab {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            Tab::Home => format!("{} HOME", GoogleMaterialSymbols::Home),
             Tab::Settings => GoogleMaterialSymbols::Settings.to_string(),
+            Tab::Home => format!("{} HOME", GoogleMaterialSymbols::Home),
+            Tab::Dynamics => format!("{} DYNAMICS", GoogleMaterialSymbols::DeployedCode),
         };
 
         f.write_str(&s)
     }
 }
 
-pub struct TabViewer;
+pub struct TabViewer<'a> {
+    pub added_nodes: &'a mut Vec<Tab>,
+}
 
-impl egui_dock::TabViewer for TabViewer {
+impl<'a> egui_dock::TabViewer for TabViewer<'a> {
     type Tab = Tab;
 
     fn title(&mut self, tab: &mut Self::Tab) -> egui::WidgetText {
@@ -38,47 +49,79 @@ impl egui_dock::TabViewer for TabViewer {
                     egui::Layout::top_down(egui::Align::Center),
                     |ui| match tab {
                         Tab::Home => {
-                            ui.with_layout(
-                                egui::Layout::left_to_right(egui::Align::Min)
-                                    .with_main_justify(true),
-                                |ui| {
-                                    ui.d_button("MAPS");
-                                },
-                            );
                             ui.add_space(32.0);
-                            ui.columns(3, |uis| {
-                                uis[0].heading("MODELS");
+                            ui.columns(2, |uis| {
+                                uis[0].heading("3D");
                                 uis[0].add_space(4.0);
-                                uis[0].d_button("API");
-                                uis[0].d_button("DYNAMICS");
-                                uis[0].d_button("STATICS");
+                                if uis[0]
+                                    .d_button(format!(
+                                        "{} DYNAMICS",
+                                        GoogleMaterialSymbols::DeployedCode
+                                    ))
+                                    .clicked()
+                                {
+                                    self.added_nodes.push(Tab::Dynamics);
+                                }
+                                uis[0].disable();
+                                uis[0].d_button(format!(
+                                    "{} STATICS",
+                                    GoogleMaterialSymbols::Landscape
+                                ));
+                                uis[0].d_button(format!("{} MAPS", GoogleMaterialSymbols::Map));
 
-                                uis[1].heading("AUDIO");
+                                uis[1].heading("2D");
                                 uis[1].add_space(4.0);
-                                uis[1].d_button("ALL SOUNDS");
-                                uis[1].d_button("WEAPON AUDIO");
-
-                                uis[2].heading("OTHER");
-                                uis[2].add_space(4.0);
-                                uis[2].d_button("STRINGS");
-                                uis[2].d_button("TEXTURES");
-                                uis[2].d_button("MATERIALS");
-                                uis[2].d_button("COLLECTIONS");
+                                uis[1].disable();
+                                uis[1]
+                                    .d_button(format!("{} TEXTURES", GoogleMaterialSymbols::Image));
+                                uis[1].d_button(format!(
+                                    "{} UI",
+                                    GoogleMaterialSymbols::DesktopWindows
+                                ));
                             });
                         }
                         Tab::Settings => {
-                            ui.label("Hi");
+                            ui.weak("No settings are available");
+                        }
+                        Tab::Dynamics => {
+                            ui.weak("Wompy");
                         }
                     },
                 );
             });
     }
 
-    fn allowed_in_windows(&self, _tab: &mut Self::Tab) -> bool {
-        false
+    fn allowed_in_windows(&self, tab: &mut Self::Tab) -> bool {
+        !tab.is_fixed()
     }
 
-    fn closeable(&mut self, _tab: &mut Self::Tab) -> bool {
-        false
+    fn closeable(&mut self, tab: &mut Self::Tab) -> bool {
+        !tab.is_fixed()
+    }
+}
+
+pub trait DockStateExt<Tab> {
+    fn find_tab(
+        &self,
+        predicate: impl Fn(&Tab) -> bool,
+    ) -> Option<(SurfaceIndex, NodeIndex, TabIndex)>;
+}
+
+impl<Tab> DockStateExt<Tab> for DockState<Tab> {
+    fn find_tab(
+        &self,
+        predicate: impl Fn(&Tab) -> bool,
+    ) -> Option<(SurfaceIndex, NodeIndex, TabIndex)> {
+        for (si, surface) in self.iter_surfaces().enumerate() {
+            if let Some((ti, (ni, _tab))) = surface
+                .iter_all_tabs()
+                .enumerate()
+                .find(|&(_ti, (_ni, tab))| predicate(tab))
+            {
+                return Some((si.into(), ni, ti.into()));
+            }
+        }
+
+        None
     }
 }

@@ -6,4 +6,6 @@ edition = "2021"
 [dependencies]
 lazy_static = "1"
 parking_lot.workspace = true
+serde.workspace = true
+toml = "0.8"
 tracing.workspace = true

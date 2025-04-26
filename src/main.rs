@@ -9,7 +9,6 @@ use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 
 mod app;
 mod cli;
-mod input;
 mod map;
 mod panic_hook;
 mod ui;
@@ -74,7 +73,7 @@ fn main() -> anyhow::Result<()> {
         video_subsystem
             .window("Deimos", 1920, 1080)
             // .position_centered()
-            .position(4228, 480)
+            .position(3860, 400)
             .resizable()
             .build()
             .expect("Failed to create window"),
