@@ -9,6 +9,7 @@ use deimos_render::{
     Gpu, Renderer,
 };
 use egui::{Color32, FontId, Margin, RichText};
+use egui_dock::{DockArea, DockState, NodeIndex, Style};
 use glam::{vec2, vec3, IVec2, Quat, Vec2, Vec3};
 use sdl3::{keyboard::Keycode, video::Window};
 use tiger_parse::TigerReadable;
@@ -18,8 +19,71 @@ use crate::{
     cli::AppArgs,
     input::{MouseButton, MouseKeyboardState},
     map::load_static_map,
-    ui::UiExt,
+    ui::util::UiExt,
 };
+
+struct TabViewer {}
+
+impl egui_dock::TabViewer for TabViewer {
+    type Tab = String;
+
+    fn title(&mut self, tab: &mut Self::Tab) -> egui::WidgetText {
+        (&*tab).into()
+    }
+
+    fn ui(&mut self, ui: &mut egui::Ui, tab: &mut Self::Tab) {
+        ui.label(format!("Content of {tab}"));
+
+        egui::Frame::new()
+            .outer_margin(Margin::same(127))
+            .inner_margin(Margin::same(64))
+            .show(ui, |ui| {
+                ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
+                    // ui.add(
+                    //     egui::Button::new(RichText::new("MAPS").color(Color32::BLACK))
+                    //         .min_size(egui::vec2(500.0, 60.0))
+                    //         .corner_radius(16)
+                    //         .fill(Color32::WHITE),
+                    // )
+                    // .on_hover_cursor(egui::CursorIcon::PointingHand);
+                    ui.with_layout(
+                        egui::Layout::left_to_right(egui::Align::Min).with_main_justify(true),
+                        |ui| {
+                            ui.d_button("MAPS");
+                        },
+                    );
+                    ui.add_space(32.0);
+                    ui.columns(3, |uis| {
+                        uis[0].heading("MODELS");
+                        uis[0].add_space(4.0);
+                        uis[0].d_button("API");
+                        uis[0].d_button("DYNAMICS");
+                        uis[0].d_button("STATICS");
+
+                        uis[1].heading("AUDIO");
+                        uis[1].add_space(4.0);
+                        uis[1].d_button("ALL SOUNDS");
+                        uis[1].d_button("WEAPON AUDIO");
+
+                        uis[2].heading("OTHER");
+                        uis[2].add_space(4.0);
+                        uis[2].d_button("STRINGS");
+                        uis[2].d_button("TEXTURES");
+                        uis[2].d_button("MATERIALS");
+                        uis[2].d_button("COLLECTIONS");
+                    });
+                });
+            });
+    }
+
+    fn allowed_in_windows(&self, _tab: &mut Self::Tab) -> bool {
+        false
+    }
+
+    fn closeable(&mut self, _tab: &mut Self::Tab) -> bool {
+        false
+    }
+}
 
 pub struct App {
     pub sdl: Rc<sdl3::Sdl>,
@@ -41,6 +105,8 @@ pub struct App {
     static_render_objects: Vec<RenderObjectHandle>,
 
     yaw_pitch: Vec2,
+
+    tree: DockState<String>,
 }
 
 impl App {
@@ -60,10 +126,6 @@ impl App {
 
             return Err(anyhow::anyhow!("No map specified. Use `-m MAP_HASH`"));
         };
-
-        // let map_marsh = TagHash(0x80A8C43F);
-        // let map_perimeter = TagHash(0x80A75EAC);
-        // std::random::random::<usize>() % 2
 
         let map = load_static_map(map_hash)?;
 
@@ -162,6 +224,19 @@ impl App {
             .context()
             .all_styles_mut(move |style| style.text_styles = text_styles.clone());
 
+        let mut tree = DockState::new(vec!["Home".to_owned()]);
+
+        // // You can modify the tree before constructing the dock
+        // let [a, b] =
+        //     tree.main_surface_mut()
+        //         .split_left(NodeIndex::root(), 0.3, vec!["tab3".to_owned()]);
+        // let [_, _] = tree
+        //     .main_surface_mut()
+        //     .split_below(a, 0.7, vec!["tab4".to_owned()]);
+        // let [_, _] = tree
+        //     .main_surface_mut()
+        //     .split_below(b, 0.5, vec!["tab5".to_owned()]);
+
         Ok(Self {
             input: MouseKeyboardState::new(sdl.clone(), window.clone()),
             spinner: FullscreenSpinner::create(&renderer.gpu)?,
@@ -179,6 +254,8 @@ impl App {
             // map,
             static_render_objects,
             yaw_pitch: Vec2::ZERO,
+
+            tree,
         })
     }
 
@@ -418,49 +495,9 @@ impl App {
             //     ui.label("Hello, World!");
             // });
             ctx.style_mut(|s| s.visuals.panel_fill = Color32::from_black_alpha(96));
-            egui::CentralPanel::default()
-                .frame(
-                    egui::Frame::new()
-                        .outer_margin(Margin::same(127))
-                        .inner_margin(Margin::same(64)),
-                )
-                .show(&ctx, |ui| {
-                    ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
-                        // ui.add(
-                        //     egui::Button::new(RichText::new("MAPS").color(Color32::BLACK))
-                        //         .min_size(egui::vec2(500.0, 60.0))
-                        //         .corner_radius(16)
-                        //         .fill(Color32::WHITE),
-                        // )
-                        // .on_hover_cursor(egui::CursorIcon::PointingHand);
-                        ui.with_layout(
-                            egui::Layout::left_to_right(egui::Align::Min).with_main_justify(true),
-                            |ui| {
-                                ui.d_button("MAPS");
-                            },
-                        );
-                        ui.add_space(32.0);
-                        ui.columns(3, |uis| {
-                            uis[0].heading("MODELS");
-                            uis[0].add_space(4.0);
-                            uis[0].d_button("API");
-                            uis[0].d_button("DYNAMICS");
-                            uis[0].d_button("STATICS");
-
-                            uis[1].heading("AUDIO");
-                            uis[1].add_space(4.0);
-                            uis[1].d_button("ALL SOUNDS");
-                            uis[1].d_button("WEAPON AUDIO");
-
-                            uis[2].heading("OTHER");
-                            uis[2].add_space(4.0);
-                            uis[2].d_button("STRINGS");
-                            uis[2].d_button("TEXTURES");
-                            uis[2].d_button("MATERIALS");
-                            uis[2].d_button("COLLECTIONS");
-                        });
-                    });
-                });
+            DockArea::new(&mut self.tree)
+                .style(Style::from_egui(ctx.style().as_ref()))
+                .show(&ctx, &mut TabViewer {});
             let mut output = self
                 .egui_sdl3
                 .end_frame(&mut self.sdl.video().unwrap())

@@ -21,6 +21,7 @@ anyhow = "1"
 crossbeam = "0.8"
 d3d11 = { git = "https://github.com/cohaereo/d3d11-rs.git" }
 egui = { version = "0.31.1", features = ["bytemuck"] }
+egui_dock = "0.16"
 glam = { version = "0.30", features = ["bytemuck"] }
 itertools = "0.14"
 parking_lot = "0.12"
@@ -70,6 +71,7 @@ sdl3.workspace = true
 
 # UI
 egui.workspace = true
+egui_dock.workspace = true
 nu-ansi-term = "0.50.1"
 native-dialog = "0.7.0"
 clap = { version = "4.5.37", features = ["derive"] }
