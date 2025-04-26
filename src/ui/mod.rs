@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, mem::discriminant, rc::Rc, sync::Arc};
 
 use deimos_render::{gpu::command_list::CommandList, Gpu};
 use egui::{Color32, FontId};
-use egui_dock::{DockArea, DockState};
+use egui_dock::{DockArea, DockState, TabInteractionStyle};
 use google_material_symbols::GoogleMaterialSymbols;
 use tabs::{DockStateExt, Tab, TabViewer};
 
@@ -155,9 +155,57 @@ impl Gui {
                 // style.tab_bar.fill_tab_bar = true;
                 style.tab_bar.height = 32.0;
                 style.tab_bar.bg_fill = Color32::from_gray(4);
+
+                let inactive = TabInteractionStyle {
+                    outline_color: Color32::TRANSPARENT,
+                    corner_radius: egui::CornerRadius {
+                        nw: 4,
+                        ne: 4,
+                        sw: 0,
+                        se: 0,
+                    },
+                    bg_fill: Color32::BLACK,
+                    text_color: Color32::WHITE,
+                };
+
+                let hovered = TabInteractionStyle {
+                    outline_color: Color32::from_gray(127),
+                    bg_fill: ctx.style().visuals.window_fill().gamma_multiply(0.5),
+                    ..inactive.clone()
+                };
+
+                let active = TabInteractionStyle {
+                    bg_fill: ctx.style().visuals.window_fill(),
+                    ..hovered.clone()
+                };
+
+                let focused = TabInteractionStyle {
+                    outline_color: Color32::WHITE,
+                    bg_fill: ctx.style().visuals.window_fill(),
+                    ..inactive.clone()
+                };
+
+                style.tab = egui_dock::TabStyle {
+                    active: active.clone(),
+                    inactive: inactive.clone(),
+                    focused: focused.clone(),
+                    hovered: hovered.clone(),
+                    inactive_with_kb_focus: inactive.clone(),
+                    active_with_kb_focus: active.clone(),
+                    focused_with_kb_focus: focused.clone(),
+                    tab_body: egui_dock::TabBodyStyle {
+                        inner_margin: ctx.style().spacing.window_margin,
+                        stroke: ctx.style().visuals.widgets.noninteractive.bg_stroke,
+                        corner_radius: ctx.style().visuals.widgets.active.corner_radius,
+                        bg_fill: ctx.style().visuals.window_fill(),
+                    },
+                    hline_below_active_tab_name: true,
+                    ..Default::default()
+                };
                 style
             })
             .show_leaf_collapse_buttons(false)
+            .show_leaf_close_all_buttons(false)
             .show(
                 &ctx,
                 &mut TabViewer {

@@ -118,12 +118,12 @@ impl<Tab> DockStateExt<Tab> for DockState<Tab> {
         predicate: impl Fn(&Tab) -> bool,
     ) -> Option<(SurfaceIndex, NodeIndex, TabIndex)> {
         for (si, surface) in self.iter_surfaces().enumerate() {
-            if let Some((ti, (ni, _tab))) = surface
-                .iter_all_tabs()
-                .enumerate()
-                .find(|&(_ti, (_ni, tab))| predicate(tab))
-            {
-                return Some((si.into(), ni, ti.into()));
+            for (ni, node) in surface.iter_nodes().enumerate() {
+                for (ti, tab) in node.iter_tabs().enumerate() {
+                    if predicate(tab) {
+                        return Some((si.into(), ni.into(), ti.into()));
+                    }
+                }
             }
         }
 
