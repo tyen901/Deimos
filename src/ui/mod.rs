@@ -1,10 +1,17 @@
 use std::{collections::BTreeMap, mem::discriminant, rc::Rc, sync::Arc};
 
-use deimos_render::{gpu::command_list::CommandList, Gpu};
+use deimos_data::tfx::TfxFeatureRenderer;
+use deimos_render::{
+    camera::Camera, gpu::command_list::CommandList, object::RenderObject, Gpu, Renderer,
+};
 use egui::{Color32, FontId};
 use egui_dock::{DockArea, DockState, TabInteractionStyle};
 use google_material_symbols::GoogleMaterialSymbols;
+use scene3d::Scene;
 use tabs::{DockStateExt, Tab, TabViewer};
+use tiger_pkg::TagHash;
+
+use crate::{app::App, map::load_static_map};
 
 mod scene3d;
 mod style;
@@ -129,8 +136,27 @@ impl Gui {
             .context()
             .all_styles_mut(move |style| style.text_styles = text_styles.clone());
 
-        let mut tree = DockState::new(vec![Tab::Settings, Tab::Home]);
-        if let Some(tab_ref) = tree.find_tab(|t| matches!(t, Tab::Home)) {
+        let mut scene = Scene::new(Renderer::instance().clone(), Camera::default())?;
+
+        let map = load_static_map(TagHash(0x80A88512))?;
+
+        for t in map.terrain {
+            scene.add_static_object(RenderObject::new(
+                TfxFeatureRenderer::TerrainPatch,
+                Box::new(t),
+                Box::new(()),
+            ));
+        }
+        for s in map.models {
+            scene.add_static_object(RenderObject::new(
+                TfxFeatureRenderer::StaticObjects,
+                Box::new(s),
+                Box::new(()),
+            ));
+        }
+
+        let mut tree = DockState::new(vec![Tab::Settings, Tab::Home(scene)]);
+        if let Some(tab_ref) = tree.find_tab(|t| matches!(t, Tab::Home(_))) {
             tree.set_active_tab(tab_ref);
         }
 
@@ -212,6 +238,7 @@ impl Gui {
                 &ctx,
                 &mut TabViewer {
                     added_nodes: &mut self.added_nodes,
+                    egui_d3d11: &mut self.egui_d3d11,
                 },
             );
 

@@ -18,7 +18,9 @@ pub struct TextureAllocator {
     /// User-loaded DX11 textures
     allocated_unmanaged:
         HashMap<TextureId, (d3d11::ShaderResourceView, Option<egui::TextureFilter>)>,
+    unmanaged_free_handles: Vec<TextureId>,
     unmanaged_index: u64,
+    unmanaged_temporary_index: u64,
 }
 
 impl TextureAllocator {
@@ -59,10 +61,34 @@ impl TextureAllocator {
         srv: d3d11::ShaderResourceView,
         filter: Option<egui::TextureFilter>,
     ) -> TextureId {
-        self.unmanaged_index += 1;
-        let tid = TextureId::User((1 << 60) + self.unmanaged_index);
+        let tid = if let Some(t) = self.unmanaged_free_handles.pop() {
+            t
+        } else {
+            self.unmanaged_index += 1;
+            TextureId::User((1 << 60) + self.unmanaged_index)
+        };
         self.allocated_unmanaged.insert(tid, (srv, filter));
         tid
+    }
+
+    pub fn allocate_dx_temporary(
+        &mut self,
+        srv: d3d11::ShaderResourceView,
+        filter: Option<egui::TextureFilter>,
+    ) -> TextureId {
+        self.unmanaged_temporary_index += 1;
+        let tid = TextureId::User((1 << 63) + self.unmanaged_temporary_index);
+
+        self.allocated_unmanaged.insert(tid, (srv, filter));
+        tid
+    }
+
+    pub fn clear_temporaries(&mut self) {
+        self.unmanaged_temporary_index = 0;
+        self.allocated_unmanaged.retain(|id, _| match id {
+            TextureId::Managed(_) => true,
+            TextureId::User(id) => *id < (1 << 63),
+        });
     }
 
     pub fn set_filter(&mut self, tid: TextureId, filter: Option<egui::TextureFilter>) {
@@ -75,7 +101,13 @@ impl TextureAllocator {
         self.allocated
             .remove(&tid)
             .map(|_| ())
-            .or_else(|| self.allocated_unmanaged.remove(&tid).map(|_| ()))
+            .or_else(|| {
+                let s = self.allocated_unmanaged.remove(&tid).map(|_| ());
+                if s.is_some() {
+                    self.unmanaged_free_handles.push(tid);
+                }
+                s
+            })
             .is_some()
     }
 }

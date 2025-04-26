@@ -138,7 +138,7 @@ impl Renderer {
         RENDERER_GLOBAL.get().is_some()
     }
 
-    pub fn instance() -> &'static Renderer {
+    pub fn instance() -> &'static Arc<Renderer> {
         RENDERER_GLOBAL.get().expect("GPU is not yet initialized!")
     }
 

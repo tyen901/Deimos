@@ -116,13 +116,15 @@ impl Renderer {
         //     cmd.pixel_set_shader_resources(0, &[srv_shading_result]);
         //     cmd.draw(4, 0);
         // }
+
+        let output = view.surfaces.get(view.output);
         {
             cmd.rasterizer_set_viewports(&[d3d11::Viewport::builder()
-                .width(gpu.swapchain_resolution().0 as f32)
-                .height(gpu.swapchain_resolution().1 as f32)
+                .width(output.resolution().0 as f32)
+                .height(output.resolution().1 as f32)
                 .build()]);
-            cmd.clear_render_target_view(&gpu.acquire_rtv(), &[0., 0., 0., 1.0]);
-            cmd.output_merger_set_render_targets(&[Some(gpu.acquire_rtv())], None);
+            cmd.clear_render_target_view(output.rtv.as_ref().unwrap(), &[0., 0., 0., 1.0]);
+            cmd.output_merger_set_render_targets(&[output.rtv.clone()], None);
 
             cmd.state = PipelineState::new(Some(0), Some(0), Some(0), Some(0));
             cmd.flush_states();
@@ -144,7 +146,7 @@ impl Renderer {
         {
             profiling::scope!("prepare/submit immediate geometry");
             cmd.output_merger_set_render_targets(
-                &[Some(gpu.acquire_rtv())],
+                &[output.rtv.clone()],
                 view.surfaces.get(view.gbuffers.depth).dsv.as_ref(),
             );
             cmd.state = PipelineState::new(Some(0), Some(2), Some(2), Some(0));

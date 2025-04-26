@@ -25,7 +25,6 @@ pub struct App {
     spinner: FullscreenSpinner,
     last_frame_time: Instant,
     start_time: Instant,
-    camera: Camera,
     frametime_histogram: FrametimeHistogram,
 }
 
@@ -50,7 +49,6 @@ impl App {
 
             last_frame_time: Instant::now(),
             start_time: Instant::now(),
-            camera,
             frametime_histogram: FrametimeHistogram::new(10),
         })
     }

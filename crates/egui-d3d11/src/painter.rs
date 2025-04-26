@@ -250,6 +250,7 @@ impl D3D11Renderer {
         }
 
         // self.backup.restore(ctx);
+        self.textures_mut().clear_temporaries();
 
         Ok(output)
     }

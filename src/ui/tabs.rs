@@ -1,13 +1,15 @@
 use std::{collections::HashSet, fmt::Display, mem::Discriminant};
 
-use egui::{Color32, Margin};
+use egui::{vec2, Color32, Margin};
 use egui_dock::{DockState, NodeIndex, SurfaceIndex, TabIndex};
 use google_material_symbols::GoogleMaterialSymbols;
 
-use super::util::UiExt;
+use crate::app::App;
+
+use super::{scene3d::Scene, util::UiExt};
 
 pub enum Tab {
-    Home,
+    Home(Scene),
     Settings,
     Dynamics,
     Maps,
@@ -15,12 +17,15 @@ pub enum Tab {
 
 impl Tab {
     pub fn is_fixed(&self) -> bool {
-        matches!(self, Tab::Home | Tab::Settings)
+        matches!(self, Tab::Home(_) | Tab::Settings)
     }
 
     /// Indicates whether the tab is unique. Only one instance of each unique tab can exist.
     pub fn is_unique(&self) -> bool {
-        matches!(self, Tab::Home | Tab::Settings | Tab::Dynamics | Tab::Maps)
+        matches!(
+            self,
+            Tab::Home(_) | Tab::Settings | Tab::Dynamics | Tab::Maps
+        )
     }
 }
 
@@ -28,7 +33,7 @@ impl Display for Tab {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
             Tab::Settings => GoogleMaterialSymbols::Settings.to_string(),
-            Tab::Home => format!("{} HOME", GoogleMaterialSymbols::Home),
+            Tab::Home(_) => format!("{} HOME", GoogleMaterialSymbols::Home),
             Tab::Dynamics => format!("{} DYNAMICS", GoogleMaterialSymbols::DeployedCode),
             Tab::Maps => format!("{} MAPS", GoogleMaterialSymbols::Map),
         };
@@ -39,6 +44,7 @@ impl Display for Tab {
 
 pub struct TabViewer<'a> {
     pub added_nodes: &'a mut Vec<Tab>,
+    pub egui_d3d11: &'a mut egui_d3d11::D3D11Renderer,
 }
 
 impl<'a> egui_dock::TabViewer for TabViewer<'a> {
@@ -59,7 +65,7 @@ impl<'a> egui_dock::TabViewer for TabViewer<'a> {
                 ui.with_layout(
                     egui::Layout::top_down(egui::Align::Center),
                     |ui| match tab {
-                        Tab::Home => {
+                        Tab::Home(scene) => {
                             ui.add_space(32.0);
                             ui.columns(2, |uis| {
                                 uis[0].heading("3D");
@@ -91,6 +97,8 @@ impl<'a> egui_dock::TabViewer for TabViewer<'a> {
                                     GoogleMaterialSymbols::DesktopWindows
                                 ));
                             });
+
+                            scene.show(ui, vec2(ui.available_size().x, 850.0), self.egui_d3d11);
                         }
                         Tab::Settings => {
                             ui.weak("No settings are available");

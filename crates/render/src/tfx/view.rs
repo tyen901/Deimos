@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use d3d11::dxgi;
+use d3d11::{dxgi, RenderTargetView};
 use glam::{Mat4, Vec3};
 
 use crate::{
@@ -16,10 +16,11 @@ pub struct View {
     pub(crate) world_to_camera: Mat4,
     pub(crate) camera_to_projective: Mat4,
 
-    pub(crate) resolution: (u32, u32),
     pub(crate) surfaces: Arc<Surfaces>,
+    pub(crate) resolution: (u32, u32),
     pub(crate) gbuffers: Gbuffers,
     pub(crate) shading_result: SurfaceHandle,
+    pub output: SurfaceHandle,
 }
 
 impl View {
@@ -34,6 +35,13 @@ impl View {
                 .build(),
         )?;
 
+        let output = surfaces.create_surface(
+            resolution,
+            SurfaceDesc::builder("output", SizeRelativity::RelativeToFramebuffer)
+                .format(dxgi::Format::R8g8b8a8UnormSrgb)
+                .build(),
+        )?;
+
         Ok(Self {
             position: Vec3::ZERO,
             world_to_camera: Mat4::IDENTITY,
@@ -42,12 +50,23 @@ impl View {
             surfaces,
             gbuffers,
             shading_result,
+            output,
         })
     }
 
-    pub fn update(&mut self, world_to_camera: Mat4, camera_to_projective: Mat4) {
+    pub fn update(
+        &mut self,
+        world_to_camera: Mat4,
+        camera_to_projective: Mat4,
+        resolution: (u32, u32),
+    ) {
         self.world_to_camera = world_to_camera;
         self.camera_to_projective = camera_to_projective;
         self.position = self.world_to_camera.inverse().transform_point3(Vec3::ZERO);
+        self.resolution = resolution;
+    }
+
+    pub fn resolution(&self) -> (u32, u32) {
+        self.resolution
     }
 }
