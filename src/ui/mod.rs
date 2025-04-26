@@ -136,27 +136,8 @@ impl Gui {
             .context()
             .all_styles_mut(move |style| style.text_styles = text_styles.clone());
 
-        let mut scene = Scene::new(Renderer::instance().clone(), Camera::default())?;
-
-        let map = load_static_map(TagHash(0x80A88512))?;
-
-        for t in map.terrain {
-            scene.add_static_object(RenderObject::new(
-                TfxFeatureRenderer::TerrainPatch,
-                Box::new(t),
-                Box::new(()),
-            ));
-        }
-        for s in map.models {
-            scene.add_static_object(RenderObject::new(
-                TfxFeatureRenderer::StaticObjects,
-                Box::new(s),
-                Box::new(()),
-            ));
-        }
-
-        let mut tree = DockState::new(vec![Tab::Settings, Tab::Home(scene)]);
-        if let Some(tab_ref) = tree.find_tab(|t| matches!(t, Tab::Home(_))) {
+        let mut tree = DockState::new(vec![Tab::Settings, Tab::Home]);
+        if let Some(tab_ref) = tree.find_tab(|t| matches!(t, Tab::Home)) {
             tree.set_active_tab(tab_ref);
         }
 
@@ -246,8 +227,7 @@ impl Gui {
             // Is the tab unique and does it already exist? Then switch to it instead of adding it again.
             if let Some(tab_ref) = self
                 .tree
-                .find_tab(|t| discriminant(t) == discriminant(&tab))
-                && tab.is_unique()
+                .find_tab(|t| discriminant(t) == discriminant(&tab) && t.key() == tab.key())
             {
                 self.tree.set_active_tab(tab_ref);
             } else {

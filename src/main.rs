@@ -13,6 +13,7 @@ mod app;
 mod cli;
 mod map;
 mod panic_hook;
+mod task;
 mod ui;
 
 #[macro_use]
