@@ -9,8 +9,9 @@ use deimos_render::{
     Gpu, Renderer,
 };
 use egui::{Color32, FontId, Margin, RichText};
-use egui_dock::{DockArea, DockState, NodeIndex, Style};
+use egui_dock::{DockArea, DockState, Style};
 use glam::{vec2, vec3, IVec2, Quat, Vec2, Vec3};
+use google_material_symbols::GoogleMaterialSymbols;
 use sdl3::{keyboard::Keycode, video::Window};
 use tiger_parse::TigerReadable;
 use tiger_pkg::package_manager;
@@ -169,6 +170,18 @@ impl App {
                 "../assets/fonts/marathonshapiro_wide65.otf"
             ))),
         );
+        fonts.font_data.insert(
+            "khinterference-regular".into(),
+            Arc::new(egui::FontData::from_static(include_bytes!(
+                "../assets/fonts/khinterference-regular.otf"
+            ))),
+        );
+        fonts.font_data.insert(
+            "MaterialSymbolsRounded-Medium".into(),
+            Arc::new(egui::FontData::from_static(
+                GoogleMaterialSymbols::FONT_BYTES,
+            )),
+        );
 
         fonts
             .families
@@ -182,9 +195,34 @@ impl App {
             .insert(1, "ppfraktionmono-bold".to_owned());
         fonts
             .families
+            .entry(egui::FontFamily::Proportional)
+            .or_default()
+            .insert(2, "MaterialSymbolsRounded-Medium".to_owned());
+        fonts
+            .families
+            .entry(egui::FontFamily::Monospace)
+            .or_default()
+            .insert(0, "ppfraktionmono".to_owned());
+        fonts
+            .families
+            .entry(egui::FontFamily::Name("khinterference-regular".into()))
+            .or_default()
+            .insert(0, "khinterference-regular".to_owned());
+        fonts
+            .families
+            .entry(egui::FontFamily::Name("khinterference-regular".into()))
+            .or_default()
+            .insert(1, "MaterialSymbolsRounded-Medium".to_owned());
+        fonts
+            .families
             .entry(egui::FontFamily::Name("shapiro".into()))
             .or_default()
             .insert(0, "marathonshapiro_wide".to_owned());
+        fonts
+            .families
+            .entry(egui::FontFamily::Name("shapiro".into()))
+            .or_default()
+            .insert(1, "MaterialSymbolsRounded-Medium".to_owned());
 
         let egui_sdl3 = egui_sdl3_platform::Platform::new(window.size())?;
         egui_sdl3.context().set_fonts(fonts);
@@ -210,7 +248,11 @@ impl App {
             ),
             (
                 egui::TextStyle::Button,
-                FontId::new(18.0, egui::FontFamily::Name("shapiro".into())),
+                // FontId::new(20.0, egui::FontFamily::Monospace),
+                FontId::new(
+                    20.0,
+                    egui::FontFamily::Name("khinterference-regular".into()),
+                ),
             ),
             (
                 egui::TextStyle::Small,
@@ -224,7 +266,7 @@ impl App {
             .context()
             .all_styles_mut(move |style| style.text_styles = text_styles.clone());
 
-        let mut tree = DockState::new(vec!["Home".to_owned()]);
+        let mut tree = DockState::new(vec![format!("{} HOME", GoogleMaterialSymbols::Home)]);
 
         // // You can modify the tree before constructing the dock
         // let [a, b] =
@@ -497,6 +539,7 @@ impl App {
             ctx.style_mut(|s| s.visuals.panel_fill = Color32::from_black_alpha(96));
             DockArea::new(&mut self.tree)
                 .style(Style::from_egui(ctx.style().as_ref()))
+                .show_leaf_collapse_buttons(false)
                 .show(&ctx, &mut TabViewer {});
             let mut output = self
                 .egui_sdl3
