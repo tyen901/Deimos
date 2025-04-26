@@ -98,7 +98,7 @@ impl<'a> egui_dock::TabViewer for TabViewer<'a> {
                                 ));
                             });
 
-                            scene.show(ui, vec2(ui.available_size().x, 850.0), self.egui_d3d11);
+                            scene.show(ui, ui.available_size(), self.egui_d3d11);
                         }
                         Tab::Settings => {
                             ui.weak("No settings are available");

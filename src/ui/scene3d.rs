@@ -80,7 +80,8 @@ impl Scene {
             return;
         }
 
-        let resolution = (size.x as u32, size.y as u32);
+        let size_pixels = size * ui.ctx().pixels_per_point();
+        let resolution = (size_pixels.x as u32, size_pixels.y as u32);
         if resolution != self.surface.get_desc().resolution() {
             let (texture, srv) = Self::create_surface(&self.renderer.gpu, resolution)
                 .expect("Failed to resize scene surface");
