@@ -284,7 +284,7 @@ impl<'a> DecompilerState<'a> {
                     let b = constants[(constant_start + 1) as usize];
                     let t = cached_top;
 
-                    cached_top = format!("lerp({}, {}, {})", a, b, t);
+                    cached_top = format!("lerp({a}, {b}, {t})");
                     *self.stack_top() = cached_top.clone();
                 }
                 Opcode::Spline8Const => {

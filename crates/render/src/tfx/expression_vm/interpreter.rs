@@ -590,7 +590,7 @@ impl<'a> InterpreterState<'a> {
                 println!("{}: {:?} {:?}", self.ip, op, &self.data_ptr()[1..op.size()]);
                 // Print stack
                 for (i, val) in self.stack.iter().enumerate() {
-                    println!("  [{}] {:?}", i, val);
+                    println!("  [{i}] {val:?}");
                 }
             }
 

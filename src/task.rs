@@ -1,4 +1,3 @@
-use std::fmt::Display;
 
 pub struct Task<T: Sized + Send + 'static> {
     join_handle: Option<std::thread::JoinHandle<T>>,

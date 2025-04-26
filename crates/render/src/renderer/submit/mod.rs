@@ -8,7 +8,7 @@ pub mod lowlevel;
 
 use deimos_core::convar::ConVars;
 use deimos_data::tfx::{FeatureRendererSubscription, PipelineState};
-use glam::{Mat4, Vec4};
+use glam::Vec4;
 
 use crate::{
     cmd_event_span,

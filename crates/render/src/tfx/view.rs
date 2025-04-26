@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use d3d11::{dxgi, RenderTargetView};
+use d3d11::dxgi;
 use glam::{Mat4, Vec3};
 
 use crate::{

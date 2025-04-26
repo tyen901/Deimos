@@ -1,6 +1,6 @@
-use std::{sync::Arc, time::Instant, u64};
+use std::{sync::Arc, time::Instant};
 
-use d3d11::{dxgi, RenderTargetView, ShaderResourceView, Texture2D, Texture2dDesc};
+use d3d11::{dxgi, ShaderResourceView, Texture2D, Texture2dDesc};
 use deimos_render::{
     camera::Camera,
     gpu::command_list::CommandList,
@@ -9,7 +9,7 @@ use deimos_render::{
     Gpu, Renderer,
 };
 use egui::{load::SizedTexture, vec2, Response, Sense, Ui, Vec2};
-use glam::{Quat, Vec3};
+use glam::Quat;
 
 pub struct Scene {
     renderer: Arc<Renderer>,

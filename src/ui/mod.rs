@@ -1,17 +1,13 @@
 use std::{collections::BTreeMap, mem::discriminant, rc::Rc, sync::Arc};
 
-use deimos_data::tfx::TfxFeatureRenderer;
 use deimos_render::{
-    camera::Camera, gpu::command_list::CommandList, object::RenderObject, Gpu, Renderer,
+    gpu::command_list::CommandList, Gpu,
 };
 use egui::{Color32, FontId};
 use egui_dock::{DockArea, DockState, TabInteractionStyle};
 use google_material_symbols::GoogleMaterialSymbols;
-use scene3d::Scene;
 use tabs::{DockStateExt, Tab, TabViewer};
-use tiger_pkg::TagHash;
 
-use crate::{app::App, map::load_static_map};
 
 mod scene3d;
 mod style;

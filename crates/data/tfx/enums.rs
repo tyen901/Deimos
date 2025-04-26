@@ -74,7 +74,7 @@ impl Display for RenderStage {
             Self::ComputeSkinning => "compute_skinning",
         };
 
-        write!(f, "{}", n)
+        write!(f, "{n}")
     }
 }
 
@@ -157,7 +157,7 @@ impl Display for TfxFeatureRenderer {
             TfxFeatureRenderer::Cubemaps => "cubemap",
         };
 
-        write!(f, "{}", n)
+        write!(f, "{n}")
     }
 }
 
@@ -295,7 +295,7 @@ pub struct LodCategory(u8);
 impl std::fmt::Debug for LodCategory {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let v = self.0;
-        write!(f, "LodCategory({:08b})", v)
+        write!(f, "LodCategory({v:08b})")
     }
 }
 

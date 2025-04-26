@@ -2,15 +2,15 @@
 #![deny(clippy::correctness, clippy::suspicious, clippy::complexity)]
 #![allow(clippy::collapsible_else_if, clippy::missing_transmute_annotations)]
 
-use std::{f32, rc::Rc, sync::Arc, time::Instant};
+use std::{rc::Rc, sync::Arc, time::Instant};
 
 use deimos_render::{
     camera::Camera,
-    gpu::{command_list::CommandList, debug_text::DebugTextAlign, spinner::FullscreenSpinner},
+    gpu::{command_list::CommandList, spinner::FullscreenSpinner},
     util::fps_histogram::FrametimeHistogram,
     Gpu, Renderer,
 };
-use glam::{vec3, IVec2};
+use glam::vec3;
 use sdl3::video::Window;
 
 use crate::{cli::AppArgs, ui::Gui};

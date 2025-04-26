@@ -111,7 +111,7 @@ impl DynamicConstants {
                     let bytecode_listing = match expression_vm::disassemble(&self.bytecode) {
                         Ok(ops) => ops.into_iter().map(|v| format!("    {v}")).join("\n"),
                         Err(e) => {
-                            format!("Failed to disassemble bytecode: {:?}", e)
+                            format!("Failed to disassemble bytecode: {e:?}")
                         }
                     };
                     debug!("Bytecode:\n{}", bytecode_listing);

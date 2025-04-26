@@ -1,15 +1,14 @@
-use std::{collections::HashSet, fmt::Display, mem::Discriminant};
+use std::fmt::Display;
 
 use deimos_data::{map::SBubbleParent, tfx::TfxFeatureRenderer};
 use deimos_render::{camera::Camera, object::RenderObject, Renderer};
-use egui::{vec2, Color32, Margin};
+use egui::{Color32, Margin};
 use egui_dock::{DockState, NodeIndex, SurfaceIndex, TabIndex};
 use google_material_symbols::GoogleMaterialSymbols;
 use tiger_parse::TigerReadable;
 use tiger_pkg::{package_manager, TagHash};
 
 use crate::{
-    app::App,
     map::{load_static_map, StaticMapTemp},
     task::Task,
 };
@@ -24,7 +23,7 @@ pub enum Tab {
     Map {
         load_task: Task<StaticMapTemp>,
         tag: TagHash,
-        scene: Scene,
+        scene: Box<Scene>,
     },
 }
 
@@ -150,11 +149,13 @@ impl<'a> egui_dock::TabViewer for TabViewer<'a> {
                                                     load_static_map(tag).unwrap()
                                                 }),
                                                 tag,
-                                                scene: Scene::new(
-                                                    Renderer::instance().clone(),
-                                                    Camera::default(),
-                                                )
-                                                .unwrap(),
+                                                scene: Box::new(
+                                                    Scene::new(
+                                                        Renderer::instance().clone(),
+                                                        Camera::default(),
+                                                    )
+                                                    .unwrap(),
+                                                ),
                                             });
                                         }
                                     }
