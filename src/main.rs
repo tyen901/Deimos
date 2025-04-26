@@ -1,3 +1,5 @@
+#![feature(let_chains)]
+
 use std::{path::PathBuf, rc::Rc, sync::Arc};
 
 use anyhow::Context;

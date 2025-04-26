@@ -16,6 +16,11 @@ impl Tab {
     pub fn is_fixed(&self) -> bool {
         matches!(self, Tab::Home | Tab::Settings)
     }
+
+    /// Indicates whether the tab is unique. Only one instance of each unique tab can exist.
+    pub fn is_unique(&self) -> bool {
+        matches!(self, Tab::Home | Tab::Settings | Tab::Dynamics)
+    }
 }
 
 impl Display for Tab {

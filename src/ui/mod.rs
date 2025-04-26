@@ -1,8 +1,8 @@
-use std::{collections::BTreeMap, rc::Rc, sync::Arc};
+use std::{collections::BTreeMap, mem::discriminant, rc::Rc, sync::Arc};
 
 use deimos_render::{gpu::command_list::CommandList, Gpu};
 use egui::{Color32, FontId};
-use egui_dock::{DockArea, DockState, SurfaceIndex, TabIndex};
+use egui_dock::{DockArea, DockState};
 use google_material_symbols::GoogleMaterialSymbols;
 use tabs::{DockStateExt, Tab, TabViewer};
 
@@ -166,7 +166,16 @@ impl Gui {
             );
 
         for tab in self.added_nodes.drain(..) {
-            self.tree.push_to_focused_leaf(tab);
+            // Is the tab unique and does it already exist? Then switch to it instead of adding it again.
+            if let Some(tab_ref) = self
+                .tree
+                .find_tab(|t| discriminant(t) == discriminant(&tab))
+                && tab.is_unique()
+            {
+                self.tree.set_active_tab(tab_ref);
+            } else {
+                self.tree.push_to_focused_leaf(tab);
+            }
         }
 
         let output = self
