@@ -268,13 +268,10 @@ impl Platform {
         let output = self.egui_ctx.end_pass();
 
         for c in &output.platform_output.commands {
-            match c {
-                egui::OutputCommand::CopyText(text) => {
-                    if let Err(e) = video.clipboard().set_clipboard_text(&text) {
-                        tracing::error!("Failed to assign text to clipboard: {}", e);
-                    }
+            if let egui::OutputCommand::CopyText(text) = c {
+                if let Err(e) = video.clipboard().set_clipboard_text(text) {
+                    tracing::error!("Failed to assign text to clipboard: {}", e);
                 }
-                _ => {}
             }
         }
 

@@ -140,12 +140,9 @@ impl Gui {
     }
 
     pub fn draw(&mut self, cmd: &mut CommandList) {
-        let mut ctx = self
+        let ctx = self
             .egui_sdl3
             .begin_frame(self.window.size(), self.window.display_scale());
-        // egui::Window::new("Demo Window").show(&ctx, |ui| {
-        //     ui.label("Hello, World!");
-        // });
         ctx.style_mut(|s| s.visuals.panel_fill = Color32::from_black_alpha(96));
         DockArea::new(&mut self.tree)
             .style(egui_dock::Style::from_egui(ctx.style().as_ref()))
@@ -155,6 +152,8 @@ impl Gui {
             .egui_sdl3
             .end_frame(&mut self.sdl.video().unwrap())
             .unwrap();
-        self.egui_d3d11.paint(cmd, output, &mut ctx);
+        if let Err(e) = self.egui_d3d11.paint(cmd, output, &ctx) {
+            error!("Failed to paint gui: {}", e);
+        }
     }
 }

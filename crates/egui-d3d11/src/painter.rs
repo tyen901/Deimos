@@ -1,4 +1,4 @@
-use std::{mem::size_of, sync::Arc};
+use std::mem::size_of;
 
 use d3d11::{dxgi, input_layout::ElementOffset};
 use deimos_render::{gpu::command_list::CommandList, Gpu};

@@ -1,4 +1,8 @@
-use std::{collections::BTreeMap, f32, rc::Rc, sync::Arc, time::Instant};
+#![warn(rust_2018_idioms)]
+#![deny(clippy::correctness, clippy::suspicious, clippy::complexity)]
+#![allow(clippy::collapsible_else_if, clippy::missing_transmute_annotations)]
+
+use std::{f32, rc::Rc, sync::Arc, time::Instant};
 
 use deimos_data::{map::SBubbleParent, tfx::TfxFeatureRenderer};
 use deimos_render::{
@@ -8,10 +12,7 @@ use deimos_render::{
     util::fps_histogram::FrametimeHistogram,
     Gpu, Renderer,
 };
-use egui::{Color32, FontId, Margin, RichText};
-use egui_dock::{DockArea, DockState, Style};
 use glam::{vec2, vec3, IVec2, Quat, Vec2, Vec3};
-use google_material_symbols::GoogleMaterialSymbols;
 use sdl3::{keyboard::Keycode, video::Window};
 use tiger_parse::TigerReadable;
 use tiger_pkg::package_manager;
@@ -20,7 +21,7 @@ use crate::{
     cli::AppArgs,
     input::{MouseButton, MouseKeyboardState},
     map::load_static_map,
-    ui::{util::UiExt, Gui},
+    ui::Gui,
 };
 
 pub struct App {
