@@ -1,20 +1,24 @@
-use egui::{Color32, Response, RichText};
+use std::{cell::RefCell, time::Instant};
+
+use egui::*;
 
 pub trait UiExt {
     #[must_use]
     fn d_button(&mut self, text: impl Into<RichText>) -> Response;
+
+    fn d_spinner(&mut self, size: Vec2) -> Response;
 }
 
-impl UiExt for egui::Ui {
+impl UiExt for Ui {
     fn d_button(&mut self, text: impl Into<RichText>) -> Response {
         let r = self
             .add(
-                egui::Button::new(text.into().color(Color32::BLACK))
-                    .min_size(egui::vec2(120.0, 60.0))
+                Button::new(text.into().color(Color32::BLACK))
+                    .min_size(vec2(120.0, 60.0))
                     .corner_radius(8)
                     .fill(Color32::WHITE),
             )
-            .on_hover_cursor(egui::CursorIcon::PointingHand);
+            .on_hover_cursor(CursorIcon::PointingHand);
 
         if r.hovered() {
             self.painter()
@@ -23,4 +27,24 @@ impl UiExt for egui::Ui {
 
         r
     }
+
+    fn d_spinner(&mut self, size: Vec2) -> Response {
+        self.add(Image::new(spinner_image().clone()).fit_to_exact_size(size))
+    }
+}
+
+pub fn spinner_image() -> &'static ImageSource<'static> {
+    thread_local! {
+        static START_TIME: RefCell<Instant> = RefCell::new(Instant::now());
+    }
+
+    let time = START_TIME
+        .with(|start_time| start_time.borrow().elapsed())
+        .as_secs_f32();
+
+    const IMG0: ImageSource = include_image!("../../assets/ui/load0.png");
+    const IMG1: ImageSource = include_image!("../../assets/ui/load1.png");
+    const IMG2: ImageSource = include_image!("../../assets/ui/load2.png");
+
+    &[IMG0, IMG1, IMG2, IMG1][(time * 4.0) as usize % 4]
 }

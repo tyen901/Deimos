@@ -38,7 +38,7 @@ tiger-parse = { version = "0.4.0", git = "https://github.com/v4nguard/tiger-pars
     "check_types_debug",
 ] }
 tiger-pkg = { version = "0.18.4", features = ["global_manager_instance"] }
-tracing = "0.1"
+tracing = { version = "0.2.0", git = "https://github.com/cohaereo/tracing-lesspretty.git" }
 
 [dependencies]
 deimos-core = { path = "./crates/core" }
@@ -63,6 +63,7 @@ profiling.workspace = true
 tracing-subscriber = { version = "0.3", git = "https://github.com/cohaereo/tracing-lesspretty.git", features = [
     "env-filter",
     "fmt",
+    "tracing-log",
 ] }
 tracing.workspace = true
 
@@ -73,7 +74,9 @@ sdl3.workspace = true
 
 # UI
 egui.workspace = true
+egui_extras = { version = "0.31.1", features = ["image"] }
 egui_dock.workspace = true
+image = { version = "0.25", features = ["png"] }
 nu-ansi-term = "0.50.1"
 native-dialog = "0.7.0"
 clap = { version = "4.5.37", features = ["derive"] }

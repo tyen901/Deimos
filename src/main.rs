@@ -7,7 +7,10 @@ use app::App;
 use clap::Parser;
 use cli::AppArgs;
 use tiger_pkg::PackageManager;
-use tracing_subscriber::filter::{EnvFilter, LevelFilter};
+use tracing_subscriber::{
+    filter::{EnvFilter, LevelFilter},
+    subscribe::CollectExt,
+};
 
 mod app;
 mod cli;
@@ -75,8 +78,7 @@ fn main() -> anyhow::Result<()> {
     let window = Rc::new(
         video_subsystem
             .window("Deimos", 1920, 1080)
-            // .position_centered()
-            .position(3860, 400)
+            .position_centered()
             .resizable()
             .build()
             .expect("Failed to create window"),

@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use deimos_data::{map::SBubbleParent, tfx::TfxFeatureRenderer};
 use deimos_render::{camera::Camera, object::RenderObject, Renderer};
-use egui::{Color32, Margin};
+use egui::{vec2, Color32, Margin, Rect, Vec2};
 use egui_dock::{DockState, NodeIndex, SurfaceIndex, TabIndex};
 use google_material_symbols::GoogleMaterialSymbols;
 use tiger_parse::TigerReadable;
@@ -13,7 +13,10 @@ use crate::{
     task::Task,
 };
 
-use super::{scene3d::Scene, util::UiExt};
+use super::{
+    scene3d::Scene,
+    util::{spinner_image, UiExt},
+};
 
 pub enum Tab {
     Home,
@@ -192,6 +195,10 @@ impl<'a> egui_dock::TabViewer for TabViewer<'a> {
                                 let (_, rect) = ui.allocate_space(ui.available_size());
                                 ui.painter()
                                     .rect_filled(rect, 0, Color32::from_rgb(45, 48, 56));
+                                egui::Image::new(spinner_image().clone()).paint_at(
+                                    ui,
+                                    Rect::from_center_size(rect.center(), vec2(64.0, 48.0)),
+                                );
                             } else {
                                 scene.show(ui, ui.available_size(), self.egui_d3d11);
                             }

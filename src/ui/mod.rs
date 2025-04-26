@@ -1,13 +1,10 @@
 use std::{collections::BTreeMap, mem::discriminant, rc::Rc, sync::Arc};
 
-use deimos_render::{
-    gpu::command_list::CommandList, Gpu,
-};
+use deimos_render::{gpu::command_list::CommandList, Gpu};
 use egui::{Color32, FontId};
 use egui_dock::{DockArea, DockState, TabInteractionStyle};
 use google_material_symbols::GoogleMaterialSymbols;
 use tabs::{DockStateExt, Tab, TabViewer};
-
 
 mod scene3d;
 mod style;
@@ -131,6 +128,8 @@ impl Gui {
         egui_sdl3
             .context()
             .all_styles_mut(move |style| style.text_styles = text_styles.clone());
+
+        egui_extras::install_image_loaders(egui_sdl3.context());
 
         let mut tree = DockState::new(vec![Tab::Settings, Tab::Home]);
         if let Some(tab_ref) = tree.find_tab(|t| matches!(t, Tab::Home)) {
