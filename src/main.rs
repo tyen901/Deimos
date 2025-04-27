@@ -7,10 +7,7 @@ use app::App;
 use clap::Parser;
 use cli::AppArgs;
 use tiger_pkg::PackageManager;
-use tracing_subscriber::{
-    filter::{EnvFilter, LevelFilter},
-    subscribe::CollectExt,
-};
+use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 
 mod app;
 mod cli;
@@ -22,9 +19,21 @@ mod ui;
 #[macro_use]
 extern crate tracing;
 
+#[cfg(all(feature = "dhat-heap", not(feature = "tracy")))]
+#[global_allocator]
+static ALLOC: dhat::Alloc = dhat::Alloc;
+
+// #[cfg(feature = "tracy")]
+// #[global_allocator]
+// static GLOBAL: tracy_client::ProfiledAllocator<std::alloc::System> =
+//     tracy_client::ProfiledAllocator::new(std::alloc::System, 100);
+
 const MARATHON_APP_ID: u64 = 3547690;
 
 fn main() -> anyhow::Result<()> {
+    #[cfg(feature = "dhat-heap")]
+    let _profiler = dhat::Profiler::new_heap();
+
     fix_windows_console();
     std::panic::set_hook(Box::new(panic_hook::hook));
     tracing_subscriber::fmt()
@@ -68,7 +77,7 @@ fn main() -> anyhow::Result<()> {
         )
         .context("Failed to initialize package manager")?,
     );
-    tiger_pkg::initialize(&pm);
+    tiger_pkg::initialize_package_manager(&pm);
 
     let sdl_context = Rc::new(sdl3::init().expect("Failed to initialize SDL"));
     let video_subsystem = sdl_context
@@ -87,7 +96,7 @@ fn main() -> anyhow::Result<()> {
     let mut app = App::new(sdl_context.clone(), window, args)?;
 
     let mut event_pump = sdl_context.event_pump().unwrap();
-    'app: loop {
+    'app: while app.running {
         for event in event_pump.poll_iter() {
             match event {
                 sdl3::event::Event::Quit { .. } => break 'app,
@@ -97,6 +106,8 @@ fn main() -> anyhow::Result<()> {
 
         app.render(&event_pump);
     }
+
+    tiger_pkg::finalize_package_manager();
 
     Ok(())
 }

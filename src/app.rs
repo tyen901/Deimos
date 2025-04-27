@@ -21,6 +21,7 @@ pub struct App {
     pub gpu: Arc<Gpu>,
     pub renderer: Arc<Renderer>,
     pub gui: Gui,
+    pub running: bool,
 
     spinner: FullscreenSpinner,
     last_frame_time: Instant,
@@ -34,11 +35,6 @@ impl App {
         let renderer = Arc::new(Renderer::new(gpu.clone(), window.size())?);
         Renderer::set_instance(renderer.clone());
 
-        let camera = Camera {
-            position: vec3(0.0, 0.0, 100.0),
-            ..Default::default()
-        };
-
         Ok(Self {
             spinner: FullscreenSpinner::create(&renderer.gpu)?,
             renderer,
@@ -46,6 +42,7 @@ impl App {
             sdl,
             window,
             gpu,
+            running: true,
 
             last_frame_time: Instant::now(),
             start_time: Instant::now(),
@@ -57,7 +54,7 @@ impl App {
         #[allow(clippy::single_match, clippy::collapsible_match)]
         match &event {
             sdl3::event::Event::Quit { .. } => {
-                std::process::exit(0);
+                self.running = false;
             }
             sdl3::event::Event::Window { win_event, .. } => match win_event {
                 &sdl3::event::WindowEvent::Resized(new_width, new_height) => {
@@ -70,13 +67,16 @@ impl App {
                         })
                         .ok();
                 }
+                sdl3::event::WindowEvent::CloseRequested => {
+                    self.running = false;
+                }
                 _ => {}
             },
             sdl3::event::Event::KeyDown {
                 keycode: Some(key), ..
             } => match key {
                 sdl3::keyboard::Keycode::Escape => {
-                    std::process::exit(0);
+                    self.running = false;
                 }
                 _ => {}
             },
