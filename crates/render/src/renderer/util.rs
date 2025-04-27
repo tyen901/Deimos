@@ -18,3 +18,7 @@ impl Renderer {
         cmd.draw(4, 0);
     }
 }
+
+pub fn num_processors() -> usize {
+    std::thread::available_parallelism().unwrap().get()
+}

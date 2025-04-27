@@ -94,7 +94,7 @@ impl Renderer {
             for j in &jobs {
                 if let Some(command_list) = self.submit_jobs.poll_job(*j) {
                     // We only need to restore state on the last job
-                    profiling::scope!("execute_command_list", &format!("job={:?}", j));
+                    profiling::scope!("execute_command_list", &format!("job={j:?}"));
                     cmd.execute_command_list(&command_list, false);
 
                     resolved.push(j);

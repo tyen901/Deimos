@@ -17,6 +17,7 @@ use deimos_data::tfx::FeatureRendererSubscription;
 use globals::RenderGlobals;
 use parking_lot::{Mutex, RwLock, RwLockReadGuard};
 use surface::Surfaces;
+use util::num_processors;
 
 use crate::{
     asset::{texture::Texture, AssetManager},
@@ -112,7 +113,7 @@ impl Renderer {
             // ao: RwLock::new(None),
             // ao_buffer: Mutex::new(None),
             surfaces: RwLock::new(surfaces),
-            submit_jobs: submit::lowlevel::SubmitJobManager::new(&gpu, 6),
+            submit_jobs: submit::lowlevel::SubmitJobManager::new(&gpu, num_processors()),
             frame_scope: ConstantBuffer::create(&gpu, None)?,
 
             debug_vs,

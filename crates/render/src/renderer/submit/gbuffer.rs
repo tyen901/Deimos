@@ -6,6 +6,7 @@ use deimos_data::tfx::{
 use crate::{
     cmd_event_span,
     gpu::command_list::{CommandList, DepthMode},
+    renderer::util::num_processors,
     tfx::view::View,
 };
 
@@ -23,7 +24,7 @@ impl Renderer {
 
             cmd.state = PipelineState::new(Some(0), Some(2), Some(2), Some(0));
 
-            self.submit_stage_multi(cmd, RenderStage::GenerateGbuffer, 6);
+            self.submit_stage_multi(cmd, RenderStage::GenerateGbuffer, num_processors());
         }
 
         {
