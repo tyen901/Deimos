@@ -86,6 +86,26 @@ impl Scene {
             return;
         }
 
+        let now = Instant::now();
+        let delta_time = (now - self.last_frame_time).as_secs_f32();
+        self.last_frame_time = now;
+
+        ui.painter_at(r.rect).text(
+            r.rect.right_top() + Vec2::splat(1.0),
+            egui::Align2::RIGHT_TOP,
+            format!("{} ", (1. / delta_time).round()),
+            egui::FontId::monospace(16.0),
+            egui::Color32::BLACK,
+        );
+
+        ui.painter_at(r.rect).text(
+            r.rect.right_top(),
+            egui::Align2::RIGHT_TOP,
+            format!("{} ", (1. / delta_time).round()),
+            egui::FontId::monospace(16.0),
+            egui::Color32::GREEN,
+        );
+
         let size_pixels = size * ui.ctx().pixels_per_point();
         let resolution = (size_pixels.x as u32, size_pixels.y as u32);
         if resolution != self.surface.get_desc().resolution() {
@@ -94,9 +114,6 @@ impl Scene {
             self.surface = texture;
             self.surface_srv = srv;
         }
-        let now = Instant::now();
-        let delta_time = (now - self.last_frame_time).as_secs_f32();
-        self.last_frame_time = now;
 
         self.camera.aspect_ratio = resolution.0 as f32 / resolution.1 as f32;
         self.controller.update(&mut self.camera, ui, &r, delta_time);
