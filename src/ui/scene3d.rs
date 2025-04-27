@@ -9,14 +9,15 @@ use deimos_render::{
     Gpu, Renderer,
 };
 use egui::{load::SizedTexture, vec2, Response, Sense, Ui, Vec2};
-use glam::Quat;
+use glam::{Quat, Vec3};
 
 pub struct Scene {
     renderer: Arc<Renderer>,
     camera: Camera,
-    camera_yaw_pitch: Vec2,
     view: View,
     last_frame_time: Instant,
+
+    controller: CameraController,
 
     static_render_objects: Vec<RenderObjectHandle>,
 
@@ -32,12 +33,17 @@ impl Scene {
             view: View::new(&renderer.gpu, (128, 128))?,
             renderer,
             camera,
-            camera_yaw_pitch: Vec2::ZERO,
+            controller: CameraController::new_orbit(Vec3::ZERO, 100.0),
             static_render_objects: Vec::new(),
             surface,
             surface_srv,
             last_frame_time: Instant::now(),
         })
+    }
+
+    pub fn with_controller(mut self, controller: CameraController) -> Self {
+        self.controller = controller;
+        self
     }
 
     fn create_surface(
@@ -92,9 +98,8 @@ impl Scene {
         let delta_time = (now - self.last_frame_time).as_secs_f32();
         self.last_frame_time = now;
 
-        self.update_camera_movement(r, delta_time);
-
         self.camera.aspect_ratio = resolution.0 as f32 / resolution.1 as f32;
+        self.controller.update(&mut self.camera, ui, &r, delta_time);
         self.camera.update();
         let camera_to_projective = self.camera.projection_matrix(self.camera.aspect_ratio);
         let world_to_camera = self.camera.view_matrix();
@@ -102,49 +107,6 @@ impl Scene {
             .update(world_to_camera, camera_to_projective, resolution);
 
         self.render(delta_time);
-    }
-
-    fn update_camera_movement(&mut self, r: Response, _delta_time: f32) {
-        // let mut movement = Vec3::ZERO;
-        // if self.input.is_key_down(Keycode::W) {
-        //     movement += self.camera.forward();
-        // }
-        // if self.input.is_key_down(Keycode::S) {
-        //     movement -= self.camera.forward();
-        // }
-        // if self.input.is_key_down(Keycode::A) {
-        //     movement -= self.camera.right();
-        // }
-        // if self.input.is_key_down(Keycode::D) {
-        //     movement += self.camera.right();
-        // }
-        // if self.input.is_key_down(Keycode::Q) {
-        //     movement -= self.camera.up();
-        // }
-        // if self.input.is_key_down(Keycode::E) {
-        //     movement += self.camera.up();
-        // }
-        // movement = movement.normalize_or(Vec3::ZERO);
-        // if self.input.is_key_down(Keycode::LCtrl) {
-        //     movement /= 5.0;
-        // }
-        // if self.input.is_key_down(Keycode::LShift) {
-        //     movement *= 2.0;
-        // }
-        // if self.input.is_key_down(Keycode::Space) {
-        //     movement *= 2.5;
-        // }
-
-        // self.camera.position += movement * delta_time * 40.0;
-
-        let drag_delta = r.drag_delta();
-        self.camera_yaw_pitch += (drag_delta / 10.0) * vec2(-1.0, 1.3);
-        self.camera_yaw_pitch.y = self.camera_yaw_pitch.y.clamp(-89.0, 89.0);
-
-        self.camera.rotation = Quat::from_rotation_z(self.camera_yaw_pitch.x.to_radians())
-            * Quat::from_rotation_y(self.camera_yaw_pitch.y.to_radians());
-
-        self.camera.position = -self.camera.forward() * 100.0;
     }
 
     fn render(&mut self, delta_time: f32) {
@@ -238,6 +200,104 @@ impl Drop for Scene {
     fn drop(&mut self) {
         for &h in &self.static_render_objects {
             self.renderer.remove_object(h);
+        }
+    }
+}
+
+pub enum CameraController {
+    Orbit {
+        target: Vec3,
+        distance: f32,
+        yaw_pitch: Vec2,
+    },
+    FirstPerson {
+        speed: f32,
+        yaw_pitch: Vec2,
+    },
+}
+
+impl CameraController {
+    pub fn new_orbit(target: Vec3, distance: f32) -> Self {
+        Self::Orbit {
+            target,
+            distance,
+            yaw_pitch: Vec2::ZERO,
+        }
+    }
+
+    pub fn new_first_person() -> Self {
+        Self::FirstPerson {
+            speed: 25.0,
+            yaw_pitch: Vec2::ZERO,
+        }
+    }
+
+    pub fn update(&mut self, camera: &mut Camera, ui: &Ui, response: &Response, delta_time: f32) {
+        match self {
+            Self::Orbit {
+                target,
+                distance,
+                yaw_pitch,
+            } => {
+                let scroll_delta = ui.input(|i| i.raw_scroll_delta);
+                *distance += -scroll_delta.y;
+                *distance = distance.clamp(0.1, 1000.0);
+
+                let drag_delta = response.drag_delta();
+                *yaw_pitch += (drag_delta / 5.0) * vec2(-1.0, 1.3);
+                yaw_pitch.y = yaw_pitch.y.clamp(-89.0, 89.0);
+
+                camera.rotation = Quat::from_rotation_z(yaw_pitch.x.to_radians())
+                    * Quat::from_rotation_y(yaw_pitch.y.to_radians());
+
+                camera.position = *target - camera.forward() * *distance;
+            }
+            Self::FirstPerson { speed, yaw_pitch } => {
+                if !response.dragged_by(egui::PointerButton::Primary) {
+                    return;
+                }
+
+                let mut movement = Vec3::ZERO;
+                ui.input(|i| {
+                    if i.key_down(egui::Key::W) {
+                        movement += camera.forward();
+                    }
+                    if i.key_down(egui::Key::S) {
+                        movement -= camera.forward();
+                    }
+                    if i.key_down(egui::Key::A) {
+                        movement -= camera.right();
+                    }
+                    if i.key_down(egui::Key::D) {
+                        movement += camera.right();
+                    }
+                    if i.key_down(egui::Key::Q) {
+                        movement -= camera.up();
+                    }
+                    if i.key_down(egui::Key::E) {
+                        movement += camera.up();
+                    }
+                    movement = movement.normalize_or(Vec3::ZERO);
+                    if i.modifiers.ctrl {
+                        movement /= 5.0;
+                    }
+                    if i.modifiers.shift {
+                        movement *= 2.0;
+                    }
+                    if i.key_down(egui::Key::Space) {
+                        movement *= 2.5;
+                    }
+                });
+
+                camera.position += movement * delta_time * *speed;
+
+                let drag_delta = response.drag_delta();
+                *yaw_pitch += (drag_delta / 10.0) * vec2(-1.0, 1.3);
+                yaw_pitch.y = yaw_pitch.y.clamp(-89.0, 89.0);
+
+                camera.rotation = Quat::from_rotation_z(yaw_pitch.x.to_radians())
+                    * Quat::from_rotation_y(yaw_pitch.y.to_radians());
+            }
         }
     }
 }

@@ -6,7 +6,10 @@ use tiger_pkg::TagHash;
 use crate::{
     map::{load_static_map, StaticMapTemp},
     task::Task,
-    ui::{scene3d::Scene, util::spinner_image},
+    ui::{
+        scene3d::{CameraController, Scene},
+        util::spinner_image,
+    },
 };
 
 pub struct MapTab {
@@ -20,7 +23,10 @@ impl MapTab {
         Ok(Self {
             load_task: Task::new(move || load_static_map(tag).unwrap()),
             tag,
-            scene: Box::new(Scene::new(Renderer::instance().clone(), Camera::default())?),
+            scene: Box::new(
+                Scene::new(Renderer::instance().clone(), Camera::default())?
+                    .with_controller(CameraController::new_first_person()),
+            ),
         })
     }
 

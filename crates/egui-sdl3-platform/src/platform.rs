@@ -121,18 +121,13 @@ impl Platform {
             // Handle the mouse scrolling
             Event::MouseWheel { x, y, .. } => {
                 // Calculate the delta
-                let delta = egui::Vec2::new(*x * 8.0, *y * 8.0);
-                // Check the mod state
-                use sdl3::keyboard::Mod;
-                let left_ctrl = sdl.keyboard().mod_state().contains(Mod::LCTRLMOD);
-                let right_ctrl = sdl.keyboard().mod_state().contains(Mod::RCTRLMOD);
+                let delta = egui::Vec2::new(*x, *y);
 
-                // Push the egui event
-                if left_ctrl || right_ctrl {
-                    self.raw_input
-                        .events
-                        .push(egui::Event::Zoom((delta.y / 125.0).exp()));
-                }
+                self.raw_input.events.push(egui::Event::MouseWheel {
+                    unit: egui::MouseWheelUnit::Point,
+                    delta,
+                    modifiers: egui::Modifiers::NONE,
+                });
                 self.egui_ctx.wants_pointer_input();
             }
 
@@ -142,42 +137,41 @@ impl Platform {
             } => {
                 // Make sure there is a keycode
                 if let Some(keycode) = keycode {
+                    // Update modifiers
+                    use sdl3::keyboard::Mod;
+                    let alt = keymod.contains(Mod::LALTMOD) || keymod.contains(Mod::RALTMOD);
+                    let ctrl = keymod.contains(Mod::LCTRLMOD) || keymod.contains(Mod::RCTRLMOD);
+                    let shift = keymod.contains(Mod::LSHIFTMOD) || keymod.contains(Mod::RSHIFTMOD);
+                    let mac_cmd = keymod.contains(Mod::LGUIMOD);
+                    let command = keymod.contains(Mod::LCTRLMOD) || keymod.contains(Mod::LGUIMOD);
+
+                    self.modifiers = Modifiers {
+                        alt,
+                        ctrl,
+                        shift,
+                        mac_cmd,
+                        command,
+                    };
+                    self.raw_input.modifiers = self.modifiers;
+
                     // Convert the keycode to an egui key
                     if let Some(key) = keycode.to_egui_key() {
-                        // Check the modifiers
-                        use sdl3::keyboard::Mod;
-                        let alt = keymod.contains(Mod::LALTMOD) || keymod.contains(Mod::RALTMOD);
-                        let ctrl = keymod.contains(Mod::LCTRLMOD) || keymod.contains(Mod::RCTRLMOD);
-                        let shift =
-                            keymod.contains(Mod::LSHIFTMOD) || keymod.contains(Mod::RSHIFTMOD);
-                        let mac_cmd = keymod.contains(Mod::LGUIMOD);
-                        let command =
-                            keymod.contains(Mod::LCTRLMOD) || keymod.contains(Mod::LGUIMOD);
-
-                        // Handle Cut Copy and paste
-                        match key {
-                            egui::Key::C => self.raw_input.events.push(egui::Event::Copy),
-                            egui::Key::X => self.raw_input.events.push(egui::Event::Cut),
-                            egui::Key::V => {
-                                let clipboard = video.clipboard();
-                                if clipboard.has_clipboard_text() {
-                                    self.raw_input.events.push(egui::Event::Paste(
-                                        clipboard.clipboard_text().unwrap(),
-                                    ));
+                        if self.modifiers.ctrl {
+                            match key {
+                                egui::Key::C => self.raw_input.events.push(egui::Event::Copy),
+                                egui::Key::X => self.raw_input.events.push(egui::Event::Cut),
+                                egui::Key::V => {
+                                    let clipboard = video.clipboard();
+                                    if clipboard.has_clipboard_text() {
+                                        self.raw_input.events.push(egui::Event::Paste(
+                                            clipboard.clipboard_text().unwrap(),
+                                        ));
+                                    }
                                 }
+                                _ => {}
                             }
-                            _ => {}
                         }
 
-                        // Update the modifiers
-                        self.modifiers = Modifiers {
-                            alt,
-                            ctrl,
-                            shift,
-                            mac_cmd,
-                            command,
-                        };
-                        self.raw_input.modifiers = self.modifiers;
                         // Push the event
                         self.raw_input.events.push(egui::Event::Key {
                             key,
@@ -196,27 +190,25 @@ impl Platform {
             } => {
                 // Make sure there is a keycode
                 if let Some(keycode) = keycode {
+                    // Update modifiers
+                    use sdl3::keyboard::Mod;
+                    let alt = keymod.contains(Mod::LALTMOD) || keymod.contains(Mod::RALTMOD);
+                    let ctrl = keymod.contains(Mod::LCTRLMOD) || keymod.contains(Mod::RCTRLMOD);
+                    let shift = keymod.contains(Mod::LSHIFTMOD) || keymod.contains(Mod::RSHIFTMOD);
+                    let mac_cmd = keymod.contains(Mod::LGUIMOD);
+                    let command = keymod.contains(Mod::LCTRLMOD) || keymod.contains(Mod::LGUIMOD);
+
+                    self.modifiers = Modifiers {
+                        alt,
+                        ctrl,
+                        shift,
+                        mac_cmd,
+                        command,
+                    };
+                    self.raw_input.modifiers = self.modifiers;
+
                     // Convert the keycode to an egui key
                     if let Some(key) = keycode.to_egui_key() {
-                        // Check the modifiers
-                        use sdl3::keyboard::Mod;
-                        let alt = keymod.contains(Mod::LALTMOD) || keymod.contains(Mod::RALTMOD);
-                        let ctrl = keymod.contains(Mod::LCTRLMOD) || keymod.contains(Mod::RCTRLMOD);
-                        let shift =
-                            keymod.contains(Mod::LSHIFTMOD) || keymod.contains(Mod::RSHIFTMOD);
-                        let mac_cmd = keymod.contains(Mod::LGUIMOD);
-                        let command =
-                            keymod.contains(Mod::LCTRLMOD) || keymod.contains(Mod::LGUIMOD);
-
-                        // Update the modifiers
-                        self.modifiers = Modifiers {
-                            alt,
-                            ctrl,
-                            shift,
-                            mac_cmd,
-                            command,
-                        };
-                        self.raw_input.modifiers = self.modifiers;
                         // Push the event
                         self.raw_input.events.push(egui::Event::Key {
                             key,
@@ -231,7 +223,6 @@ impl Platform {
             }
             // Handle text input
             Event::TextInput { text, .. } => {
-                println!("Text input: {text}");
                 self.raw_input.events.push(egui::Event::Text(text.clone()));
                 self.egui_ctx.wants_keyboard_input();
             }
