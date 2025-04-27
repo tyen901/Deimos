@@ -6,6 +6,7 @@ use anyhow::Context;
 use app::App;
 use clap::Parser;
 use cli::AppArgs;
+use itertools::Itertools;
 use tiger_pkg::PackageManager;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 
@@ -84,16 +85,30 @@ fn main() -> anyhow::Result<()> {
         .video()
         .expect("Failed to initialize video subsystem");
 
-    let window = Rc::new(
-        video_subsystem
-            .window("Deimos", 1920, 1080)
-            .position_centered()
-            .resizable()
-            .build()
-            .expect("Failed to create window"),
-    );
+    let mut window = video_subsystem
+        .window("Deimos", 1920, 1080)
+        .position_centered()
+        .resizable()
+        .build()
+        .expect("Failed to create window");
 
-    let mut app = App::new(sdl_context.clone(), window, args)?;
+    if let Some(display_index) = args.display {
+        let displays = video_subsystem.displays()?;
+        let Some(display) = displays.get(display_index) else {
+            anyhow::bail!(
+                "Invalid display index (available displays: {:?})",
+                displays.iter().enumerate().map(|(i, _d)| i).collect_vec()
+            );
+        };
+        let display_center = display.get_bounds()?.center();
+        let window_size = window.size();
+        window.set_position(
+            sdl3::video::WindowPos::Positioned(display_center.x - window_size.0 as i32 / 2),
+            sdl3::video::WindowPos::Positioned(display_center.y - window_size.1 as i32 / 2),
+        );
+    }
+
+    let mut app = App::new(sdl_context.clone(), Rc::new(window), args)?;
 
     let mut event_pump = sdl_context.event_pump().unwrap();
     'app: while app.running {
