@@ -231,7 +231,7 @@ impl Platform {
             }
             // Handle text input
             Event::TextInput { text, .. } => {
-                println!("Text input: {}", text);
+                println!("Text input: {text}");
                 self.raw_input.events.push(egui::Event::Text(text.clone()));
                 self.egui_ctx.wants_keyboard_input();
             }

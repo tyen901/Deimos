@@ -1,12 +1,6 @@
-use std::fmt::Display;
 
-use deimos_data::{map::SBubbleParent, tfx::TfxFeatureRenderer};
-use deimos_render::{camera::Camera, object::RenderObject, Renderer};
-use egui::{vec2, Color32, Margin, Rect, RichText, TextEdit, Ui, Widget};
-use egui_dock::{DockState, NodeIndex, SurfaceIndex, TabIndex};
+use egui::Ui;
 use google_material_symbols::GoogleMaterialSymbols;
-use tiger_parse::TigerReadable;
-use tiger_pkg::{package_manager, TagHash};
 
 use crate::ui::util::UiExt;
 

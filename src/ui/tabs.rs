@@ -6,27 +6,15 @@ mod tag_lookup;
 
 use std::fmt::Display;
 
-use deimos_data::{map::SBubbleParent, tfx::TfxFeatureRenderer};
-use deimos_render::{camera::Camera, object::RenderObject, Renderer};
-use egui::{vec2, Color32, Margin, Rect, RichText, TextEdit, Widget};
+use egui::{Color32, Margin, Widget};
 use egui_dock::{DockState, NodeIndex, SurfaceIndex, TabIndex};
 use google_material_symbols::GoogleMaterialSymbols;
 use home::HomeTab;
 use map::MapTab;
 use map_list::MapListTab;
 use tag_lookup::TagLookupTab;
-use tiger_parse::TigerReadable;
-use tiger_pkg::{package_manager, TagHash};
 
-use crate::{
-    map::{load_static_map, StaticMapTemp},
-    task::Task,
-};
 
-use super::{
-    scene3d::Scene,
-    util::{spinner_image, UiExt},
-};
 
 pub enum Tab {
     Home,

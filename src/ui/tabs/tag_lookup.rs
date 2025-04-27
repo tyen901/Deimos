@@ -1,10 +1,9 @@
-use std::fmt::Display;
 
 use deimos_data::{
     map::SBubbleParent,
     tfx::features::{dynamic::SDynamicModel, statics::SStaticMesh},
 };
-use egui::{Color32, RichText, TextEdit, Widget, WidgetText};
+use egui::{Color32, RichText, TextEdit, Widget};
 use google_material_symbols::GoogleMaterialSymbols;
 use tiger_parse::TigerReadable;
 use tiger_pkg::{package::UEntryHeader, package_manager, TagHash};

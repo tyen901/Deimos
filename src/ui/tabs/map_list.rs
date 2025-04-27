@@ -1,14 +1,9 @@
 use deimos_data::map::SBubbleParent;
-use deimos_render::{camera::Camera, Renderer};
 use egui::{Margin, Ui};
 use tiger_parse::TigerReadable;
 use tiger_pkg::{package_manager, TagHash};
 
-use crate::{
-    map::load_static_map,
-    task::Task,
-    ui::{scene3d::Scene, util::UiExt},
-};
+use crate::ui::util::UiExt;
 
 use super::{map::MapTab, Tab, TabResult};
 
