@@ -83,7 +83,7 @@ impl TigerReadable for TechniqueBindMode {
         Self::try_from(v).map_err(|_| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
     }
 
-    const ZEROCOPY: bool = true;
+    const ZEROCOPY: bool = false;
     const SIZE: usize = 4;
 }
 

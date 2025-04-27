@@ -6,6 +6,7 @@ mod tag_lookup;
 
 use std::fmt::Display;
 
+use dynamic_list::DynamicListTab;
 use egui::{Color32, Margin, Widget};
 use egui_dock::{DockState, NodeIndex, SurfaceIndex, TabIndex};
 use google_material_symbols::GoogleMaterialSymbols;
@@ -14,12 +15,10 @@ use map::MapTab;
 use map_list::MapListTab;
 use tag_lookup::TagLookupTab;
 
-
-
 pub enum Tab {
     Home,
     Settings,
-    DynamicList,
+    DynamicList(DynamicListTab),
     MapList(MapListTab),
     Map(MapTab),
     TagLookup(TagLookupTab),
@@ -35,7 +34,7 @@ impl Tab {
         match self {
             Tab::Home => 0,
             Tab::Settings => 0,
-            Tab::DynamicList => 0,
+            Tab::DynamicList(_) => 0,
             Tab::MapList(_) => 0,
             Tab::Map(tab) => tab.tag.0 as u64,
             Tab::TagLookup(_) => 0,
@@ -48,7 +47,7 @@ impl Display for Tab {
         let s = match self {
             Tab::Settings => GoogleMaterialSymbols::Settings.to_string(),
             Tab::Home => format!("{} Home", GoogleMaterialSymbols::Home),
-            Tab::DynamicList => format!("{} Dynamics", GoogleMaterialSymbols::DeployedCode),
+            Tab::DynamicList(_) => format!("{} Dynamics", GoogleMaterialSymbols::DeployedCode),
             Tab::MapList(_) => format!("{} Maps", GoogleMaterialSymbols::Map),
             Tab::Map(tab) => format!("Map {}", tab.tag),
             Tab::TagLookup(_) => format!("{} Tag Lookup", GoogleMaterialSymbols::Search),
@@ -87,12 +86,9 @@ impl<'a> egui_dock::TabViewer for TabViewer<'a> {
                         Tab::Settings => {
                             ui.weak("No settings are available");
                         }
-                        Tab::DynamicList => {
-                            ui.painter().rect_filled(
-                                egui::Rect::from_min_size(ui.cursor().min, ui.available_size()),
-                                0,
-                                Color32::RED,
-                            );
+                        Tab::DynamicList(tab) => {
+                            let res = tab.ui(ui, self.egui_d3d11);
+                            self.process_result(res);
                         }
                         Tab::MapList(tab) => {
                             self.process_result(tab.ui(ui));

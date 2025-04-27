@@ -6,13 +6,13 @@ use tiger_pkg::TagHash;
 use crate::tfx::{LodCategory, PrimitiveType, RenderStage};
 
 #[derive(Debug, Clone)]
-#[tiger_tag(id = 0x80806F07, size = 0x70)]
+#[tiger_tag(id = 0x8080881C, size = 0x70)]
 pub struct SDynamicModel {
     pub file_size: u64,
     pub unk8: u64,
     pub meshes: Vec<SDynamicMesh>,
     pub unk20: glam::Vec4,
-    #[tag(offset = 0x50)]
+    #[tag(offset = 0xA0)]
     pub model_scale: glam::Vec4,
     pub model_offset: glam::Vec4,
     pub texcoord_scale: glam::Vec2,
@@ -20,7 +20,7 @@ pub struct SDynamicModel {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_tag(id = 0x80806EC5, size = 0x88)]
+#[tiger_tag(id = 0x808087CB, size = 0x88)]
 pub struct SDynamicMesh {
     pub vertex0_buffer: TagHash,
     pub vertex1_buffer: TagHash,
@@ -36,7 +36,7 @@ pub struct SDynamicMesh {
     ///     - Start = part_range_per_render_stage[stage]
     ///     - End = part_range_per_render_stage[stage + 1]
     pub part_range_per_render_stage: [u16; RenderStage::COUNT + 1],
-    pub input_layout_per_render_stage: [u16; RenderStage::COUNT],
+    pub input_layout_per_render_stage: [u8; RenderStage::COUNT],
     _pad7a: [u16; 3],
 }
 
@@ -47,13 +47,13 @@ impl SDynamicMesh {
         start as usize..end as usize
     }
 
-    pub fn get_input_layout_for_stage(&self, stage: RenderStage) -> u16 {
+    pub fn get_input_layout_for_stage(&self, stage: RenderStage) -> u8 {
         self.input_layout_per_render_stage[stage as usize]
     }
 }
 
 #[derive(Debug, Clone)]
-#[tiger_tag(id = 0x80806ECB)]
+#[tiger_tag(id = 0x808087D1)]
 pub struct SDynamicMeshPart {
     pub technique: TagHash,
     pub variant_shader_index: u16,
@@ -70,6 +70,7 @@ pub struct SDynamicMeshPart {
     pub unk1e: u8,
     pub lod_run: u8,
     pub unk20: u32,
+    pub unk24: u32,
 }
 
 #[derive(Debug, Clone)]

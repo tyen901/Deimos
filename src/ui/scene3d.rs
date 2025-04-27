@@ -5,11 +5,11 @@ use deimos_render::{
     camera::Camera,
     gpu::command_list::CommandList,
     object::{RenderObject, RenderObjectHandle},
-    tfx::view::View,
+    tfx::{packet::CompactTransform, view::View},
     Gpu, Renderer,
 };
 use egui::{load::SizedTexture, vec2, Response, Sense, Ui, Vec2};
-use glam::{Quat, Vec3};
+use glam::{Mat4, Quat, Vec3};
 
 pub struct Scene {
     renderer: Arc<Renderer>,
@@ -20,6 +20,7 @@ pub struct Scene {
     controller: CameraController,
 
     static_render_objects: Vec<RenderObjectHandle>,
+    dynamic_render_objects: Vec<(RenderObjectHandle, Vec3)>,
 
     surface: d3d11::Texture2D,
     surface_srv: d3d11::ShaderResourceView,
@@ -33,8 +34,9 @@ impl Scene {
             view: View::new(&renderer.gpu, (128, 128))?,
             renderer,
             camera,
-            controller: CameraController::new_orbit(Vec3::ZERO, 100.0),
+            controller: CameraController::new_orbit(Vec3::ZERO, 10.0),
             static_render_objects: Vec::new(),
+            dynamic_render_objects: Vec::new(),
             surface,
             surface_srv,
             last_frame_time: Instant::now(),
@@ -69,6 +71,20 @@ impl Scene {
     pub fn add_static_object(&mut self, object: RenderObject) {
         self.static_render_objects
             .push(self.renderer.add_object(object));
+    }
+
+    pub fn add_dynamic_object(&mut self, object: RenderObject, pos: Vec3) {
+        self.dynamic_render_objects
+            .push((self.renderer.add_object(object), pos));
+    }
+
+    pub fn clear(&mut self) {
+        self.static_render_objects
+            .drain(..)
+            .for_each(|h| self.renderer.remove_object(h));
+        self.dynamic_render_objects
+            .drain(..)
+            .for_each(|(h, _)| self.renderer.remove_object(h));
     }
 
     pub fn show(&mut self, ui: &mut Ui, size: Vec2, egui_d3d11: &mut egui_d3d11::D3D11Renderer) {
@@ -133,6 +149,12 @@ impl Scene {
             let mut fp = self.renderer.frame_packet.write();
             for t in &self.static_render_objects {
                 fp.push_static_render_object(*t);
+            }
+            for (t, pos) in &self.dynamic_render_objects {
+                fp.push_dynamic_render_object(
+                    *t,
+                    CompactTransform::from_mat4(Mat4::from_translation(*pos)),
+                );
             }
         }
 
@@ -218,6 +240,9 @@ impl Drop for Scene {
         for &h in &self.static_render_objects {
             self.renderer.remove_object(h);
         }
+        for &(h, _) in &self.dynamic_render_objects {
+            self.renderer.remove_object(h);
+        }
     }
 }
 
@@ -256,9 +281,11 @@ impl CameraController {
                 distance,
                 yaw_pitch,
             } => {
-                let scroll_delta = ui.input(|i| i.raw_scroll_delta);
-                *distance += -scroll_delta.y;
-                *distance = distance.clamp(0.1, 1000.0);
+                if response.hovered() {
+                    let scroll_delta = ui.input(|i| i.raw_scroll_delta);
+                    *distance += -scroll_delta.y / 100.0;
+                    *distance = distance.clamp(0.1, 1000.0);
+                }
 
                 let drag_delta = response.drag_delta();
                 *yaw_pitch += (drag_delta / 5.0) * vec2(-1.0, 1.3);
@@ -267,7 +294,8 @@ impl CameraController {
                 camera.rotation = Quat::from_rotation_z(yaw_pitch.x.to_radians())
                     * Quat::from_rotation_y(yaw_pitch.y.to_radians());
 
-                camera.position = *target - camera.forward() * *distance;
+                let real_distance = 2.0f32.powf(*distance * std::f32::consts::LN_2) - 0.9;
+                camera.position = *target - camera.forward() * real_distance;
             }
             Self::FirstPerson { speed, yaw_pitch } => {
                 if !response.dragged_by(egui::PointerButton::Primary) {
