@@ -95,7 +95,7 @@ impl DynamicConstants {
         channels: Option<&TempObjectChannels>,
     ) -> anyhow::Result<()> {
         if let Some(ref cbuffer) = self.cbuffer {
-            cbuffer.map_slice(cmd, d3d11::MapType::WriteDiscard, |data| {
+            cbuffer.map_slice(&cmd.context.clone(), d3d11::MapType::WriteDiscard, |data| {
                 // Copy the initial constants
                 data[..self.initial_constants.len()].copy_from_slice(&self.initial_constants);
 
@@ -144,18 +144,9 @@ impl DynamicConstants {
 
         if self.cbuffer_slot != u32::MAX {
             if let Some(ref cbuffer) = self.cbuffer {
-                cbuffer.bind(cmd, stage.into(), self.cbuffer_slot);
+                cbuffer.bind(cmd, stage, self.cbuffer_slot);
             } else {
-                let bind = match stage {
-                    ShaderStage::Pixel => d3d11::DeviceContext::pixel_set_constant_buffers,
-                    ShaderStage::Vertex => d3d11::DeviceContext::vertex_set_constant_buffers,
-                    ShaderStage::Geometry => d3d11::DeviceContext::geometry_set_constant_buffers,
-                    ShaderStage::Hull => d3d11::DeviceContext::hull_set_constant_buffers,
-                    ShaderStage::Compute => d3d11::DeviceContext::compute_set_constant_buffers,
-                    ShaderStage::Domain => d3d11::DeviceContext::domain_set_constant_buffers,
-                };
-
-                bind(cmd, self.cbuffer_slot, &[None]);
+                cmd.set_constant_buffer(stage, self.cbuffer_slot as usize, None);
             }
         }
 
@@ -163,16 +154,7 @@ impl DynamicConstants {
             if let Some(tex) = tex.as_ref().and_then(|t| t.get()) {
                 tex.bind(cmd, slot, stage);
             } else {
-                let bind = match stage {
-                    ShaderStage::Pixel => d3d11::DeviceContext::pixel_set_shader_resources,
-                    ShaderStage::Vertex => d3d11::DeviceContext::vertex_set_shader_resources,
-                    ShaderStage::Geometry => d3d11::DeviceContext::geometry_set_shader_resources,
-                    ShaderStage::Hull => d3d11::DeviceContext::hull_set_shader_resources,
-                    ShaderStage::Compute => d3d11::DeviceContext::compute_set_shader_resources,
-                    ShaderStage::Domain => d3d11::DeviceContext::domain_set_shader_resources,
-                };
-
-                bind(cmd, slot, &[None]);
+                cmd.set_shader_resource(stage, slot as usize, None);
             }
         }
 

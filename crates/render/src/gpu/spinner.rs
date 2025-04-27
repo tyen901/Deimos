@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
+use deimos_data::tfx::ShaderStage;
 use glam::Vec4;
 
 use crate::gpu_span;
 
-use super::{cbuffer::ConstantBuffer, Gpu, ShaderStage};
+use super::{cbuffer::ConstantBuffer, command_list::CommandList, Gpu};
 
 #[repr(C)]
 struct ProceduralSpinnerConstants {
@@ -38,27 +39,26 @@ impl FullscreenSpinner {
         })
     }
 
-    pub fn draw(&self, gpu: &Gpu) {
+    pub fn draw(&self, cmd: &mut CommandList) {
         gpu_span!();
         let time = self.start_time.elapsed().as_secs_f32();
-        let (width, height) = gpu.swapchain_resolution();
+        let (width, height) = cmd.gpu().swapchain_resolution();
         let inv_resolution_time = Vec4::new(1.0 / width as f32, 1.0 / height as f32, time, 0.0);
 
         self.cbuffer
             .write(
-                &gpu.context(),
+                cmd,
                 &ProceduralSpinnerConstants {
                     inv_resolution_time,
                 },
             )
             .unwrap();
 
-        let context = &gpu.context();
-        self.cbuffer.bind(context, ShaderStage::Vertex, 0);
+        self.cbuffer.bind(cmd, ShaderStage::Vertex, 0);
 
-        context.vertex_set_shader(Some(&self.shader_vs));
-        context.pixel_set_shader(Some(&self.shader_ps));
-        context.input_assembler_set_primitive_topology(d3d11::PrimitiveTopology::TriangleStrip);
-        context.draw(4, 0);
+        cmd.vertex_set_shader(Some(&self.shader_vs));
+        cmd.pixel_set_shader(Some(&self.shader_ps));
+        cmd.input_assembler_set_primitive_topology(d3d11::PrimitiveTopology::TriangleStrip);
+        cmd.draw(4, 0);
     }
 }

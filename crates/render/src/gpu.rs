@@ -228,25 +228,3 @@ impl std::ops::Deref for Gpu {
         &self.device
     }
 }
-
-pub enum ShaderStage {
-    Vertex,
-    Pixel,
-    Hull,
-    Domain,
-    Geometry,
-    Compute,
-}
-
-impl From<deimos_data::tfx::ShaderStage> for ShaderStage {
-    fn from(stage: deimos_data::tfx::ShaderStage) -> Self {
-        match stage {
-            deimos_data::tfx::ShaderStage::Vertex => ShaderStage::Vertex,
-            deimos_data::tfx::ShaderStage::Pixel => ShaderStage::Pixel,
-            deimos_data::tfx::ShaderStage::Hull => ShaderStage::Hull,
-            deimos_data::tfx::ShaderStage::Domain => ShaderStage::Domain,
-            deimos_data::tfx::ShaderStage::Geometry => ShaderStage::Geometry,
-            deimos_data::tfx::ShaderStage::Compute => ShaderStage::Compute,
-        }
-    }
-}

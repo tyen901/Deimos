@@ -74,7 +74,7 @@ impl RenderStates {
                     layout_elements.push(TigerInputLayoutElement {
                         hlsl_type: format.hlsl_type,
                         format: format.format,
-                        stride: format.stride,
+                        _stride: format.stride,
                         semantic_name: semantic,
                         semantic_index: e.semantic_index as _,
                         buffer_index: buffer_index as _,
@@ -389,7 +389,7 @@ struct TigerInputLayout {
 struct TigerInputLayoutElement {
     pub hlsl_type: &'static str,
     pub format: dxgi::Format,
-    pub stride: u32,
+    pub _stride: u32,
     pub semantic_name: &'static str,
     pub semantic_index: u32,
     pub buffer_index: u32,
@@ -459,7 +459,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
         elements: &[TigerInputLayoutElement {
             hlsl_type: "float3",
             format: dxgi::Format::R32g32b32Float,
-            stride: 12,
+            _stride: 12,
             semantic_name: "POSITION",
             semantic_index: 0,
             buffer_index: 0,
@@ -471,7 +471,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
         elements: &[TigerInputLayoutElement {
             hlsl_type: "float3",
             format: dxgi::Format::R32g32b32Float,
-            stride: 12,
+            _stride: 12,
             semantic_name: "POSITION",
             semantic_index: 0,
             buffer_index: 0,
@@ -484,7 +484,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
             TigerInputLayoutElement {
                 hlsl_type: "float2",
                 format: dxgi::Format::R32g32Float,
-                stride: 8,
+                _stride: 8,
                 semantic_name: "POSITION",
                 semantic_index: 0,
                 buffer_index: 0,
@@ -493,7 +493,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
             TigerInputLayoutElement {
                 hlsl_type: "float2",
                 format: dxgi::Format::R32g32Float,
-                stride: 8,
+                _stride: 8,
                 semantic_name: "TEXCOORD",
                 semantic_index: 0,
                 buffer_index: 0,
@@ -502,7 +502,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
             TigerInputLayoutElement {
                 hlsl_type: "float4",
                 format: dxgi::Format::R8g8b8a8Unorm,
-                stride: 4,
+                _stride: 4,
                 semantic_name: "COLOR",
                 semantic_index: 0,
                 buffer_index: 0,
@@ -516,7 +516,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
             TigerInputLayoutElement {
                 hlsl_type: "float3",
                 format: dxgi::Format::R32g32b32Float,
-                stride: 12,
+                _stride: 12,
                 semantic_name: "POSITION",
                 semantic_index: 0,
                 buffer_index: 0,
@@ -525,7 +525,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
             TigerInputLayoutElement {
                 hlsl_type: "float2",
                 format: dxgi::Format::R32g32Float,
-                stride: 8,
+                _stride: 8,
                 semantic_name: "TEXCOORD",
                 semantic_index: 0,
                 buffer_index: 0,
@@ -534,7 +534,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
             TigerInputLayoutElement {
                 hlsl_type: "float4",
                 format: dxgi::Format::R8g8b8a8Unorm,
-                stride: 4,
+                _stride: 4,
                 semantic_name: "COLOR",
                 semantic_index: 0,
                 buffer_index: 0,
@@ -548,7 +548,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
             TigerInputLayoutElement {
                 hlsl_type: "float3",
                 format: dxgi::Format::R32g32b32Float,
-                stride: 12,
+                _stride: 12,
                 semantic_name: "POSITION",
                 semantic_index: 0,
                 buffer_index: 0,
@@ -557,7 +557,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
             TigerInputLayoutElement {
                 hlsl_type: "float4",
                 format: dxgi::Format::R8g8b8a8Unorm,
-                stride: 4,
+                _stride: 4,
                 semantic_name: "COLOR",
                 semantic_index: 0,
                 buffer_index: 0,
@@ -571,7 +571,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
             TigerInputLayoutElement {
                 hlsl_type: "float2",
                 format: dxgi::Format::R32g32Float,
-                stride: 8,
+                _stride: 8,
                 semantic_name: "POSITION",
                 semantic_index: 0,
                 buffer_index: 0,
@@ -580,7 +580,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
             TigerInputLayoutElement {
                 hlsl_type: "float2",
                 format: dxgi::Format::R32g32Float,
-                stride: 8,
+                _stride: 8,
                 semantic_name: "TEXCOORD",
                 semantic_index: 0,
                 buffer_index: 0,
@@ -594,7 +594,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
             TigerInputLayoutElement {
                 hlsl_type: "float3",
                 format: dxgi::Format::R32g32b32Float,
-                stride: 12,
+                _stride: 12,
                 semantic_name: "POSITION",
                 semantic_index: 0,
                 buffer_index: 0,
@@ -603,7 +603,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
             TigerInputLayoutElement {
                 hlsl_type: "float3",
                 format: dxgi::Format::R32g32b32Float,
-                stride: 12,
+                _stride: 12,
                 semantic_name: "NORMAL",
                 semantic_index: 0,
                 buffer_index: 0,
@@ -612,7 +612,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
             TigerInputLayoutElement {
                 hlsl_type: "float4",
                 format: dxgi::Format::R32g32b32a32Float,
-                stride: 16,
+                _stride: 16,
                 semantic_name: "TANGENT",
                 semantic_index: 0,
                 buffer_index: 0,
@@ -621,7 +621,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
             TigerInputLayoutElement {
                 hlsl_type: "float2",
                 format: dxgi::Format::R32g32Float,
-                stride: 8,
+                _stride: 8,
                 semantic_name: "TEXCOORD",
                 semantic_index: 0,
                 buffer_index: 0,

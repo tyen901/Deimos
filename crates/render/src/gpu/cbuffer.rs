@@ -7,8 +7,9 @@ use d3d11::{
     BindFlags, BufferDesc, CpuAccessFlags, ResourceMiscFlags, ShaderResourceViewDesc,
     SubresourceMapGuard, Usage,
 };
+use deimos_data::tfx::ShaderStage;
 
-use super::{Gpu, ShaderStage};
+use super::{command_list::CommandList, Gpu};
 
 pub struct ConstantBuffer<T: Sized> {
     buffer: d3d11::Buffer,
@@ -178,47 +179,19 @@ impl<T> ConstantBuffer<T> {
         &self.buffer
     }
 
-    pub fn bind(&self, context: &d3d11::DeviceContext, stage: ShaderStage, slot: u32) {
+    pub fn bind(&self, cmd: &mut CommandList, stage: ShaderStage, slot: u32) {
         if self.srv.is_some() {
-            self.bind_srv(context, stage, slot);
+            self.bind_srv(cmd, stage, slot);
         } else {
-            self.bind_cbuffer(context, stage, slot);
+            self.bind_cbuffer(cmd, stage, slot);
         }
     }
 
-    fn bind_srv(&self, context: &d3d11::DeviceContext, stage: ShaderStage, slot: u32) {
-        match stage {
-            ShaderStage::Vertex => context.vertex_set_shader_resources(slot, &[self.srv.clone()]),
-            ShaderStage::Pixel => context.pixel_set_shader_resources(slot, &[self.srv.clone()]),
-            ShaderStage::Domain => context.domain_set_shader_resources(slot, &[self.srv.clone()]),
-            ShaderStage::Hull => context.hull_set_shader_resources(slot, &[self.srv.clone()]),
-            ShaderStage::Geometry => {
-                context.geometry_set_shader_resources(slot, &[self.srv.clone()])
-            }
-            ShaderStage::Compute => context.compute_set_shader_resources(slot, &[self.srv.clone()]),
-        }
+    fn bind_srv(&self, cmd: &mut CommandList, stage: ShaderStage, slot: u32) {
+        cmd.set_shader_resource(stage, slot as usize, self.srv.clone());
     }
 
-    fn bind_cbuffer(&self, context: &d3d11::DeviceContext, stage: ShaderStage, slot: u32) {
-        match stage {
-            ShaderStage::Vertex => {
-                context.vertex_set_constant_buffers(slot, &[Some(self.buffer.clone())])
-            }
-            ShaderStage::Pixel => {
-                context.pixel_set_constant_buffers(slot, &[Some(self.buffer.clone())])
-            }
-            ShaderStage::Domain => {
-                context.domain_set_constant_buffers(slot, &[Some(self.buffer.clone())])
-            }
-            ShaderStage::Hull => {
-                context.hull_set_constant_buffers(slot, &[Some(self.buffer.clone())])
-            }
-            ShaderStage::Geometry => {
-                context.geometry_set_constant_buffers(slot, &[Some(self.buffer.clone())])
-            }
-            ShaderStage::Compute => {
-                context.compute_set_constant_buffers(slot, &[Some(self.buffer.clone())])
-            }
-        }
+    fn bind_cbuffer(&self, cmd: &mut CommandList, stage: ShaderStage, slot: u32) {
+        cmd.set_constant_buffer(stage, slot as usize, self.buffer.clone());
     }
 }
