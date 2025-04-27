@@ -1,15 +1,13 @@
-use std::{
-    fmt::{Display, Formatter},
-    mem::transmute,
-};
+use std::fmt::{Display, Formatter};
 
 use bitflags::bitflags;
+use int_enum::IntEnum;
 use tiger_parse::{tiger_tag, TigerReadable};
 
 use super::features::dynamic::RenderStageSubscription;
 
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, IntEnum)]
 pub enum RenderStage {
     GenerateGbuffer = 0,
     Decals = 1,
@@ -83,10 +81,8 @@ impl TigerReadable for RenderStage {
         reader: &mut R,
         endian: tiger_parse::Endian,
     ) -> tiger_parse::Result<Self> {
-        match u8::read_ds_endian(reader, endian)? {
-            x if x <= 22 => Ok(unsafe { transmute(x) }),
-            x => Err(tiger_parse::Error::EnumVariantOutOfRange(x as usize)),
-        }
+        let v = u8::read_ds_endian(reader, endian)?;
+        Self::try_from(v).map_err(|_| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
     }
 
     const ZEROCOPY: bool = true;
@@ -94,7 +90,7 @@ impl TigerReadable for RenderStage {
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, IntEnum)]
 pub enum TfxFeatureRenderer {
     StaticObjects = 0,
     DynamicObjects = 1,
@@ -166,7 +162,8 @@ impl TigerReadable for TfxFeatureRenderer {
         reader: &mut R,
         endian: tiger_parse::Endian,
     ) -> tiger_parse::Result<Self> {
-        Ok(unsafe { transmute(u8::read_ds_endian(reader, endian)?) })
+        let v = u8::read_ds_endian(reader, endian)?;
+        Self::try_from(v).map_err(|_| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
     }
 
     const ZEROCOPY: bool = true;
@@ -218,7 +215,7 @@ impl FeatureRendererSubscription {
 
 // TODO(cohae): Duplicate struct, used in TFX bytecode in the renderer
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, IntEnum)]
 pub enum ShaderStage {
     Pixel = 1,
     Vertex = 2,
@@ -258,14 +255,15 @@ impl TigerReadable for ShaderStage {
         reader: &mut R,
         endian: tiger_parse::Endian,
     ) -> tiger_parse::Result<Self> {
-        Ok(unsafe { transmute(u8::read_ds_endian(reader, endian)?) })
+        let v = u8::read_ds_endian(reader, endian)?;
+        Self::try_from(v).map_err(|_| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
     }
 
     const ZEROCOPY: bool = true;
     const SIZE: usize = 1;
 }
 
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Copy, Clone, IntEnum)]
 #[repr(u8)]
 pub enum PrimitiveType {
     PointList = 0,
@@ -280,7 +278,8 @@ impl TigerReadable for PrimitiveType {
         reader: &mut R,
         endian: tiger_parse::Endian,
     ) -> tiger_parse::Result<Self> {
-        Ok(unsafe { transmute(u8::read_ds_endian(reader, endian)?) })
+        let v = u8::read_ds_endian(reader, endian)?;
+        Self::try_from(v).map_err(|_| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
     }
 
     const ZEROCOPY: bool = true;

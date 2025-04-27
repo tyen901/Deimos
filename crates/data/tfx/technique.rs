@@ -1,10 +1,10 @@
 use std::{
     fmt::Debug,
     io::{Read, Seek},
-    mem::transmute,
 };
 
 use glam::Vec4;
+use int_enum::IntEnum;
 use tiger_parse::{tiger_tag, Endian, Padding, TigerReadable};
 use tiger_pkg::TagHash;
 
@@ -64,7 +64,7 @@ impl STechnique {
 ///     VertexOnlyTesselated - bind vs+hs+ds, unbind ps+cs+gs
 ///     Compute - bind cs, unbind vs+gs+hs+ds+ps
 #[repr(u32)]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, IntEnum)]
 pub enum TechniqueBindMode {
     VertexPixel = 1,
     VertexOnly = 2,
@@ -79,7 +79,8 @@ impl TigerReadable for TechniqueBindMode {
         reader: &mut R,
         endian: tiger_parse::Endian,
     ) -> tiger_parse::Result<Self> {
-        Ok(unsafe { transmute(u32::read_ds_endian(reader, endian)?) })
+        let v = u32::read_ds_endian(reader, endian)?;
+        Self::try_from(v).map_err(|_| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
     }
 
     const ZEROCOPY: bool = true;

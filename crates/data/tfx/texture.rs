@@ -1,5 +1,4 @@
 use d3d11::dxgi;
-use std::mem::transmute;
 use tiger_parse::tiger_tag;
 use tiger_parse::TigerReadable;
 use tiger_pkg::TagHash;
@@ -38,7 +37,8 @@ impl TigerReadable for DxgiFormat {
         reader: &mut R,
         endian: tiger_parse::Endian,
     ) -> tiger_parse::Result<Self> {
-        Ok(unsafe { transmute(u32::read_ds_endian(reader, endian)?) })
+        let v = u32::read_ds_endian(reader, endian)?;
+        Self::try_from(v).map_err(|_| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
     }
 
     const SIZE: usize = 4;
@@ -46,7 +46,7 @@ impl TigerReadable for DxgiFormat {
 
 impl From<DxgiFormat> for u32 {
     fn from(val: DxgiFormat) -> Self {
-        unsafe { transmute(val) }
+        val.0 as u32
     }
 }
 
@@ -66,10 +66,10 @@ impl TryFrom<u32> for DxgiFormat {
     type Error = anyhow::Error;
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
-        Ok(match value {
-            0..=115 | 130..=132 => unsafe { transmute(value) },
-            e => return Err(anyhow::anyhow!("DXGI format is out of range ({e})")),
-        })
+        match dxgi::Format::try_from(value) {
+            Ok(o) => Ok(Self(o)),
+            Err(_) => Err(anyhow::anyhow!("DXGI format out of range")),
+        }
     }
 }
 
