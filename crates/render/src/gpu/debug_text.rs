@@ -5,11 +5,12 @@ use d3d11::{
     dxgi, BindFlags, BlendDesc, InputElementDesc, SamplerDesc, Texture2dDesc,
     D3D11_SUBRESOURCE_DATA,
 };
+use deimos_data::tfx::ShaderStage;
 use glam::{IVec2, Mat4, Vec2, Vec3, Vec4};
 
 use crate::gpu_span;
 
-use super::{cbuffer::ConstantBuffer, Gpu, ShaderStage};
+use super::{cbuffer::ConstantBuffer, command_list::CommandList, Gpu};
 
 #[repr(C)]
 struct DebugTextConstants {
@@ -25,7 +26,7 @@ pub struct DebugTextRenderer {
     shader_ps: d3d11::PixelShader,
     input_layout: d3d11::InputLayout,
 
-    texture: d3d11::Texture2D,
+    _texture: d3d11::Texture2D,
     texture_view: d3d11::ShaderResourceView,
     sampler: d3d11::SamplerState,
     blend_state: d3d11::BlendState,
@@ -119,7 +120,7 @@ impl DebugTextRenderer {
             shader_ps: pixel_shader,
             input_layout,
 
-            texture,
+            _texture: texture,
             texture_view,
             sampler,
             blend_state,
@@ -127,34 +128,32 @@ impl DebugTextRenderer {
     }
 
     #[profiling::function]
-    pub fn draw(&mut self, gpu: &Gpu) {
+    pub fn draw(&mut self, cmd: &mut CommandList) {
         gpu_span!();
 
-        self.mesh.update(gpu);
-        let context = &gpu.context();
-        self.cbuffer.bind(context, ShaderStage::Vertex, 0);
+        self.mesh.update(cmd);
+        self.cbuffer.bind(cmd, ShaderStage::Vertex, 0);
 
-        context.output_merger_set_blend_state(
+        cmd.output_merger_set_blend_state(
             &self.blend_state,
             Some(&[1.0, 1.0, 1.0, 1.0]),
             0xFFFF_FFFF,
         );
-        context.vertex_set_shader(&self.shader_vs);
-        context.pixel_set_shader(&self.shader_ps);
-        context.input_assembler_set_input_layout(&self.input_layout);
-        context.input_assembler_set_primitive_topology(d3d11::PrimitiveTopology::TriangleList);
-        context
-            .input_assembler_set_vertex_buffers(
-                0,
-                &[Some(self.mesh.vb.clone())],
-                Some(&[24u32]),
-                Some(&[0u32]),
-            )
-            .unwrap();
-        context.pixel_set_shader_resources(0, &[Some(self.texture_view.clone())]);
-        context.pixel_set_samplers(0, &[Some(self.sampler.clone())]);
-        context.input_assembler_set_index_buffer(&self.mesh.ib, dxgi::Format::R32Uint, 0);
-        context.draw_indexed(self.mesh.index_count, 0, 0);
+        cmd.vertex_set_shader(&self.shader_vs);
+        cmd.pixel_set_shader(&self.shader_ps);
+        cmd.input_assembler_set_input_layout(&self.input_layout);
+        cmd.input_assembler_set_primitive_topology(d3d11::PrimitiveTopology::TriangleList);
+        cmd.input_assembler_set_vertex_buffers(
+            0,
+            &[Some(self.mesh.vb.clone())],
+            Some(&[24u32]),
+            Some(&[0u32]),
+        )
+        .unwrap();
+        cmd.pixel_set_shader_resources(0, &[Some(self.texture_view.clone())]);
+        cmd.pixel_set_samplers(0, &[Some(self.sampler.clone())]);
+        cmd.input_assembler_set_index_buffer(&self.mesh.ib, dxgi::Format::R32Uint, 0);
+        cmd.draw_indexed(self.mesh.index_count, 0, 0);
     }
 
     pub fn add_string<'a, S: Into<Cow<'a, str>>>(
@@ -281,8 +280,8 @@ impl DebugTextMesh {
     }
 
     #[profiling::function]
-    fn update(&mut self, gpu: &Gpu) {
-        let resolution = gpu.swapchain_resolution();
+    fn update(&mut self, cmd: &mut CommandList) {
+        let resolution = cmd.gpu().swapchain_resolution();
         let aspect_ratio = resolution.0 as f32 / resolution.1 as f32;
         let char_recip_vertical = 1. / Self::MAX_CHARACTERS_VERTICAL as f32;
         let char_recip_horizontal = 1. / (Self::MAX_CHARACTERS_VERTICAL as f32 * aspect_ratio * 2.);
@@ -383,8 +382,7 @@ impl DebugTextMesh {
             //     self.vertices.len(),
             // );
             // gpu.context.Unmap(&self.vb, 0);
-            let ptr = gpu
-                .context()
+            let ptr = cmd
                 .map(&self.vb, 0, d3d11::MapType::WriteDiscard, false)
                 .unwrap();
 
@@ -394,8 +392,7 @@ impl DebugTextMesh {
                 self.vertices.len(),
             );
 
-            let ptr = gpu
-                .context()
+            let ptr = cmd
                 .map(&self.ib, 0, d3d11::MapType::WriteDiscard, false)
                 .unwrap();
             std::ptr::copy_nonoverlapping(

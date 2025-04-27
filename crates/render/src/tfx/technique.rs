@@ -113,6 +113,8 @@ impl Technique {
 
                 self.stage_vertex.as_ref().unwrap().bind(cmd, channels)?;
                 self.stage_pixel.as_ref().unwrap().bind(cmd, channels)?;
+
+                cmd.commit_resources(&[ShaderStage::Vertex, ShaderStage::Pixel]);
             }
             TechniqueBindMode::VertexOnly => {
                 cmd.pixel_set_shader(None);
@@ -122,6 +124,8 @@ impl Technique {
                 cmd.compute_set_shader(None);
 
                 self.stage_vertex.as_ref().unwrap().bind(cmd, channels)?;
+
+                cmd.commit_resources(&[ShaderStage::Vertex]);
             }
             TechniqueBindMode::VertexGeometryPixel => {
                 cmd.hull_set_shader(None);
@@ -131,6 +135,12 @@ impl Technique {
                 self.stage_vertex.as_ref().unwrap().bind(cmd, channels)?;
                 self.stage_geometry.as_ref().unwrap().bind(cmd, channels)?;
                 self.stage_pixel.as_ref().unwrap().bind(cmd, channels)?;
+
+                cmd.commit_resources(&[
+                    ShaderStage::Vertex,
+                    ShaderStage::Geometry,
+                    ShaderStage::Pixel,
+                ]);
             }
             TechniqueBindMode::VertexPixelTesselated => {
                 cmd.geometry_set_shader(None);
@@ -140,6 +150,13 @@ impl Technique {
                 self.stage_hull.as_ref().unwrap().bind(cmd, channels)?;
                 self.stage_domain.as_ref().unwrap().bind(cmd, channels)?;
                 self.stage_pixel.as_ref().unwrap().bind(cmd, channels)?;
+
+                cmd.commit_resources(&[
+                    ShaderStage::Vertex,
+                    ShaderStage::Hull,
+                    ShaderStage::Domain,
+                    ShaderStage::Pixel,
+                ]);
             }
             TechniqueBindMode::VertexOnlyTesselated => {
                 cmd.pixel_set_shader(None);
@@ -149,6 +166,12 @@ impl Technique {
                 self.stage_vertex.as_ref().unwrap().bind(cmd, channels)?;
                 self.stage_hull.as_ref().unwrap().bind(cmd, channels)?;
                 self.stage_domain.as_ref().unwrap().bind(cmd, channels)?;
+
+                cmd.commit_resources(&[
+                    ShaderStage::Vertex,
+                    ShaderStage::Hull,
+                    ShaderStage::Domain,
+                ]);
             }
             TechniqueBindMode::Compute => {
                 cmd.vertex_set_shader(None);
@@ -158,6 +181,8 @@ impl Technique {
                 cmd.domain_set_shader(None);
 
                 self.stage_compute.as_ref().unwrap().bind(cmd, channels)?;
+
+                cmd.commit_resources(&[ShaderStage::Compute]);
             }
         }
 

@@ -7,7 +7,7 @@ pub mod lowlevel;
 // pub mod water;
 
 use deimos_core::convar::ConVars;
-use deimos_data::tfx::{FeatureRendererSubscription, PipelineState};
+use deimos_data::tfx::{FeatureRendererSubscription, PipelineState, ShaderStage};
 use glam::Vec4;
 
 use crate::{
@@ -297,10 +297,8 @@ impl Renderer {
                 unk6: Vec4::ONE,
             },
         );
-        self.frame_scope
-            .bind(cmd, crate::gpu::ShaderStage::Vertex, 13);
-        self.frame_scope
-            .bind(cmd, crate::gpu::ShaderStage::Pixel, 13);
+        self.frame_scope.bind(cmd, ShaderStage::Vertex, 13);
+        self.frame_scope.bind(cmd, ShaderStage::Pixel, 13);
     }
 
     fn calculate_active_feature_renderers(&self) -> FeatureRendererSubscription {

@@ -6,7 +6,7 @@ use deimos_data::tfx::{
         dynamic::RenderStageSubscription,
         terrain::{STerrain, TerrainDetailLevel},
     },
-    RenderStage,
+    RenderStage, ShaderStage,
 };
 use glam::Vec4;
 use tiger_parse::PackageManagerExt;
@@ -16,7 +16,7 @@ use tiger_pkg::TagHash;
 use crate::{
     asset::{index_buffer::IndexBuffer, texture::Texture, vertex_buffer::VertexBuffer, Handle},
     camera::Camera,
-    gpu::{cbuffer::ConstantBuffer, command_list::CommandList, ShaderStage},
+    gpu::{cbuffer::ConstantBuffer, command_list::CommandList},
     gpu_span,
     tfx::technique::Technique,
     Gpu, Renderer,
@@ -127,15 +127,15 @@ impl TerrainPatchesRenderer {
         {
             let cb11 = &self.group_cbuffers[part.group_index as usize];
 
+            cb11.bind(cmd, ShaderStage::Vertex, 11);
+            if let Some(dyemap) = self.dyemaps[part.group_index as usize].get() {
+                dyemap.bind(cmd, 14, deimos_data::tfx::ShaderStage::Pixel);
+            }
+
             if let Some(technique) = self.techniques[i].get() {
                 technique.bind(cmd).expect("Failed to bind technique");
             } else {
                 continue;
-            }
-
-            cb11.bind(cmd, ShaderStage::Vertex, 11);
-            if let Some(dyemap) = self.dyemaps[part.group_index as usize].get() {
-                dyemap.bind(cmd, 14, deimos_data::tfx::ShaderStage::Pixel);
             }
 
             cmd.draw_indexed(part.index_count as _, part.index_start as _, 0);

@@ -20,7 +20,7 @@ use tiger_parse::PackageManagerExt;
 use tiger_pkg::{package_manager, TagHash};
 use tracing::{debug_span, error};
 
-use crate::{util::d3d::calc_dx_subresource, Gpu};
+use crate::{gpu::command_list::CommandList, util::d3d::calc_dx_subresource, Gpu};
 
 pub static LOW_RES: AtomicBool = AtomicBool::new(false);
 
@@ -491,23 +491,8 @@ impl Texture {
     //     )
     // }
 
-    pub fn bind(&self, ctx: &d3d11::DeviceContext, slot: u32, stage: ShaderStage) {
-        match stage {
-            ShaderStage::Vertex => {
-                ctx.vertex_set_shader_resources(slot, &[Some(self.view.clone())])
-            }
-            ShaderStage::Hull => ctx.hull_set_shader_resources(slot, &[Some(self.view.clone())]),
-            ShaderStage::Domain => {
-                ctx.domain_set_shader_resources(slot, &[Some(self.view.clone())])
-            }
-            ShaderStage::Geometry => {
-                ctx.geometry_set_shader_resources(slot, &[Some(self.view.clone())])
-            }
-            ShaderStage::Pixel => ctx.pixel_set_shader_resources(slot, &[Some(self.view.clone())]),
-            ShaderStage::Compute => {
-                ctx.compute_set_shader_resources(slot, &[Some(self.view.clone())])
-            }
-        }
+    pub fn bind(&self, cmd: &mut CommandList, slot: u32, stage: ShaderStage) {
+        cmd.set_shader_resource(stage, slot as usize, self.view.clone());
     }
 }
 

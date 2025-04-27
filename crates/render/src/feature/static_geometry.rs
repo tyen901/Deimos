@@ -7,7 +7,7 @@ use deimos_data::tfx::{
         dynamic::RenderStageSubscription,
         statics::{SStaticInstanceTransform, SStaticMesh, SStaticSpecialMesh},
     },
-    RenderStage,
+    RenderStage, ShaderStage,
 };
 use glam::{Mat4, Vec3, Vec4};
 use itertools::Itertools;
@@ -18,7 +18,7 @@ use tiger_pkg::TagHash;
 use crate::{
     asset::{vertex_buffer::VertexBuffer, Handle},
     camera::Camera,
-    gpu::{cbuffer::ConstantBuffer, command_list::CommandList, ShaderStage},
+    gpu::{cbuffer::ConstantBuffer, command_list::CommandList},
     tfx::technique::Technique,
     Gpu, Renderer,
 };
