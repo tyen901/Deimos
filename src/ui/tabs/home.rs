@@ -19,7 +19,7 @@ impl HomeTab {
                 .clicked()
             {
                 // self.added_nodes.push(Tab::DynamicList);
-                result = TabResult::Open(Tab::DynamicList(DynamicListTab::new()));
+                result = TabResult::Open(Tab::DynamicList(Box::new(DynamicListTab::new())));
             }
             if uis[0]
                 .d_button(format!("{} MAPS", GoogleMaterialSymbols::Map))

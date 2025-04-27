@@ -5,13 +5,13 @@ use deimos_render::{
     camera::Camera, feature::rigid_model::DynamicModel, object::RenderObject,
     tfx::packet::CompactTransform, Renderer,
 };
-use egui::{FontId, RichText, TextStyle, Ui, Vec2, Widget};
+use egui::{FontId, TextStyle, Ui, Vec2};
 use glam::Vec3;
 use itertools::Itertools;
 use tiger_parse::TigerReadable;
 use tiger_pkg::{package_manager, TagHash};
 
-use crate::ui::{scene3d::Scene, util::UiExt};
+use crate::ui::scene3d::Scene;
 
 use super::TabResult;
 

@@ -7,7 +7,7 @@ mod tag_lookup;
 use std::fmt::Display;
 
 use dynamic_list::DynamicListTab;
-use egui::{Color32, Margin, Widget};
+use egui::{Margin, Widget};
 use egui_dock::{DockState, NodeIndex, SurfaceIndex, TabIndex};
 use google_material_symbols::GoogleMaterialSymbols;
 use home::HomeTab;
@@ -18,7 +18,7 @@ use tag_lookup::TagLookupTab;
 pub enum Tab {
     Home,
     Settings,
-    DynamicList(DynamicListTab),
+    DynamicList(Box<DynamicListTab>),
     MapList(MapListTab),
     Map(MapTab),
     TagLookup(TagLookupTab),
