@@ -1,3 +1,9 @@
+mod dynamic_list;
+mod home;
+mod map;
+mod map_list;
+mod tag_lookup;
+
 use std::fmt::Display;
 
 use deimos_data::{map::SBubbleParent, tfx::TfxFeatureRenderer};
@@ -5,6 +11,10 @@ use deimos_render::{camera::Camera, object::RenderObject, Renderer};
 use egui::{vec2, Color32, Margin, Rect, RichText, TextEdit, Widget};
 use egui_dock::{DockState, NodeIndex, SurfaceIndex, TabIndex};
 use google_material_symbols::GoogleMaterialSymbols;
+use home::HomeTab;
+use map::MapTab;
+use map_list::MapListTab;
+use tag_lookup::TagLookupTab;
 use tiger_parse::TigerReadable;
 use tiger_pkg::{package_manager, TagHash};
 
@@ -22,13 +32,9 @@ pub enum Tab {
     Home,
     Settings,
     DynamicList,
-    MapList(Vec<TagHash>),
-    Map {
-        load_task: Task<StaticMapTemp>,
-        tag: TagHash,
-        scene: Box<Scene>,
-    },
-    TagLookup(String),
+    MapList(MapListTab),
+    Map(MapTab),
+    TagLookup(TagLookupTab),
 }
 
 impl Tab {
@@ -43,7 +49,7 @@ impl Tab {
             Tab::Settings => 0,
             Tab::DynamicList => 0,
             Tab::MapList(_) => 0,
-            Tab::Map { tag, .. } => tag.0 as u64,
+            Tab::Map(tab) => tab.tag.0 as u64,
             Tab::TagLookup(_) => 0,
         }
     }
@@ -56,7 +62,7 @@ impl Display for Tab {
             Tab::Home => format!("{} Home", GoogleMaterialSymbols::Home),
             Tab::DynamicList => format!("{} Dynamics", GoogleMaterialSymbols::DeployedCode),
             Tab::MapList(_) => format!("{} Maps", GoogleMaterialSymbols::Map),
-            Tab::Map { tag, .. } => format!("Map {tag}"),
+            Tab::Map(tab) => format!("Map {}", tab.tag),
             Tab::TagLookup(_) => format!("{} Tag Lookup", GoogleMaterialSymbols::Search),
         };
 
@@ -88,148 +94,26 @@ impl<'a> egui_dock::TabViewer for TabViewer<'a> {
                     egui::Layout::top_down(egui::Align::Center),
                     |ui| match tab {
                         Tab::Home => {
-                            ui.add_space(32.0);
-                            ui.columns(2, |uis| {
-                                uis[0].heading("3D");
-                                uis[0].add_space(4.0);
-                                if uis[0]
-                                    .d_button(format!(
-                                        "{} DYNAMICS",
-                                        GoogleMaterialSymbols::DeployedCode
-                                    ))
-                                    .clicked()
-                                {
-                                    self.added_nodes.push(Tab::DynamicList);
-                                }
-                                if uis[0]
-                                    .d_button(format!("{} MAPS", GoogleMaterialSymbols::Map))
-                                    .clicked()
-                                {
-                                    self.added_nodes.push(Tab::MapList(
-                                        package_manager()
-                                            .get_all_by_reference(SBubbleParent::ID.unwrap())
-                                            .into_iter()
-                                            .map(|(t, _)| t)
-                                            .collect(),
-                                    ));
-                                }
-                                uis[0].disable();
-                                let _ = uis[0].d_button(format!(
-                                    "{} STATICS",
-                                    GoogleMaterialSymbols::Landscape
-                                ));
-
-                                uis[1].heading("2D");
-                                uis[1].add_space(4.0);
-                                uis[1].disable();
-                                let _ = uis[1]
-                                    .d_button(format!("{} TEXTURES", GoogleMaterialSymbols::Image));
-                                let _ = uis[1].d_button(format!(
-                                    "{} UI",
-                                    GoogleMaterialSymbols::DesktopWindows
-                                ));
-                            });
-
-                            ui.separator();
-
-                            ui.with_layout(
-                                egui::Layout::top_down_justified(egui::Align::Center),
-                                |ui| {
-                                    if ui
-                                        .d_button(format!(
-                                            "{} Tag Lookup",
-                                            GoogleMaterialSymbols::Search
-                                        ))
-                                        .clicked()
-                                    {
-                                        self.added_nodes.push(Tab::TagLookup("test".to_owned()));
-                                    }
-                                },
-                            );
+                            self.process_result(HomeTab.ui(ui));
                         }
                         Tab::Settings => {
                             ui.weak("No settings are available");
                         }
                         Tab::DynamicList => {
-                            // ui.weak("Wompy");
                             ui.painter().rect_filled(
                                 egui::Rect::from_min_size(ui.cursor().min, ui.available_size()),
                                 0,
                                 Color32::RED,
                             );
                         }
-                        Tab::MapList(map_tags) => {
-                            egui::Frame::new()
-                                .outer_margin(Margin::symmetric(64, 64))
-                                .show(ui, |ui| {
-                                    for tag in map_tags {
-                                        let tag = *tag;
-                                        let path = &package_manager().package_paths[&tag.pkg_id()];
-                                        if ui.d_button(format!("{} - {}", path.name, tag)).clicked()
-                                        {
-                                            self.added_nodes.push(Tab::Map {
-                                                load_task: Task::new(move || {
-                                                    load_static_map(tag).unwrap()
-                                                }),
-                                                tag,
-                                                scene: Box::new(
-                                                    Scene::new(
-                                                        Renderer::instance().clone(),
-                                                        Camera::default(),
-                                                    )
-                                                    .unwrap(),
-                                                ),
-                                            });
-                                        }
-                                    }
-                                });
+                        Tab::MapList(tab) => {
+                            self.process_result(tab.ui(ui));
                         }
-                        Tab::Map {
-                            load_task, scene, ..
-                        } => {
-                            if let Some(map) = load_task.get() {
-                                match map {
-                                    Ok(map) => {
-                                        for t in map.terrain {
-                                            scene.add_static_object(RenderObject::new(
-                                                TfxFeatureRenderer::TerrainPatch,
-                                                Box::new(t),
-                                                Box::new(()),
-                                            ));
-                                        }
-                                        for s in map.models {
-                                            scene.add_static_object(RenderObject::new(
-                                                TfxFeatureRenderer::StaticObjects,
-                                                Box::new(s),
-                                                Box::new(()),
-                                            ));
-                                        }
-                                    }
-                                    Err(_e) => {
-                                        error!("Failed to load map: unknown error");
-                                    }
-                                }
-                            }
-
-                            if load_task.is_pending() {
-                                let (_, rect) = ui.allocate_space(ui.available_size());
-                                ui.painter()
-                                    .rect_filled(rect, 0, Color32::from_rgb(45, 48, 56));
-                                egui::Image::new(spinner_image().clone()).paint_at(
-                                    ui,
-                                    Rect::from_center_size(rect.center(), vec2(64.0, 48.0)),
-                                );
-                            } else {
-                                scene.show(ui, ui.available_size(), self.egui_d3d11);
-                            }
+                        Tab::Map(tab) => {
+                            tab.ui(ui, self.egui_d3d11);
                         }
-                        Tab::TagLookup(input) => {
-                            ui.horizontal_top(|ui| {
-                                TextEdit::singleline(input)
-                                    .hint_text(RichText::new("80XXXXXX").weak().italics())
-                                    .ui(ui);
-                                // let _ = ui.d_button("Open");
-                            });
+                        Tab::TagLookup(data) => {
+                            self.process_result(data.ui(ui));
                         }
                     },
                 );
@@ -242,6 +126,15 @@ impl<'a> egui_dock::TabViewer for TabViewer<'a> {
 
     fn closeable(&mut self, tab: &mut Self::Tab) -> bool {
         !tab.is_fixed()
+    }
+}
+
+impl<'a> TabViewer<'a> {
+    fn process_result(&mut self, result: TabResult) {
+        match result {
+            TabResult::Continue => {}
+            TabResult::Open(tab) => self.added_nodes.push(tab),
+        }
     }
 }
 
@@ -269,4 +162,9 @@ impl<Tab> DockStateExt<Tab> for DockState<Tab> {
 
         None
     }
+}
+
+pub enum TabResult {
+    Continue,
+    Open(Tab),
 }
