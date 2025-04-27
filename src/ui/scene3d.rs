@@ -34,7 +34,7 @@ impl Scene {
             view: View::new(&renderer.gpu, (128, 128))?,
             renderer,
             camera,
-            controller: CameraController::new_orbit(Vec3::ZERO, 10.0),
+            controller: CameraController::new_orbit(Vec3::ZERO, 1.0),
             static_render_objects: Vec::new(),
             dynamic_render_objects: Vec::new(),
             surface,
@@ -286,15 +286,25 @@ impl CameraController {
                     *distance += -scroll_delta.y / 100.0;
                     *distance = distance.clamp(0.1, 1000.0);
                 }
+                let real_distance = 2.0f32.powf(*distance * std::f32::consts::LN_2) - 0.9;
 
                 let drag_delta = response.drag_delta();
-                *yaw_pitch += (drag_delta / 5.0) * vec2(-1.0, 1.3);
-                yaw_pitch.y = yaw_pitch.y.clamp(-89.0, 89.0);
+                // Rotate
+                if response.dragged_by(egui::PointerButton::Primary) {
+                    *yaw_pitch += (drag_delta / 5.0) * vec2(-1.0, 1.3);
+                    yaw_pitch.y = yaw_pitch.y.clamp(-89.0, 89.0);
+                }
+
+                // Pan
+                if response.dragged_by(egui::PointerButton::Middle) {
+                    let delta_adjusted = (drag_delta / 250.0) * real_distance;
+                    *target -= camera.right() * delta_adjusted.x;
+                    *target += camera.up() * delta_adjusted.y;
+                }
 
                 camera.rotation = Quat::from_rotation_z(yaw_pitch.x.to_radians())
                     * Quat::from_rotation_y(yaw_pitch.y.to_radians());
 
-                let real_distance = 2.0f32.powf(*distance * std::f32::consts::LN_2) - 0.9;
                 camera.position = *target - camera.forward() * real_distance;
             }
             Self::FirstPerson { speed, yaw_pitch } => {
