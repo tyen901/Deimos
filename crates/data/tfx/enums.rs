@@ -85,7 +85,7 @@ impl TigerReadable for RenderStage {
         Self::try_from(v).map_err(|_| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
     }
 
-    const ZEROCOPY: bool = true;
+    const ZEROCOPY: bool = false;
     const SIZE: usize = 1;
 }
 
@@ -166,7 +166,7 @@ impl TigerReadable for TfxFeatureRenderer {
         Self::try_from(v).map_err(|_| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
     }
 
-    const ZEROCOPY: bool = true;
+    const ZEROCOPY: bool = false;
     const SIZE: usize = 1;
 }
 
@@ -259,7 +259,7 @@ impl TigerReadable for ShaderStage {
         Self::try_from(v).map_err(|_| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
     }
 
-    const ZEROCOPY: bool = true;
+    const ZEROCOPY: bool = false;
     const SIZE: usize = 1;
 }
 
@@ -282,7 +282,7 @@ impl TigerReadable for PrimitiveType {
         Self::try_from(v).map_err(|_| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
     }
 
-    const ZEROCOPY: bool = true;
+    const ZEROCOPY: bool = false;
     const SIZE: usize = 1;
 }
 

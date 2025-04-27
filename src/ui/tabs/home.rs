@@ -1,10 +1,9 @@
-
 use egui::Ui;
 use google_material_symbols::GoogleMaterialSymbols;
 
 use crate::ui::util::UiExt;
 
-use super::{map_list::MapListTab, Tab, TabResult};
+use super::{dynamic_list::DynamicListTab, map_list::MapListTab, Tab, TabResult};
 
 pub struct HomeTab;
 
@@ -20,7 +19,7 @@ impl HomeTab {
                 .clicked()
             {
                 // self.added_nodes.push(Tab::DynamicList);
-                result = TabResult::Open(Tab::DynamicList);
+                result = TabResult::Open(Tab::DynamicList(DynamicListTab::new()));
             }
             if uis[0]
                 .d_button(format!("{} MAPS", GoogleMaterialSymbols::Map))

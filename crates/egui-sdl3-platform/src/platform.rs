@@ -121,7 +121,7 @@ impl Platform {
             // Handle the mouse scrolling
             Event::MouseWheel { x, y, .. } => {
                 // Calculate the delta
-                let delta = egui::Vec2::new(*x, *y);
+                let delta = egui::Vec2::new(*x, *y) * 32.0;
 
                 self.raw_input.events.push(egui::Event::MouseWheel {
                     unit: egui::MouseWheelUnit::Point,

@@ -11,7 +11,7 @@ use crate::{
 // pub mod decals;
 pub mod immediate;
 // pub mod light;
-// pub mod rigid_model;
+pub mod rigid_model;
 mod shared;
 pub mod static_geometry;
 pub mod terrain_patches;

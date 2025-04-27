@@ -70,14 +70,6 @@ impl App {
                 }
                 _ => {}
             },
-            sdl3::event::Event::KeyDown {
-                keycode: Some(key), ..
-            } => match key {
-                sdl3::keyboard::Keycode::Escape => {
-                    self.running = false;
-                }
-                _ => {}
-            },
             _ => {}
         };
 

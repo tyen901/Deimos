@@ -26,6 +26,18 @@ impl FramePacket {
             distance: f32::MAX,
         });
     }
+
+    pub fn push_dynamic_render_object(
+        &mut self,
+        render_object_handle: RenderObjectHandle,
+        transform: CompactTransform,
+    ) {
+        self.frame_nodes.push(FrameNode {
+            render_object_handle,
+            data: Box::new(transform),
+            distance: f32::MAX,
+        });
+    }
 }
 
 #[repr(C)]

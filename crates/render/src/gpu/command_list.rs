@@ -181,9 +181,12 @@ impl CommandList {
 
     pub fn set_input_layout(&mut self, index: usize) {
         if self.current_input_layout != index {
-            self.context.input_assembler_set_input_layout(
-                self.global_states().input_layouts[index].as_ref(),
-            );
+            if let Some(input_layout) = self.global_states().input_layouts.get(index) {
+                self.context
+                    .input_assembler_set_input_layout(input_layout.as_ref());
+            } else {
+                error!("Input layout #{index} does not exist!");
+            }
             self.current_input_layout = index;
         }
     }

@@ -82,5 +82,5 @@ impl TigerReadable for TerrainDetailLevel {
     }
 
     const SIZE: usize = 1;
-    const ZEROCOPY: bool = true;
+    const ZEROCOPY: bool = false;
 }

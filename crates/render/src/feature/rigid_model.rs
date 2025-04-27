@@ -3,7 +3,7 @@ use std::any::Any;
 use anyhow::Context;
 use deimos_data::tfx::{
     features::dynamic::{RenderStageSubscription, SDynamicMeshMaterialVariants, SDynamicModel},
-    RenderStage, TfxScopeBits,
+    RenderStage, ShaderStage, TfxScopeBits,
 };
 use glam::{Mat4, Vec4};
 use itertools::{multizip, Itertools};
@@ -230,8 +230,8 @@ impl FeatureRenderer for DynamicModel {
                 continue;
             }
 
-            self.cb.bind(&cmd, crate::gpu::ShaderStage::Vertex, 11);
-            self.cb.bind(&cmd, crate::gpu::ShaderStage::Pixel, 11);
+            self.cb.bind(cmd, ShaderStage::Vertex, 1);
+            self.cb.bind(cmd, ShaderStage::Pixel, 1);
 
             cmd.set_input_layout(mesh.get_input_layout_for_stage(stage) as usize);
             mesh_buffers.bind(cmd);
@@ -241,9 +241,9 @@ impl FeatureRenderer for DynamicModel {
                 //     continue;
                 // }
 
-                if !part.lod_category.is_highest_detail() {
-                    continue;
-                }
+                // if !part.lod_category.is_highest_detail() {
+                //     continue;
+                // }
 
                 let variant_material =
                     self.get_variant_technique(part.variant_shader_index, self.selected_variant);
@@ -283,9 +283,9 @@ impl FeatureRenderer for DynamicModel {
 
 #[repr(C)]
 pub struct RigidModel {
-    mesh_to_world: Mat4,
-    position_scale: Vec4,
-    position_offset: Vec4,
-    texcoord0_scale_offset: Vec4,
-    dynamic_sh_ao_values: Vec4,
+    mesh_to_world: Mat4,          // c0-c3
+    position_scale: Vec4,         // c4
+    position_offset: Vec4,        // c5
+    texcoord0_scale_offset: Vec4, // c6
+    dynamic_sh_ao_values: Vec4,   // c7
 }
