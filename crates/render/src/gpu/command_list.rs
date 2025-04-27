@@ -406,6 +406,7 @@ impl StageResources {
             ShaderStage::Domain => d3d11::DeviceContext::domain_set_constant_buffers,
         };
 
+        // Sparsely bind SRVs and samplers. Most of the time only a small portion of the slots are used, so we can optimize the binding process by skipping the unused slots.
         if let Some(srv_start) = self.srvs.iter().position(|s| s.is_some()) {
             let srv_end = self.srvs.iter().rposition(|s| s.is_some()).unwrap();
             bind_srvs(ctx, srv_start as u32, &self.srvs[srv_start..=srv_end]);
@@ -418,6 +419,7 @@ impl StageResources {
                 &self.samplers[sampler_start..=sampler_end],
             );
         }
+        // cohae: cb0, cb12 and cb13 are practically always bound, so we don't gain anything from doing a sparse bind for cbuffers
         bind_cbuffers(ctx, 0, &self.cbuffers);
     }
 }
