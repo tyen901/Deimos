@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use deimos_data::{map::SBubbleParent, tfx::TfxFeatureRenderer};
 use deimos_render::{camera::Camera, object::RenderObject, Renderer};
-use egui::{vec2, Color32, Margin, Rect, Vec2};
+use egui::{vec2, Color32, Margin, Rect};
 use egui_dock::{DockState, NodeIndex, SurfaceIndex, TabIndex};
 use google_material_symbols::GoogleMaterialSymbols;
 use tiger_parse::TigerReadable;

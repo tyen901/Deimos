@@ -59,6 +59,12 @@ impl Gui {
                 GoogleMaterialSymbols::FONT_BYTES,
             )),
         );
+        fonts.font_data.insert(
+            "GoliathBeta-Encrypted".into(),
+            Arc::new(egui::FontData::from_static(include_bytes!(
+                "../../assets/fonts/GoliathBeta-Encrypted.otf"
+            ))),
+        );
 
         let mut add_with_icons = |family: egui::FontFamily, elements: &[&str]| {
             for (i, &element) in elements.iter().enumerate() {
@@ -92,6 +98,11 @@ impl Gui {
             egui::FontFamily::Name("shapiro".into()),
             &["marathonshapiro_wide"],
         );
+        fonts
+            .families
+            .entry(egui::FontFamily::Name("goliathbeta-encrypted".into()))
+            .or_default()
+            .insert(0, "GoliathBeta-Encrypted".into());
 
         let egui_sdl3 = egui_sdl3_platform::Platform::new(gpu.swapchain_resolution())?;
         egui_sdl3.context().set_fonts(fonts);
