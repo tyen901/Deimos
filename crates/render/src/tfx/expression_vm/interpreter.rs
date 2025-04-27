@@ -6,7 +6,7 @@ use d3d11::SamplerState;
 use deimos_data::tfx::ShaderStage;
 use glam::{Mat4, Vec4, Vec4Swizzles};
 
-use crate::{tfx::externs::ExternIndex, Renderer};
+use crate::{gpu::command_list::CommandList, tfx::externs::ExternIndex, Renderer};
 
 use super::opcodes::Opcode;
 
@@ -116,7 +116,7 @@ impl<'a> InterpreterState<'a> {
     #[profiling::function]
     pub fn evaluate(
         &mut self,
-        context: &d3d11::DeviceContext,
+        cmd: &mut CommandList,
         constants: &[Vec4],
         samplers: &[Option<SamplerState>],
         out: &mut [Vec4],
@@ -390,18 +390,7 @@ impl<'a> InterpreterState<'a> {
                     let srv = Renderer::instance()
                         .externs
                         .get_texture_srv(index, offset as usize);
-                    let bind = match shader_stage {
-                        ShaderStage::Pixel => d3d11::DeviceContext::pixel_set_shader_resources,
-                        ShaderStage::Vertex => d3d11::DeviceContext::vertex_set_shader_resources,
-                        ShaderStage::Geometry => {
-                            d3d11::DeviceContext::geometry_set_shader_resources
-                        }
-                        ShaderStage::Hull => d3d11::DeviceContext::hull_set_shader_resources,
-                        ShaderStage::Compute => d3d11::DeviceContext::compute_set_shader_resources,
-                        ShaderStage::Domain => d3d11::DeviceContext::domain_set_shader_resources,
-                    };
-
-                    bind(context, slot as u32, &[Some(srv)]);
+                    cmd.set_shader_resource(shader_stage, slot as usize, srv);
                 }
                 Opcode::PopSamplerState => {
                     let shader_stage = ShaderStage::from_index(ptr[1] >> 5)
@@ -411,20 +400,7 @@ impl<'a> InterpreterState<'a> {
                     cached_top = self.pop_top();
                     anyhow::ensure!(index < samplers.len() as u32, "Invalid sampler index");
                     let sampler = &samplers[index as usize];
-                    let bind = match shader_stage {
-                        ShaderStage::Pixel => d3d11::DeviceContext::pixel_set_samplers,
-                        ShaderStage::Vertex => d3d11::DeviceContext::vertex_set_samplers,
-                        ShaderStage::Geometry => d3d11::DeviceContext::geometry_set_samplers,
-                        ShaderStage::Hull => d3d11::DeviceContext::hull_set_samplers,
-                        ShaderStage::Compute => d3d11::DeviceContext::compute_set_samplers,
-                        ShaderStage::Domain => d3d11::DeviceContext::domain_set_samplers,
-                    };
-
-                    bind(
-                        context,
-                        slot as u32,
-                        &[Some(sampler.clone().context("Invalid sampler")?)],
-                    );
+                    cmd.set_sampler(shader_stage, slot as usize, sampler.clone());
                 }
                 Opcode::PopUav => {
                     let shader_stage = ShaderStage::from_index(ptr[1] >> 5)
@@ -441,7 +417,7 @@ impl<'a> InterpreterState<'a> {
                     let offset = bits & 0xFFFFFF;
 
                     let uav = Renderer::instance().externs.get_uav(index, offset as usize);
-                    context.compute_set_unordered_access_views(slot as u32, &[Some(uav)], None);
+                    cmd.compute_set_unordered_access_views(slot as u32, &[Some(uav)], None);
                 }
                 Opcode::PushSamplerState => {
                     let index = ptr[1];

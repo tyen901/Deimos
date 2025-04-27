@@ -92,7 +92,9 @@ impl Technique {
         channels: Option<&TempObjectChannels>,
     ) -> anyhow::Result<()> {
         profiling::scope!("Technique::bind", &format!("hash={}", self.hash));
+        // TODO(cohae): This might break (it probably will, it just wont have that big of an impact)
         if cmd.set_bound_technique(self.hash) {
+            self.commit_resources(cmd);
             return Ok(());
         }
 
@@ -161,7 +163,45 @@ impl Technique {
             }
         }
 
+        self.commit_resources(cmd);
+
         Ok(())
+    }
+
+    fn commit_resources(&self, cmd: &mut CommandList) {
+        match self.bind_mode {
+            TechniqueBindMode::VertexPixel => {
+                cmd.commit_resources(&[ShaderStage::Vertex, ShaderStage::Pixel]);
+            }
+            TechniqueBindMode::VertexOnly => {
+                cmd.commit_resources(&[ShaderStage::Vertex]);
+            }
+            TechniqueBindMode::VertexGeometryPixel => {
+                cmd.commit_resources(&[
+                    ShaderStage::Vertex,
+                    ShaderStage::Geometry,
+                    ShaderStage::Pixel,
+                ]);
+            }
+            TechniqueBindMode::VertexPixelTesselated => {
+                cmd.commit_resources(&[
+                    ShaderStage::Vertex,
+                    ShaderStage::Hull,
+                    ShaderStage::Domain,
+                    ShaderStage::Pixel,
+                ]);
+            }
+            TechniqueBindMode::VertexOnlyTesselated => {
+                cmd.commit_resources(&[
+                    ShaderStage::Vertex,
+                    ShaderStage::Hull,
+                    ShaderStage::Domain,
+                ]);
+            }
+            TechniqueBindMode::Compute => {
+                cmd.commit_resources(&[ShaderStage::Compute]);
+            }
+        }
     }
 }
 
