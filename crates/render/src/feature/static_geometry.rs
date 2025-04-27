@@ -153,24 +153,20 @@ impl StaticInstancesRenderer {
     #[profiling::function]
     pub fn render(&self, cmd: &mut CommandList, stage: RenderStage) {
         self.instance_buffer.bind(cmd, ShaderStage::Vertex, 2);
+        self.instance_id_buffer.bind_single(cmd, 2);
 
         let opaque_meshes = &self.model.model.opaque_meshes;
-        for (i, group) in opaque_meshes
+        for (i, group, part) in opaque_meshes
             .mesh_groups
             .iter()
             .enumerate()
-            .filter(|(_, g)| g.render_stage == stage)
+            .map(|(i, g)| (i, g, &opaque_meshes.parts[g.part_index as usize]))
+            .filter(|(_, g, p)| g.render_stage == stage && p.lod_category.is_highest_detail())
         {
-            let part = &opaque_meshes.parts[group.part_index as usize];
-            if !part.lod_category.is_highest_detail() {
-                continue;
-            }
-
             let buffers = &self.model.buffers[part.buffer_index as usize];
             if buffers.bind(cmd).is_none() {
                 continue;
             }
-            self.instance_id_buffer.bind_single(cmd, 2);
 
             if let Some(technique) = &self.model.materials.get(i).and_then(Handle::get) {
                 technique.bind(cmd);

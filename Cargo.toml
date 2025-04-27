@@ -22,7 +22,7 @@ crossbeam = "0.8"
 d3d11 = { git = "https://github.com/cohaereo/d3d11-rs.git" }
 egui = { version = "0.31.1", default-features = false, features = ["bytemuck"] }
 egui_dock = "0.16"
-glam = { version = "0.30", features = ["bytemuck"] }
+glam = { version = "0.30", features = ["bytemuck", "fast-math"] }
 itertools = "0.14"
 parking_lot = "0.12"
 profiling = "1"

@@ -22,6 +22,7 @@ impl ModelBuffers {
         }
     }
 
+    #[profiling::function]
     pub fn bind(&self, cmd: &mut CommandList) -> Option<()> {
         let vertex0 = self.vertex0_buffer.get()?;
         let index = self.index_buffer.get()?;

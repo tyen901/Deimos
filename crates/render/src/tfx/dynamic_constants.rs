@@ -133,7 +133,7 @@ impl DynamicConstants {
         Ok(())
     }
 
-    // #[profiling::function]
+    #[profiling::function]
     pub fn bind(
         &self,
         cmd: &mut CommandList,

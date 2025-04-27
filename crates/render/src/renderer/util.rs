@@ -20,5 +20,6 @@ impl Renderer {
 }
 
 pub fn num_processors() -> usize {
-    std::thread::available_parallelism().unwrap().get()
+    // std::thread::available_parallelism().unwrap().get()
+    6
 }

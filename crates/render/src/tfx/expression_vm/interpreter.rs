@@ -1,4 +1,5 @@
 use core::f32;
+use std::arch::x86_64::{__m128, _mm_fmadd_ps};
 
 use anyhow::{ensure, Context};
 use d3d11::SamplerState;
@@ -229,11 +230,11 @@ impl<'a> InterpreterState<'a> {
                     set_top!((y - x) * s + x);
                 }
                 Opcode::MultiplyAdd => {
-                    let c = cached_top;
-                    let b = self.get(-1)?;
-                    let a = self.get(-2)?;
+                    let c: __m128 = cached_top.into();
+                    let b: __m128 = self.get(-1)?.into();
+                    let a: __m128 = self.get(-2)?.into();
                     self.stack_pointer -= 2;
-                    set_top!(a * b + c);
+                    set_top!(Vec4::from(unsafe { _mm_fmadd_ps(a, b, c) }));
                 }
                 Opcode::Clamp => {
                     let min = cached_top;
