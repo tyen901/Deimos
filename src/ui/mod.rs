@@ -104,7 +104,8 @@ impl Gui {
             .or_default()
             .insert(0, "GoliathBeta-Encrypted".into());
 
-        let egui_sdl3 = egui_sdl3_platform::Platform::new(gpu.swapchain_resolution())?;
+        let egui_sdl3 =
+            egui_sdl3_platform::Platform::new(&sdl, &window, gpu.swapchain_resolution())?;
         egui_sdl3.context().set_fonts(fonts);
         egui_sdl3.context().style_mut(|s| {
             *s = style::gui_style();

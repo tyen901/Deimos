@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use deimos_data::{map::SBubbleParent, tfx::TfxFeatureRenderer};
 use deimos_render::{camera::Camera, object::RenderObject, Renderer};
-use egui::{vec2, Color32, Margin, Rect};
+use egui::{vec2, Color32, Margin, Rect, RichText, TextEdit, Widget};
 use egui_dock::{DockState, NodeIndex, SurfaceIndex, TabIndex};
 use google_material_symbols::GoogleMaterialSymbols;
 use tiger_parse::TigerReadable;
@@ -28,6 +28,7 @@ pub enum Tab {
         tag: TagHash,
         scene: Box<Scene>,
     },
+    TagLookup(String),
 }
 
 impl Tab {
@@ -43,6 +44,7 @@ impl Tab {
             Tab::DynamicList => 0,
             Tab::MapList(_) => 0,
             Tab::Map { tag, .. } => tag.0 as u64,
+            Tab::TagLookup(_) => 0,
         }
     }
 }
@@ -51,10 +53,11 @@ impl Display for Tab {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
             Tab::Settings => GoogleMaterialSymbols::Settings.to_string(),
-            Tab::Home => format!("{} HOME", GoogleMaterialSymbols::Home),
-            Tab::DynamicList => format!("{} DYNAMICS", GoogleMaterialSymbols::DeployedCode),
-            Tab::MapList(_) => format!("{} MAPS", GoogleMaterialSymbols::Map),
+            Tab::Home => format!("{} Home", GoogleMaterialSymbols::Home),
+            Tab::DynamicList => format!("{} Dynamics", GoogleMaterialSymbols::DeployedCode),
+            Tab::MapList(_) => format!("{} Maps", GoogleMaterialSymbols::Map),
             Tab::Map { tag, .. } => format!("Map {tag}"),
+            Tab::TagLookup(_) => format!("{} Tag Lookup", GoogleMaterialSymbols::Search),
         };
 
         f.write_str(&s)
@@ -126,6 +129,23 @@ impl<'a> egui_dock::TabViewer for TabViewer<'a> {
                                     GoogleMaterialSymbols::DesktopWindows
                                 ));
                             });
+
+                            ui.separator();
+
+                            ui.with_layout(
+                                egui::Layout::top_down_justified(egui::Align::Center),
+                                |ui| {
+                                    if ui
+                                        .d_button(format!(
+                                            "{} Tag Lookup",
+                                            GoogleMaterialSymbols::Search
+                                        ))
+                                        .clicked()
+                                    {
+                                        self.added_nodes.push(Tab::TagLookup("test".to_owned()));
+                                    }
+                                },
+                            );
                         }
                         Tab::Settings => {
                             ui.weak("No settings are available");
@@ -202,6 +222,14 @@ impl<'a> egui_dock::TabViewer for TabViewer<'a> {
                             } else {
                                 scene.show(ui, ui.available_size(), self.egui_d3d11);
                             }
+                        }
+                        Tab::TagLookup(input) => {
+                            ui.horizontal_top(|ui| {
+                                TextEdit::singleline(input)
+                                    .hint_text(RichText::new("80XXXXXX").weak().italics())
+                                    .ui(ui);
+                                // let _ = ui.d_button("Open");
+                            });
                         }
                     },
                 );

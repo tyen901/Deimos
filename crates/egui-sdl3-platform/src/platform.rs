@@ -28,7 +28,12 @@ pub struct Platform {
 
 impl Platform {
     /// Construct a new [`Platform`]
-    pub fn new(screen_size: (u32, u32)) -> anyhow::Result<Self> {
+    pub fn new(
+        sdl: &sdl3::Sdl,
+        window: &sdl3::video::Window,
+        screen_size: (u32, u32),
+    ) -> anyhow::Result<Self> {
+        sdl.video()?.text_input().start(window);
         Ok(Self {
             cursor: Cursor::from_system(SystemCursor::Arrow)
                 .map_err(|e| warn!("Failed to get cursor from systems cursor: {}", e))
@@ -119,8 +124,8 @@ impl Platform {
                 let delta = egui::Vec2::new(*x * 8.0, *y * 8.0);
                 // Check the mod state
                 use sdl3::keyboard::Mod;
-                let left_ctrl = sdl.keyboard().mod_state() & Mod::LCTRLMOD == Mod::LCTRLMOD;
-                let right_ctrl = sdl.keyboard().mod_state() & Mod::RCTRLMOD == Mod::RCTRLMOD;
+                let left_ctrl = sdl.keyboard().mod_state().contains(Mod::LCTRLMOD);
+                let right_ctrl = sdl.keyboard().mod_state().contains(Mod::RCTRLMOD);
 
                 // Push the egui event
                 if left_ctrl || right_ctrl {
@@ -141,15 +146,13 @@ impl Platform {
                     if let Some(key) = keycode.to_egui_key() {
                         // Check the modifiers
                         use sdl3::keyboard::Mod;
-                        let alt = (*keymod & Mod::LALTMOD == Mod::LALTMOD)
-                            || (*keymod & Mod::RALTMOD == Mod::RALTMOD);
-                        let ctrl = (*keymod & Mod::LCTRLMOD == Mod::LCTRLMOD)
-                            || (*keymod & Mod::RCTRLMOD == Mod::RCTRLMOD);
-                        let shift = (*keymod & Mod::LSHIFTMOD == Mod::LSHIFTMOD)
-                            || (*keymod & Mod::RSHIFTMOD == Mod::RSHIFTMOD);
-                        let mac_cmd = *keymod & Mod::LGUIMOD == Mod::LGUIMOD;
-                        let command = (*keymod & Mod::LCTRLMOD == Mod::LCTRLMOD)
-                            || (*keymod & Mod::LGUIMOD == Mod::LGUIMOD);
+                        let alt = keymod.contains(Mod::LALTMOD) || keymod.contains(Mod::RALTMOD);
+                        let ctrl = keymod.contains(Mod::LCTRLMOD) || keymod.contains(Mod::RCTRLMOD);
+                        let shift =
+                            keymod.contains(Mod::LSHIFTMOD) || keymod.contains(Mod::RSHIFTMOD);
+                        let mac_cmd = keymod.contains(Mod::LGUIMOD);
+                        let command =
+                            keymod.contains(Mod::LCTRLMOD) || keymod.contains(Mod::LGUIMOD);
 
                         // Handle Cut Copy and paste
                         match key {
@@ -158,7 +161,7 @@ impl Platform {
                             egui::Key::V => {
                                 let clipboard = video.clipboard();
                                 if clipboard.has_clipboard_text() {
-                                    self.raw_input.events.push(egui::Event::Text(
+                                    self.raw_input.events.push(egui::Event::Paste(
                                         clipboard.clipboard_text().unwrap(),
                                     ));
                                 }
@@ -197,15 +200,13 @@ impl Platform {
                     if let Some(key) = keycode.to_egui_key() {
                         // Check the modifiers
                         use sdl3::keyboard::Mod;
-                        let alt = (*keymod & Mod::LALTMOD == Mod::LALTMOD)
-                            || (*keymod & Mod::RALTMOD == Mod::RALTMOD);
-                        let ctrl = (*keymod & Mod::LCTRLMOD == Mod::LCTRLMOD)
-                            || (*keymod & Mod::RCTRLMOD == Mod::RCTRLMOD);
-                        let shift = (*keymod & Mod::LSHIFTMOD == Mod::LSHIFTMOD)
-                            || (*keymod & Mod::RSHIFTMOD == Mod::RSHIFTMOD);
-                        let mac_cmd = *keymod & Mod::LGUIMOD == Mod::LGUIMOD;
-                        let command = (*keymod & Mod::LCTRLMOD == Mod::LCTRLMOD)
-                            || (*keymod & Mod::LGUIMOD == Mod::LGUIMOD);
+                        let alt = keymod.contains(Mod::LALTMOD) || keymod.contains(Mod::RALTMOD);
+                        let ctrl = keymod.contains(Mod::LCTRLMOD) || keymod.contains(Mod::RCTRLMOD);
+                        let shift =
+                            keymod.contains(Mod::LSHIFTMOD) || keymod.contains(Mod::RSHIFTMOD);
+                        let mac_cmd = keymod.contains(Mod::LGUIMOD);
+                        let command =
+                            keymod.contains(Mod::LCTRLMOD) || keymod.contains(Mod::LGUIMOD);
 
                         // Update the modifiers
                         self.modifiers = Modifiers {
@@ -230,6 +231,7 @@ impl Platform {
             }
             // Handle text input
             Event::TextInput { text, .. } => {
+                println!("Text input: {}", text);
                 self.raw_input.events.push(egui::Event::Text(text.clone()));
                 self.egui_ctx.wants_keyboard_input();
             }
