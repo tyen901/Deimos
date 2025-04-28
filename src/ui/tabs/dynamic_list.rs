@@ -48,7 +48,14 @@ impl DynamicListTab {
             current_package: 0,
             tag_lookup_input: String::new(),
             current_tag: TagHash::NONE,
-            scene: Scene::new(Renderer::instance().clone(), Camera::default()).unwrap(),
+            scene: Scene::new(
+                Renderer::instance().clone(),
+                Camera {
+                    near: 0.01,
+                    ..Default::default()
+                },
+            )
+            .unwrap(),
         }
     }
 
