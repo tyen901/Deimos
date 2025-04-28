@@ -180,7 +180,7 @@ float4 mainPS(VSOutput input)
     // scale light by NdotL
     float NdotL = max(dot(N, L), 0.0);
 
-    float3 radiance = 1.3f;
+    float3 radiance = 1.6f;
     float3 Lo = (kD * albedo / PI + specular) * radiance * NdotL;
 
     float3 ambient = float(0.01).xxx * albedo * ao;
