@@ -164,6 +164,21 @@ impl ImmediateShapeRenderer {
         ]);
     }
 
+    pub fn cross(&mut self, center: Vec3, size: f32, color: u32) {
+        let half_size = size / 2.0;
+        let start = center - vec3(half_size, 0.0, 0.0);
+        let end = center + vec3(half_size, 0.0, 0.0);
+        self.line(start, end, color);
+
+        let start = center - vec3(0.0, half_size, 0.0);
+        let end = center + vec3(0.0, half_size, 0.0);
+        self.line(start, end, color);
+
+        let start = center - vec3(0.0, 0.0, half_size);
+        let end = center + vec3(0.0, 0.0, half_size);
+        self.line(start, end, color);
+    }
+
     pub fn aabb_world(&mut self, bb: &AxisAlignedBBox, color: u32) {
         let a = bb.min.xyz();
         let b = bb.max.xyz();

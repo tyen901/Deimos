@@ -34,7 +34,7 @@ impl Scene {
             view: View::new(&renderer.gpu, (128, 128))?,
             renderer,
             camera,
-            controller: CameraController::new_orbit(Vec3::ZERO, 1.0),
+            controller: CameraController::new_orbit(Vec3::ZERO, 1.5),
             static_render_objects: Vec::new(),
             dynamic_render_objects: Vec::new(),
             surface,
@@ -294,8 +294,8 @@ impl CameraController {
             } => {
                 if response.hovered() {
                     let scroll_delta = ui.input(|i| i.raw_scroll_delta);
-                    *distance += -scroll_delta.y / 100.0;
-                    *distance = distance.clamp(0.1, 1000.0);
+                    *distance += -scroll_delta.y / 250.0;
+                    *distance = distance.clamp(0.01, 1000.0);
                 }
                 let real_distance = 2.0f32.powf(*distance * std::f32::consts::LN_2) - 0.9;
 
@@ -311,6 +311,13 @@ impl CameraController {
                     let delta_adjusted = (drag_delta / 250.0) * real_distance;
                     *target -= camera.right() * delta_adjusted.x;
                     *target += camera.up() * delta_adjusted.y;
+                }
+
+                if response.dragged() {
+                    Renderer::instance()
+                        .immediate
+                        .lock()
+                        .cross(*target, 0.15, 0xffffff);
                 }
 
                 camera.rotation = Quat::from_rotation_z(yaw_pitch.x.to_radians())
