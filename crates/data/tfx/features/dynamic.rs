@@ -59,17 +59,26 @@ pub struct SDynamicMeshPart {
     pub variant_shader_index: u16,
     pub primitive_type: PrimitiveType,
     pub unk7: u8,
+    // 0x8
     pub index_start: u32,
     pub index_count: u32,
+
+    // 0x10
     pub unk10: u32,
     pub external_identifier: u16,
     pub unk16: u16,
+    // 0x18
     pub flags: u32,
-    pub gear_dye_change_color_index: u8,
+
+    // 0x20
+    pub unk1c: u16,
+    // Running increment, +1 per part
+    pub unk1e: u16,
+
+    // 0x20
+    pub unk20: u8,
     pub lod_category: LodCategory,
-    pub unk1e: u8,
-    pub lod_run: u8,
-    pub unk20: u32,
+    pub unk22: u16,
     pub unk24: u32,
 }
 

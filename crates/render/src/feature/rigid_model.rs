@@ -54,6 +54,7 @@ impl DynamicModel {
         techniques: Vec<TagHash>,
     ) -> anyhow::Result<Box<Self>> {
         let model = package_manager().read_tag_struct::<SDynamicModel>(hash)?;
+
         let techniques = techniques
             .iter()
             .map(|&tag| Renderer::instance().asset_manager.load(tag))
@@ -241,9 +242,9 @@ impl FeatureRenderer for DynamicModel {
                 //     continue;
                 // }
 
-                // if !part.lod_category.is_highest_detail() {
-                //     continue;
-                // }
+                if !part.lod_category.is_highest_detail() {
+                    continue;
+                }
 
                 let variant_material =
                     self.get_variant_technique(part.variant_shader_index, self.selected_variant);
