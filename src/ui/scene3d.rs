@@ -233,6 +233,17 @@ impl Scene {
         //     self.renderer.debug_text.lock().draw(&self.renderer.gpu);
         // }
     }
+
+    pub fn focus_on(&mut self, position: Vec3) {
+        match &mut self.controller {
+            CameraController::Orbit { target, .. } => {
+                *target = position;
+            }
+            CameraController::FirstPerson { .. } => {
+                self.camera.position = position;
+            }
+        }
+    }
 }
 
 impl Drop for Scene {
