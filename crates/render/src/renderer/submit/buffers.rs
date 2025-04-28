@@ -160,6 +160,9 @@ impl Gbuffers {
         surfaces
             .get(self.third)
             .clear_color(context, [0., 0.5, 0., 0.]);
+        surfaces
+            .get(self.fourth)
+            .clear_color(context, [0., 0., 0., 0.]);
         surfaces.get(self.depth).clear_depth(context, 0., 0xff);
     }
 }

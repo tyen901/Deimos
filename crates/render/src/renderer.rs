@@ -56,7 +56,7 @@ pub struct Renderer {
     clear_ao_ps: d3d11::PixelShader,
 
     start_time: Instant,
-    common: CommonResources,
+    pub(crate) common: CommonResources,
     active_feature_renderers: AtomicCell<FeatureRendererSubscription>,
 }
 
@@ -205,6 +205,8 @@ pub struct CommonResources {
     temporary_atmos: Texture,
     temporary_depth_angle_lookup: Texture,
     temporary_depth_lookup: Texture,
+
+    pub disable_skinning_vs: d3d11::VertexShader,
 }
 
 impl CommonResources {
@@ -272,6 +274,9 @@ impl CommonResources {
                 gpu,
                 include_bytes!("../builtin/textures/depth_lookup.dds"),
             )?,
+            disable_skinning_vs: gpu.create_vertex_shader(include_bytes!(
+                "../builtin/shaders/skinning-noskinning.vs.cso"
+            ))?,
             blit_vs,
             blit_ps,
             blit_ps_linear,
