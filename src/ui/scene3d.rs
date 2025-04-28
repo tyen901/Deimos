@@ -34,7 +34,7 @@ impl Scene {
             view: View::new(&renderer.gpu, (128, 128))?,
             renderer,
             camera,
-            controller: CameraController::new_orbit(Vec3::ZERO, 1.5),
+            controller: CameraController::new_orbit(Vec3::ZERO, 3.5),
             static_render_objects: Vec::new(),
             dynamic_render_objects: Vec::new(),
             surface,
@@ -274,7 +274,7 @@ impl CameraController {
         Self::Orbit {
             target,
             distance,
-            yaw_pitch: Vec2::ZERO,
+            yaw_pitch: Vec2::new(180.0, 0.0),
         }
     }
 
@@ -297,7 +297,7 @@ impl CameraController {
                     *distance += -scroll_delta.y / 250.0;
                     *distance = distance.clamp(0.01, 1000.0);
                 }
-                let real_distance = 2.0f32.powf(*distance * std::f32::consts::LN_2) - 0.9;
+                let real_distance = 2.0f32.powf(*distance * 0.3) - 0.9;
 
                 let drag_delta = response.drag_delta();
                 // Rotate
