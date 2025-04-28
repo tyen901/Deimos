@@ -269,6 +269,10 @@ impl FeatureRenderer for DynamicModel {
                     continue;
                 }
 
+                if all_scopes.contains(TfxScopeBits::SKINNING) {
+                    cmd.vertex_set_shader(&Renderer::instance().common.disable_skinning_vs);
+                }
+
                 cmd.set_input_topology(part.primitive_type);
 
                 cmd.draw_indexed(part.index_count, part.index_start, 0);
