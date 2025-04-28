@@ -6,7 +6,7 @@ use deimos_render::{
     tfx::packet::CompactTransform, Renderer,
 };
 use egui::{FontId, TextStyle, Ui, Vec2};
-use glam::Vec3;
+use glam::{Vec3, Vec4Swizzles};
 use itertools::Itertools;
 use tiger_parse::TigerReadable;
 use tiger_pkg::{package_manager, TagHash};
@@ -99,6 +99,7 @@ impl DynamicListTab {
                             self.scene.clear();
                             match DynamicModel::load(*tag, vec![], vec![]) {
                                 Ok(model) => {
+                                    self.scene.focus_on(model.model.model_offset.xyz());
                                     self.scene.add_dynamic_object(
                                         RenderObject::new(
                                             TfxFeatureRenderer::RigidObject,
