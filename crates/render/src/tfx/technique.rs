@@ -49,6 +49,7 @@ impl Technique {
 
 impl Technique {
     #[profiling::function]
+    #[tracing::instrument(skip(gpu, hash), fields(technique = %hash))]
     pub fn load(gpu: &Arc<Gpu>, hash: TagHash) -> anyhow::Result<Self> {
         let tech = package_manager()
             .read_tag_struct::<STechnique>(hash)
@@ -81,6 +82,7 @@ impl Technique {
         })
     }
 
+    #[tracing::instrument(skip(self, cmd), fields(technique = %self.hash))]
     pub fn bind(&self, cmd: &mut CommandList) -> anyhow::Result<()> {
         self.bind_with_channels(cmd, None)
     }

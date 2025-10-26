@@ -1,5 +1,6 @@
 use std::{f32, io::Write, ops::Deref, sync::Arc};
 
+use bytemuck::{Pod, Zeroable};
 use deimos_core::ConVars;
 use deimos_data::tfx::{
     common::AxisAlignedBBox,
@@ -117,6 +118,14 @@ pub struct StaticInstancesRenderer {
     constants_dirty: bool,
 }
 
+#[repr(C)]
+#[derive(Pod, Zeroable, Clone, Copy)]
+pub struct InstanceTransformBlock {
+    pub transform: [Vec4; 3],
+    pub params0: Vec4,
+    pub params1: Vec4,
+}
+
 impl StaticInstancesRenderer {
     pub fn new(
         gpu: &Arc<Gpu>,
@@ -126,10 +135,11 @@ impl StaticInstancesRenderer {
     ) -> anyhow::Result<Self> {
         let cbuffer = ConstantBuffer::create_raw(
             gpu,
-            transforms.len() * size_of::<Mat4>() + 4 * size_of::<Vec4>(),
+            size_of::<InstanceTransformBlock>() // header + padding
+            + transforms.len() * size_of::<InstanceTransformBlock>(), // per-transform data
         )?;
 
-        // Instance IDs dictate from where in the instance buffer to read the transform data. This is calculated as the ID * 0x40 (in bytes).
+        // Instance IDs dictate from where in the instance buffer to read the transform data. This is calculated as the ID * 0x50 (in bytes).
         // In the past, the engine would skip the 32 bytes where the quantization information was stored, but the offset must now be an exact multiple of 0x40 bytes.
         // cb0[0].x dictates where the quantization information is stored. For now I've opted to just skip the first instance and use that slot for the quantization information.
         let visible_instance_ids = (0..transforms.len() as u32).map(|i| i + 1).collect_vec();
@@ -236,8 +246,9 @@ impl StaticInstancesRenderer {
             ]))
             .unwrap();
 
-        // Quantization block padding
-        buffer.write_all(&[0u8; 32]).unwrap();
+        while buffer.len() < size_of::<InstanceTransformBlock>() {
+            buffer.write_all(&[0u8]).unwrap();
+        }
 
         // let model_transform = Mat4::from_cols_array_2d(&[
         //     [model.mesh_scale, 0.0, 0.0, model.mesh_offset.x],
@@ -262,11 +273,13 @@ impl StaticInstancesRenderer {
             // };
 
             buffer
-                .write_all(bytemuck::cast_slice(&[
-                    instance_transform.x_axis,
-                    instance_transform.y_axis,
-                    instance_transform.z_axis,
-                    Vec4::new(
+                .write_all(bytemuck::cast_slice(&[InstanceTransformBlock {
+                    transform: [
+                        instance_transform.x_axis,
+                        instance_transform.y_axis,
+                        instance_transform.z_axis,
+                    ],
+                    params0: Vec4::new(
                         1.0,
                         1.0,
                         1.0,
@@ -279,7 +292,8 @@ impl StaticInstancesRenderer {
                         //         .unwrap_or(0x02000000),
                         // ),
                     ),
-                ]))
+                    params1: Vec4::ZERO,
+                }]))
                 .unwrap();
         }
 

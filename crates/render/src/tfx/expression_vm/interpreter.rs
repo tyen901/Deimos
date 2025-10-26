@@ -86,7 +86,11 @@ impl<'a> InterpreterState<'a> {
             "Stack index out of bounds (ip=0x{:X})",
             self.ip
         );
-        Ok(self.stack[index as usize])
+        Ok(self
+            .stack
+            .get(index as usize)
+            .context("Stack index out of bounds")?
+            .to_owned())
     }
 
     // Pops the top value off the stack and returns the value at the new top of the stack (or ZERO if the stack is empty)

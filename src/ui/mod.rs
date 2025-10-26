@@ -6,6 +6,7 @@ use egui_dock::{DockArea, DockState, TabInteractionStyle};
 use google_material_symbols::GoogleMaterialSymbols;
 use tabs::{DockStateExt, Tab, TabViewer};
 
+pub mod colors;
 mod scene3d;
 mod style;
 pub mod tabs;
@@ -100,7 +101,7 @@ impl Gui {
         );
         fonts
             .families
-            .entry(egui::FontFamily::Name("goliathbeta-encrypted".into()))
+            .entry(egui::FontFamily::Name("encrypted".into()))
             .or_default()
             .insert(0, "GoliathBeta-Encrypted".into());
 
