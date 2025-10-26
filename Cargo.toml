@@ -29,7 +29,6 @@ profiling = "1"
 serde = "1"
 sdl3 = { version = "0.14", features = [
     "raw-window-handle",
-    "build-from-source",
 ] }
 tiger-parse = { version = "0.4.0", git = "https://github.com/v4nguard/tiger-parse.git", features = [
     "check_types",
