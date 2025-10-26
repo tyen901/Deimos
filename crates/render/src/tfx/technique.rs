@@ -1,4 +1,7 @@
-use std::{ops::Deref, sync::Arc};
+use std::{
+    ops::Deref,
+    sync::{atomic::AtomicUsize, Arc},
+};
 
 use anyhow::{ensure, Context};
 use d3d11::DeviceChild;
@@ -7,7 +10,12 @@ use tiger_parse::PackageManagerExt;
 use tiger_pkg::{package_manager, TagHash};
 
 use crate::{
-    gpu::command_list::CommandList, tfx::expression_vm::interpreter::TempObjectChannels, Gpu,
+    gpu::command_list::CommandList,
+    tfx::expression_vm::{
+        interpreter::TempObjectChannels,
+        opcodes::{Opcode, OpcodeIterator},
+    },
+    Gpu,
 };
 
 use super::dynamic_constants::DynamicConstants;

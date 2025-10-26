@@ -210,6 +210,38 @@ impl Opcode {
     }
 }
 
+pub struct OpcodeIterator<'a> {
+    data: &'a [u8],
+    position: usize,
+}
+
+impl<'a> OpcodeIterator<'a> {
+    pub fn new(data: &'a [u8]) -> Self {
+        Self { data, position: 0 }
+    }
+}
+
+impl<'a> Iterator for OpcodeIterator<'a> {
+    type Item = anyhow::Result<Opcode>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.position >= self.data.len() {
+            return None;
+        }
+
+        let byte = self.data[self.position];
+        let opcode = match Opcode::try_from(byte) {
+            Ok(op) => op,
+            Err(_) => return Some(Err(anyhow::anyhow!("Unknown opcode: {:02X}", byte))),
+        };
+
+        let size = opcode.size();
+        self.position += size;
+
+        Some(Ok(opcode))
+    }
+}
+
 pub fn disassemble(data: &[u8]) -> anyhow::Result<Vec<String>> {
     let mut result = Vec::new();
     let mut i = 0;
