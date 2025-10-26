@@ -118,6 +118,8 @@ impl Externs {
                     (ExternIndex::Atmosphere, _) => bytemuck::cast_slice(&[[0u8, 0, 0, 0]; 4]),
                     (ExternIndex::Transparent, 0) => bytemuck::cast_slice(&[[0u8, 0, 0, 0]; 4]),
                     (ExternIndex::Water, 0x28) => bytemuck::cast_slice(&[[127u8, 127, 0, 0]; 4]), // RG16_UNORM
+                    // VolumetricsPass inputs are generally the results of the last pass, alpha is *ALWAYS* cleared to zero
+                    (ExternIndex::VolumetricsPass, _) => bytemuck::cast_slice(&[[0u8, 0, 0, 0]; 4]),
                     _ => bytemuck::cast_slice(&[[0u8, 0, 0, 255]; 4]),
                 };
                 assert_eq!(data.len(), (2 * 2) * 4);

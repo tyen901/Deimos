@@ -134,7 +134,7 @@ tfx_global_pipelines! {
     hdao,
     apply_ssao_to_light_buffers,
     ssao_bilateral_filter,
-    ssao_compute_ao_3D_ps,
+    // ssao_compute_ao_3D_ps,
     fxaa,
     fxaa_noise,
     autoexposure_sample_columns,

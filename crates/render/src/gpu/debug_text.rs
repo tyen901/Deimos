@@ -83,8 +83,8 @@ impl DebugTextRenderer {
             &Texture2dDesc::builder()
                 .width(3072)
                 .height(32)
-                .format(dxgi::Format::A8Unorm)
                 .mip_levels(1)
+                .format(dxgi::Format::A8Unorm)
                 .array_size(1)
                 .bind_flags(BindFlags::SHADER_RESOURCE)
                 .build(),

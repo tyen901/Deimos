@@ -1,7 +1,7 @@
-use egui::Ui;
+use egui::{RichText, Ui};
 use google_material_symbols::GoogleMaterialSymbols;
 
-use crate::ui::util::UiExt;
+use crate::ui::{colors, util::UiExt};
 
 use super::{dynamic_list::DynamicListTab, map_list::MapListTab, Tab, TabResult};
 
@@ -10,6 +10,14 @@ pub struct HomeTab;
 impl HomeTab {
     pub fn ui(&self, ui: &mut Ui) -> TabResult {
         let mut result = TabResult::Continue;
+        ui.label(
+            RichText::new("127001")
+                .font(egui::FontId::new(
+                    48.0,
+                    egui::FontFamily::Name("encrypted".into()),
+                ))
+                .color(colors::MARATHON_GREEN),
+        );
         ui.add_space(32.0);
         ui.columns(2, |uis| {
             uis[0].heading("3D");
