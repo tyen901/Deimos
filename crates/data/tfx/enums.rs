@@ -36,7 +36,7 @@ pub enum RenderStage {
 }
 
 impl RenderStage {
-    pub const COUNT: usize = Self::ComputeSkinning as usize + 1;
+    pub const COUNT: usize = Self::ComputeSkinning as usize + 2; // TODO(cohae): Fix after adding new stage(s)
 
     pub fn to_flag(&self) -> RenderStageSubscription {
         RenderStageSubscription::from_bits(1 << *self as u32).unwrap()
