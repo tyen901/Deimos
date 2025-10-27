@@ -53,10 +53,14 @@ impl Gpu {
             .cast::<IDXGIAdapter3>()
             .context("Couldn't find a compatible adapter")?;
 
-        let window_handle = match window.window_handle().unwrap().as_raw() {
+        #[cfg(target_os = "windows")]
+        let output_window = match window.window_handle().unwrap().as_raw() {
             RawWindowHandle::Win32(h) => HWND(h.hwnd.get() as *mut _),
             u => panic!("Can't open window for {u:?}"),
         };
+
+        #[cfg(not(target_os = "windows"))]
+        let output_window = window;
 
         let device =
             d3d11::Device::create(Some(adapter), false).context("Failed to create device")?;
@@ -64,6 +68,7 @@ impl Gpu {
 
         let swap_chain = d3d11::dxgi::SwapChain::create(
             &device,
+            output_window,
             &SwapChainDesc::builder()
                 .buffer_desc(
                     ModeDesc::builder()
@@ -72,7 +77,6 @@ impl Gpu {
                 )
                 .buffer_usage(DxgiUsage::RENDER_TARGET_OUTPUT)
                 .buffer_count(2)
-                .output_window(window_handle)
                 .swap_effect(dxgi::SwapEffect::FlipDiscard)
                 .build(),
         )
@@ -200,14 +204,14 @@ impl Gpu {
             Some(name),
             &[],
             entry_vs,
-            d3d11::ShaderTarget::Vertex,
+            d3d11::fxc::ShaderTarget::Vertex,
         )?;
         let ps_source = d3d11::fxc_compile(
             source.as_bytes(),
             Some(name),
             &[],
             entry_ps,
-            d3d11::ShaderTarget::Pixel,
+            d3d11::fxc::ShaderTarget::Pixel,
         )?;
 
         let vs = self

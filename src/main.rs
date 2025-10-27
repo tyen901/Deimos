@@ -85,12 +85,17 @@ fn main() -> anyhow::Result<()> {
         .video()
         .expect("Failed to initialize video subsystem");
 
-    let mut window = video_subsystem
-        .window("Deimos", 1920, 1080)
-        .position_centered()
-        .resizable()
-        .build()
-        .expect("Failed to create window");
+    let mut window = {
+        let mut builder = video_subsystem.window("Deimos", 1920, 1080);
+
+        let mut builder_ref = builder.position_centered().resizable();
+
+        if cfg!(not(target_os = "windows")) {
+            builder_ref = builder_ref.vulkan();
+        }
+
+        builder_ref.build().expect("Failed to create window")
+    };
 
     if let Some(display_index) = args.display {
         let displays = video_subsystem.displays()?;
