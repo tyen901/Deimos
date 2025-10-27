@@ -65,6 +65,8 @@ impl Renderer {
         if ConVars::get_flag("render.vertex_ao_workaround") {
             cmd.state = PipelineState::new(Some(0), Some(0), Some(0), Some(0));
             cmd.flush_states();
+            let third_surf = view.surfaces.get(view.gbuffers.third);
+            cmd.output_merger_set_render_targets(&[None, None, third_surf.rtv.clone()], None);
             cmd.vertex_set_shader(Some(&self.clear_ao_vs));
             cmd.pixel_set_shader(Some(&self.clear_ao_ps));
             cmd.set_input_topology(deimos_data::tfx::PrimitiveType::TriangleStrip);

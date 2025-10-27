@@ -21,7 +21,6 @@ pub struct STechnique {
     pub unk18: u32,
     pub unk1c: u32,
 
-    #[tag(debug)]
     pub used_scopes: TfxScopeBits,
     pub compatible_scopes: TfxScopeBits,
 

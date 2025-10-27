@@ -59,7 +59,6 @@ impl Technique {
     #[profiling::function]
     #[tracing::instrument(skip(gpu, hash), fields(technique = %hash))]
     pub fn load(gpu: &Arc<Gpu>, hash: TagHash) -> anyhow::Result<Self> {
-        println!("{hash}");
         let tech = package_manager()
             .read_tag_struct::<STechnique>(hash)
             .context("Failed to read technique tag")?;
