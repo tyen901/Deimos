@@ -1,0 +1,19 @@
+// Project-local debug tasks
+//
+// For more documentation on how to configure debug tasks,
+// see: https://zed.dev/docs/debugger
+[
+  {
+    "label": "Build & Debug Deimos",
+    "adapter": "CodeLLDB",
+    "build": {
+      "command": "cargo",
+      "args": ["build"]
+    },
+    // sourceLanguages is required for CodeLLDB (not GDB) when using Rust
+    "sourceLanguages": ["rust"],
+    "env": {
+      "SDL_VIDEODRIVER": "x11"
+    }
+  }
+]
