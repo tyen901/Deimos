@@ -19,7 +19,7 @@ members = [
 [workspace.dependencies]
 anyhow = "1"
 crossbeam = "0.8"
-d3d11 = { git = "https://github.com/cohaereo/d3d11-rs.git" }
+d3d11 = { git = "https://github.com/cohaereo/d3d11-rs.git", features = ["sdl3"] }
 egui = { version = "0.31.1", default-features = false, features = ["bytemuck"] }
 egui_dock = "0.16"
 glam = { version = "0.30", features = ["bytemuck", "fast-math"] }
@@ -27,7 +27,7 @@ itertools = "0.14"
 parking_lot = "0.12"
 profiling = "1"
 serde = "1"
-sdl3 = { version = "0.14", features = [
+sdl3 = { version = "0.16", features = [
     "raw-window-handle",
 ] }
 tiger-parse = { version = "0.4.0", git = "https://github.com/v4nguard/tiger-parse.git", features = [
@@ -36,7 +36,7 @@ tiger-parse = { version = "0.4.0", git = "https://github.com/v4nguard/tiger-pars
     "tiger_pkg",
     "check_types_debug",
 ] }
-tiger-pkg = { version = "0.18.4", features = ["global_manager_instance"] }
+tiger-pkg = { version = "0.18.8", features = ["global_manager_instance"] }
 tracing = { version = "0.2.0", git = "https://github.com/cohaereo/tracing-lesspretty.git" }
 
 [dependencies]

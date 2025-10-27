@@ -325,9 +325,9 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "bitflags"
-version = "2.9.0"
+version = "2.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c8214115b7bf84099f1309324e63141d4c5d7cc26862f97a0a857dbefe165bd"
+checksum = "812e12b5285cc515a9c72a5c1d3b6d46a19dac5acfef5265968c166106e31dd3"
 
 [[package]]
 name = "bitstream-io"
@@ -709,21 +709,24 @@ dependencies = [
 
 [[package]]
 name = "d3d11"
-version = "0.1.0"
-source = "git+https://github.com/cohaereo/d3d11-rs.git#745bb68b08ad31bdcc3c22d7be64e5c1158a479b"
+version = "0.2.0"
+source = "git+https://github.com/cohaereo/d3d11-rs.git#8350d3d2451123774f2630c7bb466b449b5d9a96"
 dependencies = [
- "bitflags 2.9.0",
+ "bincode",
+ "bitflags 2.10.0",
  "bon",
- "d3d11-sys",
+ "byteorder",
+ "d3d11-ffi",
  "paste",
+ "sdl3",
  "static_assertions",
  "thiserror 2.0.12",
 ]
 
 [[package]]
-name = "d3d11-sys"
-version = "0.1.0"
-source = "git+https://github.com/cohaereo/d3d11-rs.git#745bb68b08ad31bdcc3c22d7be64e5c1158a479b"
+name = "d3d11-ffi"
+version = "0.2.0"
+source = "git+https://github.com/cohaereo/d3d11-rs.git#8350d3d2451123774f2630c7bb466b449b5d9a96"
 dependencies = [
  "windows-core",
  "windows-targets 0.52.6",
@@ -770,7 +773,7 @@ version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "479dfe1e6737aa9e96c6ac7b69689dc4c32da8383f2c12744739d76afa8b66c4"
 dependencies = [
- "bitflags 2.9.0",
+ "bitflags 2.10.0",
  "byteorder",
  "enum-primitive-derive",
  "num-traits",
@@ -831,7 +834,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "assert-offset",
- "bitflags 2.9.0",
+ "bitflags 2.10.0",
  "d3d11",
  "deimos-core",
  "glam",
@@ -959,7 +962,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "25dd34cec49ab55d85ebf70139cb1ccd29c977ef6b6ba4fe85489d6877ee9ef3"
 dependencies = [
  "ahash",
- "bitflags 2.9.0",
+ "bitflags 2.10.0",
  "emath",
  "epaint",
  "nohash-hasher",
@@ -1135,7 +1138,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "976dd42dc7e85965fe702eb8164f21f450704bdde31faefd6471dba214cb594e"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1659,9 +1662,9 @@ checksum = "03087c2bad5e1034e8cace5926dec053fb3790248370865f5117a7d0213354c8"
 
 [[package]]
 name = "libc"
-version = "0.2.171"
+version = "0.2.177"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c19937216e9d3aa9956d9bb8dfc0b0c8beb6058fc4f7a4dc4d850edf86a237d6"
+checksum = "2874a2af47a2325c2001a6e6fad9b16a53b802102b528163885171cf92b15976"
 
 [[package]]
 name = "libfuzzer-sys"
@@ -1689,7 +1692,7 @@ version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0ff37bd590ca25063e35af745c343cb7a0271906fb7b37e4813e8f79f00268d"
 dependencies = [
- "bitflags 2.9.0",
+ "bitflags 2.10.0",
  "libc",
 ]
 
@@ -2437,7 +2440,7 @@ version = "0.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2f103c6d277498fbceb16e84d317e2a400f160f46904d5f5410848c829511a3"
 dependencies = [
- "bitflags 2.9.0",
+ "bitflags 2.10.0",
 ]
 
 [[package]]
@@ -2501,7 +2504,7 @@ version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac633a08f39bf3268714799bd8c4a1a19c19c203d817d3448bb8b91c97817cf0"
 dependencies = [
- "bitflags 2.9.0",
+ "bitflags 2.10.0",
  "float-cmp",
  "libloading",
  "once_cell",
@@ -2549,11 +2552,11 @@ version = "0.38.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fdb5bc1ae2baa591800df16c9ca78619bf65c0488b41b96ccec5d11220d8c154"
 dependencies = [
- "bitflags 2.9.0",
+ "bitflags 2.10.0",
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -2582,11 +2585,11 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
 name = "sdl3"
-version = "0.14.25"
+version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32937025fa7a6af8f0336b857fd8cfc64530ea9056a0c5be93829012727b28cc"
+checksum = "a7cff6d303349ec2c47a06fe4668e72ec5338e1ad173974713106bcb873f817c"
 dependencies = [
- "bitflags 2.9.0",
+ "bitflags 2.10.0",
  "lazy_static",
  "libc",
  "objc2",
@@ -2596,9 +2599,9 @@ dependencies = [
 
 [[package]]
 name = "sdl3-sys"
-version = "0.4.7+SDL3-3.2.10"
+version = "0.5.9+SDL3-3.2.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0d16a8a3623a4cb39a3661c81d9d4c5fd77ada27fc056e320b3651bf7bde1b1"
+checksum = "db1f57b04b1ff16bbab7837c0a5e06e3b78fccb410bc00920b9ee860f0f58251"
 
 [[package]]
 name = "semver"
@@ -2862,11 +2865,10 @@ dependencies = [
 
 [[package]]
 name = "tiger-pkg"
-version = "0.18.5"
+version = "0.18.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0bdfe2ae0e59ed2ab11ea57155a31e4bae3d36cf7ddb2407639e7eabce2ae596"
+checksum = "68f8790c4262099c7ec53e1732798cfda43839bd731bcf1b87d4e85395ca061a"
 dependencies = [
- "aes",
  "aes-gcm",
  "anyhow",
  "bincode",
@@ -3553,7 +3555,7 @@ version = "0.39.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f42320e61fe2cfd34354ecb597f86f413484a798ba44a8ca1165c58d42da6c1"
 dependencies = [
- "bitflags 2.9.0",
+ "bitflags 2.10.0",
 ]
 
 [[package]]

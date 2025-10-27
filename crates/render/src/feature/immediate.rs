@@ -1,5 +1,5 @@
 use anyhow::Context;
-use d3d11::{dxgi, InputElementDesc, ShaderTarget};
+use d3d11::{dxgi, fxc::ShaderTarget, InputElementDesc};
 use deimos_data::tfx::common::AxisAlignedBBox;
 use glam::{vec3, Vec3, Vec4Swizzles};
 

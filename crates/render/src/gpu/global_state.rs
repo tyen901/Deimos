@@ -239,7 +239,7 @@ impl RenderStates {
             Some("create_vertex_declaration_inline"),
             &[],
             "vs",
-            d3d11::ShaderTarget::Vertex,
+            d3d11::fxc::ShaderTarget::Vertex,
         )
         .context("Failed to compile inline vertex declaration")?;
 

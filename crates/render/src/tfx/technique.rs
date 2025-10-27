@@ -59,6 +59,7 @@ impl Technique {
     #[profiling::function]
     #[tracing::instrument(skip(gpu, hash), fields(technique = %hash))]
     pub fn load(gpu: &Arc<Gpu>, hash: TagHash) -> anyhow::Result<Self> {
+        println!("{hash}");
         let tech = package_manager()
             .read_tag_struct::<STechnique>(hash)
             .context("Failed to read technique tag")?;
@@ -359,12 +360,12 @@ impl ShaderModule {
 
     pub fn compile(gpu: &Gpu, source: &str, stage: ShaderStage) -> anyhow::Result<Self> {
         let stage_d3d = match stage {
-            ShaderStage::Pixel => d3d11::ShaderTarget::Pixel,
-            ShaderStage::Vertex => d3d11::ShaderTarget::Vertex,
-            ShaderStage::Geometry => d3d11::ShaderTarget::Geometry,
-            ShaderStage::Hull => d3d11::ShaderTarget::Hull,
-            ShaderStage::Compute => d3d11::ShaderTarget::Compute,
-            ShaderStage::Domain => d3d11::ShaderTarget::Domain,
+            ShaderStage::Pixel => d3d11::fxc::ShaderTarget::Pixel,
+            ShaderStage::Vertex => d3d11::fxc::ShaderTarget::Vertex,
+            ShaderStage::Geometry => d3d11::fxc::ShaderTarget::Geometry,
+            ShaderStage::Hull => d3d11::fxc::ShaderTarget::Hull,
+            ShaderStage::Compute => d3d11::fxc::ShaderTarget::Compute,
+            ShaderStage::Domain => d3d11::fxc::ShaderTarget::Domain,
         };
 
         let bytecode = d3d11::fxc_compile(source.as_bytes(), None, &[], "main", stage_d3d)
