@@ -710,7 +710,7 @@ dependencies = [
 [[package]]
 name = "d3d11"
 version = "0.2.0"
-source = "git+https://github.com/cohaereo/d3d11-rs.git#8350d3d2451123774f2630c7bb466b449b5d9a96"
+source = "git+https://github.com/cohaereo/d3d11-rs.git#42f6ad1358594116b77387926552a9994aedac9d"
 dependencies = [
  "bincode",
  "bitflags 2.10.0",
@@ -726,7 +726,7 @@ dependencies = [
 [[package]]
 name = "d3d11-ffi"
 version = "0.2.0"
-source = "git+https://github.com/cohaereo/d3d11-rs.git#8350d3d2451123774f2630c7bb466b449b5d9a96"
+source = "git+https://github.com/cohaereo/d3d11-rs.git#42f6ad1358594116b77387926552a9994aedac9d"
 dependencies = [
  "windows-core",
  "windows-targets 0.52.6",
@@ -1270,9 +1270,9 @@ dependencies = [
 
 [[package]]
 name = "game-detector"
-version = "0.1.5"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e402aa3e469f106a785c3af7f7d265eff82fefaa852a9bfe50a2b327918c46d7"
+checksum = "203228a1fee2958ec374f7fa666651dbe73227a6e4158a09e4c37865791648e3"
 dependencies = [
  "anyhow",
  "fs-err",
@@ -2865,9 +2865,9 @@ dependencies = [
 
 [[package]]
 name = "tiger-pkg"
-version = "0.18.8"
+version = "0.18.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68f8790c4262099c7ec53e1732798cfda43839bd731bcf1b87d4e85395ca061a"
+checksum = "236d7ca7020918c4c668e6645595652544ec9564588238dc11fbcdbd4a585041"
 dependencies = [
  "aes-gcm",
  "anyhow",
