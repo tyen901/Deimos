@@ -36,7 +36,7 @@ tiger-parse = { version = "0.4.0", git = "https://github.com/v4nguard/tiger-pars
     "tiger_pkg",
     "check_types_debug",
 ] }
-tiger-pkg = { version = "0.18.8", features = ["global_manager_instance"] }
+tiger-pkg = { version = "0.18.9", features = ["global_manager_instance"] }
 tracing = { version = "0.2.0", git = "https://github.com/cohaereo/tracing-lesspretty.git" }
 
 [dependencies]
@@ -47,7 +47,7 @@ egui-d3d11 = { path = "./crates/egui-d3d11" }
 egui-sdl3-platform = { path = "./crates/egui-sdl3-platform" }
 
 # (De)serialization
-game-detector = { version = "0.1.5" }
+game-detector = { version = "0.1.7" }
 gltf = { package = "gltf-json", version = "1.4.1" }
 serde_json = "1.0.140"
 tiger-parse.workspace = true
