@@ -60,7 +60,7 @@ impl MapTab {
             ui.painter()
                 .rect_filled(rect, 0, Color32::from_rgb(45, 48, 56));
             egui::Image::new(spinner_image().clone())
-                .paint_at(ui, Rect::from_center_size(rect.center(), vec2(64.0, 48.0)));
+                .paint_at(ui, Rect::from_center_size(rect.center(), vec2(64.0, 64.0)));
             ui.painter().text(
                 rect.center() + vec2(0.0, 42.0),
                 egui::Align2::CENTER_TOP,
