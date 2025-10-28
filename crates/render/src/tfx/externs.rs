@@ -529,6 +529,7 @@ pub enum ExternIndex {
     WaterDepthPrepass,
     OverheadVisibilityMapMain,
     OverheadVisibilityMapInterior,
+    OverheadVisibilityMapOcclusion,
     ParticleCompute,
     CubemapFiltering,
     CubemapDiffuseCapture,
@@ -559,6 +560,7 @@ pub enum ExternIndex {
     WaterReflection,
     OcclusionCullingReprojectDepth,
     OcclusionCullingVisibilityTesting,
+    VariableRateShading,
 }
 
 impl TryFrom<u8> for ExternIndex {
