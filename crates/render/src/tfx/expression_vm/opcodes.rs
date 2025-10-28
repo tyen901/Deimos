@@ -7,97 +7,103 @@ use crate::tfx::externs::ExternIndex;
 #[derive(Debug, Copy, Clone, PartialEq, Eq, IntEnum)]
 pub enum Opcode {
     Add = 0x1,
-    Add_ = 0x6,
-    Subtract = 0x2,
-    Multiply = 0x3,
-    Multiply_ = 0x5,
-    UnkDivide = 0x4,
-    IsZero = 0x7,
-    Min = 0x8,
-    Max = 0x9,
-    LessThan = 0xA,
-    Dot = 0xB,
-    Merge1_3 = 0xC,
-    Merge2_2 = 0xD,
-    Merge3_1 = 0xE,
-    Cubic = 0xF,
-    Lerp = 0x10,
-    LerpSaturated = 0x11,
-    MultiplyAdd = 0x12,
-    Clamp = 0x13,
-    Unknown0x14 = 0x14,
-    Abs = 0x15,
-    Signum = 0x16,
-    Floor = 0x17,
-    Ceil = 0x18,
-    Round = 0x19,
-    Frac = 0x1A,
-    Unknown0x1B = 0x1B,
-    Unknown0x1C = 0x1C,
-    Negate = 0x1D,
-    VectorRotationsSin = 0x1E,
-    VectorRotationsCos = 0x1F,
-    VectorRotationsSinCos = 0x20,
-    Splat = 0x21,
-    Permute = 0x22,
-    Saturate = 0x23,
-    Unknown0x24 = 0x24,
-    Unknown0x25 = 0x25,
-    Unknown0x26 = 0x26,
-    Triangle = 0x27,
-    Jitter = 0x28,
-    Wander = 0x29,
-    Rand = 0x2A,
-    RandSmooth = 0x2B,
-    Unknown0x2C = 0x2C,
-    Unknown0x2D = 0x2D,
-    TransformVec4 = 0x2E,
+    Subtract,
+    Multiply,
+    UnkDivide,
+    Multiply_,
+    Add_,
+    IsZero,
+    Min,
+    Max,
+    LessThan,
+    Dot,
+    Merge1_3,
+    Merge2_2,
+    Merge3_1,
 
-    CompareLess = 0x3b,
-    CompareLessEqual = 0x3c,
-    CompareGreater = 0x3d,
-    CompareGreaterEqual = 0x3e,
-    CompareEqual = 0x3f,
-    CompareNotEqual = 0x40,
-    CompareNotZeroTernary = 0x41,
+    Unknown0x0F = 0x0F,
+    Unknown0x10,
+    Unknown0x11,
+    Cubic,
+    Lerp,
+    LerpSaturated,
 
+    MultiplyAdd = 0x15,
+    Clamp,
+    Unknown0x17,
+    Abs,
+    Signum,
+    Floor,
+    Ceil,
+    Round,
+    Frac,
+    Unknown0x1E,
+    Unknown0x1F,
+    Negate,
+    VectorRotationsSin,
+    VectorRotationsCos,
+    VectorRotationsSinCos,
+
+    Splat = 0x28,
+    Permute,
+    Saturate,
+    Unknown0x24,
+    Unknown0x25,
+    Unknown0x26,
+    Triangle,
+    Jitter,
+    Wander,
+    Rand,
+    RandSmooth,
+    Unknown0x2C,
+    Unknown0x2D,
+    TransformVec4,
+
+    // CompareLess = ???,
+    // CompareLessEqual = ???,
+    // CompareGreater = ???,
+    // CompareGreaterEqual = ???,
+    // CompareEqual = ???,
+    // CompareNotEqual = ???,
+    // CompareNotZeroTernary = ???,
     PushConstVec4 = 0x42,
-    LerpConstant = 0x43,
-    LerpConstantSaturated = 0x44,
-    Spline4Const = 0x45,
-    Spline8Const = 0x46,
-    Spline8ChainConst = 0x47,
-    Gradient4Const = 0x48,
-    Unk3b = 0x49,
-    PushExternInputFloat = 0x4a,
-    PushExternInputVec4 = 0x4b,
-    PushExternInputMat4 = 0x4c,
-    PushExternInputTextureView = 0x4d,
-    PushExternInputU32 = 0x4e,
-    PushExternInputUav = 0x4f,
-    Unk42 = 0x50,
-    PushFromOutput = 0x51,
-    PopOutput = 0x52,
-    PopOutputMat4 = 0x53,
-    PushTemp = 0x54,
-    PopTemp = 0x55,
-    PopTextureView = 0x56,
-    Unk49 = 0x57,
-    PopSamplerState = 0x58,
-    PopUav = 0x59,
-    Unk4c = 0x5a,
-    PushSamplerState = 0x5b,
-    PushObjectChannelVector = 0x5c,
-    PushGlobalChannelVector = 0x5d,
-    Unk50 = 0x5e,
-    Unk51 = 0x5f,
-    PushTexDimensions = 0x60,
-    PushTexTilingParams = 0x61,
-    PushTexTileLayerCount = 0x62,
-    Unk55 = 0x63,
-    Unk56 = 0x64,
-    Unk57 = 0x65,
-    Unk58 = 0x66,
+    LerpConstant,
+    LerpConstantSaturated,
+    Spline4Const,
+    Spline8Const,
+    Spline8ChainConst,
+    Gradient4Const,
+    Unk3b,
+    PushExternInputFloat,
+    PushExternInputVec4,
+    PushExternInputMat4,
+    PushExternInputTextureView,
+    PushExternInputU32,
+    PushExternInputUav,
+    Unk42,
+    PushFromOutput,
+    PopOutput,
+    PopOutputMat4,
+    PushTemp,
+    PopTemp,
+    PopTextureView,
+    Unk49,
+    PopSamplerState,
+    PopUav,
+    Unk4c,
+    PushSamplerState,
+    PushObjectChannelVector,
+    PushGlobalChannelVector,
+    Unk50,
+    Unk51,
+    PushTexDimensions,
+    PushTexTilingParams,
+    PushTexTileLayerCount,
+    Unk55,
+    Unk56,
+    Unk57,
+    Unk58,
+    Unk59,
 
     // Extended instruction set (only used internally by the interpreter)
     ExtReturn = 0x80,
@@ -125,20 +131,24 @@ impl Opcode {
             | Opcode::Merge1_3
             | Opcode::Merge2_2
             | Opcode::Merge3_1
+
+            | Opcode::Unknown0x0F
+            | Opcode::Unknown0x10
+            | Opcode::Unknown0x11
             | Opcode::Cubic
             | Opcode::Lerp
             | Opcode::LerpSaturated
             | Opcode::MultiplyAdd
             | Opcode::Clamp
-            | Opcode::Unknown0x14
+            | Opcode::Unknown0x17
             | Opcode::Abs
             | Opcode::Signum
             | Opcode::Floor
             | Opcode::Ceil
             | Opcode::Round
             | Opcode::Frac
-            | Opcode::Unknown0x1B
-            | Opcode::Unknown0x1C
+            | Opcode::Unknown0x1E
+            | Opcode::Unknown0x1F
             | Opcode::Negate
             | Opcode::VectorRotationsSin
             | Opcode::VectorRotationsCos
@@ -156,13 +166,14 @@ impl Opcode {
             | Opcode::Unknown0x24
             | Opcode::Unknown0x2C
             | Opcode::Unknown0x2D
-            | Opcode::CompareLess
-            | Opcode::CompareLessEqual
-            | Opcode::CompareGreater
-            | Opcode::CompareGreaterEqual
-            | Opcode::CompareEqual
-            | Opcode::CompareNotEqual
-            | Opcode::CompareNotZeroTernary => 1,
+            // | Opcode::CompareLess
+            // | Opcode::CompareLessEqual
+            // | Opcode::CompareGreater
+            // | Opcode::CompareGreaterEqual
+            // | Opcode::CompareEqual
+            // | Opcode::CompareNotEqual
+            // | Opcode::CompareNotZeroTernary
+            => 1,
 
             Opcode::PopOutput
             | Opcode::PushTemp
@@ -203,7 +214,8 @@ impl Opcode {
             | Opcode::Unk55
             | Opcode::Unk56
             | Opcode::Unk57
-            | Opcode::Unk58 => 1,
+            | Opcode::Unk58
+            | Opcode::Unk59 => 1,
 
             Opcode::Unk3b | Opcode::Unk49 | Opcode::Unk4c | Opcode::Unk50 => 2,
         }
