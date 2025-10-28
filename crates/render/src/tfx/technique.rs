@@ -1,7 +1,4 @@
-use std::{
-    ops::Deref,
-    sync::{atomic::AtomicUsize, Arc},
-};
+use std::{ops::Deref, sync::Arc};
 
 use anyhow::{ensure, Context};
 use d3d11::DeviceChild;

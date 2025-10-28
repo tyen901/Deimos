@@ -1,7 +1,8 @@
 use anyhow::{ensure, Context};
+use deimos_data::tfx::ExternIndex;
 use glam::Vec4;
 
-use crate::tfx::externs::{ExternIndex, Externs};
+use crate::tfx::externs::Externs;
 
 use super::opcodes::Opcode;
 

@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt::Debug};
 
 use d3d11::dxgi;
+use deimos_data::tfx::ExternIndex;
 use glam::{Mat3, Mat4, Vec3, Vec4, Vec4Swizzles};
 use parking_lot::RwLock;
 
@@ -441,137 +442,6 @@ impl View {
 
     pub fn position(&self) -> Vec3 {
         self.position.xyz()
-    }
-}
-
-#[repr(u8)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum ExternIndex {
-    None,
-    Frame,
-    View,
-    Deferred,
-    DeferredLight,
-    DeferredUberLight,
-    DeferredShadow,
-    Atmosphere,
-    RigidModel,
-    EditorMesh,
-    EditorMeshMaterial,
-    EditorDecal,
-    EditorTerrain,
-    EditorTerrainPatch,
-    EditorTerrainDebug,
-    SimpleGeometry,
-    UiFont,
-    CuiView,
-    CuiObject,
-    CuiBitmap,
-    CuiVideo,
-    CuiStandard,
-    CuiHud,
-    CuiScreenspaceBoxes,
-    CuiDrawingShader,
-    TextureVisualizer,
-    Generic,
-    Particle,
-    ParticleDebug,
-    GearDyeVisualizationMode,
-    ScreenArea,
-    Mlaa,
-    Msaa,
-    Hdao,
-    DownsampleTextureGeneric,
-    DownsampleDepth,
-    Ssao,
-    VolumetricObscurance,
-    Postprocess,
-    TextureSet,
-    Transparent,
-    Vignette,
-    GlobalLighting,
-    ShadowMask,
-    ObjectEffect,
-    Decal,
-    DecalSetTransform,
-    DynamicDecal,
-    DecoratorWind,
-    TextureCameraLighting,
-    VolumeFog,
-    Fxaa,
-    Smaa,
-    Cmaa,
-    Letterbox,
-    DepthOfField,
-    PostprocessInitialDownsample,
-    CopyDepth,
-    DisplacementMotionBlur,
-    DebugShader,
-    MinmaxDepth,
-    SdsmBiasAndScale,
-    SdsmBiasAndScaleTextures,
-    ComputeShadowMapData,
-    ComputeLocalLightShadowMapData,
-    BilateralUpsample,
-    HealthOverlay,
-    LightProbeDominantLight,
-    LightProbeLightInstance,
-    Water,
-    LensFlare,
-    ScreenShader,
-    Scaler,
-    GammaControl,
-    SpeedtreePlacements,
-    Reticle,
-    Distortion,
-    WaterDebug,
-    ScreenAreaInput,
-    WaterDepthPrepass,
-    OverheadVisibilityMapMain,
-    OverheadVisibilityMapInterior,
-    OverheadVisibilityMapOcclusion,
-    ParticleCompute,
-    CubemapFiltering,
-    CubemapDiffuseCapture,
-    ParticleFastpath,
-    VolumetricsPass,
-    TemporalReprojection,
-    FxaaCompute,
-    UberDepth,
-    GearDye,
-    Cubemaps,
-    ShadowBlendWithPrevious,
-    DebugShadingOutput,
-    Ssao3D,
-    WaterDisplacement,
-    PatternBlending,
-    UiHdrTransform,
-    PlayerCenteredCascadedGrid,
-    SoftDeform,
-    RaymarchedAtmosphereVolume,
-    Gtao,
-    Taa,
-    FirstPersonShadows,
-    SkinningCompute,
-    Ssr,
-    StylizedDropShadow,
-    SsrTrace,
-    TextureCameraDownsample,
-    WaterReflection,
-    OcclusionCullingReprojectDepth,
-    OcclusionCullingVisibilityTesting,
-    VariableRateShading,
-}
-
-impl TryFrom<u8> for ExternIndex {
-    type Error = ();
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        if value <= ExternIndex::UiHdrTransform as u8 {
-            Ok(unsafe { std::mem::transmute::<u8, ExternIndex>(value) })
-        } else {
-            Err(())
-        }
     }
 }
 

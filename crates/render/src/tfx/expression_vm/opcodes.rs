@@ -1,7 +1,6 @@
 use anyhow::Context;
+use deimos_data::tfx::ExternIndex;
 use int_enum::IntEnum;
-
-use crate::tfx::externs::ExternIndex;
 
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, IntEnum)]
@@ -66,6 +65,11 @@ pub enum Opcode {
     // CompareEqual = ???,
     // CompareNotEqual = ???,
     // CompareNotZeroTernary = ???,
+    Unknown0x3B = 0x3B,
+    Unknown0x3D = 0x3D,
+    Unknown0x3F = 0x3F,
+    Unknown0x41 = 0x41,
+
     PushConstVec4 = 0x42,
     LerpConstant,
     LerpConstantSaturated,
@@ -73,37 +77,38 @@ pub enum Opcode {
     Spline8Const,
     Spline8ChainConst,
     Gradient4Const,
-    Unk3b,
+    Unk49,
     PushExternInputFloat,
     PushExternInputVec4,
     PushExternInputMat4,
     PushExternInputTextureView,
     PushExternInputU32,
     PushExternInputUav,
-    Unk42,
+    Unk50,
     PushFromOutput,
     PopOutput,
     PopOutputMat4,
     PushTemp,
     PopTemp,
     PopTextureView,
-    Unk49,
+    Unk57,
     PopSamplerState,
     PopUav,
-    Unk4c,
+    Unk5a,
     PushSamplerState,
     PushObjectChannelVector,
     PushGlobalChannelVector,
-    Unk50,
-    Unk51,
+    Unk5e,
+    Unk5f,
+    // TODO(cohae): These need to be rechecked
     PushTexDimensions,
     PushTexTilingParams,
     PushTexTileLayerCount,
-    Unk55,
-    Unk56,
-    Unk57,
-    Unk58,
-    Unk59,
+    Unk63,
+    Unk64,
+    Unk65,
+    Unk66,
+    Unk67,
 
     // Extended instruction set (only used internally by the interpreter)
     ExtReturn = 0x80,
@@ -173,6 +178,10 @@ impl Opcode {
             // | Opcode::CompareEqual
             // | Opcode::CompareNotEqual
             // | Opcode::CompareNotZeroTernary
+            | Opcode::Unknown0x3B
+            | Opcode::Unknown0x3D
+            | Opcode::Unknown0x3F
+            | Opcode::Unknown0x41
             => 1,
 
             Opcode::PopOutput
@@ -190,34 +199,35 @@ impl Opcode {
             | Opcode::Permute
             | Opcode::PopUav
             | Opcode::PushTexDimensions
-            | Opcode::PushTexTilingParams
             | Opcode::LerpConstantSaturated
             | Opcode::Spline4Const
             | Opcode::Spline8ChainConst
-            | Opcode::Gradient4Const
-            | Opcode::PushTexTileLayerCount => 2,
+            | Opcode::Gradient4Const => 2,
 
             Opcode::PushExternInputFloat
             | Opcode::PushExternInputVec4
             | Opcode::PushExternInputMat4
             | Opcode::PushExternInputTextureView
             | Opcode::PushExternInputU32
-            | Opcode::PushExternInputUav => 3,
+            | Opcode::PushExternInputUav
+            | Opcode::PushTexTilingParams
+            | Opcode::PushTexTileLayerCount
+            | Opcode::Unk63
+            => 3,
 
             Opcode::PushObjectChannelVector => 5,
 
             Opcode::ExtReturn => 1,
 
             // Unknowns
-            Opcode::Unk42
-            | Opcode::Unk51
-            | Opcode::Unk55
-            | Opcode::Unk56
-            | Opcode::Unk57
-            | Opcode::Unk58
-            | Opcode::Unk59 => 1,
+            Opcode::Unk50
+            | Opcode::Unk5f
+            | Opcode::Unk64
+            | Opcode::Unk65
+            | Opcode::Unk66
+            | Opcode::Unk67 => 1,
 
-            Opcode::Unk3b | Opcode::Unk49 | Opcode::Unk4c | Opcode::Unk50 => 2,
+            Opcode::Unk49 | Opcode::Unk57 | Opcode::Unk5a | Opcode::Unk5e => 2,
         }
     }
 }
@@ -234,7 +244,7 @@ impl<'a> OpcodeIterator<'a> {
 }
 
 impl<'a> Iterator for OpcodeIterator<'a> {
-    type Item = anyhow::Result<Opcode>;
+    type Item = anyhow::Result<(Opcode, &'a [u8])>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.position >= self.data.len() {
@@ -247,10 +257,17 @@ impl<'a> Iterator for OpcodeIterator<'a> {
             Err(_) => return Some(Err(anyhow::anyhow!("Unknown opcode: {:02X}", byte))),
         };
 
+        let args_start = self.position + 1;
+        let args_end = self.position + opcode.size();
         let size = opcode.size();
         self.position += size;
+        let arg_data = if args_end <= self.data.len() {
+            &self.data[args_start..args_end]
+        } else {
+            &self.data[args_start..]
+        };
 
-        Some(Ok(opcode))
+        Some(Ok((opcode, arg_data)))
     }
 }
 
@@ -275,7 +292,6 @@ pub fn disassemble(data: &[u8]) -> anyhow::Result<Vec<String>> {
                 data.get(i + j).context("Opcode size invalid")?
             ));
         }
-        // println!("{line}");
         result.push(line);
         i += opcode_size;
     }
@@ -319,7 +335,7 @@ pub fn get_texture_externs_from_bytecode(
 }
 
 // FooBar -> foo_bar
-fn pascal_to_snake(v: &str) -> String {
+pub fn pascal_to_snake(v: &str) -> String {
     let mut result = String::new();
     for (i, c) in v.chars().enumerate() {
         if i > 0 && c.is_uppercase() {
