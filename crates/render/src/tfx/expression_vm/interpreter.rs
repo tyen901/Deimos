@@ -6,6 +6,7 @@ use d3d11::SamplerState;
 use deimos_data::tfx::{ExternIndex, ShaderStage};
 use glam::{Mat4, Vec4, Vec4Swizzles};
 
+use crate::tfx::externs::{ExternAccessorExt, TextureView, Uav};
 use crate::{gpu::command_list::CommandList, Renderer};
 
 use super::opcodes::Opcode;
@@ -393,7 +394,13 @@ impl<'a> InterpreterState<'a> {
 
                     let srv = Renderer::instance()
                         .externs
-                        .get_texture_srv(index, offset as usize);
+                        .get_extern_value::<TextureView>(index, offset as usize)
+                        .and_then(|o| o.get_srv())
+                        .unwrap_or_else(|| {
+                            Renderer::instance()
+                                .get_extern_placeholder_texture(index, offset as usize)
+                                .0
+                        });
                     cmd.set_shader_resource(shader_stage, slot as usize, srv);
                 }
                 Opcode::PopSamplerState => {
@@ -420,7 +427,15 @@ impl<'a> InterpreterState<'a> {
                         .context("Invalid extern index on pop texture view")?;
                     let offset = bits & 0xFFFFFF;
 
-                    let uav = Renderer::instance().externs.get_uav(index, offset as usize);
+                    let uav = Renderer::instance()
+                        .externs
+                        .get_extern_value::<Uav>(index, offset as usize)
+                        .and_then(|o| o.get_uav())
+                        .unwrap_or_else(|| {
+                            Renderer::instance()
+                                .get_extern_placeholder_texture(index, offset as usize)
+                                .1
+                        });
                     cmd.compute_set_unordered_access_views(slot as u32, &[Some(uav)], None);
                 }
                 Opcode::PushSamplerState => {
@@ -434,7 +449,7 @@ impl<'a> InterpreterState<'a> {
                         .ok()
                         .context("Invalid extern index")?;
                     let offset = ptr[2];
-                    let val = *Renderer::instance()
+                    let val = Renderer::instance()
                         .externs
                         .get_extern_value::<f32>(extern_id, offset as usize * 4)
                         .with_context(|| {
@@ -453,7 +468,7 @@ impl<'a> InterpreterState<'a> {
                         .context("Invalid extern index")?;
                     let offset = ptr[2];
 
-                    let val = *Renderer::instance()
+                    let val = Renderer::instance()
                         .externs
                         .get_extern_value::<Vec4>(extern_id, offset as usize * 16)
                         .with_context(|| {

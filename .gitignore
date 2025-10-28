@@ -11,6 +11,8 @@ target/
 *.dll
 *.lib
 *.exp
+*.so
+*.elf
 
 # IDA 64 database
 *.i64

@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Context;
 use deimos_data::tfx::render_globals::{
-    SRenderGlobalLookupTextures, SRenderGlobals, SRenderGlobalsData,
+    SRenderGlobalLookupTextures, SRenderGlobals, SRenderGlobalsData, SRenderGlobalsGlobalChannels,
 };
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::{package_manager, TagHash};
@@ -18,6 +18,7 @@ pub struct RenderGlobals {
     pub pipelines: GlobalPipelines,
 
     pub textures: GlobalTextures,
+    pub channels: SRenderGlobalsGlobalChannels,
     // pub unk34: SUnk8080822d,
 }
 
@@ -30,6 +31,7 @@ impl RenderGlobals {
             scopes: GlobalScopes::load(gpu, globs),
             pipelines: GlobalPipelines::load(gpu, globs),
             textures: GlobalTextures::load(gpu, &globs.unk30)?,
+            channels: globs.global_channels.0.clone(),
             // unk34: globs.unk34.0.clone(),
         })
     }

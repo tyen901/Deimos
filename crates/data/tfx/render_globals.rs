@@ -1,3 +1,4 @@
+use glam::Vec4;
 use tiger_parse::{tiger_tag, NullString, Pointer};
 use tiger_pkg::TagHash;
 
@@ -27,7 +28,7 @@ pub struct SRenderGlobalsData {
     pub pipelines: Vec<SRenderGlobalPipelines>,
     /// Lookup textures
     pub unk30: Tag<SRenderGlobalLookupTextures>,
-    pub unk34: TagHash,
+    pub global_channels: Tag<SRenderGlobalsGlobalChannels>,
     pub unk38: TagHash,
 }
 
@@ -56,6 +57,16 @@ pub struct SRenderGlobalPipelines {
     pub name: Pointer<NullString>,
     pub unk8: u32,
     pub technique: TagHash,
+}
+
+#[derive(Debug, Clone)]
+#[tiger_tag(id = 0x8080A014)]
+// cohae: I love this name
+pub struct SRenderGlobalsGlobalChannels {
+    pub file_size: u64,
+    pub channel_ids: Vec<u32>,
+    pub default_values: Vec<Vec4>,
+    pub unk28: Vec<()>,
 }
 
 #[tiger_tag(id = 0x80808661, size = 0x2c)]
