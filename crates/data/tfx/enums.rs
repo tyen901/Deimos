@@ -10,33 +10,34 @@ use super::features::dynamic::RenderStageSubscription;
 #[derive(Clone, Copy, Debug, PartialEq, IntEnum)]
 pub enum RenderStage {
     GenerateGbuffer = 0,
-    Decals = 1,
-    InvestmentDecals = 2,
-    ShadowGenerate = 3,
-    LightingApply = 4,
-    LightProbeApply = 5,
-    DecalsAdditive = 6,
-    Transparents = 7,
-    Distortion = 8,
-    LightShaftOcclusion = 9,
-    SkinPrepass = 10,
-    LensFlares = 11,
-    DepthPrepass = 12,
-    WaterReflection = 13,
-    PostprocessTransparentStencil = 14,
-    Impulse = 15,
-    Reticle = 16,
-    WaterRipples = 17,
-    MaskSunLight = 18,
-    Volumetrics = 19,
-    Cubemaps = 20,
-    PostprocessScreen = 21,
-    WorldForces = 22,
-    ComputeSkinning = 23,
+    RoadDecals,
+    Decals,
+    InvestmentDecals,
+    ShadowGenerate,
+    LightingApply,
+    LightProbeApply,
+    DecalsAdditive,
+    Transparents,
+    Distortion,
+    LightShaftOcclusion,
+    SkinPrepass,
+    LensFlares,
+    DepthPrepass,
+    WaterReflection,
+    PostprocessTransparentStencil,
+    Impulse,
+    Reticle,
+    WaterRipples,
+    MaskSunLight,
+    Volumetrics,
+    Cubemaps,
+    PostprocessScreen,
+    WorldForces,
+    ComputeSkinning,
 }
 
 impl RenderStage {
-    pub const COUNT: usize = Self::ComputeSkinning as usize + 2; // TODO(cohae): Fix after adding new stage(s)
+    pub const COUNT: usize = Self::ComputeSkinning as usize + 1;
 
     pub fn to_flag(&self) -> RenderStageSubscription {
         RenderStageSubscription::from_bits(1 << *self as u32).unwrap()
@@ -47,6 +48,7 @@ impl Display for RenderStage {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let n = match self {
             Self::GenerateGbuffer => "generate_gbuffer",
+            Self::RoadDecals => "road_decals",
             Self::Decals => "decals",
             Self::InvestmentDecals => "investment_decals",
             Self::ShadowGenerate => "shadow_generate",
