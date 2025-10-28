@@ -182,7 +182,7 @@ impl Renderer {
         ext.view
             .update(view.world_to_camera, view.camera_to_projective, fb_res);
 
-        ext.frame = externs::Frame {
+        *ext.frame = externs::Frame {
             game_time: render_time, //self.start_time.elapsed().as_secs_f32();
             render_time,            //self.start_time.elapsed().as_secs_f32();
             delta_game_time: delta_time,
@@ -190,11 +190,12 @@ impl Renderer {
             // exposure_scale: 7.71489,
             exposure_scale: 1.0,
             exposure_illum_relative: 0.25438,
-            ..ext.frame.clone()
+            ..*ext.frame.clone()
         };
 
-        let irr_lookup = &self.globals.textures.iridescence_lookup;
-        ext.frame.iridescence_lookup = irr_lookup.view.clone().into();
+        // TODO(cohae): Reconfirm the offset of iridescence lookup
+        // let irr_lookup = &self.globals.textures.iridescence_lookup;
+        // ext.frame.iridescence_lookup = irr_lookup.view.clone().into();
 
         // let near = Camera::NEAR;
         // let far = Camera::FAR;

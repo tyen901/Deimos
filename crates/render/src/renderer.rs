@@ -5,6 +5,7 @@ pub mod surface;
 pub mod util;
 
 use std::{
+    collections::HashMap,
     sync::{Arc, OnceLock},
     time::Instant,
 };
@@ -13,14 +14,17 @@ use anyhow::Context;
 use crossbeam::atomic::AtomicCell;
 use d3d11::dxgi;
 use deimos_core::ConVars;
-use deimos_data::tfx::FeatureRendererSubscription;
+use deimos_data::tfx::{texture::DxgiFormat, ExternIndex, FeatureRendererSubscription};
 use globals::RenderGlobals;
 use parking_lot::{Mutex, RwLock, RwLockReadGuard};
 use surface::Surfaces;
 use util::num_processors;
 
 use crate::{
-    asset::{texture::Texture, AssetManager},
+    asset::{
+        texture::{Texture, TextureHandle},
+        AssetManager,
+    },
     feature::immediate::ImmediateShapeRenderer,
     gpu::{cbuffer::ConstantBuffer, debug_text::DebugTextRenderer},
     object::{RenderObject, RenderObjectHandle},
@@ -58,6 +62,8 @@ pub struct Renderer {
     start_time: Instant,
     pub(crate) common: CommonResources,
     active_feature_renderers: AtomicCell<FeatureRendererSubscription>,
+    placeholder_textures:
+        RwLock<HashMap<(ExternIndex, u32), (Texture, d3d11::UnorderedAccessView)>>,
 }
 
 unsafe impl Send for Renderer {}
@@ -99,15 +105,16 @@ impl Renderer {
         let (clear_ao_vs, clear_ao_ps) =
             gpu.compile_shader_vs_ps("clear_ao", CLEAR_AO_SHADER, "mainVS", "mainPS")?;
 
+        let globals = RenderGlobals::load(&gpu).context("Failed to load render globals")?;
         Ok(Self {
-            globals: RenderGlobals::load(&gpu).context("Failed to load render globals")?,
+            externs: ThreadMutCell::new(Externs::new(&globals)),
+            globals,
             // timestamps: TimestampManager::new(&gpu.device)?,
             asset_manager: AssetManager::new(&gpu),
             debug_text: Mutex::new(DebugTextRenderer::create(&gpu)?),
             immediate: Mutex::new(
                 ImmediateShapeRenderer::new(&gpu).context("Failed to create immediate renderer")?,
             ),
-            externs: ThreadMutCell::new(Externs::default()),
             objects: RwLock::new(Arena::new()),
             frame_packet: RwLock::new(FramePacket::default()),
             // ao: RwLock::new(None),
@@ -126,6 +133,7 @@ impl Renderer {
             gpu,
             start_time: Instant::now(),
             active_feature_renderers: AtomicCell::new(FeatureRendererSubscription::all()),
+            placeholder_textures: RwLock::new(HashMap::new()),
         })
     }
 
@@ -171,6 +179,51 @@ impl Renderer {
 
     pub fn resize_swapchain(&self, resolution: (u32, u32)) {
         self.gpu.resize_swapchain(resolution);
+    }
+
+    pub fn get_extern_placeholder_texture(
+        &self,
+        index: ExternIndex,
+        offset: usize,
+    ) -> (d3d11::ShaderResourceView, d3d11::UnorderedAccessView) {
+        let mut placeholder_textures = self.placeholder_textures.write();
+
+        let (texture, uav) = placeholder_textures
+            .entry((index, offset as u32))
+            .or_insert_with(|| {
+                let gpu = &Renderer::instance().gpu;
+                let data = match (index, offset) {
+                    (ExternIndex::Atmosphere, _) => bytemuck::cast_slice(&[[0u8, 0, 0, 0]; 4]),
+                    (ExternIndex::Transparent, 0) => bytemuck::cast_slice(&[[0u8, 0, 0, 0]; 4]),
+                    (ExternIndex::Water, 0x28) => bytemuck::cast_slice(&[[127u8, 127, 0, 0]; 4]), // RG16_UNORM
+                    // VolumetricsPass inputs are generally the results of the last pass, alpha is *ALWAYS* cleared to zero
+                    (ExternIndex::VolumetricsPass, _) => bytemuck::cast_slice(&[[0u8, 0, 0, 0]; 4]),
+                    _ => bytemuck::cast_slice(&[[0u8, 0, 0, 255]; 4]),
+                };
+                assert_eq!(data.len(), (2 * 2) * 4);
+
+                let texture = Texture::load_2d_raw(
+                    gpu,
+                    2,
+                    2,
+                    data,
+                    DxgiFormat::from(dxgi::Format::R8g8b8a8Unorm),
+                    Some(&format!("unknown extern {index:?}+0x{offset:X}")),
+                    true,
+                )
+                .unwrap();
+
+                let TextureHandle::Texture2D(tex) = &texture.handle else {
+                    unreachable!()
+                };
+                let uav = gpu
+                    .create_unordered_access_view(tex, None)
+                    .expect("Failed to create uav for placeholder texture");
+
+                (texture, uav)
+            });
+
+        (texture.view.clone(), uav.clone())
     }
 }
 
