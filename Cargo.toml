@@ -2,6 +2,7 @@
 name = "deimos"
 version = "0.0.0"
 edition = "2021"
+default-run = "deimos"
 
 [[bin]]
 name = "deimos"

@@ -20,9 +20,7 @@ use d3d11::sys::{
         DXGI_QUERY_VIDEO_MEMORY_INFO,
     },
 };
-use d3d11::HWND;
 use parking_lot::{Mutex, ReentrantMutex, ReentrantMutexGuard};
-use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use swapchain::Swapchain;
 
 use crate::asset::texture::Texture;
@@ -54,9 +52,13 @@ impl Gpu {
             .context("Couldn't find a compatible adapter")?;
 
         #[cfg(target_os = "windows")]
-        let output_window = match window.window_handle().unwrap().as_raw() {
-            RawWindowHandle::Win32(h) => HWND(h.hwnd.get() as *mut _),
-            u => panic!("Can't open window for {u:?}"),
+        let output_window = {
+            use d3d11::HWND;
+            use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+            match window.window_handle().unwrap().as_raw() {
+                RawWindowHandle::Win32(h) => HWND(h.hwnd.get() as *mut _),
+                u => panic!("Can't open window for {u:?}"),
+            }
         };
 
         #[cfg(not(target_os = "windows"))]
@@ -124,7 +126,7 @@ impl Gpu {
     }
 
     #[inline(always)]
-    pub fn context(&self) -> ReentrantMutexGuard<d3d11::DeviceContext> {
+    pub fn context(&'_ self) -> ReentrantMutexGuard<'_, d3d11::DeviceContext> {
         self.context.lock()
     }
 
@@ -199,14 +201,14 @@ impl Gpu {
         entry_vs: &str,
         entry_ps: &str,
     ) -> anyhow::Result<(d3d11::VertexShader, d3d11::PixelShader)> {
-        let vs_source = d3d11::fxc_compile(
+        let vs_source = d3d11::fxc::compile(
             source.as_bytes(),
             Some(name),
             &[],
             entry_vs,
             d3d11::fxc::ShaderTarget::Vertex,
         )?;
-        let ps_source = d3d11::fxc_compile(
+        let ps_source = d3d11::fxc::compile(
             source.as_bytes(),
             Some(name),
             &[],

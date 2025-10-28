@@ -65,7 +65,7 @@ unsafe impl Sync for Renderer {}
 
 static RENDERER_GLOBAL: OnceLock<Arc<Renderer>> = OnceLock::new();
 impl Renderer {
-    pub fn new(gpu: Arc<Gpu>, swapchain_resolution: (u32, u32)) -> anyhow::Result<Self> {
+    pub fn new(gpu: Arc<Gpu>) -> anyhow::Result<Self> {
         ConVars::register("render.sky", true);
         ConVars::register("render.global_lighting", false);
         ConVars::register("render.threaded_submit", true);

@@ -3,10 +3,10 @@ use std::arch::x86_64::{__m128, _mm_fmadd_ps};
 
 use anyhow::{ensure, Context};
 use d3d11::SamplerState;
-use deimos_data::tfx::ShaderStage;
+use deimos_data::tfx::{ExternIndex, ShaderStage};
 use glam::{Mat4, Vec4, Vec4Swizzles};
 
-use crate::{gpu::command_list::CommandList, tfx::externs::ExternIndex, Renderer};
+use crate::{gpu::command_list::CommandList, Renderer};
 
 use super::opcodes::Opcode;
 
@@ -550,7 +550,7 @@ impl<'a> InterpreterState<'a> {
 
                 //     cached_top = self.push(val)?;
                 // }
-                Opcode::Unk50 | Opcode::PushGlobalChannelVector => {
+                Opcode::Unk5e | Opcode::PushGlobalChannelVector => {
                     let channel = ptr[1];
                     // Direct indexing is safe here, as globals is 256 elements long
                     let val = Renderer::instance().externs.globals[channel as usize];

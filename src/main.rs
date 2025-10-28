@@ -4,6 +4,7 @@ use anyhow::Context;
 use app::App;
 use clap::Parser;
 use cli::AppArgs;
+use deimos_core::MARATHON_APP_ID;
 use itertools::Itertools;
 use tiger_pkg::PackageManager;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
@@ -26,8 +27,6 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 // #[global_allocator]
 // static GLOBAL: tracy_client::ProfiledAllocator<std::alloc::System> =
 //     tracy_client::ProfiledAllocator::new(std::alloc::System, 100);
-
-const MARATHON_APP_ID: u64 = 3547690;
 
 fn main() -> anyhow::Result<()> {
     #[cfg(feature = "dhat-heap")]
