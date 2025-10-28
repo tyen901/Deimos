@@ -10,12 +10,7 @@ use tiger_parse::PackageManagerExt;
 use tiger_pkg::{package_manager, TagHash};
 
 use crate::{
-    gpu::command_list::CommandList,
-    tfx::expression_vm::{
-        interpreter::TempObjectChannels,
-        opcodes::{Opcode, OpcodeIterator},
-    },
-    Gpu,
+    gpu::command_list::CommandList, tfx::expression_vm::interpreter::TempObjectChannels, Gpu,
 };
 
 use super::dynamic_constants::DynamicConstants;

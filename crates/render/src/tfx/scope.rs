@@ -76,6 +76,7 @@ impl Scope {
         })
     }
 
+    #[tracing::instrument(skip(self, cmd), fields(scope = %self.scope.name.0))]
     pub fn bind(&self, cmd: &mut CommandList) -> anyhow::Result<()> {
         // let _s = info_span!("Bind scope", scope = %self.scope.name.0).entered();
         if let Some(stage) = &self.stage_vertex {
