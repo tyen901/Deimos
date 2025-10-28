@@ -107,6 +107,7 @@ impl StaticModel {
 }
 
 pub struct StaticInstancesRenderer {
+    unk_cb1: ConstantBuffer<Vec4>,
     instance_buffer: ConstantBuffer<u8>,
     instance_id_buffer: VertexBuffer,
     model: StaticModel,
@@ -149,6 +150,7 @@ impl StaticInstancesRenderer {
 
         trace!(instances = transforms.len(), model_hash=%model_hash, "Loading model");
         Ok(Self {
+            unk_cb1: ConstantBuffer::create(gpu, Some(&Vec4::ZERO))?, // Offsets instance buffer data
             instance_buffer: cbuffer,
             instance_id_buffer,
             model: StaticModel::load(model_hash)?,
@@ -162,6 +164,7 @@ impl StaticInstancesRenderer {
 
     #[profiling::function]
     pub fn render(&self, cmd: &mut CommandList, stage: RenderStage) {
+        self.unk_cb1.bind(cmd, ShaderStage::Vertex, 1);
         self.instance_buffer.bind(cmd, ShaderStage::Vertex, 2);
         self.instance_id_buffer.bind_single(cmd, 2);
 
