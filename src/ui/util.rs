@@ -45,6 +45,8 @@ pub fn spinner_image() -> &'static ImageSource<'static> {
     const IMG0: ImageSource = include_image!("../../assets/ui/load0.png");
     const IMG1: ImageSource = include_image!("../../assets/ui/load1.png");
     const IMG2: ImageSource = include_image!("../../assets/ui/load2.png");
+    const IMG3: ImageSource = include_image!("../../assets/ui/load3.png");
+    const IMG4: ImageSource = include_image!("../../assets/ui/load4.png");
 
-    &[IMG0, IMG1, IMG2, IMG1][(time * 4.0) as usize % 4]
+    &[IMG0, IMG0, IMG1, IMG2, IMG3, IMG4, IMG4, IMG3, IMG2, IMG1][(time * 5.0) as usize % 10]
 }
