@@ -4,7 +4,7 @@ fn main() {
         .manifest_required()
         .expect("Failed to compile resource file");
 
-    if cfg!(target_os = "windows") {
+    if std::env::var("CARGO_CFG_TARGET_OS").unwrap() == "windows" {
         // Include lib folder in the search path
         println!("cargo:rustc-link-search=lib");
 
