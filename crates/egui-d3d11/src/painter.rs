@@ -208,7 +208,7 @@ impl D3D11Renderer {
             .width(screen.0 as f32)
             .height(screen.1 as f32)
             .build()]);
-        cmd.output_merger_set_render_targets(&[self.render_view.clone()], None);
+        cmd.output_merger_set_render_targets(&[self.render_view.as_ref()], None);
         #[allow(deprecated)]
         cmd.input_assembler_set_input_layout(&self.input_layout);
         #[allow(deprecated)]
@@ -229,12 +229,12 @@ impl D3D11Renderer {
 
             if let Some((texture, texture_filter)) = &texture {
                 self.set_sampler_state(cmd, texture_filter.unwrap_or(egui::TextureFilter::Linear))?;
-                cmd.pixel_set_shader_resources(0, &[Some(texture.clone())]);
+                cmd.pixel_set_shader_resources(0, &[Some(texture)]);
             }
 
             cmd.input_assembler_set_vertex_buffers(
                 0,
-                &[Some(vtx)],
+                &[Some(&vtx)],
                 Some(&[size_of::<GpuVertex>() as _]),
                 Some(&[0]),
             )?;
@@ -288,13 +288,10 @@ impl D3D11Renderer {
     ) -> Result<(), RenderError> {
         ctx.pixel_set_samplers(
             0,
-            &[Some(
-                match filter {
-                    egui::TextureFilter::Nearest => &self.samplers[0],
-                    egui::TextureFilter::Linear => &self.samplers[1],
-                }
-                .clone(),
-            )],
+            &[Some(match filter {
+                egui::TextureFilter::Nearest => &self.samplers[0],
+                egui::TextureFilter::Linear => &self.samplers[1],
+            })],
         );
         Ok(())
     }

@@ -492,7 +492,7 @@ impl Texture {
     // }
 
     pub fn bind(&self, cmd: &mut CommandList, slot: u32, stage: ShaderStage) {
-        cmd.set_shader_resource(stage, slot as usize, self.view.clone());
+        cmd.set_shader_resource(stage, slot, &self.view);
     }
 }
 

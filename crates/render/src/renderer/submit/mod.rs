@@ -132,14 +132,13 @@ impl Renderer {
                 )
                 .ok();
             self.debug_cbuffer.bind(cmd, ShaderStage::Pixel, 0);
-            cmd.commit_resources(&[ShaderStage::Pixel]);
 
             cmd.rasterizer_set_viewports(&[d3d11::Viewport::builder()
                 .width(output.resolution().0 as f32)
                 .height(output.resolution().1 as f32)
                 .build()]);
             cmd.clear_render_target_view(output.rtv.as_ref().unwrap(), &[0., 0., 0., 1.0]);
-            cmd.output_merger_set_render_targets(std::slice::from_ref(&output.rtv), None);
+            cmd.output_merger_set_render_targets(std::slice::from_ref(&output.rtv.as_ref()), None);
 
             cmd.state = PipelineState::new(Some(0), Some(0), Some(0), Some(0));
             cmd.flush_states();
@@ -149,10 +148,10 @@ impl Renderer {
             cmd.pixel_set_shader_resources(
                 0,
                 &[
-                    view.surfaces.get(view.gbuffers.albedo).srv.clone(),
-                    view.surfaces.get(view.gbuffers.normal).srv.clone(),
-                    view.surfaces.get(view.gbuffers.third).srv.clone(),
-                    Some(view.gbuffers.depth_proxy.lock().srv.clone()),
+                    view.surfaces.get(view.gbuffers.albedo).srv.as_ref(),
+                    view.surfaces.get(view.gbuffers.normal).srv.as_ref(),
+                    view.surfaces.get(view.gbuffers.third).srv.as_ref(),
+                    Some(&view.gbuffers.depth_proxy.lock().srv),
                 ],
             );
             cmd.draw(4, 0);
@@ -161,7 +160,7 @@ impl Renderer {
         {
             profiling::scope!("prepare/submit immediate geometry");
             cmd.output_merger_set_render_targets(
-                std::slice::from_ref(&output.rtv),
+                std::slice::from_ref(&output.rtv.as_ref()),
                 view.surfaces.get(view.gbuffers.depth).dsv.as_ref(),
             );
             cmd.state = PipelineState::new(Some(0), Some(2), Some(2), Some(0));

@@ -410,16 +410,26 @@ impl<'a> InterpreterState<'a> {
                         .context("Invalid extern index on pop texture view")?;
                     let offset = bits & 0xFFFFFF;
 
-                    let srv = Renderer::instance()
+                    Renderer::instance()
                         .externs
                         .get_extern_value::<TextureView>(index, offset as usize)
-                        .and_then(|o| o.get_srv())
+                        .and_then(|o| {
+                            let mut r = None;
+                            o.get_srv(|srv| {
+                                r = Some(());
+                                cmd.set_shader_resource(shader_stage, slot as u32, srv);
+                            });
+                            r
+                        })
                         .unwrap_or_else(|| {
-                            Renderer::instance()
-                                .get_extern_placeholder_texture(index, offset as usize)
-                                .0
+                            Renderer::instance().get_extern_placeholder_texture(
+                                index,
+                                offset as usize,
+                                |tex, _| {
+                                    cmd.set_shader_resource(shader_stage, slot as u32, &tex.view);
+                                },
+                            )
                         });
-                    cmd.set_shader_resource(shader_stage, slot as usize, srv);
                 }
                 Opcode::PopSamplerState => {
                     let shader_stage = ShaderStage::from_index(ptr[1] >> 5)
@@ -429,7 +439,7 @@ impl<'a> InterpreterState<'a> {
                     cached_top = self.pop_top();
                     anyhow::ensure!(index < samplers.len() as u32, "Invalid sampler index");
                     let sampler = &samplers[index as usize];
-                    cmd.set_sampler(shader_stage, slot as usize, sampler.clone());
+                    cmd.set_sampler(shader_stage, slot as u32, sampler.as_ref());
                 }
                 Opcode::PopUav => {
                     let shader_stage = ShaderStage::from_index(ptr[1] >> 5)
@@ -445,16 +455,34 @@ impl<'a> InterpreterState<'a> {
                         .context("Invalid extern index on pop texture view")?;
                     let offset = bits & 0xFFFFFF;
 
-                    let uav = Renderer::instance()
+                    Renderer::instance()
                         .externs
                         .get_extern_value::<Uav>(index, offset as usize)
-                        .and_then(|o| o.get_uav())
+                        .and_then(|o| {
+                            let mut r = None;
+                            o.get_uav(|uav| {
+                                r = Some(());
+                                cmd.compute_set_unordered_access_views(
+                                    slot as u32,
+                                    &[Some(uav)],
+                                    None,
+                                );
+                            });
+                            r
+                        })
                         .unwrap_or_else(|| {
-                            Renderer::instance()
-                                .get_extern_placeholder_texture(index, offset as usize)
-                                .1
+                            Renderer::instance().get_extern_placeholder_texture(
+                                index,
+                                offset as usize,
+                                |_, uav| {
+                                    cmd.compute_set_unordered_access_views(
+                                        slot as u32,
+                                        &[Some(uav)],
+                                        None,
+                                    );
+                                },
+                            )
                         });
-                    cmd.compute_set_unordered_access_views(slot as u32, &[Some(uav)], None);
                 }
                 Opcode::PushSamplerState => {
                     let index = ptr[1];

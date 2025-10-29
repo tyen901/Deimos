@@ -185,11 +185,10 @@ impl Renderer {
         self.gpu.resize_swapchain(resolution);
     }
 
-    pub fn get_extern_placeholder_texture(
-        &self,
-        index: ExternIndex,
-        offset: usize,
-    ) -> (d3d11::ShaderResourceView, d3d11::UnorderedAccessView) {
+    pub fn get_extern_placeholder_texture<F>(&self, index: ExternIndex, offset: usize, f: F)
+    where
+        F: FnOnce(&Texture, &d3d11::UnorderedAccessView),
+    {
         let mut placeholder_textures = self.placeholder_textures.write();
 
         let (texture, uav) = placeholder_textures
@@ -227,7 +226,7 @@ impl Renderer {
                 (texture, uav)
             });
 
-        (texture.view.clone(), uav.clone())
+        f(texture, uav);
     }
 }
 

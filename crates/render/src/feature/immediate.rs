@@ -137,7 +137,7 @@ impl ImmediateShapeRenderer {
         gpu_span!();
         cmd.input_assembler_set_vertex_buffers(
             0,
-            &[Some(self.vbuffer.clone())],
+            &[Some(&self.vbuffer)],
             Some(&[16]),
             Some(&[0u32]),
         )

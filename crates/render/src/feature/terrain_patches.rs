@@ -109,7 +109,7 @@ impl TerrainPatchesRenderer {
             index.bind(cmd);
             cmd.input_assembler_set_vertex_buffers(
                 0,
-                &[Some(vertex0.buffer.clone()), Some(vertex1.buffer.clone())],
+                &[Some(&vertex0.buffer), Some(&vertex1.buffer)],
                 Some(&[vertex0.stride as _, vertex1.stride as _]),
                 Some(&[0, 0]),
             )

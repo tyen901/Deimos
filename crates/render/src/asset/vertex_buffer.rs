@@ -88,7 +88,7 @@ impl VertexBuffer {
     pub fn bind_single(&self, cmd: &mut CommandList, slot: u32) {
         cmd.input_assembler_set_vertex_buffers(
             slot,
-            &[Some(self.buffer.clone())],
+            &[Some(&self.buffer)],
             Some(&[self.stride]),
             Some(&[0]),
         )
