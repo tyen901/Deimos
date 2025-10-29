@@ -359,7 +359,7 @@ impl ShaderModule {
             ShaderStage::Domain => d3d11::fxc::ShaderTarget::Domain,
         };
 
-        let bytecode = d3d11::fxc_compile(source.as_bytes(), None, &[], "main", stage_d3d)
+        let bytecode = d3d11::fxc::compile(source.as_bytes(), None, &[], "main", stage_d3d)
             .context("Failed to compile shader")?;
 
         Self::load_raw(gpu, &bytecode, stage)

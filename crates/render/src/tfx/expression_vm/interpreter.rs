@@ -596,9 +596,14 @@ impl<'a> InterpreterState<'a> {
                     cached_top = self.push(val)?;
                 }
                 Opcode::PushObjectChannelVector => {
-                    let _channel = ptr[1];
+                    let channel_hash = u32::from_be_bytes([ptr[1], ptr[2], ptr[3], ptr[4]]);
 
-                    cached_top = self.push(Vec4::ONE)?;
+                    let v = match channel_hash {
+                        0xD3583E54 => Vec4::ZERO, // unique_id
+                        _ => Vec4::ONE,
+                    };
+
+                    cached_top = self.push(v)?;
                 }
                 u => {
                     anyhow::bail!(

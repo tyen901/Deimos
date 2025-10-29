@@ -16,6 +16,7 @@ pub struct Scene {
     camera: Camera,
     view: View,
     last_frame_time: Instant,
+    sun_light_angle: f32,
 
     controller: CameraController,
 
@@ -34,6 +35,7 @@ impl Scene {
             view: View::new(&renderer.gpu, (128, 128))?,
             renderer,
             camera,
+            sun_light_angle: -120f32,
             controller: CameraController::new_orbit(Vec3::ZERO, 3.5),
             static_render_objects: Vec::new(),
             dynamic_render_objects: Vec::new(),
@@ -139,11 +141,29 @@ impl Scene {
         self.view
             .update(world_to_camera, camera_to_projective, resolution);
 
+        if r.dragged_by(egui::PointerButton::Secondary) {
+            let delta_adjusted = r.drag_delta() / 4.0;
+            self.sun_light_angle += delta_adjusted.x;
+            self.sun_light_angle = self.sun_light_angle.rem_euclid(360.0);
+        }
+
         self.render(delta_time);
     }
 
     fn render(&mut self, delta_time: f32) {
         self.renderer.frame_packet.write().reset();
+
+        let sun_light_direction = Vec3::new(
+            self.sun_light_angle.to_radians().cos(),
+            self.sun_light_angle.to_radians().sin(),
+            -0.7,
+        )
+        .normalize();
+
+        self.renderer
+            .externs
+            .get_mut()
+            .set_global_channel_by_name("sun_light_direction", sun_light_direction.extend(0.0));
 
         {
             let mut fp = self.renderer.frame_packet.write();

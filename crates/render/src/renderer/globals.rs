@@ -23,6 +23,8 @@ pub struct RenderGlobals {
 }
 
 impl RenderGlobals {
+    pub const CHANNEL_SUN_LIGHT_DIRECTION: u32 = 0x5C579DFA;
+
     pub fn load(gpu: &Arc<Gpu>) -> anyhow::Result<Self> {
         let data: SRenderGlobals = package_manager().read_named_tag_struct("render_globals")?;
         let globs = &data.unk8.first().context("No render globals found")?.unk8.0;
