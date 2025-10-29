@@ -82,7 +82,7 @@ impl Technique {
         })
     }
 
-    #[tracing::instrument(skip(self, cmd), fields(technique = %self.hash))]
+    // #[tracing::instrument(skip(self, cmd), fields(technique = %self.hash))]
     pub fn bind(&self, cmd: &mut CommandList) -> anyhow::Result<()> {
         self.bind_with_channels(cmd, None)
     }

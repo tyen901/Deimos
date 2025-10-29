@@ -121,37 +121,34 @@ impl<T> ConstantBuffer<T> {
     }
 
     pub fn write(&self, ctx: &d3d11::DeviceContext, data: &T) -> anyhow::Result<()> {
-        self.map(ctx, d3d11::MapType::WriteDiscard, |map| unsafe {
+        unsafe {
+            let map = self.map(ctx, d3d11::MapType::WriteDiscard)?;
             map.data
                 .copy_from_nonoverlapping(data as *const T as _, std::mem::size_of::<T>());
-        })
+        }
+        Ok(())
     }
 
     /// SAFETY: The caller must ensure that the length of the slice matches the size of the buffer.
     pub unsafe fn write_array(&self, ctx: &d3d11::DeviceContext, data: &[T]) -> anyhow::Result<()> {
-        self.map(ctx, d3d11::MapType::WriteDiscard, |map| unsafe {
-            map.data.copy_from_nonoverlapping(
-                data.as_ptr() as *const T as _,
-                std::mem::size_of_val(data),
-            );
-        })
+        let map = self.map(ctx, d3d11::MapType::WriteDiscard)?;
+        map.data
+            .copy_from_nonoverlapping(data.as_ptr() as *const T as _, std::mem::size_of_val(data));
+        Ok(())
     }
 
     pub fn map(
         &self,
         ctx: &d3d11::DeviceContext,
         mode: d3d11::MapType,
-        f: impl FnOnce(SubresourceMapGuard<d3d11::Buffer>),
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<SubresourceMapGuard<d3d11::Buffer>> {
         let ptr = {
             profiling::scope!("map");
             ctx.map(&self.buffer, 0, mode, false)
                 .context("Failed to map ConstantBuffer")?
         };
 
-        f(ptr);
-
-        Ok(())
+        Ok(ptr)
     }
 
     pub fn map_slice(
@@ -160,15 +157,15 @@ impl<T> ConstantBuffer<T> {
         mode: d3d11::MapType,
         f: impl FnOnce(&mut [T]),
     ) -> anyhow::Result<()> {
-        self.map(ctx, mode, |map| {
-            let slice = unsafe {
-                std::slice::from_raw_parts_mut(
-                    map.data as *mut T,
-                    self.size / std::mem::size_of::<T>(),
-                )
-            };
+        unsafe {
+            let map = self.map(ctx, mode)?;
+            let slice = std::slice::from_raw_parts_mut(
+                map.data as *mut T,
+                self.size / std::mem::size_of::<T>(),
+            );
             f(slice);
-        })
+        }
+        Ok(())
     }
 
     pub fn size(&self) -> usize {

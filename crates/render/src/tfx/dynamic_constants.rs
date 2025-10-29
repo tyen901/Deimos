@@ -12,6 +12,7 @@ use crate::{
         Handle,
     },
     gpu::{cbuffer::ConstantBuffer, command_list::CommandList},
+    tfx::expression_vm::opcodes::{Opcode, OpcodeIterator},
     Gpu, Renderer,
 };
 
@@ -30,6 +31,9 @@ pub struct DynamicConstants {
     pub bytecode_constants: Vec<Vec4>,
 
     pub initial_constants: Vec<Vec4>,
+
+    /// Indicates if the expression bytecode writes to the constant buffer. If this is false, then the cbuffer is not mapped for writing.
+    writes_cbuffer: bool,
 }
 
 impl DynamicConstants {
@@ -52,6 +56,15 @@ impl DynamicConstants {
                 (vec4s.to_vec(), Some(cb))
             }
         };
+
+        let writes_cbuffer = OpcodeIterator::new(&constants.bytecode).any(|op| {
+            matches!(
+                op,
+                Ok((Opcode::PopOutput, _))
+                    | Ok((Opcode::PopOutputMat4, _))
+                    | Ok((Opcode::PushFromOutput, _))
+            )
+        });
 
         Ok(Self {
             textures: constants
@@ -85,6 +98,8 @@ impl DynamicConstants {
             bytecode_constants: constants.bytecode_constants.clone(),
 
             initial_constants,
+
+            writes_cbuffer,
         })
     }
 
@@ -94,43 +109,64 @@ impl DynamicConstants {
         cmd: &mut CommandList,
         channels: Option<&TempObjectChannels>,
     ) -> anyhow::Result<()> {
-        if let Some(ref cbuffer) = self.cbuffer {
-            cbuffer.map_slice(&cmd.context.clone(), d3d11::MapType::WriteDiscard, |data| {
+        if self.writes_cbuffer {
+            if let Some(ref cbuffer) = self.cbuffer {
+                let map = unsafe {
+                    cmd.map_unchecked(cbuffer.buffer(), 0, d3d11::MapType::WriteDiscard, false)?
+                };
+                let data = unsafe {
+                    std::slice::from_raw_parts_mut(map.data as *mut Vec4, cbuffer.size() / 16)
+                };
+
                 // Copy the initial constants
                 data[..self.initial_constants.len()].copy_from_slice(&self.initial_constants);
-
-                let mut interpreter = InterpreterState::new(&self.bytecode);
-                if let Some(channels) = channels {
-                    interpreter = interpreter.with_object_channels(channels);
-                }
-                if let Err(e) =
-                    interpreter.evaluate(cmd, &self.bytecode_constants, &self.samplers, data)
-                {
-                    error!("Failed to evaluate expression bytecode: {:?}", e);
-
-                    let bytecode_listing = match expression_vm::disassemble(&self.bytecode) {
-                        Ok(ops) => ops.into_iter().map(|v| format!("    {v}")).join("\n"),
-                        Err(e) => {
-                            format!("Failed to disassemble bytecode: {e:?}")
-                        }
-                    };
-                    debug!("Bytecode:\n{}", bytecode_listing);
-
-                    if interpreter.ip < self.bytecode.len() {
-                        // Patch the bytecode to disable the expression
-                        unsafe {
-                            self.bytecode
-                                .as_ptr()
-                                .add(interpreter.ip)
-                                .cast_mut()
-                                .write(expression_vm::opcodes::Opcode::ExtReturn as u8);
-                        }
-                    }
-                }
-            })?;
+                self.evaluate_expressions(cmd, Some(data), channels);
+                cmd.unmap(cbuffer.buffer(), 0);
+            }
+        } else {
+            self.evaluate_expressions(cmd, None, channels);
         }
 
         Ok(())
+    }
+
+    fn evaluate_expressions(
+        &self,
+        cmd: &mut CommandList,
+        output: Option<&mut [Vec4]>,
+        channels: Option<&TempObjectChannels>,
+    ) {
+        let mut interpreter = InterpreterState::new(&self.bytecode);
+        if let Some(channels) = channels {
+            interpreter = interpreter.with_object_channels(channels);
+        }
+        if let Err(e) = interpreter.evaluate(
+            cmd,
+            &self.bytecode_constants,
+            &self.samplers,
+            output.unwrap_or(&mut []),
+        ) {
+            error!("Failed to evaluate expression bytecode: {:?}", e);
+
+            let bytecode_listing = match expression_vm::disassemble(&self.bytecode) {
+                Ok(ops) => ops.into_iter().map(|v| format!("    {v}")).join("\n"),
+                Err(e) => {
+                    format!("Failed to disassemble bytecode: {e:?}")
+                }
+            };
+            debug!("Bytecode:\n{}", bytecode_listing);
+
+            if interpreter.ip < self.bytecode.len() {
+                // Patch the bytecode to disable the expression
+                unsafe {
+                    self.bytecode
+                        .as_ptr()
+                        .add(interpreter.ip)
+                        .cast_mut()
+                        .write(expression_vm::opcodes::Opcode::ExtReturn as u8);
+                }
+            }
+        }
     }
 
     #[profiling::function]
