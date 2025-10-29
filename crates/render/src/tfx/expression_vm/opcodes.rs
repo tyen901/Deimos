@@ -8,7 +8,7 @@ pub enum Opcode {
     Add = 0x1,
     Subtract,
     Multiply,
-    UnkDivide,
+    Divide,
     Multiply_,
     Add_,
     IsZero,
@@ -127,7 +127,7 @@ impl Opcode {
             | Opcode::Subtract
             | Opcode::Multiply
             | Opcode::Multiply_
-            | Opcode::UnkDivide
+            | Opcode::Divide
             | Opcode::IsZero
             | Opcode::Min
             | Opcode::Max
