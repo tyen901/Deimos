@@ -126,7 +126,7 @@ impl<'a> DecompilerState<'a> {
                     self.stack_pointer -= 1;
                     *self.stack_top() = cached_top.clone();
                 }
-                Opcode::UnkDivide => {
+                Opcode::Divide => {
                     let v1 = self.get(-1)?;
 
                     cached_top = format!("({v1} / {cached_top})");

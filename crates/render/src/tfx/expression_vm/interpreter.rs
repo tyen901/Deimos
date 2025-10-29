@@ -83,8 +83,8 @@ impl<'a> InterpreterState<'a> {
         let index = self.stack_pointer as isize + index_relative;
         #[cfg(debug_assertions)]
         anyhow::ensure!(
-            (0..16).contains(&index),
-            "Stack index out of bounds (ip=0x{:X})",
+            (0..32).contains(&index),
+            "Stack index out of bounds (index {index}, ip=0x{:X})",
             self.ip
         );
         Ok(self
@@ -161,7 +161,7 @@ impl<'a> InterpreterState<'a> {
                     self.stack_pointer -= 1;
                     *self.stack_top() = cached_top;
                 }
-                Opcode::UnkDivide => {
+                Opcode::Divide => {
                     let v0 = cached_top;
                     let v1 = self.get(-1)?;
                     const EPSILON: Vec4 = Vec4::splat(1e-19);
@@ -247,6 +247,12 @@ impl<'a> InterpreterState<'a> {
                     let value = self.get(-2)?;
                     self.stack_pointer -= 2;
                     set_top!(value.clamp(min, max));
+                }
+                Opcode::Abs => {
+                    set_top!(cached_top.abs());
+                }
+                Opcode::Signum => {
+                    set_top!(cached_top.signum());
                 }
                 Opcode::Floor => {
                     set_top!(cached_top.floor());
@@ -366,6 +372,18 @@ impl<'a> InterpreterState<'a> {
                     cached_top = super::helpers::bytecode_op_spline8_const(
                         cached_top, cl[0], cl[1], cl[2], cl[3], cl[4], cl[5], cl[6], cl[7], cl[8],
                         cl[9],
+                    );
+                }
+                Opcode::Gradient4Const => {
+                    let constant_start = ptr[1];
+                    ensure!(
+                        (constant_start + 5) < constants.len() as u8,
+                        "Invalid constant index"
+                    );
+
+                    let cl = &constants[constant_start as usize..];
+                    cached_top = super::helpers::bytecode_op_gradient4_const(
+                        cached_top, cl[0], cl[1], cl[2], cl[3], cl[4], cl[5],
                     );
                 }
                 // Push a temporary value onto the stack
@@ -577,8 +595,17 @@ impl<'a> InterpreterState<'a> {
                     // };
                     cached_top = self.push(val)?;
                 }
+                Opcode::PushObjectChannelVector => {
+                    let _channel = ptr[1];
+
+                    cached_top = self.push(Vec4::ONE)?;
+                }
                 u => {
-                    anyhow::bail!("Unimplemented opcode: {u:?} / 0x{:02X}", ptr[0]);
+                    anyhow::bail!(
+                        "Unimplemented opcode: {u:?} / 0x{:02X} (ip=0x{:X})",
+                        ptr[0],
+                        self.ip
+                    );
                 }
             }
 
