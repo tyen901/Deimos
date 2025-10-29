@@ -8,7 +8,7 @@ pub mod lowlevel;
 
 use deimos_core::convar::ConVars;
 use deimos_data::tfx::{FeatureRendererSubscription, PipelineState, ShaderStage};
-use glam::Vec4;
+use glam::{Mat4, Vec4};
 
 use crate::{
     cmd_event_span,
@@ -119,6 +119,21 @@ impl Renderer {
 
         let output = view.surfaces.get(view.output);
         {
+            let sun_light_direction = self
+                .externs
+                .get_global_channel_by_name("sun_light_direction");
+            self.debug_cbuffer
+                .write(
+                    cmd,
+                    &Mat4 {
+                        x_axis: sun_light_direction,
+                        ..Default::default()
+                    },
+                )
+                .ok();
+            self.debug_cbuffer.bind(cmd, ShaderStage::Pixel, 0);
+            cmd.commit_resources(&[ShaderStage::Pixel]);
+
             cmd.rasterizer_set_viewports(&[d3d11::Viewport::builder()
                 .width(output.resolution().0 as f32)
                 .height(output.resolution().1 as f32)

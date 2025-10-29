@@ -3,8 +3,9 @@ use std::any::TypeId;
 use crate::{
     renderer::globals::RenderGlobals,
     tfx::externs::{macros::extern_container, Extern, ExternAccessor},
+    Renderer,
 };
-use deimos_data::tfx::ExternIndex;
+use deimos_data::{hash::fnv1, tfx::ExternIndex};
 use glam::Vec4;
 
 use super::definitions::*;
@@ -106,4 +107,41 @@ extern_container! {
     occlusion_culling_reproject_depth: OcclusionCullingReprojectDepth,
     occlusion_culling_visibility_testing: OcclusionCullingVisibilityTesting,
     variable_rate_shading: VariableRateShading
+}
+
+impl Externs {
+    pub fn get_global_channel_by_name(&self, name: &str) -> Vec4 {
+        self.get_global_channel_by_id(fnv1(name))
+    }
+
+    pub fn get_global_channel_by_id(&self, id: u32) -> Vec4 {
+        self.global_ids
+            .iter()
+            .position(|i| *i == id)
+            .map(|pos| self.globals[pos])
+            .unwrap_or(Vec4::ONE)
+    }
+
+    /// Sets the value of the given global channel by ID
+    /// Returns `Some` with the previous value if the channel exists, `None` otherwise
+    pub fn set_global_channel_by_id(&mut self, id: u32, v: Vec4) -> Option<Vec4> {
+        if let Some(pos) = self.global_ids.iter().position(|i| *i == id) {
+            Some(std::mem::replace(&mut self.globals[pos], v))
+        } else {
+            None
+        }
+    }
+
+    /// Sets the value of the given global channel by name, hashing the name to get its ID
+    /// Returns `Some` with the previous value if the channel exists, `None` otherwise
+    pub fn set_global_channel_by_name(&mut self, name: &str, v: Vec4) -> Option<Vec4> {
+        self.set_global_channel_by_id(fnv1(name), v)
+    }
+
+    /// Resets every global channel to their default value, as defined by render globals
+    pub fn reset_global_channels(&mut self) {
+        let globals = &Renderer::instance().globals;
+        self.globals[..globals.channels.default_values.len()]
+            .copy_from_slice(&globals.channels.default_values);
+    }
 }

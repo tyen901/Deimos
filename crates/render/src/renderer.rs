@@ -15,6 +15,7 @@ use crossbeam::atomic::AtomicCell;
 use d3d11::dxgi;
 use deimos_core::ConVars;
 use deimos_data::tfx::{texture::DxgiFormat, ExternIndex, FeatureRendererSubscription};
+use glam::{Mat4, Vec4};
 use globals::RenderGlobals;
 use parking_lot::{Mutex, RwLock, RwLockReadGuard};
 use surface::Surfaces;
@@ -64,6 +65,8 @@ pub struct Renderer {
     active_feature_renderers: AtomicCell<FeatureRendererSubscription>,
     placeholder_textures:
         RwLock<HashMap<(ExternIndex, u32), (Texture, d3d11::UnorderedAccessView)>>,
+
+    debug_cbuffer: ConstantBuffer<Mat4>,
 }
 
 unsafe impl Send for Renderer {}
@@ -122,6 +125,7 @@ impl Renderer {
             surfaces: RwLock::new(surfaces),
             submit_jobs: submit::lowlevel::SubmitJobManager::new(&gpu, num_processors()),
             frame_scope: ConstantBuffer::create(&gpu, None)?,
+            debug_cbuffer: ConstantBuffer::create(&gpu, Some(&Mat4::ZERO))?,
 
             debug_vs,
             debug_ps,
