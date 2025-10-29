@@ -120,7 +120,8 @@ float remap(float value, float min, float max)
     return saturate((value - min) / (max - min));
 }
 
-static float3 SkyColor = float3(0.58, 0.78, 1);
+// static float3 SkyColor = float3(0.58, 0.78, 1);
+static float3 SkyColor = float3(0.063, 0.059, 0.067);
 
 float4 mainPS(VSOutput input)
     : SV_TARGET

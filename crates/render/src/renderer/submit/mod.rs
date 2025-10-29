@@ -124,7 +124,7 @@ impl Renderer {
                 .height(output.resolution().1 as f32)
                 .build()]);
             cmd.clear_render_target_view(output.rtv.as_ref().unwrap(), &[0., 0., 0., 1.0]);
-            cmd.output_merger_set_render_targets(&[output.rtv.clone()], None);
+            cmd.output_merger_set_render_targets(std::slice::from_ref(&output.rtv), None);
 
             cmd.state = PipelineState::new(Some(0), Some(0), Some(0), Some(0));
             cmd.flush_states();
@@ -146,7 +146,7 @@ impl Renderer {
         {
             profiling::scope!("prepare/submit immediate geometry");
             cmd.output_merger_set_render_targets(
-                &[output.rtv.clone()],
+                std::slice::from_ref(&output.rtv),
                 view.surfaces.get(view.gbuffers.depth).dsv.as_ref(),
             );
             cmd.state = PipelineState::new(Some(0), Some(2), Some(2), Some(0));
