@@ -99,8 +99,9 @@ impl VertexBuffer {
     ///
     /// The caller must ensure that the data fits within the buffer.
     pub unsafe fn write(&self, cmd: &mut CommandList, data: &[u8]) -> anyhow::Result<()> {
-        let m = cmd.map(&self.buffer, 0, d3d11::MapType::WriteDiscard, false)?;
+        let m = cmd.map_unchecked(&self.buffer, 0, d3d11::MapType::WriteDiscard, false)?;
         m.data.copy_from(data.as_ptr() as _, data.len());
+        cmd.unmap(&self.buffer, 0);
 
         Ok(())
     }
