@@ -287,7 +287,7 @@ impl Surface {
     pub fn bind_single(&self, cmd: &mut CommandList) {
         cmd.rasterizer_set_viewports(&[self.viewport()]);
         if let Some(rtv) = &self.rtv {
-            cmd.output_merger_set_render_targets(&[Some(rtv.clone())], None);
+            cmd.output_merger_set_render_targets(&[Some(&rtv)], None);
         } else if let Some(dsv) = &self.dsv {
             cmd.output_merger_set_render_targets(&[], Some(dsv));
         }
@@ -534,10 +534,15 @@ impl Renderer {
             cmd.rasterizer_set_viewports(&[viewport]);
         }
 
-        let rtvs = color
-            .iter()
-            .map(|s| self.surfaces().get(*s).rtv.clone())
-            .collect::<Vec<_>>();
+        let surfaces = self.surfaces();
+        let mut rtvs = SmallVec::<[Option<&d3d11::RenderTargetView>; 8]>::new();
+        for s in color {
+            rtvs.push(surfaces.get(*s).rtv.as_ref());
+        }
+        // let rtvs = color
+        //     .iter()
+        //     .map(|s| self.surfaces().get(*s).rtv)
+        //     .collect::<Vec<_>>();
         let dsv = depth.and_then(|s| self.surfaces().get(s).dsv.clone());
 
         cmd.output_merger_set_render_targets(&rtvs, dsv.as_ref());

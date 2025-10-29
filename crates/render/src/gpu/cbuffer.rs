@@ -4,8 +4,8 @@ use anyhow::Context;
 use d3d11::{
     dxgi,
     srv::{SrvBufferExFlags, SrvDimension},
-    BindFlags, BufferDesc, CpuAccessFlags, ResourceMiscFlags, ShaderResourceViewDesc,
-    SubresourceMapGuard, Usage,
+    BindFlags, BufferDesc, CpuAccessFlags, DeviceContext, ResourceMiscFlags,
+    ShaderResourceViewDesc, SubresourceMapGuard, Usage,
 };
 use deimos_data::tfx::ShaderStage;
 
@@ -188,10 +188,10 @@ impl<T> ConstantBuffer<T> {
     }
 
     fn bind_srv(&self, cmd: &mut CommandList, stage: ShaderStage, slot: u32) {
-        cmd.set_shader_resource(stage, slot as usize, self.srv.clone());
+        cmd.set_shader_resource(stage, slot, &self.srv);
     }
 
     fn bind_cbuffer(&self, cmd: &mut CommandList, stage: ShaderStage, slot: u32) {
-        cmd.set_constant_buffer(stage, slot as usize, self.buffer.clone());
+        cmd.set_constant_buffer(stage, slot, &self.buffer);
     }
 }

@@ -1,5 +1,6 @@
 use std::{ops::Deref, sync::Arc};
 
+use d3d11::DeviceContext;
 use deimos_data::tfx::{PipelineState, PrimitiveType, ShaderStage};
 use tiger_pkg::TagHash;
 
@@ -21,9 +22,6 @@ pub struct CommandList {
     pub(super) current_stencil_ref: u32,
     pub(super) depth_mode: DepthMode,
     pub(super) bound_technique: TagHash,
-
-    /// Uncommitted resources
-    resources: [StageResources; 6],
 }
 
 impl Deref for CommandList {
@@ -59,8 +57,6 @@ impl CommandList {
             current_stencil_ref: 0,
             depth_mode: DepthMode::Reverse,
             bound_technique: TagHash::NONE,
-
-            resources: std::array::from_fn(|_| StageResources::default()),
         }
     }
 
@@ -257,63 +253,55 @@ impl CommandList {
 
 // Resource staging
 impl CommandList {
-    pub fn clear_resources(&mut self) {
-        for r in &mut self.resources {
-            r.clear();
-        }
-    }
-
-    #[profiling::function]
-    pub fn commit_resources(&mut self, stages: &[ShaderStage]) {
-        for stage in stages {
-            self.stage_resources(*stage).commit(self, *stage);
-        }
-    }
-
     #[inline(always)]
-    pub(super) fn stage_resources(&self, stage: ShaderStage) -> &StageResources {
-        &self.resources[stage as usize - 1]
-    }
-
-    #[inline(always)]
-    pub(super) fn stage_resources_mut(&mut self, stage: ShaderStage) -> &mut StageResources {
-        &mut self.resources[stage as usize - 1]
-    }
-
-    #[inline(always)]
-    pub fn set_shader_resource(
+    pub fn set_shader_resource<'a>(
         &mut self,
         stage: ShaderStage,
-        slot: usize,
-        srv: impl Into<Option<d3d11::ShaderResourceView>>,
+        slot: u32,
+        srv: impl Into<Option<&'a d3d11::ShaderResourceView>>,
     ) {
-        if slot < d3d11::DeviceContext::SHADER_RESOURCE_SLOT_COUNT {
-            self.stage_resources_mut(stage).srvs[slot] = srv.into();
-        }
+        (match stage {
+            ShaderStage::Pixel => DeviceContext::pixel_set_shader_resources,
+            ShaderStage::Vertex => DeviceContext::vertex_set_shader_resources,
+            ShaderStage::Geometry => DeviceContext::geometry_set_shader_resources,
+            ShaderStage::Hull => DeviceContext::hull_set_shader_resources,
+            ShaderStage::Compute => DeviceContext::compute_set_shader_resources,
+            ShaderStage::Domain => DeviceContext::domain_set_shader_resources,
+        })(self, slot, &[srv.into()]);
     }
 
     #[inline(always)]
-    pub fn set_sampler(
+    pub fn set_sampler<'a>(
         &mut self,
         stage: ShaderStage,
-        slot: usize,
-        sampler: impl Into<Option<d3d11::SamplerState>>,
+        slot: u32,
+        sampler: impl Into<Option<&'a d3d11::SamplerState>>,
     ) {
-        if slot < d3d11::DeviceContext::SAMPLER_SLOT_COUNT {
-            self.stage_resources_mut(stage).samplers[slot] = sampler.into();
-        }
+        (match stage {
+            ShaderStage::Pixel => DeviceContext::pixel_set_samplers,
+            ShaderStage::Vertex => DeviceContext::vertex_set_samplers,
+            ShaderStage::Geometry => DeviceContext::geometry_set_samplers,
+            ShaderStage::Hull => DeviceContext::hull_set_samplers,
+            ShaderStage::Compute => DeviceContext::compute_set_samplers,
+            ShaderStage::Domain => DeviceContext::domain_set_samplers,
+        })(self, slot, &[sampler.into()]);
     }
 
     #[inline(always)]
-    pub fn set_constant_buffer(
+    pub fn set_constant_buffer<'a>(
         &mut self,
         stage: ShaderStage,
-        slot: usize,
-        cbuffer: impl Into<Option<d3d11::Buffer>>,
+        slot: u32,
+        cbuffer: impl Into<Option<&'a d3d11::Buffer>>,
     ) {
-        if slot < d3d11::DeviceContext::CONSTANT_BUFFER_SLOT_COUNT {
-            self.stage_resources_mut(stage).cbuffers[slot] = cbuffer.into();
-        }
+        (match stage {
+            ShaderStage::Pixel => DeviceContext::pixel_set_constant_buffers,
+            ShaderStage::Vertex => DeviceContext::vertex_set_constant_buffers,
+            ShaderStage::Geometry => DeviceContext::geometry_set_constant_buffers,
+            ShaderStage::Hull => DeviceContext::hull_set_constant_buffers,
+            ShaderStage::Compute => DeviceContext::compute_set_constant_buffers,
+            ShaderStage::Domain => DeviceContext::domain_set_constant_buffers,
+        })(self, slot, &[cbuffer.into()]);
     }
 }
 
@@ -360,69 +348,4 @@ macro_rules! cmd_event_span {
         profiling::scope!(&format!("cmd-{}", $name));
         let _gpu_span = $cmd.begin_event_span($name);
     };
-}
-
-pub(super) struct StageResources {
-    pub cbuffers: [Option<d3d11::Buffer>; d3d11::DeviceContext::CONSTANT_BUFFER_SLOT_COUNT],
-    pub samplers: [Option<d3d11::SamplerState>; d3d11::DeviceContext::SAMPLER_SLOT_COUNT],
-    pub srvs: [Option<d3d11::ShaderResourceView>; d3d11::DeviceContext::SHADER_RESOURCE_SLOT_COUNT],
-}
-
-impl Default for StageResources {
-    fn default() -> Self {
-        Self {
-            cbuffers: Default::default(),
-            samplers: Default::default(),
-            srvs: [const { None }; d3d11::DeviceContext::SHADER_RESOURCE_SLOT_COUNT],
-        }
-    }
-}
-
-impl StageResources {
-    pub fn clear(&mut self) {
-        *self = Self::default();
-    }
-
-    pub fn commit(&self, ctx: &d3d11::DeviceContext, stage: ShaderStage) {
-        let bind_srvs = match stage {
-            ShaderStage::Pixel => d3d11::DeviceContext::pixel_set_shader_resources,
-            ShaderStage::Vertex => d3d11::DeviceContext::vertex_set_shader_resources,
-            ShaderStage::Geometry => d3d11::DeviceContext::geometry_set_shader_resources,
-            ShaderStage::Hull => d3d11::DeviceContext::hull_set_shader_resources,
-            ShaderStage::Compute => d3d11::DeviceContext::compute_set_shader_resources,
-            ShaderStage::Domain => d3d11::DeviceContext::domain_set_shader_resources,
-        };
-        let bind_samplers = match stage {
-            ShaderStage::Pixel => d3d11::DeviceContext::pixel_set_samplers,
-            ShaderStage::Vertex => d3d11::DeviceContext::vertex_set_samplers,
-            ShaderStage::Geometry => d3d11::DeviceContext::geometry_set_samplers,
-            ShaderStage::Hull => d3d11::DeviceContext::hull_set_samplers,
-            ShaderStage::Compute => d3d11::DeviceContext::compute_set_samplers,
-            ShaderStage::Domain => d3d11::DeviceContext::domain_set_samplers,
-        };
-        let bind_cbuffers = match stage {
-            ShaderStage::Pixel => d3d11::DeviceContext::pixel_set_constant_buffers,
-            ShaderStage::Vertex => d3d11::DeviceContext::vertex_set_constant_buffers,
-            ShaderStage::Geometry => d3d11::DeviceContext::geometry_set_constant_buffers,
-            ShaderStage::Hull => d3d11::DeviceContext::hull_set_constant_buffers,
-            ShaderStage::Compute => d3d11::DeviceContext::compute_set_constant_buffers,
-            ShaderStage::Domain => d3d11::DeviceContext::domain_set_constant_buffers,
-        };
-
-        // Sparsely bind SRVs and samplers. Most of the time only a small portion of the slots are used, so we can optimize the binding process by skipping the unused slots.
-        if let Some(srv_start) = self.srvs.iter().position(|s| s.is_some()) {
-            let srv_end = self.srvs.iter().rposition(|s| s.is_some()).unwrap();
-            bind_srvs(ctx, srv_start as u32, &self.srvs[srv_start..=srv_end]);
-        }
-        if let Some(sampler_start) = self.samplers.iter().position(|s| s.is_some()) {
-            let sampler_end = self.samplers.iter().rposition(|s| s.is_some()).unwrap();
-            bind_samplers(
-                ctx,
-                sampler_start as u32,
-                &self.samplers[sampler_start..=sampler_end],
-            );
-        }
-        // cohae: cb0, cb12 and cb13 are practically always bound, so we don't gain anything from doing a sparse bind for cbuffers
-        bind_cbuffers(ctx, 0, &self.cbuffers);
-    }
 }

@@ -146,7 +146,7 @@ impl DynamicConstants {
             if let Some(ref cbuffer) = self.cbuffer {
                 cbuffer.bind(cmd, stage, self.cbuffer_slot);
             } else {
-                cmd.set_constant_buffer(stage, self.cbuffer_slot as usize, None);
+                cmd.set_constant_buffer(stage, self.cbuffer_slot, None);
             }
         }
 
@@ -154,7 +154,7 @@ impl DynamicConstants {
             if let Some(tex) = tex.as_ref().and_then(|t| t.get()) {
                 tex.bind(cmd, slot, stage);
             } else {
-                cmd.set_shader_resource(stage, slot as usize, None);
+                cmd.set_shader_resource(stage, slot, None);
             }
         }
 

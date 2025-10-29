@@ -13,6 +13,7 @@ target/
 *.exp
 *.so
 *.elf
+profile.json.gz
 
 # IDA 64 database
 *.i64

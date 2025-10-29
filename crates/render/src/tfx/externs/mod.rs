@@ -71,15 +71,22 @@ pub enum TextureView {
 }
 
 impl TextureView {
-    pub fn get_srv(&self) -> Option<d3d11::ShaderResourceView> {
+    pub fn get_srv<F>(&self, f: F)
+    where
+        F: FnOnce(&d3d11::ShaderResourceView),
+    {
         match self {
             TextureView::Surface(surface) => {
-                Renderer::instance().surfaces().get(*surface).srv.clone()
+                if let Some(srv) = Renderer::instance().surfaces().get(*surface).srv.as_ref() {
+                    f(srv)
+                }
             }
-            TextureView::Resource(texture) => Some(texture.get()?.view.clone()),
-            TextureView::Raw(srv) => Some(srv.clone()),
-            TextureView::None => None,
-        }
+            TextureView::Resource(texture) => {
+                texture.get().map(|t| f(&t.view));
+            }
+            TextureView::Raw(srv) => f(srv),
+            TextureView::None => {}
+        };
     }
 
     pub fn is_none(&self) -> bool {
@@ -142,10 +149,17 @@ impl Debug for Uav {
 }
 
 impl Uav {
-    pub fn get_uav(&self) -> Option<d3d11::UnorderedAccessView> {
+    pub fn get_uav<F>(&self, f: F)
+    where
+        F: FnOnce(&d3d11::UnorderedAccessView),
+    {
         match self {
-            Uav::Surface(surface) => Renderer::instance().surfaces().get(*surface).uav.clone(),
-            Uav::None => None,
+            Uav::Surface(surface) => {
+                if let Some(uav) = Renderer::instance().surfaces().get(*surface).uav.as_ref() {
+                    f(uav)
+                }
+            }
+            Uav::None => {}
         }
     }
 }

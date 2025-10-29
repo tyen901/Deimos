@@ -145,13 +145,13 @@ impl DebugTextRenderer {
         cmd.input_assembler_set_primitive_topology(d3d11::PrimitiveTopology::TriangleList);
         cmd.input_assembler_set_vertex_buffers(
             0,
-            &[Some(self.mesh.vb.clone())],
+            &[Some(&self.mesh.vb)],
             Some(&[24u32]),
             Some(&[0u32]),
         )
         .unwrap();
-        cmd.pixel_set_shader_resources(0, &[Some(self.texture_view.clone())]);
-        cmd.pixel_set_samplers(0, &[Some(self.sampler.clone())]);
+        cmd.pixel_set_shader_resources(0, &[Some(&self.texture_view)]);
+        cmd.pixel_set_samplers(0, &[Some(&self.sampler)]);
         cmd.input_assembler_set_index_buffer(&self.mesh.ib, dxgi::Format::R32Uint, 0);
         cmd.draw_indexed(self.mesh.index_count, 0, 0);
     }

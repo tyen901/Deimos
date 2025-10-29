@@ -39,20 +39,13 @@ impl GpuState {
             current_input_layout: cmd.current_input_layout,
             current_input_topology: cmd.current_input_topology,
             state_vs: GpuStageState {
-                cbuffers: cmd.stage_resources(ShaderStage::Vertex).cbuffers.clone(),
-                samplers: cmd.stage_resources(ShaderStage::Vertex).samplers.clone(),
-                // srvs: cmd.vertex_get_shader_resources(),
+                cbuffers: cmd.vertex_get_constant_buffers(),
+                samplers: cmd.vertex_get_samplers(),
             },
             state_ps: GpuStageState {
-                cbuffers: cmd.stage_resources(ShaderStage::Pixel).cbuffers.clone(),
-                samplers: cmd.stage_resources(ShaderStage::Pixel).samplers.clone(),
-                // srvs: cmd.pixel_get_shader_resources(),
+                cbuffers: cmd.pixel_get_constant_buffers(),
+                samplers: cmd.pixel_get_samplers(),
             },
-            // state_cs: GpuStageState {
-            //     cbuffers: cmd.compute_get_constant_buffers(),
-            //     samplers: cmd.compute_get_samplers(),
-            //     srvs: cmd.compute_get_shader_resources(),
-            // },
             viewports: cmd.rasterizer_get_viewports(),
             rtvs,
             dsv,
@@ -70,22 +63,30 @@ impl GpuState {
         cmd.current_input_topology = self.current_input_topology;
         {
             profiling::scope!("restore_vs");
-            cmd.set_sampler(ShaderStage::Vertex, 0, self.state_vs.samplers[0].clone());
-            cmd.set_sampler(ShaderStage::Vertex, 1, self.state_vs.samplers[1].clone());
-            cmd.set_constant_buffer(ShaderStage::Vertex, 12, self.state_vs.cbuffers[12].clone());
-            cmd.set_constant_buffer(ShaderStage::Vertex, 13, self.state_vs.cbuffers[13].clone());
+            cmd.set_sampler(ShaderStage::Vertex, 0, &self.state_vs.samplers[0]);
+            cmd.set_sampler(ShaderStage::Vertex, 1, &self.state_vs.samplers[1]);
+            cmd.set_constant_buffer(ShaderStage::Vertex, 12, &self.state_vs.cbuffers[12]);
+            cmd.set_constant_buffer(ShaderStage::Vertex, 13, &self.state_vs.cbuffers[13]);
         }
 
         {
             profiling::scope!("restore_ps");
-            cmd.set_sampler(ShaderStage::Pixel, 0, self.state_ps.samplers[0].clone());
-            cmd.set_sampler(ShaderStage::Pixel, 1, self.state_ps.samplers[1].clone());
-            cmd.set_constant_buffer(ShaderStage::Pixel, 12, self.state_ps.cbuffers[12].clone());
-            cmd.set_constant_buffer(ShaderStage::Pixel, 13, self.state_ps.cbuffers[13].clone());
+            cmd.set_sampler(ShaderStage::Pixel, 0, &self.state_ps.samplers[0]);
+            cmd.set_sampler(ShaderStage::Pixel, 1, &self.state_ps.samplers[1]);
+            cmd.set_constant_buffer(ShaderStage::Pixel, 12, &self.state_ps.cbuffers[12]);
+            cmd.set_constant_buffer(ShaderStage::Pixel, 13, &self.state_ps.cbuffers[13]);
         }
 
         cmd.rasterizer_set_viewports(&self.viewports[0..4]);
-        cmd.output_merger_set_render_targets(&self.rtvs[0..4], self.dsv.as_ref());
+        cmd.output_merger_set_render_targets(
+            &[
+                self.rtvs[0].as_ref(),
+                self.rtvs[1].as_ref(),
+                self.rtvs[2].as_ref(),
+                self.rtvs[3].as_ref(),
+            ],
+            self.dsv.as_ref(),
+        );
         cmd.flush_states();
     }
 }
