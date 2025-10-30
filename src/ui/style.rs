@@ -1,4 +1,4 @@
-use egui::*;
+use egui::{style::Interaction, *};
 
 pub fn gui_style() -> Style {
     Style {
@@ -11,6 +11,10 @@ pub fn gui_style() -> Style {
         spacing: Spacing {
             button_padding: egui::vec2(25.0, 20.0),
             item_spacing: egui::vec2(20.0, 10.0),
+            ..Default::default()
+        },
+        interaction: Interaction {
+            selectable_labels: false,
             ..Default::default()
         },
         ..Default::default()

@@ -11,8 +11,9 @@ use deimos_render::{
     tfx::{packet::CompactTransform, view::View},
     Gpu, Renderer,
 };
-use egui::{load::SizedTexture, FontId, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2};
+use egui::{load::SizedTexture, vec2, FontId, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2};
 use glam::{Mat4, Vec3};
+use google_material_symbols::GoogleMaterialSymbols;
 
 use crate::ui::scene::controller::CameraController;
 
@@ -112,9 +113,16 @@ impl Scene {
         }
 
         let mut bar_rect = r.rect;
-        bar_rect.set_height(24.0);
-        ui.painter()
-            .rect_filled(bar_rect, 0.0, egui::Color32::from_black_alpha(64));
+        bar_rect.set_height(28.0);
+        ui.painter().rect_filled(
+            bar_rect,
+            0.0,
+            egui::Color32::from_black_alpha(if ui.rect_contains_pointer(bar_rect) {
+                160
+            } else {
+                64
+            }),
+        );
         ui.allocate_new_ui(UiBuilder::new().max_rect(bar_rect), |ui| {
             egui::menu::bar(ui, |ui| {
                 self.show_toolbar(ui);
@@ -126,7 +134,7 @@ impl Scene {
         self.last_frame_time = now;
 
         ui.painter_at(r.rect).text(
-            r.rect.right_top() + Vec2::splat(1.0),
+            r.rect.right_top() + Vec2::new(0.0, 3.0) + Vec2::splat(1.0),
             egui::Align2::RIGHT_TOP,
             format!("{} ", (1. / delta_time).round()),
             egui::FontId::monospace(16.0),
@@ -134,7 +142,7 @@ impl Scene {
         );
 
         ui.painter_at(r.rect).text(
-            r.rect.right_top(),
+            r.rect.right_top() + Vec2::new(0.0, 3.0),
             egui::Align2::RIGHT_TOP,
             format!("{} ", (1. / delta_time).round()),
             egui::FontId::monospace(16.0),
@@ -317,46 +325,54 @@ pub enum RenderMode {
 
     // Misc:
     DepthEdges,
+    WorldNormal,
 }
 
 impl RenderMode {
     pub fn ui(&mut self, ui: &mut Ui) {
-        ui.style_mut()
-            .text_styles
-            .insert(TextStyle::Button, FontId::proportional(16.0));
-        egui::ComboBox::from_id_salt("Render Mode")
-            .height(400.0)
-            .selected_text(format!("{:?}", self))
-            .show_ui(ui, |ui| {
-                ui.style_mut()
-                    .text_styles
-                    .insert(TextStyle::Button, FontId::proportional(16.0));
-                ui.style_mut().spacing.button_padding = Vec2::new(8.0, 2.0);
-                ui.style_mut().spacing.item_spacing = Vec2::ZERO;
+        ui.horizontal(|ui| {
+            ui.style_mut()
+                .text_styles
+                .insert(TextStyle::Button, FontId::proportional(16.0));
 
-                ui.selectable_value(self, RenderMode::Shaded, "Shaded");
-                // ui.selectable_value(self, RenderMode::Matcap, "Matcap");
+            ui.style_mut().spacing.item_spacing = vec2(4.0, 0.0);
+            ui.label(GoogleMaterialSymbols::EvShadow.to_string());
+            egui::ComboBox::from_id_salt("Render Mode")
+                .height(400.0)
+                .selected_text(format!("{:?}", self))
+                .show_ui(ui, |ui| {
+                    ui.style_mut()
+                        .text_styles
+                        .insert(TextStyle::Button, FontId::proportional(16.0));
+                    ui.style_mut().spacing.button_padding = Vec2::new(8.0, 2.0);
+                    ui.style_mut().spacing.item_spacing = Vec2::ZERO;
 
-                ui.add_space(6.0);
-                ui.add(
-                    egui::Label::new(RichText::new("Material:").weak().size(12.0))
-                        .selectable(false),
-                );
-                ui.selectable_value(self, RenderMode::Albedo, "Albedo");
-                // ui.selectable_value(self, RenderMode::Normals, "Normals");
-                ui.selectable_value(self, RenderMode::Smoothness, "Smoothness");
-                ui.selectable_value(self, RenderMode::Metalness, "Metalness");
-                ui.selectable_value(self, RenderMode::AmbientOcclusion, "Ambient Occlusion");
-                ui.selectable_value(self, RenderMode::Emission, "Emission");
-                ui.selectable_value(self, RenderMode::Transmission, "Transmission");
-                ui.selectable_value(self, RenderMode::IridescenceId, "Iridescence ID");
+                    ui.selectable_value(self, RenderMode::Shaded, "Shaded");
+                    // ui.selectable_value(self, RenderMode::Matcap, "Matcap");
 
-                ui.add_space(6.0);
-                ui.add(
-                    egui::Label::new(RichText::new("Misc:").weak().size(12.0)).selectable(false),
-                );
-                ui.selectable_value(self, RenderMode::DepthEdges, "Depth Edges");
-            });
+                    ui.add_space(6.0);
+                    ui.add(
+                        egui::Label::new(RichText::new("Material:").weak().size(12.0))
+                            .selectable(false),
+                    );
+                    ui.selectable_value(self, RenderMode::Albedo, "Albedo");
+                    // ui.selectable_value(self, RenderMode::Normals, "Normals");
+                    ui.selectable_value(self, RenderMode::Smoothness, "Smoothness");
+                    ui.selectable_value(self, RenderMode::Metalness, "Metalness");
+                    ui.selectable_value(self, RenderMode::AmbientOcclusion, "Ambient Occlusion");
+                    ui.selectable_value(self, RenderMode::Emission, "Emission");
+                    ui.selectable_value(self, RenderMode::Transmission, "Transmission");
+                    ui.selectable_value(self, RenderMode::IridescenceId, "Iridescence ID");
+
+                    ui.add_space(6.0);
+                    ui.add(
+                        egui::Label::new(RichText::new("Geometry:").weak().size(12.0))
+                            .selectable(false),
+                    );
+                    ui.selectable_value(self, RenderMode::DepthEdges, "Depth Edges");
+                    ui.selectable_value(self, RenderMode::WorldNormal, "World Normal");
+                });
+        });
     }
 }
 
@@ -374,6 +390,7 @@ impl From<RenderMode> for Option<DebugPipeline> {
             RenderMode::Transmission => Some(DebugPipeline::Transmission),
             RenderMode::IridescenceId => Some(DebugPipeline::Overcoat),
             RenderMode::DepthEdges => Some(DebugPipeline::DepthEdges),
+            RenderMode::WorldNormal => Some(DebugPipeline::WorldNormal),
         }
     }
 }
