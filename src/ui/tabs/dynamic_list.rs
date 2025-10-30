@@ -11,7 +11,7 @@ use itertools::Itertools;
 use tiger_parse::TigerReadable;
 use tiger_pkg::{package_manager, TagHash};
 
-use crate::ui::scene3d::Scene;
+use crate::ui::scene::Scene;
 
 use super::TabResult;
 

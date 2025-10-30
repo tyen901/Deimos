@@ -193,7 +193,7 @@ impl<'a> DecompilerState<'a> {
                     let max = self.get(-1)?;
                     let value = self.get(-2)?;
                     self.stack_pointer -= 2;
-                    set_top!(value.clamp(min, max));
+                    set_top!(format!("clamp({value}, {min}, {max})"));
                 }
                 Opcode::Floor => {
                     set_top!(format!("floor({cached_top})"));

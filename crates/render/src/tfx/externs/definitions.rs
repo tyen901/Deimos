@@ -1,5 +1,5 @@
 use crate::tfx::externs::{macros::extern_struct, Extern, ExternDefault, TextureView, Uav};
-use glam::{Mat3, Mat4, Vec3, Vec4, Vec4Swizzles};
+use glam::{vec4, Mat3, Mat4, Vec3, Vec4, Vec4Swizzles};
 use std::any::TypeId;
 
 extern_struct! {
@@ -163,17 +163,17 @@ impl View {
 
 extern_struct! {
     struct Deferred("deferred") {
-        0x00 => unk00: Vec4,
+        0x00 => depth_constants: Vec4 > default(vec4(1.0 / 50000.0, 1. / 0.02, 0.0, 0.0)),
         0x10 => unk10: Vec4,
         0x30 => unk30: Vec4,
-        0x40 => unk40: Vec4,
+        0x40 => gbuffer_resolution_scale_offset: Vec4 > default(vec4(1920.0, 1080.0, 0.0, 0.0)), // UV scaling+offset
         0x50 => unk50: Mat4,
         0x90 => unk90: f32,
         0x94 => unk94: f32,
-        0x98 => unk98: TextureView,
-        0xA8 => unka8: TextureView,
-        0xB0 => unkb0: TextureView,
-        0xB8 => unkb8: TextureView,
+        0x98 => deferred_depth: TextureView,
+        0xA8 => deferred_rt0: TextureView,
+        0xB0 => deferred_rt1: TextureView,
+        0xB8 => deferred_rt2: TextureView,
         0xC0 => unkc0: TextureView,
         0xC8 => unkc8: TextureView,
         0xD0 => unkd0: TextureView,
@@ -1263,7 +1263,7 @@ extern_struct! {
 
 extern_struct! {
     struct DebugShadingOutput("debug_shading_output") {
-        0x00 => unk00: f32,
+        0x00 => unk00: f32 > default(0.5),
         0x20 => unk20: Vec4,
         0x30 => unk30: Vec4,
         0x80 => unk80: Vec4,

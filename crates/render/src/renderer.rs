@@ -1,4 +1,3 @@
-pub mod debug;
 pub mod globals;
 pub mod submit;
 pub mod surface;
@@ -15,7 +14,7 @@ use crossbeam::atomic::AtomicCell;
 use d3d11::dxgi;
 use deimos_core::ConVars;
 use deimos_data::tfx::{texture::DxgiFormat, ExternIndex, FeatureRendererSubscription};
-use glam::{Mat4, Vec4};
+use glam::Mat4;
 use globals::RenderGlobals;
 use parking_lot::{Mutex, RwLock, RwLockReadGuard};
 use surface::Surfaces;

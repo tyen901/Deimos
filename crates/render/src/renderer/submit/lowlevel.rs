@@ -250,14 +250,14 @@ impl SubmitJobManager {
     pub fn poll_job(&self, job_id: SubmitJobId) -> Option<d3d11::CommandList> {
         self.collect_jobs();
 
-        let jobs_read = self.pending_jobs.read();
-        if !jobs_read.contains_key(&job_id) {
+        let r_pending_jobs = self.pending_jobs.read();
+        if !r_pending_jobs.contains_key(&job_id) {
             // Job id doesn't exist or has already been awaited
             return None;
         }
 
-        if jobs_read.get(&job_id).unwrap().is_some() {
-            drop(jobs_read);
+        if r_pending_jobs.get(&job_id).unwrap().is_some() {
+            drop(r_pending_jobs);
             let res = self.pending_jobs.write().remove(&job_id).unwrap().unwrap();
             return Some(res.cmd);
         }
