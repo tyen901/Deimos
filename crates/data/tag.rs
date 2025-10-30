@@ -86,8 +86,8 @@ impl WideHash {
 impl Debug for WideHash {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            WideHash::Hash32(h) => f.write_fmt(format_args!("Hash32({:08X})", h.0.to_be())),
-            WideHash::Hash64(h) => f.write_fmt(format_args!("Hash64({:016X})", h.0.to_be())),
+            WideHash::Hash32(h) => f.write_fmt(format_args!("Hash32({h})")),
+            WideHash::Hash64(h) => f.write_fmt(format_args!("Hash64({h})")),
         }
     }
 }
@@ -95,8 +95,8 @@ impl Debug for WideHash {
 impl Display for WideHash {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            WideHash::Hash32(h) => f.write_fmt(format_args!("{:08X}", h.0.to_be())),
-            WideHash::Hash64(h) => f.write_fmt(format_args!("{:016X}", h.0.to_be())),
+            WideHash::Hash32(h) => <TagHash as Display>::fmt(h, f),
+            WideHash::Hash64(h) => <TagHash64 as Display>::fmt(h, f),
         }
     }
 }
