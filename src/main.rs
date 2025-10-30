@@ -153,3 +153,7 @@ fn fix_windows_console() {
         }
     }
 }
+
+// Workaround for subsecond missing this symbol while linking (even though its not used)
+#[no_mangle]
+extern "C" fn CoCreateGuid() {}

@@ -7,7 +7,7 @@ use crate::{
     map::{load_static_map, StaticMapTemp},
     task::Task,
     ui::{
-        scene3d::{CameraController, Scene},
+        scene::{controller::CameraController, Scene},
         util::spinner_image,
     },
 };

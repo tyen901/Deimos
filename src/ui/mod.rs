@@ -7,7 +7,7 @@ use google_material_symbols::GoogleMaterialSymbols;
 use tabs::{DockStateExt, Tab, TabViewer};
 
 pub mod colors;
-mod scene3d;
+mod scene;
 mod style;
 pub mod tabs;
 pub mod util;
@@ -164,6 +164,7 @@ impl Gui {
             .egui_sdl3
             .begin_frame(self.window.size(), self.window.display_scale());
         ctx.style_mut(|s| s.visuals.panel_fill = Color32::from_black_alpha(96));
+
         DockArea::new(&mut self.tree)
             .show_add_buttons(false)
             .style({

@@ -116,7 +116,7 @@ float remap(float value, float min, float max) {
 }
 
 // static float3 SkyColor = float3(0.58, 0.78, 1);
-static float3 SkyColor = float3(0.063, 0.059, 0.067);
+static float3 SkyColor = float3(0.063, 0.059, 0.067) / 4;
 
 float4 mainPS(VSOutput input) : SV_TARGET {
   float4 rt0 = gbuffer_albedo.Sample(samplerState, input.uv);
@@ -175,12 +175,12 @@ float4 mainPS(VSOutput input) : SV_TARGET {
   // scale light by NdotL
   float NdotL = max(dot(N, L), 0.0);
 
-  float3 radiance = 1.6f;
+  float3 radiance = 2.2f;
   float3 Lo = (kD * albedo / PI + specular) * radiance * NdotL;
 
   float3 ambient = float(0.01).xxx * albedo * ao;
 
   float3 color = ambient + Lo;
 
-  return float4(lerp(linearToSrgb(color), SkyColor, fog), 1.0f);
+  return float4(lerp(color, SkyColor, fog), 1.0f);
 }

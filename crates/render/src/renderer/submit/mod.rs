@@ -11,6 +11,7 @@ use deimos_data::tfx::{FeatureRendererSubscription, PipelineState, ShaderStage};
 use glam::{Mat4, Vec4};
 
 use crate::{
+    camera::Camera,
     cmd_event_span,
     gpu::command_list::CommandList,
     tfx::{
@@ -23,7 +24,13 @@ use crate::{
 use super::Renderer;
 
 impl Renderer {
-    pub fn submit_world(&self, cmd: &mut CommandList, view: &View, delta_time: f32) {
+    pub fn submit_world(
+        &self,
+        cmd: &mut CommandList,
+        view: &View,
+        delta_time: f32,
+        debug_pipeline: Option<DebugPipeline>,
+    ) {
         cmd_event_span!(cmd, "submit_world");
 
         *self.surfaces.write() = view.surfaces.clone();
@@ -118,7 +125,29 @@ impl Renderer {
         // }
 
         let output = view.surfaces.get(view.output);
-        {
+
+        cmd.rasterizer_set_viewports(&[d3d11::Viewport::builder()
+            .width(output.resolution().0 as f32)
+            .height(output.resolution().1 as f32)
+            .build()]);
+        cmd.clear_render_target_view(output.rtv.as_ref().unwrap(), &[0., 0., 0., 1.0]);
+        cmd.output_merger_set_render_targets(std::slice::from_ref(&output.rtv.as_ref()), None);
+
+        if let Some(debug_pipeline) = debug_pipeline {
+            let p = &self.globals.pipelines;
+            let technique = match debug_pipeline {
+                DebugPipeline::Albedo => &p.debug_source_color,
+                DebugPipeline::Smoothness => &p.debug_specular_smoothness,
+                DebugPipeline::Metalness => &p.debug_metalness,
+                DebugPipeline::AmbientOcclusion => &p.debug_texture_ao,
+                DebugPipeline::Emission => &p.debug_emissive,
+                DebugPipeline::Transmission => &p.debug_transmission,
+                DebugPipeline::Overcoat => &p.debug_colored_overcoat_id,
+                DebugPipeline::DepthEdges => &p.debug_depth_edges,
+            };
+
+            self.execute_global_pipeline(cmd, technique, &format!("{debug_pipeline:?}"));
+        } else {
             let sun_light_direction = self
                 .externs
                 .get_global_channel_by_name("sun_light_direction");
@@ -132,13 +161,6 @@ impl Renderer {
                 )
                 .ok();
             self.debug_cbuffer.bind(cmd, ShaderStage::Pixel, 0);
-
-            cmd.rasterizer_set_viewports(&[d3d11::Viewport::builder()
-                .width(output.resolution().0 as f32)
-                .height(output.resolution().1 as f32)
-                .build()]);
-            cmd.clear_render_target_view(output.rtv.as_ref().unwrap(), &[0., 0., 0., 1.0]);
-            cmd.output_merger_set_render_targets(std::slice::from_ref(&output.rtv.as_ref()), None);
 
             cmd.state = PipelineState::new(Some(0), Some(0), Some(0), Some(0));
             cmd.flush_states();
@@ -211,19 +233,21 @@ impl Renderer {
         // let irr_lookup = &self.globals.textures.iridescence_lookup;
         // ext.frame.iridescence_lookup = irr_lookup.view.clone().into();
 
-        // let near = Camera::NEAR;
-        // let far = Camera::FAR;
-        // ext.deferred.depth_constants = Vec4::new(
-        //     1.0 / far,
-        //     (far - near) / (far * near),
-        //     0.00000000,
-        //     0.00000000,
-        // );
+        let near = Camera::NEAR;
+        let far = Camera::FAR;
+        ext.deferred.depth_constants = Vec4::new(
+            1.0 / far,
+            (far - near) / (far * near),
+            0.00000000,
+            0.00000000,
+        );
 
-        // ext.deferred.deferred_depth = self.gbuffers.depth_proxy.lock().srv.clone().into();
-        // ext.deferred.deferred_rt0 = self.gbuffers.albedo.into();
-        // ext.deferred.deferred_rt1 = self.gbuffers.normal.into();
-        // ext.deferred.deferred_rt2 = self.gbuffers.third.into();
+        ext.deferred.gbuffer_resolution_scale_offset =
+            Vec4::new(fb_res.0 as f32, fb_res.1 as f32, 0.0, 0.0);
+        ext.deferred.deferred_depth = view.gbuffers.depth_proxy.lock().srv.clone().into();
+        ext.deferred.deferred_rt0 = view.gbuffers.albedo.into();
+        ext.deferred.deferred_rt1 = view.gbuffers.normal.into();
+        ext.deferred.deferred_rt2 = view.gbuffers.third.into();
 
         // ext.deferred.light_diffuse = self.lighting.light_diffuse.into();
         // ext.deferred.light_specular = self.lighting.light_specular.into();
@@ -341,4 +365,16 @@ impl Renderer {
 
         sub
     }
+}
+
+#[derive(Debug)]
+pub enum DebugPipeline {
+    Albedo,
+    Smoothness,
+    Metalness,
+    AmbientOcclusion,
+    Emission,
+    Transmission,
+    Overcoat,
+    DepthEdges,
 }

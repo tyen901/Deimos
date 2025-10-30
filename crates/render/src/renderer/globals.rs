@@ -176,6 +176,14 @@ tfx_global_pipelines! {
     cubemap_apply_sky_copy_ao,
 
     debug_cubemap_diffuse_probes,
+    debug_source_color,
+    debug_specular_smoothness,
+    debug_metalness,
+    debug_texture_ao,
+    debug_emissive,
+    debug_transmission,
+    debug_colored_overcoat_id,
+    debug_depth_edges,
 
     // LUT3D variants
     screen_area_global_lut3d_distort,
