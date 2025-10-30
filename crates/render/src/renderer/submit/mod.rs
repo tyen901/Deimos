@@ -6,6 +6,8 @@ pub mod lowlevel;
 // pub mod transparent;
 // pub mod water;
 
+use std::fmt::Debug;
+
 use deimos_core::convar::ConVars;
 use deimos_data::tfx::{FeatureRendererSubscription, PipelineState, ShaderStage};
 use glam::{Mat4, Vec4};
@@ -144,6 +146,7 @@ impl Renderer {
                 DebugPipeline::Transmission => &p.debug_transmission,
                 DebugPipeline::Overcoat => &p.debug_colored_overcoat_id,
                 DebugPipeline::DepthEdges => &p.debug_depth_edges,
+                DebugPipeline::WorldNormal => &p.debug_world_normal,
             };
 
             self.execute_global_pipeline(cmd, technique, &format!("{debug_pipeline:?}"));
@@ -376,5 +379,7 @@ pub enum DebugPipeline {
     Emission,
     Transmission,
     Overcoat,
+
     DepthEdges,
+    WorldNormal,
 }
