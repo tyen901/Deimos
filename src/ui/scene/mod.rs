@@ -181,6 +181,9 @@ impl Scene {
     }
 
     fn render(&mut self, delta_time: f32) {
+        let gpu = &self.renderer.gpu;
+        let mut cmd = CommandList::from_device_context(gpu, gpu.context().clone());
+        let _gpuspan = self.renderer.profiler.scope(&cmd, "Scene::render (total)");
         self.renderer.frame_packet.write().reset();
 
         let sun_light_direction = Vec3::new(
@@ -208,15 +211,15 @@ impl Scene {
             }
         }
 
-        let gpu = &self.renderer.gpu;
-        let mut cmd = CommandList::from_device_context(gpu, gpu.context().clone());
         {
             profiling::scope!("prepare");
+            let _gpuspan = self.renderer.profiler.scope(&cmd, "prepare");
 
             cmd.clear_render_target_view(&gpu.acquire_rtv(), &[0.0, 0.0, 0.0, 1.0]);
 
             {
                 profiling::scope!("visibility");
+                let _gpuspan = self.renderer.profiler.scope(&cmd, "visibility");
                 self.renderer
                     .frame_packet
                     .write()
@@ -266,6 +269,7 @@ impl Scene {
             &self.renderer.surfaces().get(self.view.output).texture,
             &self.surface,
         );
+
         // let cmd = self.draw_world(delta_time);
         // self.renderer.gpu.submit_command_list(cmd);
 
@@ -283,6 +287,17 @@ impl Scene {
         //     context.rasterizer_set_state(None);
         //     self.renderer.debug_text.lock().draw(&self.renderer.gpu);
         // }
+
+        drop(_gpuspan);
+        self.renderer.profiler.end_frame();
+
+        static mut FRAME_COUNT: usize = 0;
+        unsafe {
+            FRAME_COUNT += 1;
+            if FRAME_COUNT.is_multiple_of(120) {
+                println!("{}", self.renderer.profiler.get_results_string());
+            }
+        }
     }
 
     pub fn focus_on(&mut self, position: Vec3) {

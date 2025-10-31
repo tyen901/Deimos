@@ -1,299 +1,278 @@
-use std::sync::atomic::AtomicUsize;
-
-use d3d11::{
-    query::{QueryType, D3D11_QUERY_DATA_TIMESTAMP_DISJOINT},
-    GetDataResult,
-};
+use anyhow::Context;
+use d3d11::query::{QueryDesc, D3D11_QUERY_DATA_TIMESTAMP_DISJOINT};
+use d3d11::{DeviceContext, Query};
 use parking_lot::Mutex;
+use std::collections::VecDeque;
+use std::sync::Arc;
+use std::time::Instant;
 
-use crate::renderer::Renderer;
+use crate::Gpu;
 
-pub struct TimestampManager {
-    tracy_context: tracy_client::GpuContext,
-    context: d3d11::DeviceContext,
+const MAX_PENDING_FRAMES: usize = 4;
 
-    queries: Vec<d3d11::Query>,
-    pending_frames: Mutex<Vec<PendingFrame>>,
-    disjoint_query: d3d11::Query,
-
-    query_counter: AtomicUsize,
+#[derive(Clone, Debug)]
+pub struct ProfileScope {
+    pub name: String,
+    pub cpu_duration_us: f64,
+    pub gpu_duration_us: f64,
 }
 
-impl TimestampManager {
-    const MAX_FRAMES: usize = 5;
-    const MAX_QUERIES: usize = Self::MAX_FRAMES * 8 * 1024;
+struct TimestampQuery {
+    context: DeviceContext,
+    name: String,
+    start_query: Query,
+    end_query: Query,
+    disjoint_query: Query,
+    cpu_start: Instant,
+    cpu_duration_us: f64,
+}
 
-    pub fn new(device: &d3d11::Device) -> anyhow::Result<Self> {
-        let queries = (0..Self::MAX_QUERIES)
-            .map(|_| create_query(device, QueryType::Timestamp))
-            .collect::<Result<Vec<_>, _>>()?;
-        let disjoint_query = create_query(device, QueryType::TimestampDisjoint)?;
+struct FrameQueries {
+    queries: Vec<TimestampQuery>,
+    frame_index: u64,
+}
 
-        let mut t_gpu = 0;
-        let context = device.get_immediate_context();
-        for _attempt in 0..50 {
-            context.begin(&disjoint_query);
-            context.end(&queries[0]);
-            context.end(&disjoint_query);
+struct ProfilerState {
+    gpu: Arc<Gpu>,
 
-            wait_for_query(&context, &disjoint_query);
+    current_frame: FrameQueries,
 
-            let r = unsafe {
-                context.get_data::<D3D11_QUERY_DATA_TIMESTAMP_DISJOINT>(&disjoint_query, false)
-            };
-            let GetDataResult::Ok(disjoint) = r else {
-                continue;
-            };
+    pending_frames: VecDeque<FrameQueries>,
 
-            if disjoint.Disjoint.as_bool() {
-                continue;
-            }
+    last_results: Vec<ProfileScope>,
 
-            let t = unsafe { context.get_data::<u64>(&queries[0], false) };
-            let GetDataResult::Ok(timestamp) = t else {
-                continue;
-            };
-            if timestamp == 0 {
-                continue;
-            }
+    frame_index: u64,
+}
 
-            t_gpu = timestamp * (1_000_000_000 / disjoint.Frequency);
-            break;
+#[derive(Clone)]
+pub struct D3D11Profiler {
+    state: Arc<Mutex<ProfilerState>>,
+}
+
+impl D3D11Profiler {
+    pub fn new(gpu: &Arc<Gpu>) -> Self {
+        let state = ProfilerState {
+            gpu: gpu.clone(),
+            current_frame: FrameQueries {
+                queries: Vec::new(),
+                frame_index: 0,
+            },
+            pending_frames: VecDeque::with_capacity(MAX_PENDING_FRAMES),
+            last_results: Vec::new(),
+            frame_index: 0,
+        };
+
+        Self {
+            state: Arc::new(Mutex::new(state)),
         }
+    }
+
+    pub fn scope(&self, context: &DeviceContext, name: impl Into<String>) -> ProfileScopeGuard {
+        ProfileScopeGuard::new(self.clone(), context, name.into())
+    }
+
+    fn start_scope(&self, name: String, context: &DeviceContext) -> anyhow::Result<ScopeHandle> {
+        let mut state = self.state.lock();
+
+        let device = &state.gpu.device;
+
+        let start_query = device
+            .create_query(&QueryDesc::timestamp())
+            .context("Failed to create start query")?;
+
+        let end_query = device
+            .create_query(&QueryDesc::timestamp())
+            .context("Failed to create end query")?;
+
+        let disjoint_query = device
+            .create_query(&QueryDesc::timestamp_disjoint())
+            .context("Failed to create disjoint query")?;
 
         context.begin(&disjoint_query);
 
-        Ok(Self {
-            tracy_context: tracy_client::Client::running()
-                .expect("Tracy client not running")
-                .new_gpu_context(
-                    None,
-                    tracy_client::GpuContextType::Direct3D11,
-                    t_gpu as i64,
-                    1.0,
-                )?,
-            context,
-            queries,
-            disjoint_query,
-            pending_frames: Mutex::new(Vec::new()),
-            query_counter: AtomicUsize::new(0),
-            // previous_checkpoint: AtomicUsize::new(0),
-            // next_checkpoint: AtomicUsize::new(0),
-        })
-    }
+        context.end(&start_query);
 
-    fn get_index(&self) -> usize {
-        let index = self
-            .query_counter
-            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        if (index + 1) >= Self::MAX_QUERIES {
-            self.query_counter
-                .store(0, std::sync::atomic::Ordering::Relaxed);
-        }
+        let cpu_start = Instant::now();
+        let index = state.current_frame.queries.len();
 
-        index
-    }
-
-    pub fn begin_span(&self, location: &'static SpanLocation) -> GpuSpanGuard {
-        let tracy_span = self
-            .tracy_context
-            .span(location)
-            .expect("Failed to create Tracy GPU span");
-
-        let start_query = self.get_index();
-        let end_query = self.get_index();
-
-        self.context.end(&self.queries[start_query]);
-
-        GpuSpanGuard {
-            tracy_span: Some(tracy_span),
+        state.current_frame.queries.push(TimestampQuery {
+            context: context.clone(),
+            name,
             start_query,
             end_query,
-        }
+            disjoint_query,
+            cpu_start,
+            cpu_duration_us: 0.0,
+        });
+
+        Ok(ScopeHandle { index })
     }
 
-    fn end_span(&self, mut span: PendingGpuSpan) {
-        self.context.end(&self.queries[span.end_query]);
-        span.tracy_span.end_zone();
-        self.pending_frames.lock().last_mut().unwrap().push(span);
+    fn end_scope(&self, handle: ScopeHandle) -> anyhow::Result<()> {
+        let ProfilerState { current_frame, .. } = &mut *self.state.lock();
+
+        if handle.index >= current_frame.queries.len() {
+            anyhow::bail!("Invalid scope handle");
+        }
+
+        let query = &mut current_frame.queries[handle.index];
+
+        query.context.end(&query.end_query);
+
+        query.context.end(&query.disjoint_query);
+
+        query.cpu_duration_us = query.cpu_start.elapsed().as_secs_f64() * 1_000_000.0;
+
+        Ok(())
     }
 
-    pub fn begin_frame(&self) {
-        if !cfg!(feature = "tracy") {
-            return;
-        }
-        self.pending_frames.lock().push(PendingFrame::default());
-    }
+    pub fn end_frame(&self) {
+        let ProfilerState {
+            gpu,
+            current_frame,
+            pending_frames,
+            last_results,
+            frame_index,
+            ..
+        } = &mut *self.state.lock();
 
-    pub fn collect(&self) {
-        if !cfg!(feature = "tracy") {
-            return;
-        }
-
-        let span = tracy_client::span!();
-        span.emit_color(0xff0000);
-
-        self.context.end(&self.disjoint_query);
-
-        // Start by culling old frames, we only need to keep the last MAX_FRAMES frames
-        let mut pending_frames = self.pending_frames.lock();
-        while pending_frames.len() > Self::MAX_FRAMES {
-            pending_frames.remove(0);
-        }
-
-        if pending_frames.is_empty() {
-            return;
-        }
-
-        wait_for_query(&self.context, &self.disjoint_query);
-
-        let r = unsafe {
-            self.context
-                .get_data::<D3D11_QUERY_DATA_TIMESTAMP_DISJOINT>(&self.disjoint_query, true)
+        let mut frame = FrameQueries {
+            queries: Vec::new(),
+            frame_index: *frame_index,
         };
-        let GetDataResult::Ok(disjoint) = r else {
-            return;
-        };
+        std::mem::swap(&mut frame, current_frame);
 
-        // If the disjoint flag is set, we can't trust the timestamps, so we throw away the current frame
-        if disjoint.Disjoint.as_bool() {
-            self.pending_frames.lock().pop();
-            return;
+        pending_frames.push_back(frame);
+        *frame_index += 1;
+
+        while pending_frames.len() > MAX_PENDING_FRAMES {
+            pending_frames.pop_front();
         }
 
-        if pending_frames.len() == Self::MAX_FRAMES {
-            // for frame in pending_frames.extract_if(|p| p.is_ready(self)) {
-            let frame = pending_frames.remove(0);
-            // We've already collected the disjoint query, so we can immediately collect all the other timestamps without waiting
-            for span in frame.0 {
-                // let QueryResult::Ok(mut t_start) = query_get_data::<u64>(
-                //     &self.context,
-                //     &self.queries[span.start_query],
-                //     false,
-                // ) else {
-                //     error!("Query data not available yet, but it should be");
-                //     break;
-                // };
-
-                // let QueryResult::Ok(mut t_end) =
-                //     query_get_data::<u64>(&self.context, &self.queries[span.end_query], false)
-                // else {
-                //     error!("Query data not available yet, but it should be");
-                //     break;
-                // };
-
-                let mut t_start =
-                    query_get_data_blocking::<u64>(&self.context, &self.queries[span.start_query]);
-                let mut t_end =
-                    query_get_data_blocking::<u64>(&self.context, &self.queries[span.end_query]);
-
-                t_start *= 1_000_000_000 / disjoint.Frequency;
-                t_end *= 1_000_000_000 / disjoint.Frequency;
-
-                span.tracy_span
-                    .upload_timestamp(t_start as i64, t_end as i64);
-                // }
+        if let Some(oldest_frame) = pending_frames.front() {
+            if let Ok(results) = Self::try_get_frame_results(&gpu.context(), oldest_frame) {
+                *last_results = results;
+                pending_frames.pop_front();
             }
-        }
-
-        // Restart the disjoint query for the next frame
-        self.context.begin(&self.disjoint_query);
-    }
-}
-
-#[derive(Default)]
-pub struct PendingFrame(Vec<PendingGpuSpan>);
-impl PendingFrame {
-    fn push(&mut self, span: PendingGpuSpan) {
-        self.0.push(span);
-    }
-
-    // fn is_ready(&self, manager: &TimestampManager) -> bool {
-    //     if let Some(last_span) = self.0.last() {
-    //         if let QueryResult::Ok(_) = query_get_data::<u64>(
-    //             &manager.context,
-    //             &manager.queries[last_span.end_query],
-    //             false,
-    //         ) {
-    //             return true;
-    //         } else {
-    //             return false;
-    //         }
-    //     }
-
-    //     true
-    // }
-}
-
-pub struct GpuSpanGuard {
-    tracy_span: Option<tracy_client::GpuSpan>,
-    start_query: usize,
-    end_query: usize,
-}
-
-impl GpuSpanGuard {
-    fn to_pending(&mut self) -> PendingGpuSpan {
-        PendingGpuSpan {
-            tracy_span: self.tracy_span.take().unwrap(),
-            start_query: self.start_query,
-            end_query: self.end_query,
-        }
-    }
-}
-
-struct PendingGpuSpan {
-    tracy_span: tracy_client::GpuSpan,
-    start_query: usize,
-    end_query: usize,
-}
-
-impl Drop for GpuSpanGuard {
-    fn drop(&mut self) {
-        Renderer::instance().timestamps.end_span(self.to_pending());
-    }
-}
-
-#[profiling::function]
-fn wait_for_query(context: &d3d11::DeviceContext, query: &d3d11::Query) {
-    context.flush();
-    while !context.is_query_ready(query) {
-        std::thread::yield_now();
-    }
-}
-
-fn create_query(device: &d3d11::Device, ty: QueryType) -> anyhow::Result<d3d11::Query> {
-    Ok(device.create_query(&d3d11::query::QueryDesc {
-        query: ty,
-        misc_flags: 0,
-    })?)
-}
-
-#[profiling::function]
-fn query_get_data_blocking<T: Sized + Default>(
-    context: &d3d11::DeviceContext,
-    query: &d3d11::Query,
-) -> T {
-    loop {
-        if let GetDataResult::Ok(data) = unsafe { context.get_data(query, false) } {
-            return data;
         } else {
-            std::thread::yield_now();
+            warn!("No pending profiling frames");
         }
+    }
+
+    fn try_get_frame_results(
+        context: &DeviceContext,
+        frame: &FrameQueries,
+    ) -> anyhow::Result<Vec<ProfileScope>> {
+        let mut results = Vec::new();
+
+        for query in &frame.queries {
+            let start_data = match unsafe { context.get_data::<u64>(&query.start_query, false) } {
+                d3d11::GetDataResult::Ok(o) => o,
+                d3d11::GetDataResult::Pending => anyhow::bail!("Start query not ready"),
+                d3d11::GetDataResult::Error(error) => {
+                    anyhow::bail!(format!("Failed to get start query data: {error:?}"))
+                }
+            };
+
+            let end_data = match unsafe { context.get_data::<u64>(&query.end_query, false) } {
+                d3d11::GetDataResult::Ok(o) => o,
+                d3d11::GetDataResult::Pending => anyhow::bail!("Start query not ready"),
+                d3d11::GetDataResult::Error(error) => {
+                    anyhow::bail!(format!("Failed to get start query data: {error:?}"))
+                }
+            };
+
+            let disjoint_data = match unsafe {
+                context
+                    .get_data::<D3D11_QUERY_DATA_TIMESTAMP_DISJOINT>(&query.disjoint_query, false)
+            } {
+                d3d11::GetDataResult::Ok(o) => o,
+                d3d11::GetDataResult::Pending => {
+                    anyhow::bail!("Disjoint query not ready")
+                }
+                d3d11::GetDataResult::Error(error) => {
+                    anyhow::bail!(format!("Failed to get disjoint query data: {error:?}"))
+                }
+            };
+
+            if disjoint_data.Disjoint.as_bool() {
+                continue;
+            }
+
+            let ticks = end_data.saturating_sub(start_data);
+            let gpu_duration_us = if disjoint_data.Frequency > 0 {
+                (ticks as f64 / disjoint_data.Frequency as f64) * 1_000_000.0
+            } else {
+                0.0
+            };
+
+            results.push(ProfileScope {
+                name: query.name.clone(),
+                cpu_duration_us: query.cpu_duration_us,
+                gpu_duration_us,
+            });
+        }
+
+        Ok(results)
+    }
+
+    pub fn get_results(&self) -> Vec<ProfileScope> {
+        let state = self.state.lock();
+        state.last_results.clone()
+    }
+
+    pub fn get_results_string(&self) -> String {
+        let results = self.get_results();
+
+        if results.is_empty() {
+            return "No profiling data available yet".to_string();
+        }
+
+        let mut output = String::new();
+        output.push_str("Profiling Results:\n");
+        output.push_str(&format!(
+            "{:<40} {:>12} {:>12}\n",
+            "Scope", "CPU (µs)", "GPU (µs)"
+        ));
+        output.push_str(&"-".repeat(66));
+        output.push('\n');
+
+        for scope in results {
+            output.push_str(&format!(
+                "{:<40} {:>12.2} {:>12.2}\n",
+                scope.name, scope.cpu_duration_us, scope.gpu_duration_us
+            ));
+        }
+
+        output
     }
 }
 
-#[macro_export]
-macro_rules! gpu_span {
-    () => {
-        #[cfg(feature = "tracy")]
-        let _gpu_timespan = $crate::Renderer::instance()
-            .timestamps
-            .begin_span(tracy_client::span_location!());
-    };
-    ($name:expr) => {
-        #[cfg(feature = "tracy")]
-        let _gpu_timespan = $crate::Renderer::instance()
-            .timestamps
-            .begin_span(tracy_client::span_location!($name));
-    };
+struct ScopeHandle {
+    index: usize,
+}
+
+pub struct ProfileScopeGuard {
+    profiler: D3D11Profiler,
+    handle: Option<ScopeHandle>,
+}
+
+impl ProfileScopeGuard {
+    fn new(profiler: D3D11Profiler, context: &DeviceContext, name: String) -> Self {
+        let handle = profiler.start_scope(name, context).ok();
+        Self { profiler, handle }
+    }
+
+    /// Executes the provided closure within the scope of this profiling guard.
+    pub fn span<F: FnOnce()>(self, f: F) {
+        f();
+    }
+}
+
+impl Drop for ProfileScopeGuard {
+    fn drop(&mut self) {
+        if let Some(handle) = self.handle.take() {
+            let _ = self.profiler.end_scope(handle);
+        }
+    }
 }
