@@ -3,7 +3,7 @@ pub mod buffers;
 pub mod gbuffer;
 // pub mod lighting;
 pub mod lowlevel;
-// pub mod transparent;
+pub mod transparent;
 // pub mod water;
 
 use std::fmt::Debug;
@@ -183,6 +183,8 @@ impl Renderer {
                 cmd.draw(4, 0);
             }
         });
+
+        self.submit_transparent(cmd, view);
 
         {
             profiling::scope!("prepare/submit immediate geometry");
