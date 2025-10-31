@@ -229,17 +229,16 @@ impl D3D11Profiler {
         }
 
         let mut output = String::new();
-        output.push_str("Profiling Results:\n");
         output.push_str(&format!(
-            "{:<40} {:>12} {:>12}\n",
+            "{:<30} {:>12} {:>12}\n",
             "Scope", "CPU (µs)", "GPU (µs)"
         ));
-        output.push_str(&"-".repeat(66));
+        output.push_str(&"-".repeat(56));
         output.push('\n');
 
         for scope in results {
             output.push_str(&format!(
-                "{:<40} {:>12.2} {:>12.2}\n",
+                "{:<30} {:>12.1} {:>12.1}\n",
                 scope.name, scope.cpu_duration_us, scope.gpu_duration_us
             ));
         }

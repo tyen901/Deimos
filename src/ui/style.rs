@@ -15,6 +15,7 @@ pub fn gui_style() -> Style {
         },
         interaction: Interaction {
             selectable_labels: false,
+            show_tooltips_only_when_still: false,
             ..Default::default()
         },
         ..Default::default()

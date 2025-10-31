@@ -1,6 +1,12 @@
 pub mod controller;
 
-use std::{sync::Arc, time::Instant};
+use std::{
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
+    time::Instant,
+};
 
 use d3d11::{dxgi, ShaderResourceView, Texture2D, Texture2dDesc};
 use deimos_render::{
@@ -11,7 +17,9 @@ use deimos_render::{
     tfx::{packet::CompactTransform, view::View},
     Gpu, Renderer,
 };
-use egui::{load::SizedTexture, vec2, FontId, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2};
+use egui::{
+    load::SizedTexture, vec2, FontId, Label, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2,
+};
 use glam::{Mat4, Vec3};
 use google_material_symbols::GoogleMaterialSymbols;
 
@@ -32,6 +40,8 @@ pub struct Scene {
 
     surface: d3d11::Texture2D,
     surface_srv: d3d11::ShaderResourceView,
+
+    profiler_results: Option<String>,
 }
 
 impl Scene {
@@ -50,6 +60,7 @@ impl Scene {
             surface,
             surface_srv,
             last_frame_time: Instant::now(),
+            profiler_results: None,
         })
     }
 
@@ -133,7 +144,7 @@ impl Scene {
         let delta_time = (now - self.last_frame_time).as_secs_f32();
         self.last_frame_time = now;
 
-        ui.painter_at(r.rect).text(
+        let fps_rect = ui.painter_at(r.rect).text(
             r.rect.right_top() + Vec2::new(0.0, 3.0) + Vec2::splat(1.0),
             egui::Align2::RIGHT_TOP,
             format!("{} ", (1. / delta_time).round()),
@@ -148,6 +159,22 @@ impl Scene {
             egui::FontId::monospace(16.0),
             egui::Color32::GREEN,
         );
+
+        ui.style_mut().spacing.tooltip_width = 4096.0;
+        ui.interact(
+            fps_rect,
+            "frame_counter_profiler_tooltip".into(),
+            Sense::hover(),
+        )
+        .on_hover_ui(|ui| {
+            if let Some(profiler_results) = &self.profiler_results {
+                ui.add(
+                    egui::Label::new(RichText::new(profiler_results.clone()).monospace()).extend(),
+                );
+            } else {
+                ui.weak("Profiler data not available yet.");
+            }
+        });
 
         let size_pixels = size * ui.ctx().pixels_per_point();
         let resolution = (size_pixels.x as u32, size_pixels.y as u32);
@@ -291,12 +318,12 @@ impl Scene {
         drop(_gpuspan);
         self.renderer.profiler.end_frame();
 
-        static mut FRAME_COUNT: usize = 0;
-        unsafe {
-            FRAME_COUNT += 1;
-            if FRAME_COUNT.is_multiple_of(60) {
-                println!("{}", self.renderer.profiler.get_results_string());
-            }
+        static FRAME_COUNT: AtomicUsize = AtomicUsize::new(0);
+        if FRAME_COUNT
+            .fetch_add(1, Ordering::Relaxed)
+            .is_multiple_of(10)
+        {
+            self.profiler_results = Some(self.renderer.profiler.get_results_string());
         }
     }
 
