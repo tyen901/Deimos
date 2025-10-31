@@ -131,11 +131,12 @@ impl<T> ConstantBuffer<T> {
         Ok(())
     }
 
-    /// SAFETY: The caller must ensure that the length of the slice matches the size of the buffer.
+    /// # Safety
+    /// The caller must ensure that the length of the slice matches the size of the buffer.
     pub unsafe fn write_array(&self, ctx: &d3d11::DeviceContext, data: &[T]) -> anyhow::Result<()> {
         let map = self.map(ctx, d3d11::MapType::WriteDiscard)?;
         map.data
-            .copy_from_nonoverlapping(data.as_ptr() as *const T as _, std::mem::size_of_val(data));
+            .copy_from_nonoverlapping(data.as_ptr() as _, std::mem::size_of_val(data));
         Ok(())
     }
 

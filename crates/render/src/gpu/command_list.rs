@@ -4,7 +4,7 @@ use d3d11::DeviceContext;
 use deimos_data::tfx::{PipelineState, PrimitiveType, ShaderStage};
 use tiger_pkg::TagHash;
 
-use crate::{tfx::externs::LocalExterns, Renderer};
+use crate::tfx::externs::LocalExterns;
 
 use super::{global_state, Gpu};
 

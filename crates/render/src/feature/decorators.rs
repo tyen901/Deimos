@@ -16,6 +16,7 @@ use crate::{
 pub struct DecoratorRenderer {
     pub data: SDecorator,
     pub hash: TagHash,
+    #[allow(clippy::type_complexity)]
     pub models: Vec<(
         Box<DynamicModel>,
         Box<externs::RigidModel>,

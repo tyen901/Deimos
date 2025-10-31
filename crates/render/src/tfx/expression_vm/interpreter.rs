@@ -22,7 +22,7 @@ pub struct InterpreterState<'a> {
     pub ip: usize,
     object_channels: Option<&'a TempObjectChannels>,
     context: Option<&'a d3d11::DeviceContext>,
-    externs: &'a dyn ExternAccessor,
+    externs: Option<&'a dyn ExternAccessor>,
 
     stack: [Vec4; 32],
     stack_pointer: usize,
@@ -38,7 +38,7 @@ impl<'a> InterpreterState<'a> {
             data,
             object_channels: None,
             context: None,
-            externs: &*Renderer::instance().externs,
+            externs: None,
             stack: [Vec4::ZERO; 32],
             stack_pointer: 0,
             temp: [Vec4::ZERO; 16],
@@ -57,7 +57,7 @@ impl<'a> InterpreterState<'a> {
     }
 
     pub fn with_externs(mut self, externs: &'a dyn ExternAccessor) -> Self {
-        self.externs = externs;
+        self.externs = Some(externs);
         self
     }
 
@@ -370,7 +370,7 @@ impl<'a> InterpreterState<'a> {
                         "Invalid constant index"
                     );
 
-                    let cl = &constants[constant_start as usize..];
+                    let cl = &constants[constant_start as usize..constant_start as usize + 5];
                     cached_top = super::helpers::bytecode_op_spline4_const(
                         cached_top, cl[0], cl[1], cl[2], cl[3], cl[4],
                     );
@@ -382,7 +382,7 @@ impl<'a> InterpreterState<'a> {
                         "Invalid constant index"
                     );
 
-                    let cl = &constants[constant_start as usize..];
+                    let cl = &constants[constant_start as usize..constant_start as usize + 10];
                     cached_top = super::helpers::bytecode_op_spline8_const(
                         cached_top, cl[0], cl[1], cl[2], cl[3], cl[4], cl[5], cl[6], cl[7], cl[8],
                         cl[9],
@@ -395,7 +395,7 @@ impl<'a> InterpreterState<'a> {
                         "Invalid constant index"
                     );
 
-                    let cl = &constants[constant_start as usize..];
+                    let cl = &constants[constant_start as usize..constant_start as usize + 6];
                     cached_top = super::helpers::bytecode_op_gradient4_const(
                         cached_top, cl[0], cl[1], cl[2], cl[3], cl[4], cl[5],
                     );
@@ -417,6 +417,9 @@ impl<'a> InterpreterState<'a> {
                     let Some(context) = self.context else {
                         anyhow::bail!("No D3D11 context set");
                     };
+                    let Some(externs) = self.externs else {
+                        anyhow::bail!("No externs set");
+                    };
 
                     let shader_stage = ShaderStage::from_index(ptr[1] >> 5)
                         .context("Invalid shader stage value")?;
@@ -428,7 +431,7 @@ impl<'a> InterpreterState<'a> {
                         .context("Invalid extern index on pop texture view")?;
                     let offset = bits & 0xFFFFFF;
 
-                    self.externs
+                    externs
                         .get_extern_value::<TextureView>(index, offset as usize)
                         .and_then(|o| {
                             let mut r = None;
@@ -470,6 +473,9 @@ impl<'a> InterpreterState<'a> {
                     let Some(context) = self.context else {
                         anyhow::bail!("No D3D11 context set");
                     };
+                    let Some(externs) = self.externs else {
+                        anyhow::bail!("No externs set");
+                    };
 
                     let shader_stage = ShaderStage::from_index(ptr[1] >> 5)
                         .context("Invalid shader stage value")?;
@@ -484,7 +490,7 @@ impl<'a> InterpreterState<'a> {
                         .context("Invalid extern index on pop texture view")?;
                     let offset = bits & 0xFFFFFF;
 
-                    self.externs
+                    externs
                         .get_extern_value::<Uav>(index, offset as usize)
                         .and_then(|o| {
                             let mut r = None;
@@ -519,12 +525,15 @@ impl<'a> InterpreterState<'a> {
                         self.push(Vec4::new(f32::from_bits(index as u32), 0.0, 0.0, 0.0))?;
                 }
                 Opcode::PushExternInputFloat => {
+                    let Some(externs) = self.externs else {
+                        anyhow::bail!("No externs set");
+                    };
+
                     let extern_id = ExternIndex::try_from(ptr[1])
                         .ok()
                         .context("Invalid extern index")?;
                     let offset = ptr[2];
-                    let val = self
-                        .externs
+                    let val = externs
                         .get_extern_value::<f32>(extern_id, offset as usize * 4)
                         .with_context(|| {
                             format!(
@@ -537,13 +546,16 @@ impl<'a> InterpreterState<'a> {
                     cached_top = self.push(Vec4::splat(val))?;
                 }
                 Opcode::PushExternInputVec4 => {
+                    let Some(externs) = self.externs else {
+                        anyhow::bail!("No externs set");
+                    };
+
                     let extern_id = ExternIndex::try_from(ptr[1])
                         .ok()
                         .context("Invalid extern index")?;
                     let offset = ptr[2];
 
-                    let val = self
-                        .externs
+                    let val = externs
                         .get_extern_value::<Vec4>(extern_id, offset as usize * 16)
                         .with_context(|| {
                             format!(
@@ -556,13 +568,16 @@ impl<'a> InterpreterState<'a> {
                     cached_top = self.push(val)?;
                 }
                 Opcode::PushExternInputMat4 => {
+                    let Some(externs) = self.externs else {
+                        anyhow::bail!("No externs set");
+                    };
+
                     let extern_id = ExternIndex::try_from(ptr[1])
                         .ok()
                         .context("Invalid extern index")?;
                     let offset = ptr[2];
 
-                    let val = self
-                        .externs
+                    let val = externs
                         .get_extern_value::<Mat4>(extern_id, offset as usize * 16)
                         .with_context(|| {
                             format!(
