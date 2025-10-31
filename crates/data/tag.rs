@@ -15,7 +15,6 @@ impl<T: TigerReadable> TigerReadable for Tag<T> {
         Ok(Tag(package_manager().read_tag_struct(tag)?, tag))
     }
 
-    const ZEROCOPY: bool = false;
     const SIZE: usize = TagHash::SIZE;
 }
 
@@ -35,6 +34,48 @@ impl<T: TigerReadable> std::ops::Deref for Tag<T> {
 impl<T: TigerReadable + Debug> Debug for Tag<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("Tag({}, ", self.1))?;
+        self.0.fmt(f)?;
+        f.write_str(")")
+    }
+}
+
+#[derive(Clone)]
+pub struct OptionalTag<T: TigerReadable>(pub Option<T>, TagHash);
+
+impl<T: TigerReadable> TigerReadable for OptionalTag<T> {
+    fn read_ds_endian<R: std::io::prelude::Read + std::io::prelude::Seek>(
+        reader: &mut R,
+        endian: tiger_parse::Endian,
+    ) -> tiger_parse::Result<Self> {
+        let tag = TagHash::read_ds_endian(reader, endian)?;
+        let data = if tag.is_some() {
+            Some(package_manager().read_tag_struct::<T>(tag)?)
+        } else {
+            None
+        };
+
+        Ok(Self(data, tag))
+    }
+
+    const SIZE: usize = TagHash::SIZE;
+}
+
+impl<T: TigerReadable> std::ops::Deref for OptionalTag<T> {
+    type Target = Option<T>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T: TigerReadable> OptionalTag<T> {
+    pub fn taghash(&self) -> TagHash {
+        self.1
+    }
+}
+
+impl<T: TigerReadable + Debug> Debug for OptionalTag<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("OptionalTag({}, ", self.1))?;
         self.0.fmt(f)?;
         f.write_str(")")
     }
@@ -135,7 +176,6 @@ impl TigerReadable for WideHash {
         }
     }
 
-    const ZEROCOPY: bool = false;
     const SIZE: usize = 16;
 }
 
@@ -164,7 +204,6 @@ impl<T: TigerReadable> TigerReadable for WideTag<T> {
         }
     }
 
-    const ZEROCOPY: bool = false;
     const SIZE: usize = TagHash::SIZE;
 }
 

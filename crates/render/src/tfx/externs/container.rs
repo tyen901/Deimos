@@ -2,7 +2,10 @@ use std::any::TypeId;
 
 use crate::{
     renderer::globals::RenderGlobals,
-    tfx::externs::{macros::extern_container, Extern, ExternAccessor},
+    tfx::externs::{
+        macros::{extern_container, local_extern_container},
+        Extern, ExternAccessor,
+    },
     Renderer,
 };
 use deimos_data::{hash::fnv1, tfx::ExternIndex};
@@ -144,4 +147,9 @@ impl Externs {
         self.globals[..globals.channels.default_values.len()]
             .copy_from_slice(&globals.channels.default_values);
     }
+}
+
+local_extern_container! {
+    rigid_model: RigidModel,
+    speedtree_placements: SpeedtreePlacements
 }

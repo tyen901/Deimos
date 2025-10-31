@@ -41,7 +41,7 @@ pub trait ExternAccessorExt {
     ) -> Option<U>;
 }
 
-impl<T: ExternAccessor> ExternAccessorExt for T {
+impl ExternAccessorExt for &dyn ExternAccessor {
     fn get_extern_value<U: Sized + Clone + ExternValue + 'static>(
         &self,
         index: ExternIndex,

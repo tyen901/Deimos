@@ -1,5 +1,7 @@
 use deimos_data::tfx::{PipelineState, ShaderStage};
 
+use crate::gpu::command_list::ContextExt;
+
 use super::command_list::CommandList;
 
 pub struct GpuState {

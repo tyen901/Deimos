@@ -20,7 +20,11 @@ use tiger_parse::PackageManagerExt;
 use tiger_pkg::{package_manager, TagHash};
 use tracing::{debug_span, error};
 
-use crate::{gpu::command_list::CommandList, util::d3d::calc_dx_subresource, Gpu};
+use crate::{
+    gpu::command_list::{CommandList, ContextExt},
+    util::d3d::calc_dx_subresource,
+    Gpu,
+};
 
 pub static LOW_RES: AtomicBool = AtomicBool::new(false);
 

@@ -1,9 +1,13 @@
+use anyhow::Context;
 use deimos_data::{
     map::{MapNodeResource, SBubbleParent, SMapNodeTable},
     tfx::features::statics::SUnk808082D5,
 };
 use deimos_render::{
-    feature::{static_geometry::StaticInstancesRenderer, terrain_patches::TerrainPatchesRenderer},
+    feature::{
+        decorators::DecoratorRenderer, static_geometry::StaticInstancesRenderer,
+        terrain_patches::TerrainPatchesRenderer,
+    },
     object::RenderObjectHandle,
     Renderer,
 };
@@ -14,6 +18,7 @@ use tiger_pkg::{package_manager, TagHash};
 pub struct StaticMapTemp {
     pub models: Vec<StaticInstancesRenderer>,
     pub terrain: Vec<TerrainPatchesRenderer>,
+    pub decorators: Vec<DecoratorRenderer>,
     // pub decals: Vec<Box<DecalCollectionRenderer>>,
     pub cubemaps: Vec<RenderObjectHandle>,
     // pub collision_hkx: Option<SStaticMapCollision>,
@@ -24,6 +29,7 @@ pub fn load_static_map(taghash: TagHash) -> anyhow::Result<StaticMapTemp> {
     let mut map = StaticMapTemp {
         models: Vec::new(),
         terrain: Vec::new(),
+        decorators: Vec::new(),
         // decals: Vec::new(),
         cubemaps: Vec::new(),
         // collision_hkx: None,
@@ -31,10 +37,14 @@ pub fn load_static_map(taghash: TagHash) -> anyhow::Result<StaticMapTemp> {
     };
 
     let gpu = Renderer::instance().gpu.clone();
-    let parent = package_manager().read_tag_struct::<SBubbleParent>(taghash)?;
+    let parent = package_manager()
+        .read_tag_struct::<SBubbleParent>(taghash)
+        .context("Failed to read SBubbleParent")?;
     for resources in &parent.definition.containers {
         for datatable_hash in &resources.data_tables {
-            let datatable = package_manager().read_tag_struct::<SMapNodeTable>(*datatable_hash)?;
+            let datatable = package_manager()
+                .read_tag_struct::<SMapNodeTable>(*datatable_hash)
+                .context("Failed to read SMapNodeTable")?;
             for node in datatable.data_entries {
                 if let Some(ref resource) = *node.data_resource {
                     match resource {
@@ -73,6 +83,16 @@ pub fn load_static_map(taghash: TagHash) -> anyhow::Result<StaticMapTemp> {
                                 terrain.identifier,
                             )?;
                             map.terrain.push(renderer);
+                        }
+                        MapNodeResource::SDecoratorsComponent(component) => {
+                            if let Some(decorators) = component.decorators.0.as_ref() {
+                                let renderer = DecoratorRenderer::load(
+                                    Renderer::instance(),
+                                    component.decorators.taghash(),
+                                    decorators.clone(),
+                                )?;
+                                map.decorators.push(renderer);
+                            }
                         }
                         // MapNodeResource::SStaticAmbientOcclusionComponent(ao) => {
                         //     let renderer = Renderer::instance();

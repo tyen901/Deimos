@@ -2,7 +2,10 @@ use std::any::Any;
 
 use anyhow::Context;
 use deimos_data::tfx::{
-    features::dynamic::{RenderStageSubscription, SDynamicMeshMaterialVariants, SDynamicModel},
+    features::dynamic::{
+        RenderStageSubscription, SDynamicMesh, SDynamicMeshMaterialVariants, SDynamicMeshPart,
+        SDynamicModel,
+    },
     RenderStage, ShaderStage, TfxScopeBits,
 };
 use glam::{Mat4, Vec4};
@@ -173,6 +176,75 @@ impl DynamicModel {
     //         },
     //     )
     // }
+
+    pub fn draw_wrapped<F>(
+        &self,
+        cmd: &mut CommandList,
+        stage: RenderStage,
+        identifier: u16,
+        mut f: F,
+    ) where
+        F: FnMut(&Self, &mut CommandList, &SDynamicMesh, &SDynamicMeshPart),
+    {
+        for (mesh, subscribed_stages, mesh_buffers, mesh_techniques) in multizip((
+            self.model.meshes.iter(),
+            self.mesh_stages.iter(),
+            self.mesh_buffers.iter(),
+            self.part_techniques.iter(),
+        )) {
+            if !subscribed_stages.is_subscribed(stage) {
+                continue;
+            }
+
+            self.cb.bind(cmd, ShaderStage::Vertex, 1);
+            self.cb.bind(cmd, ShaderStage::Pixel, 1);
+
+            cmd.set_input_layout(mesh.get_input_layout_for_stage(stage) as usize);
+            mesh_buffers.bind(cmd);
+            for part_index in mesh.get_range_for_stage(stage) {
+                let part = &mesh.parts[part_index];
+                if identifier != u16::MAX && part.external_identifier != identifier {
+                    continue;
+                }
+
+                if !part.lod_category.is_highest_detail() {
+                    continue;
+                }
+
+                let variant_material =
+                    self.get_variant_technique(part.variant_shader_index, self.selected_variant);
+
+                let mut all_scopes = TfxScopeBits::empty();
+                if let Some(technique) = mesh_techniques[part_index].get() {
+                    technique
+                        .bind_with_channels(cmd, Some(&self.channels))
+                        .expect("Failed to bind technique");
+                    all_scopes |= technique.used_scopes;
+                }
+
+                if let Some(technique) = &variant_material {
+                    if let Some(tech) = technique.get() {
+                        tech.bind_with_channels(cmd, Some(&self.channels))
+                            .expect("Failed to bind variant technique");
+                        all_scopes |= tech.used_scopes;
+                    }
+                }
+
+                // No technique, no scopes, no draw
+                if all_scopes.is_empty() {
+                    continue;
+                }
+
+                if all_scopes.contains(TfxScopeBits::SKINNING) {
+                    cmd.vertex_set_shader(&Renderer::instance().common.disable_skinning_vs);
+                }
+
+                cmd.set_input_topology(part.primitive_type);
+
+                f(self, cmd, mesh, part);
+            }
+        }
+    }
 }
 
 impl FeatureRenderer for DynamicModel {
@@ -215,70 +287,9 @@ impl FeatureRenderer for DynamicModel {
     fn submit(&self, cmd: &mut CommandList, stage: RenderStage) {
         profiling::scope!("DynamicModel::draw");
 
-        // ensure!(self.selected_mesh < self.mesh_count(), "Invalid mesh index");
-        // ensure!(
-        //     self.selected_variant < self.variant_count() || self.variant_count() == 0,
-        //     "Material variant out of range"
-        // );
-
-        for (mesh, subscribed_stages, mesh_buffers, mesh_techniques) in multizip((
-            self.model.meshes.iter(),
-            self.mesh_stages.iter(),
-            self.mesh_buffers.iter(),
-            self.part_techniques.iter(),
-        )) {
-            if !subscribed_stages.is_subscribed(stage) {
-                continue;
-            }
-
-            self.cb.bind(cmd, ShaderStage::Vertex, 1);
-            self.cb.bind(cmd, ShaderStage::Pixel, 1);
-
-            cmd.set_input_layout(mesh.get_input_layout_for_stage(stage) as usize);
-            mesh_buffers.bind(cmd);
-            for part_index in mesh.get_range_for_stage(stage) {
-                let part = &mesh.parts[part_index];
-                // if identifier != u16::MAX && part.external_identifier != identifier {
-                //     continue;
-                // }
-
-                if !part.lod_category.is_highest_detail() {
-                    continue;
-                }
-
-                let variant_material =
-                    self.get_variant_technique(part.variant_shader_index, self.selected_variant);
-
-                let mut all_scopes = TfxScopeBits::empty();
-                if let Some(technique) = mesh_techniques[part_index].get() {
-                    technique
-                        .bind_with_channels(cmd, Some(&self.channels))
-                        .expect("Failed to bind technique");
-                    all_scopes |= technique.used_scopes;
-                }
-
-                if let Some(technique) = &variant_material {
-                    if let Some(tech) = technique.get() {
-                        tech.bind_with_channels(cmd, Some(&self.channels))
-                            .expect("Failed to bind variant technique");
-                        all_scopes |= tech.used_scopes;
-                    }
-                }
-
-                // No technique, no scopes, no draw
-                if all_scopes.is_empty() {
-                    continue;
-                }
-
-                if all_scopes.contains(TfxScopeBits::SKINNING) {
-                    cmd.vertex_set_shader(&Renderer::instance().common.disable_skinning_vs);
-                }
-
-                cmd.set_input_topology(part.primitive_type);
-
-                cmd.draw_indexed(part.index_count, part.index_start, 0);
-            }
-        }
+        self.draw_wrapped(cmd, stage, u16::MAX, |_model, cmd, _mesh, part| {
+            cmd.draw_indexed(part.index_count, part.index_start, 0);
+        });
     }
 
     fn subscribed_stages(&self) -> RenderStageSubscription {

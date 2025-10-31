@@ -86,12 +86,12 @@ impl Technique {
         })
     }
 
-    // #[tracing::instrument(skip(self, cmd), fields(technique = %self.hash))]
     pub fn bind(&self, cmd: &mut CommandList) -> anyhow::Result<()> {
         self.bind_with_channels(cmd, None)
     }
 
     // #[profiling::function]
+    // #[tracing::instrument(skip(self, cmd, channels), fields(technique = %self.hash))]
     pub fn bind_with_channels(
         &self,
         cmd: &mut CommandList,
@@ -198,6 +198,23 @@ impl TechniqueStage {
         if shader.shader.is_none() {
             return Ok(None);
         }
+
+        // if stage == ShaderStage::Vertex {
+        //     println!("{technique_hash}");
+        //     let mut decompiler = DecompilerState::new(&shader.constants.bytecode);
+        //     let mut output = vec![String::new(); 128];
+        //     if decompiler
+        //         .evaluate(&shader.constants.bytecode_constants, &mut output)
+        //         .is_ok()
+        //     {
+        //         for (index, line) in output.iter().enumerate() {
+        //             if line.is_empty() {
+        //                 continue;
+        //             }
+        //             println!("\tcb0[{}]: {}", index, line);
+        //         }
+        //     }
+        // }
 
         let dynamic_constants = DynamicConstants::load(gpu, &shader.constants)?;
 

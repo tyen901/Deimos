@@ -1,14 +1,14 @@
-use tiger_parse::{tiger_tag, NullString, Pointer};
+use tiger_parse::{tiger_type, NullString, Pointer};
 
 use super::{SDynamicConstants, ShaderStage};
 
 #[derive(Clone)]
-#[tiger_tag(id = 0x808031DC, size = 0x3b8)]
+#[tiger_type(id = 0x808031DC, size = 0x3b8)]
 pub struct SScope {
     pub file_size: u64,
     pub name: Pointer<NullString>,
 
-    #[tag(offset = 0x48)]
+    #[tiger(offset = 0x48)]
     pub stage_pixel: SScopeStage,
     pub stage_vertex: SScopeStage,
     pub stage_geometry: SScopeStage,
@@ -32,7 +32,7 @@ impl SScope {
 }
 
 #[derive(Clone)]
-#[tiger_tag(id = 0xffffffff, size = 0x80)]
+#[tiger_type(id = 0xffffffff, size = 0x80)]
 pub struct SScopeStage {
     pub constants: SDynamicConstants,
 }

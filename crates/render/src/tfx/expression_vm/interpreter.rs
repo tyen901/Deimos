@@ -6,8 +6,9 @@ use d3d11::SamplerState;
 use deimos_data::tfx::{ExternIndex, ShaderStage};
 use glam::{Mat4, Vec4, Vec4Swizzles};
 
-use crate::tfx::externs::{ExternAccessorExt, TextureView, Uav};
-use crate::{gpu::command_list::CommandList, Renderer};
+use crate::gpu::command_list::ContextExt;
+use crate::tfx::externs::{ExternAccessor, ExternAccessorExt, TextureView, Uav};
+use crate::Renderer;
 
 use super::opcodes::Opcode;
 
@@ -20,6 +21,8 @@ pub struct InterpreterState<'a> {
     data: &'a [u8],
     pub ip: usize,
     object_channels: Option<&'a TempObjectChannels>,
+    context: Option<&'a d3d11::DeviceContext>,
+    externs: &'a dyn ExternAccessor,
 
     stack: [Vec4; 32],
     stack_pointer: usize,
@@ -34,6 +37,8 @@ impl<'a> InterpreterState<'a> {
             ip: 0,
             data,
             object_channels: None,
+            context: None,
+            externs: &*Renderer::instance().externs,
             stack: [Vec4::ZERO; 32],
             stack_pointer: 0,
             temp: [Vec4::ZERO; 16],
@@ -48,6 +53,16 @@ impl<'a> InterpreterState<'a> {
 
     pub fn with_debug(mut self, debug: bool) -> Self {
         self.debug = debug;
+        self
+    }
+
+    pub fn with_externs(mut self, externs: &'a dyn ExternAccessor) -> Self {
+        self.externs = externs;
+        self
+    }
+
+    pub fn with_d3d11_context(mut self, context: &'a d3d11::DeviceContext) -> Self {
+        self.context = Some(context);
         self
     }
 
@@ -121,7 +136,6 @@ impl<'a> InterpreterState<'a> {
     #[profiling::function]
     pub fn evaluate(
         &mut self,
-        cmd: &mut CommandList,
         constants: &[Vec4],
         samplers: &[Option<SamplerState>],
         out: &mut [Vec4],
@@ -400,6 +414,10 @@ impl<'a> InterpreterState<'a> {
                     cached_top = self.pop_top();
                 }
                 Opcode::PopTextureView => {
+                    let Some(context) = self.context else {
+                        anyhow::bail!("No D3D11 context set");
+                    };
+
                     let shader_stage = ShaderStage::from_index(ptr[1] >> 5)
                         .context("Invalid shader stage value")?;
                     let slot = ptr[1] & 0x1F;
@@ -410,14 +428,13 @@ impl<'a> InterpreterState<'a> {
                         .context("Invalid extern index on pop texture view")?;
                     let offset = bits & 0xFFFFFF;
 
-                    Renderer::instance()
-                        .externs
+                    self.externs
                         .get_extern_value::<TextureView>(index, offset as usize)
                         .and_then(|o| {
                             let mut r = None;
                             o.get_srv(|srv| {
                                 r = Some(());
-                                cmd.set_shader_resource(shader_stage, slot as u32, srv);
+                                context.set_shader_resource(shader_stage, slot as u32, srv);
                             });
                             r
                         })
@@ -426,12 +443,20 @@ impl<'a> InterpreterState<'a> {
                                 index,
                                 offset as usize,
                                 |tex, _| {
-                                    cmd.set_shader_resource(shader_stage, slot as u32, &tex.view);
+                                    context.set_shader_resource(
+                                        shader_stage,
+                                        slot as u32,
+                                        &tex.view,
+                                    );
                                 },
                             )
                         });
                 }
                 Opcode::PopSamplerState => {
+                    let Some(context) = self.context else {
+                        anyhow::bail!("No D3D11 context set");
+                    };
+
                     let shader_stage = ShaderStage::from_index(ptr[1] >> 5)
                         .context("Invalid shader stage value")?;
                     let slot = ptr[1] & 0x1F;
@@ -439,9 +464,13 @@ impl<'a> InterpreterState<'a> {
                     cached_top = self.pop_top();
                     anyhow::ensure!(index < samplers.len() as u32, "Invalid sampler index");
                     let sampler = &samplers[index as usize];
-                    cmd.set_sampler(shader_stage, slot as u32, sampler.as_ref());
+                    context.set_sampler(shader_stage, slot as u32, sampler.as_ref());
                 }
                 Opcode::PopUav => {
+                    let Some(context) = self.context else {
+                        anyhow::bail!("No D3D11 context set");
+                    };
+
                     let shader_stage = ShaderStage::from_index(ptr[1] >> 5)
                         .context("Invalid shader stage value")?;
                     if shader_stage != ShaderStage::Compute {
@@ -455,14 +484,13 @@ impl<'a> InterpreterState<'a> {
                         .context("Invalid extern index on pop texture view")?;
                     let offset = bits & 0xFFFFFF;
 
-                    Renderer::instance()
-                        .externs
+                    self.externs
                         .get_extern_value::<Uav>(index, offset as usize)
                         .and_then(|o| {
                             let mut r = None;
                             o.get_uav(|uav| {
                                 r = Some(());
-                                cmd.compute_set_unordered_access_views(
+                                context.compute_set_unordered_access_views(
                                     slot as u32,
                                     &[Some(uav)],
                                     None,
@@ -475,7 +503,7 @@ impl<'a> InterpreterState<'a> {
                                 index,
                                 offset as usize,
                                 |_, uav| {
-                                    cmd.compute_set_unordered_access_views(
+                                    context.compute_set_unordered_access_views(
                                         slot as u32,
                                         &[Some(uav)],
                                         None,
@@ -495,7 +523,7 @@ impl<'a> InterpreterState<'a> {
                         .ok()
                         .context("Invalid extern index")?;
                     let offset = ptr[2];
-                    let val = Renderer::instance()
+                    let val = self
                         .externs
                         .get_extern_value::<f32>(extern_id, offset as usize * 4)
                         .with_context(|| {
@@ -514,7 +542,7 @@ impl<'a> InterpreterState<'a> {
                         .context("Invalid extern index")?;
                     let offset = ptr[2];
 
-                    let val = Renderer::instance()
+                    let val = self
                         .externs
                         .get_extern_value::<Vec4>(extern_id, offset as usize * 16)
                         .with_context(|| {
@@ -533,7 +561,7 @@ impl<'a> InterpreterState<'a> {
                         .context("Invalid extern index")?;
                     let offset = ptr[2];
 
-                    let val = Renderer::instance()
+                    let val = self
                         .externs
                         .get_extern_value::<Mat4>(extern_id, offset as usize * 16)
                         .with_context(|| {

@@ -1,17 +1,17 @@
 use glam::Vec4;
-use tiger_parse::{tiger_tag, NullString, Pointer};
+use tiger_parse::{tiger_type, NullString, Pointer};
 use tiger_pkg::TagHash;
 
 use crate::tag::Tag;
 
-#[tiger_tag(id = 0x8080B61C)]
+#[tiger_type(id = 0x8080B61C)]
 pub struct SRenderGlobals {
     pub file_size: u64,
     pub unk8: Vec<SUnk8080870f>,
     pub unk18: Vec<()>,
 }
 
-#[tiger_tag(id = 0x8080A7C9)]
+#[tiger_type(id = 0x8080A7C9)]
 pub struct SUnk8080870f {
     pub unk0: u32,
     pub unk4: u32,
@@ -19,7 +19,7 @@ pub struct SUnk8080870f {
     pub unkc: u32,
 }
 
-#[tiger_tag(id = 0x80808070)]
+#[tiger_type(id = 0x80808070)]
 pub struct SRenderGlobalsData {
     pub file_size: u64,
     pub input_layouts: Tag<SVertexInputLayouts>,
@@ -33,7 +33,7 @@ pub struct SRenderGlobalsData {
 }
 
 #[derive(Debug)]
-#[tiger_tag(id = 0x80807F6A)]
+#[tiger_type(id = 0x80807F6A)]
 pub struct SRenderGlobalLookupTextures {
     pub file_size: u64,
     pub specular_tint_lookup_texture: TagHash,
@@ -43,7 +43,7 @@ pub struct SRenderGlobalLookupTextures {
 }
 
 #[derive(Debug)]
-#[tiger_tag(id = 0x80808075)]
+#[tiger_type(id = 0x80808075)]
 pub struct SRenderGlobalScope {
     pub name: Pointer<NullString>,
     pub unk8: u32,
@@ -52,7 +52,7 @@ pub struct SRenderGlobalScope {
 }
 
 #[derive(Debug)]
-#[tiger_tag(id = 0x80808074)]
+#[tiger_type(id = 0x80808074)]
 pub struct SRenderGlobalPipelines {
     pub name: Pointer<NullString>,
     pub unk8: u32,
@@ -60,7 +60,7 @@ pub struct SRenderGlobalPipelines {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_tag(id = 0x8080A014)]
+#[tiger_type(id = 0x8080A014)]
 // cohae: I love this name
 pub struct SRenderGlobalsGlobalChannels {
     pub file_size: u64,
@@ -69,7 +69,7 @@ pub struct SRenderGlobalsGlobalChannels {
     pub unk28: Vec<()>,
 }
 
-#[tiger_tag(id = 0x80808661, size = 0x2c)]
+#[tiger_type(id = 0x80808661, size = 0x38)]
 pub struct SVertexInputLayouts {
     pub file_size: u64,
     pub unk8: u32,
@@ -86,18 +86,18 @@ pub struct SVertexInputLayouts {
     pub mapping: Tag<SVertexInputLayoutMapping>,
 }
 
-#[tiger_tag(id = 0x80808664, size = 0x18)]
+#[tiger_type(id = 0x80808664, size = 0x18)]
 pub struct SVertexInputLayoutMapping {
     pub file_size: u64,
     pub layouts: Vec<SVertexLayout>,
 }
 
 #[derive(Debug)]
-#[tiger_tag(id = 0x80808667, size = 0x1c)]
+#[tiger_type(id = 0x80808667, size = 0x1c)]
 pub struct SVertexLayout {
     pub index: u8,
 
-    #[tag(offset = 0x8)]
+    #[tiger(offset = 0x8)]
     pub buffer_0: u32,
     pub buffer_1: u32,
     pub buffer_2: u32,
@@ -109,18 +109,18 @@ pub struct SVertexLayout {
     pub buffer_3_instanced: bool,
 }
 
-#[tiger_tag(id = 0x80808668, size = 0x18)]
+#[tiger_type(id = 0x80808668, size = 0x18)]
 pub struct SVertexInputElementSets {
     pub file_size: u64,
     pub sets: Vec<SVertexInputElementSet>,
 }
 
-#[tiger_tag(id = 0x8080866A, size = 0x10)]
+#[tiger_type(id = 0x8080866A, size = 0x10)]
 pub struct SVertexInputElementSet {
     pub elements: Vec<SVertexInputElement>,
 }
 
-#[tiger_tag(id = 0x8080866D, size = 3)]
+#[tiger_type(id = 0x8080866D, size = 3)]
 pub struct SVertexInputElement {
     pub semantic: u8,
     pub semantic_index: u8,

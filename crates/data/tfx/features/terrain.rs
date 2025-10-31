@@ -1,13 +1,13 @@
 use glam::Vec4;
 use int_enum::IntEnum;
-use tiger_parse::{tiger_tag, TigerReadable};
+use tiger_parse::{tiger_type, TigerReadable};
 use tiger_pkg::TagHash;
 
 use crate::tfx::common::AxisAlignedBBox;
 
 /// Terrain
 #[derive(Debug)]
-#[tiger_tag(id = 0x80808567, size = 0x88)]
+#[tiger_type(id = 0x80808567, size = 0x88)]
 pub struct STerrain {
     pub file_size: u64,
     pub unk8: u64,
@@ -15,7 +15,7 @@ pub struct STerrain {
     pub bounds: AxisAlignedBBox,
     pub unk30: Vec4,
 
-    #[tag(offset = 0x50)]
+    #[tiger(offset = 0x50)]
     pub mesh_groups: Vec<STerrainMeshGroup>,
 
     pub vertex0_buffer: TagHash,
@@ -24,12 +24,12 @@ pub struct STerrain {
     pub unk_technique1: TagHash,
     pub unk_technique2: TagHash,
 
-    #[tag(offset = 0x78)]
+    #[tiger(offset = 0x78)]
     pub mesh_parts: Vec<STerrainMeshPart>,
 }
 
 #[derive(Debug)]
-#[tiger_tag(id = 0x8080856C)]
+#[tiger_type(id = 0x8080856C)]
 pub struct STerrainMeshGroup {
     pub unk0: Vec4,
     pub unk10: f32,
@@ -52,7 +52,7 @@ pub struct STerrainMeshGroup {
 }
 
 #[derive(Debug)]
-#[tiger_tag(id = 0x8080856A)]
+#[tiger_type(id = 0x8080856A)]
 pub struct STerrainMeshPart {
     pub technique: TagHash,
     pub index_start: u32,
@@ -82,5 +82,4 @@ impl TigerReadable for TerrainDetailLevel {
     }
 
     const SIZE: usize = 1;
-    const ZEROCOPY: bool = false;
 }
