@@ -48,6 +48,13 @@ impl MapTab {
                             Box::new(()),
                         ));
                     }
+                    for s in map.decorators {
+                        self.scene.add_static_object(RenderObject::new(
+                            TfxFeatureRenderer::SpeedtreeTrees,
+                            Box::new(s),
+                            Box::new(()),
+                        ));
+                    }
                 }
                 Err(_e) => {
                     error!("Failed to load map: unknown error");

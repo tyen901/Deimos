@@ -11,7 +11,10 @@ use crate::{
         texture::{load_sampler, Texture},
         Handle,
     },
-    gpu::{cbuffer::ConstantBuffer, command_list::CommandList},
+    gpu::{
+        cbuffer::ConstantBuffer,
+        command_list::{CommandList, ContextExt},
+    },
     tfx::expression_vm::opcodes::{Opcode, OpcodeIterator},
     Gpu, Renderer,
 };
@@ -136,12 +139,13 @@ impl DynamicConstants {
         output: Option<&mut [Vec4]>,
         channels: Option<&TempObjectChannels>,
     ) {
-        let mut interpreter = InterpreterState::new(&self.bytecode);
+        let mut interpreter = InterpreterState::new(&self.bytecode)
+            .with_d3d11_context(cmd)
+            .with_externs(&cmd.externs);
         if let Some(channels) = channels {
             interpreter = interpreter.with_object_channels(channels);
         }
         if let Err(e) = interpreter.evaluate(
-            cmd,
             &self.bytecode_constants,
             &self.samplers,
             output.unwrap_or(&mut []),

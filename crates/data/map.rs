@@ -1,12 +1,15 @@
 use assert_offset::AssertOffsets;
 use glam::{Quat, Vec4};
-use tiger_parse::{tiger_tag, tiger_variant_enum, FnvHash, OptionalVariantPointer, Padding};
+use tiger_parse::{tiger_type, tiger_variant_enum, FnvHash, OptionalVariantPointer, Padding};
 use tiger_pkg::TagHash;
 
-use crate::tag::{Tag, WideHash, WideTag};
+use crate::{
+    tag::{OptionalTag, Tag, WideHash, WideTag},
+    tfx::features::decorators::SDecorator,
+};
 
 #[derive(Debug, AssertOffsets)]
-#[tiger_tag(id = 0x8080AB27, size = 0x50)]
+#[tiger_type(id = 0x8080AB27, size = 0x50)]
 pub struct SBubbleParent {
     pub file_size: u64,
 
@@ -19,27 +22,27 @@ pub struct SBubbleParent {
 }
 
 #[derive(Debug, AssertOffsets)]
-#[tiger_tag(id = 0x8080A7BB, size = 0x50)]
+#[tiger_type(id = 0x8080A7BB, size = 0x50)]
 pub struct SBubbleDefinition {
     pub file_size: u64,
     pub containers: Vec<WideTag<SMapContainer>>,
 }
 
 #[derive(Debug)]
-#[tiger_tag(id = 0x8080A7C1, size = 0x38)]
+#[tiger_type(id = 0x8080A7C1, size = 0x38)]
 pub struct SMapContainer {
     pub file_size: u64,
-    #[tag(offset = 0x28)]
+    #[tiger(offset = 0x28)]
     pub data_tables: Vec<TagHash>,
 }
 
-#[tiger_tag(id = 0x8080B1A7)]
+#[tiger_type(id = 0x8080B1A7)]
 pub struct SMapNodeTable {
     pub file_size: u64,
     pub data_entries: Vec<SMapNodeEntry>,
 }
 
-#[tiger_tag(id = 0x8080B3F5)]
+#[tiger_type(id = 0x8080B3F5)]
 pub struct SMapNodeEntry {
     pub rotation: Quat,
     pub translation: Vec4,
@@ -58,52 +61,59 @@ pub struct SMapNodeEntry {
 }
 
 tiger_variant_enum! {
+    [offset = 0x10]
     [Unknown(true)]
     enum MapNodeResource {
         SStaticTerrainPatchesComponent,
-        SStaticInstancesCollectionComponent
+        SStaticInstancesCollectionComponent,
+        SDecoratorsComponent
     }
 }
 
-// #[tiger_tag(id = 0x80806F38)]
+// #[tiger_type(id = 0x80806F38)]
 // pub struct SStaticAmbientOcclusionComponent {
 //     pub ao: Tag<SStaticAmbientOcclusion>,
 // }
 
-#[tiger_tag(id = 0x808085B0)]
+#[tiger_type(id = 0x808085B0)]
 pub struct SStaticInstancesCollectionComponent {
     pub instances: TagHash,
 }
 
-// #[tiger_tag(id = 0x80806F91)]
+// #[tiger_type(id = 0x80806F91)]
 // pub struct SSkyObjectCollectionComponent {
 //     pub objects: Tag<SSkyObjectCollection>,
 // }
 
-// #[tiger_tag(id = 0x80806F5A)]
+// #[tiger_type(id = 0x80806F5A)]
 // pub struct SLightCollectionComponent {
 //     pub lights: Tag<SLightCollection>,
 // }
 
-// #[tiger_tag(id = 0x80806DE0)]
+// #[tiger_type(id = 0x80806DE0)]
 // pub struct SWaterPlaneComponent {
 //     pub model: TagHash,
 // }
 
-// #[tiger_tag(id = 0x80807133)]
+// #[tiger_type(id = 0x80807133)]
 // pub struct SShadowingLightComponent {
 //     pub light: Tag<SShadowingLight>,
 // }
 
-// #[tiger_tag(id = 0x80806E62)]
+// #[tiger_type(id = 0x80806E62)]
 // pub struct SDecalCollectionComponent {
 //     pub decals: TagHash,
 // }
 
 #[derive(Clone, Debug)]
-#[tiger_tag(id = 0x80808563)]
+#[tiger_type(id = 0x80808563)]
 pub struct SStaticTerrainPatchesComponent {
     pub identifier: u64,
     pub terrain: TagHash,
     pub terrain_bounds: TagHash,
+}
+
+#[tiger_type(id = 0x808085AA)]
+pub struct SDecoratorsComponent {
+    pub decorators: OptionalTag<SDecorator>,
 }

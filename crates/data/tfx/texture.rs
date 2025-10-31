@@ -1,16 +1,16 @@
 use d3d11::dxgi;
-use tiger_parse::tiger_tag;
+use tiger_parse::tiger_type;
 use tiger_parse::TigerReadable;
 use tiger_pkg::TagHash;
 
 #[derive(Debug)]
-#[tiger_tag(etype = 32, size = 0x28)]
+#[tiger_type(etype = 32, size = 0x40)]
 pub struct STextureHeader {
     pub data_size: u32,
     pub format: DxgiFormat,
     pub _unk8: u32,
 
-    #[tag(offset = 0x20)]
+    #[tiger(offset = 0x20)]
     pub cafe: u16,
 
     pub width: u16,

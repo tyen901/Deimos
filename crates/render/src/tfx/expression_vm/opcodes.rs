@@ -20,10 +20,10 @@ pub enum Opcode {
     Merge2_2,
     Merge3_1,
 
-    Unknown0x0F = 0x0F,
+    Cubic = 0x0F,
     Unknown0x10,
     Unknown0x11,
-    Cubic,
+    Unknown0x12,
     Lerp,
     LerpSaturated,
 
@@ -137,10 +137,10 @@ impl Opcode {
             | Opcode::Merge2_2
             | Opcode::Merge3_1
 
-            | Opcode::Unknown0x0F
+            | Opcode::Cubic
             | Opcode::Unknown0x10
             | Opcode::Unknown0x11
-            | Opcode::Cubic
+            | Opcode::Unknown0x12
             | Opcode::Lerp
             | Opcode::LerpSaturated
             | Opcode::MultiplyAdd

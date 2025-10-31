@@ -302,11 +302,11 @@ extern_struct! {
 
 extern_struct! {
     struct RigidModel("rigid_model") {
-        0x00 => unk00: Mat4,
-        0x40 => unk40: Vec4,
-        0x50 => unk50: Vec4,
-        0x60 => unk60: Vec4,
-        0x70 => unk70: Vec4,
+        0x00 => local_to_world: Mat4,
+        0x40 => position_scale: Vec4 > default(Vec4::ONE),
+        0x50 => position_offset: Vec4 > default(Vec4::ZERO),
+        0x60 => texcoord0_scale_offset: Vec4 > default(vec4(1., 1., 0., 0.)),
+        0x70 => dynamic_sh_ao_values: Vec4,
         0x80 => unk80: Mat4,
         0xC0 => unkc0: Vec4,
         0xD0 => unkd0: Vec4,
@@ -1104,14 +1104,15 @@ extern_struct! {
 
 extern_struct! {
     struct SpeedtreePlacements("speedtree_placements") {
-        0x00 => unk00: Vec4,
-        0x10 => unk10: Vec4,
+        0x00 => unk00: Vec4 > default(Vec4::ZERO),
+        0x10 => unk10: Vec4 > default(Vec4::W),
         0x20 => unk20: Vec4,
         0x30 => unk30: Vec4,
         0x40 => unk40: Vec4,
         0x50 => unk50: Vec4,
         0x60 => unk60: Vec4,
-        0x70 => unk70: Vec4,
+        // cohae: zero = color, one = white???
+        0x70 => unk70: Vec4 > default(Vec4::ZERO),
     }
 }
 

@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter};
 
 use bitflags::bitflags;
 use int_enum::IntEnum;
-use tiger_parse::{tiger_tag, TigerReadable};
+use tiger_parse::{tiger_type, TigerReadable};
 
 use super::features::dynamic::RenderStageSubscription;
 
@@ -87,7 +87,6 @@ impl TigerReadable for RenderStage {
         Self::try_from(v).map_err(|_| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
     }
 
-    const ZEROCOPY: bool = false;
     const SIZE: usize = 1;
 }
 
@@ -168,7 +167,6 @@ impl TigerReadable for TfxFeatureRenderer {
         Self::try_from(v).map_err(|_| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
     }
 
-    const ZEROCOPY: bool = false;
     const SIZE: usize = 1;
 }
 
@@ -261,7 +259,6 @@ impl TigerReadable for ShaderStage {
         Self::try_from(v).map_err(|_| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
     }
 
-    const ZEROCOPY: bool = false;
     const SIZE: usize = 1;
 }
 
@@ -284,13 +281,12 @@ impl TigerReadable for PrimitiveType {
         Self::try_from(v).map_err(|_| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
     }
 
-    const ZEROCOPY: bool = false;
     const SIZE: usize = 1;
 }
 
 #[allow(non_camel_case_types, clippy::derive_ord_xor_partial_ord)]
 #[derive(PartialEq, Eq, Ord, Copy, Clone)]
-#[tiger_tag]
+#[tiger_type]
 pub struct LodCategory(u8);
 
 impl std::fmt::Debug for LodCategory {

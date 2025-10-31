@@ -5,13 +5,13 @@ use std::{
 
 use glam::Vec4;
 use int_enum::IntEnum;
-use tiger_parse::{tiger_tag, Endian, Padding, TigerReadable};
+use tiger_parse::{tiger_type, Endian, Padding, TigerReadable};
 use tiger_pkg::TagHash;
 
 use crate::{tag::WideHash, tfx::enums::ShaderStage};
 
 #[derive(Clone)]
-#[tiger_tag(id = 0x808031D8)]
+#[tiger_type(id = 0x808031D8)]
 pub struct STechnique {
     pub file_size: u64,
     pub bind_mode: TechniqueBindMode,
@@ -83,12 +83,11 @@ impl TigerReadable for TechniqueBindMode {
         Self::try_from(v).map_err(|_| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
     }
 
-    const ZEROCOPY: bool = false;
     const SIZE: usize = 4;
 }
 
 #[derive(Clone)]
-#[tiger_tag(size = 0xa0)]
+#[tiger_type(size = 0x88)]
 pub struct STechniqueShader {
     pub shader: TagHash,
     pub unk4: u32,
@@ -96,7 +95,7 @@ pub struct STechniqueShader {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_tag(id = 0x808086C6)]
+#[tiger_type(id = 0x808086C6)]
 pub struct SMaterialTextureAssignment {
     /// Material slot to assign to
     pub slot: u32,
@@ -105,7 +104,7 @@ pub struct SMaterialTextureAssignment {
 }
 
 #[derive(Clone)]
-#[tiger_tag(size = 0x80)]
+#[tiger_type(size = 0x80)]
 pub struct SDynamicConstants {
     pub textures: Vec<SMaterialTextureAssignment>,
     pub unk10: u64,
@@ -122,7 +121,7 @@ pub struct SDynamicConstants {
 }
 
 #[derive(Clone)]
-#[tiger_tag(id = 0x8080013F)]
+#[tiger_type(id = 0x8080013F)]
 pub struct SSamplerReference {
     pub sampler: TagHash,
     pub unk4: u32,
@@ -174,12 +173,11 @@ impl TigerReadable for TfxScopeBits {
         Ok(Self::from_bits_truncate(bits))
     }
 
-    const ZEROCOPY: bool = true;
     const SIZE: usize = 8;
 }
 
 /// Current indices for blend, rasterizer, depth bias and depth stencil states
-#[tiger_tag(size = 4)]
+#[tiger_type(size = 4)]
 #[derive(Clone, Copy, Default)]
 pub struct PipelineState {
     blend_state: u8,

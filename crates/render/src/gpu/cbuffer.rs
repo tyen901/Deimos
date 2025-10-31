@@ -4,10 +4,12 @@ use anyhow::Context;
 use d3d11::{
     dxgi,
     srv::{SrvBufferExFlags, SrvDimension},
-    BindFlags, BufferDesc, CpuAccessFlags, DeviceContext, ResourceMiscFlags,
-    ShaderResourceViewDesc, SubresourceMapGuard, Usage,
+    BindFlags, BufferDesc, CpuAccessFlags, ResourceMiscFlags, ShaderResourceViewDesc,
+    SubresourceMapGuard, Usage,
 };
 use deimos_data::tfx::ShaderStage;
+
+use crate::gpu::command_list::ContextExt;
 
 use super::{command_list::CommandList, Gpu};
 

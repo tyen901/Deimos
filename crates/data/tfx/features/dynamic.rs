@@ -1,18 +1,18 @@
 use std::ops::{BitOr, BitOrAssign, Range};
 
-use tiger_parse::tiger_tag;
+use tiger_parse::tiger_type;
 use tiger_pkg::TagHash;
 
 use crate::tfx::{LodCategory, PrimitiveType, RenderStage};
 
 #[derive(Debug, Clone)]
-#[tiger_tag(id = 0x8080881C, size = 0x70)]
+#[tiger_type(id = 0x8080881C, size = 0xD0)]
 pub struct SDynamicModel {
     pub file_size: u64,
     pub unk8: u64,
     pub meshes: Vec<SDynamicMesh>,
     pub unk20: glam::Vec4,
-    #[tag(offset = 0xA0)]
+    #[tiger(offset = 0xA0)]
     pub model_scale: glam::Vec4,
     pub model_offset: glam::Vec4,
     pub texcoord_scale: glam::Vec2,
@@ -20,7 +20,7 @@ pub struct SDynamicModel {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_tag(id = 0x808087CB, size = 0x88)]
+#[tiger_type(id = 0x808087CB, size = 0x88)]
 pub struct SDynamicMesh {
     pub vertex0_buffer: TagHash,
     pub vertex1_buffer: TagHash,
@@ -53,7 +53,7 @@ impl SDynamicMesh {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_tag(id = 0x808087D1)]
+#[tiger_type(id = 0x808087D1, size = 0x28)]
 pub struct SDynamicMeshPart {
     pub technique: TagHash,
     pub variant_shader_index: u16,
@@ -66,7 +66,8 @@ pub struct SDynamicMeshPart {
     // 0x10
     pub unk10: u32,
     pub external_identifier: u16,
-    pub unk16: u16,
+    pub unk16: u8,
+    pub unk17: u8,
     // 0x18
     pub flags: u32,
 
@@ -83,7 +84,7 @@ pub struct SDynamicMeshPart {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_tag(id = 0x80806D97)]
+#[tiger_type(id = 0x80806D97)]
 pub struct SDynamicMeshMaterialVariants {
     pub technique_count: u32,
     pub technique_start: u32,

@@ -1,12 +1,5 @@
 macro_rules! extern_container {
     ($($name:ident: $t:ident),*) => {
-        /// Containers holding localized externs that allows for overriding externs for individual command lists
-        pub struct LocalExterns {
-            $(
-            pub $name: Box<$t>,
-            )*
-        }
-
         /// Container holding all externs and global channels used in the renderer.
         pub struct Externs {
             $(
@@ -54,19 +47,6 @@ macro_rules! extern_container {
             }
         }
 
-        impl ExternAccessor for LocalExterns {
-            fn get_value_ptr(&self, index: ExternIndex, offset: usize) -> Option<(*const (), TypeId)> {
-                match index {
-                    $(
-                        ExternIndex::$t => {
-                            self.$name.get_field_ptr(offset)
-                        }
-                    )*
-                    _ => None,
-                }
-            }
-        }
-
         impl Externs {
             pub fn new(globs: &RenderGlobals) -> Self {
                 let mut globals = [Vec4::ONE; 256];
@@ -96,17 +76,34 @@ macro_rules! extern_container {
                     global_ids: globs.channels.channel_ids.clone(),
                 }
             }
+        }
+    };
+}
 
-            /// Copies the shared pointers of the externs from the renderer into a new LocalExterns struct.
-            pub fn get_local_externs(&self) -> LocalExterns {
-                LocalExterns {
+macro_rules! local_extern_container {
+    ($($name:ident: $t:ident),*) => {
+        /// Containers holding localized externs that allows for overriding externs for individual command lists
+        #[derive(Default)]
+        pub struct LocalExterns {
+            $(
+            pub $name: Option<Box<$t>>,
+            )*
+        }
+
+        impl ExternAccessor for LocalExterns {
+            fn get_value_ptr(&self, index: ExternIndex, offset: usize) -> Option<(*const (), TypeId)> {
+                let base_externs = &crate::renderer::Renderer::instance().externs;
+                match index {
                     $(
-                        $name: Box::clone(&self.$name),
+                        ExternIndex::$t => {
+                            self.$name.as_ref().unwrap_or(&base_externs.$name).get_field_ptr(offset)
+                        }
                     )*
+                    _ => base_externs.get_value_ptr(index, offset),
                 }
             }
         }
-    };
+    }
 }
 
 macro_rules! extern_struct {
@@ -154,8 +151,8 @@ macro_rules! extern_struct {
         }
 
     };
-
 }
 
 pub(super) use extern_container;
 pub(super) use extern_struct;
+pub(super) use local_extern_container;
