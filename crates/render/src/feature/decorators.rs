@@ -30,7 +30,6 @@ impl DecoratorRenderer {
     pub fn load(renderer: &Renderer, hash: TagHash, decorator: SDecorator) -> anyhow::Result<Self> {
         let mut models = vec![];
         for smodel in &decorator.unk8 {
-            println!("Loading decorator model {}", smodel.entity_model);
             let model = DynamicModel::load(smodel.entity_model, vec![], vec![])?;
             let ext = Box::new(externs::RigidModel {
                 local_to_world: Mat4::IDENTITY,
@@ -239,15 +238,6 @@ impl FeatureRenderer for DecoratorRenderer {
                 if part.unk17 != 2 {
                     return;
                 }
-                if !part.lod_category.is_highest_detail() {
-                    return;
-                }
-                // let layout = mesh.get_input_layout_for_stage(stage);
-                // if !RenderStates::is_input_layout_instanced(layout as usize) {
-                //     // TODO(cohae): Error handling so this doesnt clog the log
-                //     warn!("Input layout {layout} is not instanced!!");
-                //     return;
-                // }
 
                 let Some(cb) = self.instance_buffer.get() else {
                     return;

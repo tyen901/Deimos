@@ -174,7 +174,9 @@ impl StaticInstancesRenderer {
             .iter()
             .enumerate()
             .map(|(i, g)| (i, g, &opaque_meshes.parts[g.part_index as usize]))
-            .filter(|(_, g, p)| g.render_stage == stage && p.lod_category.is_highest_detail())
+            .filter(|(_, g, p)| {
+                g.render_stage == stage && p.lod_category.is_second_highest_detail()
+            })
         {
             let buffers = &self.model.buffers[part.buffer_index as usize];
             if buffers.bind(cmd).is_none() {
@@ -203,7 +205,7 @@ impl StaticInstancesRenderer {
             .model
             .special_meshes
             .iter()
-            .filter(|m| m.mesh.render_stage == stage && m.mesh.lod.is_highest_detail())
+            .filter(|m| m.mesh.render_stage == stage && m.mesh.lod.is_second_highest_detail())
         {
             if mesh.buffers.bind(cmd).is_none() {
                 continue;
