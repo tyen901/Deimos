@@ -294,7 +294,7 @@ impl Scene {
         static mut FRAME_COUNT: usize = 0;
         unsafe {
             FRAME_COUNT += 1;
-            if FRAME_COUNT.is_multiple_of(120) {
+            if FRAME_COUNT.is_multiple_of(60) {
                 println!("{}", self.renderer.profiler.get_results_string());
             }
         }

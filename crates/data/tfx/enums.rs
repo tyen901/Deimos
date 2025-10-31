@@ -298,7 +298,7 @@ impl std::fmt::Debug for LodCategory {
 
 impl LodCategory {
     pub fn is_highest_detail(&self) -> bool {
-        self.0 & 1 != 0
+        self.0 & 0b10 == 0b10
         // (self.0 & 0b10000000) != 0
         // matches!(
         //     self,

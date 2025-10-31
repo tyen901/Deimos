@@ -18,7 +18,6 @@ use glam::Mat4;
 use globals::RenderGlobals;
 use parking_lot::{Mutex, RwLock, RwLockReadGuard};
 use surface::Surfaces;
-use util::num_processors;
 
 use crate::{
     asset::{
@@ -123,7 +122,10 @@ impl Renderer {
             // ao: RwLock::new(None),
             // ao_buffer: Mutex::new(None),
             surfaces: RwLock::new(surfaces),
-            submit_jobs: submit::lowlevel::SubmitJobManager::new(&gpu, num_processors()),
+            submit_jobs: submit::lowlevel::SubmitJobManager::new(
+                &gpu,
+                gdt_cpus::num_physical_cores().unwrap_or(4),
+            ),
             frame_scope: ConstantBuffer::create(&gpu, None)?,
             debug_cbuffer: ConstantBuffer::create(&gpu, Some(&Mat4::ZERO))?,
 
