@@ -118,4 +118,13 @@ impl Frustum {
 
         self.planes.iter().all(is_on_or_forward_plane)
     }
+
+    pub fn sphere_intersecting(&self, center: Vec3, radius: f32) -> bool {
+        for plane in &self.planes {
+            if plane.get_signed_distance(center) < -radius {
+                return false;
+            }
+        }
+        true
+    }
 }

@@ -710,7 +710,7 @@ dependencies = [
 [[package]]
 name = "d3d11"
 version = "0.3.0"
-source = "git+https://github.com/cohaereo/d3d11-rs.git#97924281c2c331f62a861a04f6a7347547b304f6"
+source = "git+https://github.com/cohaereo/d3d11-rs.git#7d4493048de38a611a60fec7c54a051154aa6fa1"
 dependencies = [
  "bincode",
  "bitflags 2.10.0",
@@ -727,7 +727,7 @@ dependencies = [
 [[package]]
 name = "d3d11-ffi"
 version = "0.3.0"
-source = "git+https://github.com/cohaereo/d3d11-rs.git#97924281c2c331f62a861a04f6a7347547b304f6"
+source = "git+https://github.com/cohaereo/d3d11-rs.git#7d4493048de38a611a60fec7c54a051154aa6fa1"
 dependencies = [
  "windows-core",
  "windows-targets 0.52.6",

@@ -317,7 +317,7 @@ impl FeatureRenderer for StaticInstancesRenderer {
         self.visible_instance_ids.clear();
         for (i, (_, b)) in self.transforms.iter().enumerate() {
             let distance = (camera.position.distance(b.center()) - b.radius()).max(0.0);
-            if distance < max_dist && camera.frustum.aabb_intersecting(b) {
+            if distance < max_dist && camera.frustum.sphere_intersecting(b.center(), b.radius()) {
                 self.visible_instance_ids.push(1 + i as u32);
             }
         }

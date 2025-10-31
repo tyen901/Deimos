@@ -2,8 +2,8 @@ pub mod cbuffer;
 pub mod command_list;
 pub mod debug_text;
 mod global_state;
+pub mod profiler;
 pub mod spinner;
-// pub mod profiler;
 pub mod state;
 pub mod swapchain;
 

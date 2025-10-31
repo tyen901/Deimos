@@ -26,7 +26,7 @@ use crate::{
         AssetManager,
     },
     feature::immediate::ImmediateShapeRenderer,
-    gpu::{cbuffer::ConstantBuffer, debug_text::DebugTextRenderer},
+    gpu::{cbuffer::ConstantBuffer, debug_text::DebugTextRenderer, profiler::D3D11Profiler},
     object::{RenderObject, RenderObjectHandle},
     tfx::{externs::Externs, packet::FramePacket, scope::TempFrameScope},
     util::{arena::Arena, threading::ThreadMutCell},
@@ -66,6 +66,7 @@ pub struct Renderer {
         RwLock<HashMap<(ExternIndex, u32), (Texture, d3d11::UnorderedAccessView)>>,
 
     debug_cbuffer: ConstantBuffer<Mat4>,
+    pub profiler: D3D11Profiler,
 }
 
 unsafe impl Send for Renderer {}
@@ -133,6 +134,7 @@ impl Renderer {
 
             common: CommonResources::load(&gpu)?,
 
+            profiler: D3D11Profiler::new(&gpu),
             gpu,
             start_time: Instant::now(),
             active_feature_renderers: AtomicCell::new(FeatureRendererSubscription::all()),

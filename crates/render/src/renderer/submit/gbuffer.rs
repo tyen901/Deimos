@@ -15,12 +15,14 @@ use super::Renderer;
 impl Renderer {
     pub(super) fn submit_gbuffer_generation(&self, cmd: &mut CommandList, view: &View) {
         profiling::scope!("submit_gbuffer_generation");
+        let _gpuscope = self.profiler.scope(cmd, "submit_gbuffer");
 
         view.gbuffers.clear(cmd, &view.surfaces);
         view.gbuffers.bind(cmd, self);
 
         {
             cmd_event_span!(cmd, "generate_gbuffer");
+            let _gpuscope = self.profiler.scope(cmd, "generate_buffer");
 
             cmd.state = PipelineState::new(Some(0), Some(2), Some(2), Some(0));
 
@@ -29,6 +31,7 @@ impl Renderer {
 
         {
             cmd_event_span!(cmd, "decals");
+            let _gpuscope = self.profiler.scope(cmd, "decals");
 
             view.gbuffers
                 .depth_proxy

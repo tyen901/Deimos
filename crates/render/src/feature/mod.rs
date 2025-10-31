@@ -7,8 +7,6 @@ use crate::{
     camera::Camera, gpu::command_list::CommandList, tfx::packet::CompactTransform, Renderer,
 };
 
-// pub mod cubemap;
-// pub mod decals;
 pub mod immediate;
 // pub mod light;
 pub mod decorators;

@@ -34,6 +34,7 @@ impl Renderer {
         debug_pipeline: Option<DebugPipeline>,
     ) {
         cmd_event_span!(cmd, "submit_world");
+        let _gpuspan = self.profiler.scope(cmd, "submit_world");
 
         *self.surfaces.write() = view.surfaces.clone();
         view.surfaces.resize_surfaces(view.resolution);
@@ -127,63 +128,65 @@ impl Renderer {
         // }
 
         let output = view.surfaces.get(view.output);
+        self.profiler.scope(cmd, "debug_view").span(|| {
+            cmd.rasterizer_set_viewports(&[d3d11::Viewport::builder()
+                .width(output.resolution().0 as f32)
+                .height(output.resolution().1 as f32)
+                .build()]);
+            cmd.clear_render_target_view(output.rtv.as_ref().unwrap(), &[0., 0., 0., 1.0]);
+            cmd.output_merger_set_render_targets(std::slice::from_ref(&output.rtv.as_ref()), None);
 
-        cmd.rasterizer_set_viewports(&[d3d11::Viewport::builder()
-            .width(output.resolution().0 as f32)
-            .height(output.resolution().1 as f32)
-            .build()]);
-        cmd.clear_render_target_view(output.rtv.as_ref().unwrap(), &[0., 0., 0., 1.0]);
-        cmd.output_merger_set_render_targets(std::slice::from_ref(&output.rtv.as_ref()), None);
+            if let Some(debug_pipeline) = debug_pipeline {
+                let p = &self.globals.pipelines;
+                let technique = match debug_pipeline {
+                    DebugPipeline::Albedo => &p.debug_source_color,
+                    DebugPipeline::Smoothness => &p.debug_specular_smoothness,
+                    DebugPipeline::Metalness => &p.debug_metalness,
+                    DebugPipeline::AmbientOcclusion => &p.debug_texture_ao,
+                    DebugPipeline::Emission => &p.debug_emissive,
+                    DebugPipeline::Transmission => &p.debug_transmission,
+                    DebugPipeline::Overcoat => &p.debug_colored_overcoat_id,
+                    DebugPipeline::DepthEdges => &p.debug_depth_edges,
+                    DebugPipeline::WorldNormal => &p.debug_world_normal,
+                };
 
-        if let Some(debug_pipeline) = debug_pipeline {
-            let p = &self.globals.pipelines;
-            let technique = match debug_pipeline {
-                DebugPipeline::Albedo => &p.debug_source_color,
-                DebugPipeline::Smoothness => &p.debug_specular_smoothness,
-                DebugPipeline::Metalness => &p.debug_metalness,
-                DebugPipeline::AmbientOcclusion => &p.debug_texture_ao,
-                DebugPipeline::Emission => &p.debug_emissive,
-                DebugPipeline::Transmission => &p.debug_transmission,
-                DebugPipeline::Overcoat => &p.debug_colored_overcoat_id,
-                DebugPipeline::DepthEdges => &p.debug_depth_edges,
-                DebugPipeline::WorldNormal => &p.debug_world_normal,
-            };
+                self.execute_global_pipeline(cmd, technique, &format!("{debug_pipeline:?}"));
+            } else {
+                let sun_light_direction = self
+                    .externs
+                    .get_global_channel_by_name("sun_light_direction");
+                self.debug_cbuffer
+                    .write(
+                        cmd,
+                        &Mat4 {
+                            x_axis: sun_light_direction,
+                            ..Default::default()
+                        },
+                    )
+                    .ok();
+                self.debug_cbuffer.bind(cmd, ShaderStage::Pixel, 0);
 
-            self.execute_global_pipeline(cmd, technique, &format!("{debug_pipeline:?}"));
-        } else {
-            let sun_light_direction = self
-                .externs
-                .get_global_channel_by_name("sun_light_direction");
-            self.debug_cbuffer
-                .write(
-                    cmd,
-                    &Mat4 {
-                        x_axis: sun_light_direction,
-                        ..Default::default()
-                    },
-                )
-                .ok();
-            self.debug_cbuffer.bind(cmd, ShaderStage::Pixel, 0);
-
-            cmd.state = PipelineState::new(Some(0), Some(0), Some(0), Some(0));
-            cmd.flush_states();
-            cmd.vertex_set_shader(Some(&self.debug_vs));
-            cmd.pixel_set_shader(Some(&self.debug_ps));
-            cmd.set_input_topology(deimos_data::tfx::PrimitiveType::TriangleStrip);
-            cmd.pixel_set_shader_resources(
-                0,
-                &[
-                    view.surfaces.get(view.gbuffers.albedo).srv.as_ref(),
-                    view.surfaces.get(view.gbuffers.normal).srv.as_ref(),
-                    view.surfaces.get(view.gbuffers.third).srv.as_ref(),
-                    Some(&view.gbuffers.depth_proxy.lock().srv),
-                ],
-            );
-            cmd.draw(4, 0);
-        }
+                cmd.state = PipelineState::new(Some(0), Some(0), Some(0), Some(0));
+                cmd.flush_states();
+                cmd.vertex_set_shader(Some(&self.debug_vs));
+                cmd.pixel_set_shader(Some(&self.debug_ps));
+                cmd.set_input_topology(deimos_data::tfx::PrimitiveType::TriangleStrip);
+                cmd.pixel_set_shader_resources(
+                    0,
+                    &[
+                        view.surfaces.get(view.gbuffers.albedo).srv.as_ref(),
+                        view.surfaces.get(view.gbuffers.normal).srv.as_ref(),
+                        view.surfaces.get(view.gbuffers.third).srv.as_ref(),
+                        Some(&view.gbuffers.depth_proxy.lock().srv),
+                    ],
+                );
+                cmd.draw(4, 0);
+            }
+        });
 
         {
             profiling::scope!("prepare/submit immediate geometry");
+            let _gpuspan = self.profiler.scope(cmd, "immediate_geometry");
             cmd.output_merger_set_render_targets(
                 std::slice::from_ref(&output.rtv.as_ref()),
                 view.surfaces.get(view.gbuffers.depth).dsv.as_ref(),
