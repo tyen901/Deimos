@@ -234,7 +234,7 @@ impl RenderStates {
         shader_input
             .push_str("};  float4 vs(s_vs_in input) : SV_POSITION { return float4(0, 0, 0, 0); }");
 
-        let shader_blob = d3d11::shader::fxc_compile(
+        let shader_blob = d3d11::fxc::compile(
             shader_input.as_bytes(),
             Some("create_vertex_declaration_inline"),
             &[],

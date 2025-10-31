@@ -205,6 +205,7 @@ pub fn bytecode_op_spline4_const(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn bytecode_op_spline8_const(
     x: Vec4,
     c3: Vec4,
@@ -303,12 +304,12 @@ pub fn bytecode_op_25(v: Vec4) -> Vec4 {
 }
 
 trait Vec4SimdExt {
-    fn as_bits_uvec4(self) -> UVec4;
+    fn as_bits_uvec4(&self) -> UVec4;
     fn from_bits_uvec4(bits: UVec4) -> Self;
 }
 
 impl Vec4SimdExt for Vec4 {
-    fn as_bits_uvec4(self) -> UVec4 {
+    fn as_bits_uvec4(&self) -> UVec4 {
         UVec4::from_slice(bytemuck::cast_slice(&self.to_array()))
     }
 

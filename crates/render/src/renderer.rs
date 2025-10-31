@@ -159,7 +159,7 @@ impl Renderer {
     }
 
     /// Returns a read-only reference to the currently bound view's surfaces
-    pub fn surfaces(&self) -> RwLockReadGuard<Arc<Surfaces>> {
+    pub fn surfaces(&self) -> RwLockReadGuard<'_, Arc<Surfaces>> {
         self.surfaces.read()
     }
 

@@ -29,7 +29,7 @@ impl ImmediateShapeRenderer {
     const DEFAULT_CAPACITY: usize = 2048;
 
     pub fn new(gpu: &Gpu) -> anyhow::Result<Self> {
-        let vs_data = d3d11::shader::fxc_compile(
+        let vs_data = d3d11::fxc::compile(
             IMMEDIATE_SHADER.as_bytes(),
             Some("immediate_vs"),
             &[],
@@ -38,7 +38,7 @@ impl ImmediateShapeRenderer {
         )
         .context("Failed to compile vertex shader")?;
 
-        let ps_data = d3d11::shader::fxc_compile(
+        let ps_data = d3d11::fxc::compile(
             IMMEDIATE_SHADER.as_bytes(),
             Some("immediate_ps"),
             &[],

@@ -46,7 +46,8 @@ impl UntypedHandle {
         }
     }
 
-    // SAFETY: The caller must ensure that the asset is of the correct type.
+    /// # Safety
+    /// The caller must ensure that the asset is of the correct type.
     pub unsafe fn clone_as_typed_unchecked<T: Asset>(&self) -> Handle<T> {
         Handle {
             asset: self.clone(),

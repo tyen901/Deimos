@@ -284,8 +284,8 @@ impl TigerReadable for PrimitiveType {
     const SIZE: usize = 1;
 }
 
-#[allow(non_camel_case_types, clippy::derive_ord_xor_partial_ord)]
-#[derive(PartialEq, Eq, Ord, Copy, Clone)]
+#[allow(non_camel_case_types)]
+#[derive(PartialEq, Eq, Copy, Clone)]
 #[tiger_type]
 pub struct LodCategory(u8);
 
@@ -296,29 +296,7 @@ impl std::fmt::Debug for LodCategory {
     }
 }
 
-impl PartialOrd for LodCategory {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.remap_order().cmp(&other.remap_order()))
-    }
-}
-
 impl LodCategory {
-    // Remap the order of variants for sorting purposes, starting with the lowest level
-    fn remap_order(&self) -> u8 {
-        self.0
-        // match self {
-        //     LodCategory::Lod_Detail => 10,
-        //     LodCategory::Lod_0_0 => 9,
-        //     LodCategory::Lod_0_1 => 8,
-        //     LodCategory::Lod_0_2 => 7,
-        //     LodCategory::Lod_0_3 => 4,
-        //     LodCategory::Lod_1_0 => 3,
-        //     LodCategory::Lod_2_0 => 2,
-        //     LodCategory::Lod_2_1 => 1,
-        //     LodCategory::Lod_3_0 => 0,
-        // }
-    }
-
     pub fn is_highest_detail(&self) -> bool {
         self.0 & 1 != 0
         // (self.0 & 0b10000000) != 0

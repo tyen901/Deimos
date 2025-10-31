@@ -82,7 +82,7 @@ impl TextureView {
                 }
             }
             TextureView::Resource(texture) => {
-                texture.get().map(|t| f(&t.view));
+                if let Some(t) = texture.get() { f(&t.view) }
             }
             TextureView::Raw(srv) => f(srv),
             TextureView::None => {}

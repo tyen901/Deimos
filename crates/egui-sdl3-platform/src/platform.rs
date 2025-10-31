@@ -58,7 +58,7 @@ impl Platform {
     }
 
     /// Handle a sdl3 event
-    pub fn handle_event(&mut self, event: &Event, sdl: &sdl3::Sdl, video: &sdl3::VideoSubsystem) {
+    pub fn handle_event(&mut self, event: &Event, _sdl: &sdl3::Sdl, video: &sdl3::VideoSubsystem) {
         match event {
             // Handle reizing
             Event::Window {

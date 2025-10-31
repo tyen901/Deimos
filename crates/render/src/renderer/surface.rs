@@ -287,7 +287,7 @@ impl Surface {
     pub fn bind_single(&self, cmd: &mut CommandList) {
         cmd.rasterizer_set_viewports(&[self.viewport()]);
         if let Some(rtv) = &self.rtv {
-            cmd.output_merger_set_render_targets(&[Some(&rtv)], None);
+            cmd.output_merger_set_render_targets(&[Some(rtv)], None);
         } else if let Some(dsv) = &self.dsv {
             cmd.output_merger_set_render_targets(&[], Some(dsv));
         }

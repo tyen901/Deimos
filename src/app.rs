@@ -28,7 +28,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(sdl: Rc<sdl3::Sdl>, window: Rc<Window>, args: AppArgs) -> anyhow::Result<Self> {
+    pub fn new(sdl: Rc<sdl3::Sdl>, window: Rc<Window>, _args: AppArgs) -> anyhow::Result<Self> {
         let gpu = Arc::new(Gpu::create(&window)?);
         let renderer = Arc::new(Renderer::new(gpu.clone())?);
         Renderer::set_instance(renderer.clone());
