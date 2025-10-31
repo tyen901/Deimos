@@ -5,7 +5,7 @@ use tiger_pkg::TagHash;
 
 use crate::{
     tag::{OptionalTag, Tag, WideHash, WideTag},
-    tfx::features::decorators::SDecorator,
+    tfx::features::{decorators::SDecorator, sky_objects::SSkyObjectCollection},
 };
 
 #[derive(Debug, AssertOffsets)]
@@ -66,6 +66,7 @@ tiger_variant_enum! {
     enum MapNodeResource {
         SStaticTerrainPatchesComponent,
         SStaticInstancesCollectionComponent,
+        SSkyObjectCollectionComponent,
         SDecoratorsComponent
     }
 }
@@ -80,10 +81,10 @@ pub struct SStaticInstancesCollectionComponent {
     pub instances: TagHash,
 }
 
-// #[tiger_type(id = 0x80806F91)]
-// pub struct SSkyObjectCollectionComponent {
-//     pub objects: Tag<SSkyObjectCollection>,
-// }
+#[tiger_type(id = 0x80808378)]
+pub struct SSkyObjectCollectionComponent {
+    pub objects: Tag<SSkyObjectCollection>,
+}
 
 // #[tiger_type(id = 0x80806F5A)]
 // pub struct SLightCollectionComponent {

@@ -1,14 +1,15 @@
 use anyhow::Context;
 use deimos_data::{
     map::{MapNodeResource, SBubbleParent, SMapNodeTable},
-    tfx::features::statics::SUnk808082D5,
+    tfx::{features::statics::SUnk808082D5, TfxFeatureRenderer},
 };
 use deimos_render::{
     feature::{
-        decorators::DecoratorRenderer, static_geometry::StaticInstancesRenderer,
-        terrain_patches::TerrainPatchesRenderer,
+        decorators::DecoratorRenderer, rigid_model::DynamicModel,
+        static_geometry::StaticInstancesRenderer, terrain_patches::TerrainPatchesRenderer,
     },
-    object::RenderObjectHandle,
+    object::{RenderObject, RenderObjectHandle},
+    tfx::packet::CompactTransform,
     Renderer,
 };
 use glam::{Quat, Vec3};
@@ -22,7 +23,7 @@ pub struct StaticMapTemp {
     // pub decals: Vec<Box<DecalCollectionRenderer>>,
     pub cubemaps: Vec<RenderObjectHandle>,
     // pub collision_hkx: Option<SStaticMapCollision>,
-    pub entities: Vec<(Vec3, Quat, Vec3, RenderObjectHandle, TagHash, String)>,
+    pub entities: Vec<(Vec3, Quat, Vec3, RenderObject, TagHash, String)>,
 }
 
 pub fn load_static_map(taghash: TagHash) -> anyhow::Result<StaticMapTemp> {
@@ -103,32 +104,27 @@ pub fn load_static_map(taghash: TagHash) -> anyhow::Result<StaticMapTemp> {
                         // MapNodeResource::SStaticMapCollisionComponent(collision) => {
                         //     map.collision_hkx = Some((*collision.collision).clone());
                         // }
-                        // MapNodeResource::SSkyObjectCollectionComponent(s) => {
-                        //     for obj in &s.objects.unk8 {
-                        //         let (scale, rotation, translation) =
-                        //             obj.transform.to_scale_rotation_translation();
+                        MapNodeResource::SSkyObjectCollectionComponent(s) => {
+                            for obj in &s.objects.unk8 {
+                                let (scale, rotation, translation) =
+                                    obj.transform.to_scale_rotation_translation();
 
-                        //         let render_obj =
-                        //             Renderer::instance().add_object(RenderObject::new(
-                        //                 TfxFeatureRenderer::SkyTransparent,
-                        //                 DynamicModel::load(
-                        //                     obj.model_ref.entity_model,
-                        //                     vec![],
-                        //                     vec![],
-                        //                 )?,
-                        //                 Box::new(CompactTransform::IDENTITY),
-                        //             ));
+                                let render_obj = RenderObject::new(
+                                    TfxFeatureRenderer::SkyTransparent,
+                                    DynamicModel::load(obj.model_ref.entity_model, vec![], vec![])?,
+                                    Box::new(CompactTransform::IDENTITY),
+                                );
 
-                        //         map.entities.push((
-                        //             translation,
-                        //             rotation,
-                        //             scale,
-                        //             render_obj,
-                        //             TagHash::NONE,
-                        //             format!("Sky Object {}", obj.model_ref.entity_model),
-                        //         ));
-                        //     }
-                        // }
+                                map.entities.push((
+                                    translation,
+                                    rotation,
+                                    scale,
+                                    render_obj,
+                                    TagHash::NONE,
+                                    format!("Sky Object {}", obj.model_ref.entity_model),
+                                ));
+                            }
+                        }
                         // MapNodeResource::SCubemapComponent(c) => {
                         //     let ct = CompactTransform::from_mat4(Mat4::from_rotation_translation(
                         //         node.rotation,

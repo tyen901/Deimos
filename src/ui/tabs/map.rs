@@ -1,6 +1,7 @@
 use deimos_data::tfx::TfxFeatureRenderer;
 use deimos_render::{camera::Camera, object::RenderObject, Renderer};
 use egui::{vec2, Color32, Rect};
+use glam::Mat4;
 use tiger_pkg::TagHash;
 
 use crate::{
@@ -54,6 +55,12 @@ impl MapTab {
                             Box::new(s),
                             Box::new(()),
                         ));
+                    }
+                    for (translation, rotation, scale, render_object, _tag, _name) in map.entities {
+                        self.scene.add_dynamic_object(
+                            render_object,
+                            Mat4::from_scale_rotation_translation(scale, rotation, translation),
+                        );
                     }
                 }
                 Err(_e) => {
