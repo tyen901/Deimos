@@ -76,3 +76,6 @@ impl RenderObject {
         self.renderer.submit(cmd, stage);
     }
 }
+
+unsafe impl Send for RenderObject {}
+unsafe impl Sync for RenderObject {}

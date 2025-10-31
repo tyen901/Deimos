@@ -6,7 +6,7 @@ use deimos_render::{
     tfx::packet::CompactTransform, Renderer,
 };
 use egui::{FontId, TextStyle, Ui, Vec2};
-use glam::{Vec3, Vec4Swizzles};
+use glam::{Mat4, Vec3, Vec4Swizzles};
 use itertools::Itertools;
 use tiger_parse::TigerReadable;
 use tiger_pkg::{package_manager, TagHash};
@@ -113,7 +113,7 @@ impl DynamicListTab {
                                             model,
                                             Box::new(CompactTransform::IDENTITY),
                                         ),
-                                        Vec3::ZERO,
+                                        Mat4::IDENTITY,
                                     );
                                 }
                                 Err(err) => {

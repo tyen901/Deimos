@@ -36,7 +36,7 @@ pub struct Scene {
     controller: CameraController,
 
     static_render_objects: Vec<RenderObjectHandle>,
-    dynamic_render_objects: Vec<(RenderObjectHandle, Vec3)>,
+    dynamic_render_objects: Vec<(RenderObjectHandle, Mat4)>,
 
     surface: d3d11::Texture2D,
     surface_srv: d3d11::ShaderResourceView,
@@ -94,9 +94,9 @@ impl Scene {
             .push(self.renderer.add_object(object));
     }
 
-    pub fn add_dynamic_object(&mut self, object: RenderObject, pos: Vec3) {
+    pub fn add_dynamic_object(&mut self, object: RenderObject, transform: Mat4) {
         self.dynamic_render_objects
-            .push((self.renderer.add_object(object), pos));
+            .push((self.renderer.add_object(object), transform));
     }
 
     pub fn clear(&mut self) {
@@ -230,11 +230,8 @@ impl Scene {
             for t in &self.static_render_objects {
                 fp.push_static_render_object(*t);
             }
-            for (t, pos) in &self.dynamic_render_objects {
-                fp.push_dynamic_render_object(
-                    *t,
-                    CompactTransform::from_mat4(Mat4::from_translation(*pos)),
-                );
+            for (t, transform) in &self.dynamic_render_objects {
+                fp.push_dynamic_render_object(*t, CompactTransform::from_mat4(*transform));
             }
         }
 
