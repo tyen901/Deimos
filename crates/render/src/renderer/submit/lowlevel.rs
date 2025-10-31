@@ -149,6 +149,7 @@ impl SubmitJobManager {
         let (job_tx, job_rx) = unbounded();
         let (result_tx, result_rx) = unbounded();
         let mut thread_handles = Vec::new();
+        let nproc = gdt_cpus::num_logical_cores().unwrap_or(1);
 
         for i in 0..thread_count {
             let job_rx = job_rx.clone();
@@ -158,8 +159,23 @@ impl SubmitJobManager {
             let handle = std::thread::Builder::new()
                 .name(format!("render_submit_{i}"))
                 .spawn(move || {
-                    let mut command_list = gpu.create_command_list();
+                    if let Err(e) = gdt_cpus::set_thread_priority(gdt_cpus::ThreadPriority::Highest)
+                    {
+                        error!("Failed to set submit thread priority: {e}");
+                    }
+                    if let Err(e) = gdt_cpus::pin_thread_to_core(nproc - i % nproc - 1) {
+                        error!("Failed to pin submit thread to core: {e}");
+                    }
+
+                    let mut command_list = None;
                     while let Ok((job_id, job_desc)) = job_rx.recv() {
+                        // Workaround so we don't create a new command list before the first job
+                        // This is because creating a command list creates a reference to the *renderer's* extern container,
+                        // which we can't do until the renderer is fully initialized (which happens after the job manager is created)
+                        if command_list.is_none() {
+                            command_list = Some(gpu.create_command_list());
+                        }
+                        let command_list = command_list.as_mut().unwrap();
                         let SubmitJobDesc {
                             node_range,
                             stage,
@@ -173,12 +189,12 @@ impl SubmitJobManager {
                         );
 
                         if let Some(initial_state) = initial_state {
-                            initial_state.restore(&mut command_list);
+                            initial_state.restore(command_list);
                         }
 
                         let renderer = Renderer::instance();
                         renderer.submit_stage_range(
-                            &mut command_list,
+                            command_list,
                             node_range,
                             stage,
                             FeatureRendererSubscription::all(),
@@ -250,14 +266,14 @@ impl SubmitJobManager {
     pub fn poll_job(&self, job_id: SubmitJobId) -> Option<d3d11::CommandList> {
         self.collect_jobs();
 
-        let r_pending_jobs = self.pending_jobs.read();
-        if !r_pending_jobs.contains_key(&job_id) {
+        let jobs_read = self.pending_jobs.read();
+        if !jobs_read.contains_key(&job_id) {
             // Job id doesn't exist or has already been awaited
             return None;
         }
 
-        if r_pending_jobs.get(&job_id).unwrap().is_some() {
-            drop(r_pending_jobs);
+        if jobs_read.get(&job_id).unwrap().is_some() {
+            drop(jobs_read);
             let res = self.pending_jobs.write().remove(&job_id).unwrap().unwrap();
             return Some(res.cmd);
         }

@@ -18,6 +18,7 @@ chroma-dbg = "0.1.1"
 crossbeam.workspace = true
 d3d11.workspace = true
 ddsfile = "0.5.2"
+gdt-cpus.workspace = true
 glam.workspace = true
 hashbrown = "0.15.1"
 # hlsldecompiler = { git = "https://github.com/cohaereo/hlsldecompiler-rs.git" }

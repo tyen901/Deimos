@@ -79,7 +79,7 @@ impl TerrainPatchesRenderer {
             vertex1_buffer: assets.load(terrain.vertex1_buffer),
             index_buffer: assets.load(terrain.index_buffer),
             constants_dirty: true,
-            detail_level: TerrainDetailLevel::High,
+            detail_level: TerrainDetailLevel::Medium,
             terrain,
             techniques,
             dyemaps,
@@ -187,11 +187,11 @@ impl FeatureRenderer for TerrainPatchesRenderer {
         let center = self.terrain.bounds.center();
         let radius = self.terrain.bounds.radius();
         let distance = camera.position.distance(center);
-        self.detail_level = match distance {
-            d if d > radius * 4.0 => TerrainDetailLevel::Low,
-            d if d > radius * 2.0 => TerrainDetailLevel::Medium,
-            _ => TerrainDetailLevel::High,
-        };
+        // self.detail_level = match distance {
+        //     d if d > radius * 4.0 => TerrainDetailLevel::Low,
+        //     d if d > radius * 2.0 => TerrainDetailLevel::Medium,
+        //     _ => TerrainDetailLevel::High,
+        // };
 
         camera.frustum.aabb_intersecting(&self.terrain.bounds)
     }
