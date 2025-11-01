@@ -455,8 +455,8 @@ impl ExternalDataWidgetExt for FeatureRendererSubscription {
                 let ctrl = ui.input(|i| i.modifiers.ctrl);
                 let alt = ui.input(|i| i.modifiers.alt);
                 macro_rules! feature {
-                    ($flag:expr, $name:literal) => {
-                        if ui.selectable_label(self.contains($flag), $name).clicked() {
+                    ($ui:ident, $flag:expr, $name:literal) => {
+                        if $ui.selectable_label(self.contains($flag), $name).clicked() {
                             if ctrl {
                                 self.clear();
                                 self.insert($flag);
@@ -473,36 +473,52 @@ impl ExternalDataWidgetExt for FeatureRendererSubscription {
                 }
 
                 feature!(
+                    ui,
                     FeatureRendererSubscription::STATIC_OBJECTS,
                     "Static Objects"
                 );
                 feature!(
+                    ui,
                     FeatureRendererSubscription::TERRAIN_PATCH,
                     "Terrain Patches"
                 );
-                feature!(FeatureRendererSubscription::RIGID_OBJECT, "Rigid Objects");
                 feature!(
+                    ui,
+                    FeatureRendererSubscription::RIGID_OBJECT,
+                    "Rigid Objects"
+                );
+                feature!(
+                    ui,
                     FeatureRendererSubscription::SKY_TRANSPARENT,
                     "Sky Transparents"
                 );
-                feature!(FeatureRendererSubscription::SPEEDTREE_TREES, "Decorators");
                 feature!(
+                    ui,
+                    FeatureRendererSubscription::SPEEDTREE_TREES,
+                    "Decorators"
+                );
+                feature!(
+                    ui,
                     FeatureRendererSubscription::DYNAMIC_DECALS,
                     "Dynamic Decals"
                 );
-                feature!(FeatureRendererSubscription::WATER, "Water");
-                feature!(FeatureRendererSubscription::LENS_FLARES, "Lens Flares");
-                feature!(FeatureRendererSubscription::PARTICLES, "Particles");
-                ui.section_separator("Lighting");
-                feature!(FeatureRendererSubscription::CUBEMAPS, "Cubemaps");
-                feature!(
-                    FeatureRendererSubscription::CHUNKED_LIGHTS,
-                    "Chunked Lights"
-                );
-                feature!(
-                    FeatureRendererSubscription::DEFERRED_LIGHTS,
-                    "Deferred Lights"
-                );
+                feature!(ui, FeatureRendererSubscription::WATER, "Water");
+                ui.add_enabled_ui(false, |ui| {
+                    feature!(ui, FeatureRendererSubscription::LENS_FLARES, "Lens Flares");
+                    feature!(ui, FeatureRendererSubscription::PARTICLES, "Particles");
+                    ui.section_separator("Lighting");
+                    feature!(ui, FeatureRendererSubscription::CUBEMAPS, "Cubemaps");
+                    feature!(
+                        ui,
+                        FeatureRendererSubscription::CHUNKED_LIGHTS,
+                        "Chunked Lights"
+                    );
+                    feature!(
+                        ui,
+                        FeatureRendererSubscription::DEFERRED_LIGHTS,
+                        "Deferred Lights"
+                    );
+                });
             })
             .response
     }
