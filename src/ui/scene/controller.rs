@@ -71,10 +71,6 @@ impl CameraController {
                 camera.position = *target - camera.forward() * real_distance;
             }
             Self::FirstPerson { speed, yaw_pitch } => {
-                if !response.dragged_by(egui::PointerButton::Primary) {
-                    return;
-                }
-
                 let mut movement = Vec3::ZERO;
                 ui.input(|i| {
                     if i.key_down(egui::Key::W) {
@@ -106,15 +102,18 @@ impl CameraController {
                         movement *= 2.5;
                     }
                 });
-
                 camera.position += movement * delta_time * *speed;
 
-                let drag_delta = response.drag_delta();
-                *yaw_pitch += (drag_delta / 10.0) * vec2(-1.0, 1.3);
-                yaw_pitch.y = yaw_pitch.y.clamp(-89.0, 89.0);
+                if response.dragged_by(egui::PointerButton::Primary)
+                    | response.dragged_by(egui::PointerButton::Secondary)
+                {
+                    let drag_delta = response.drag_delta();
+                    *yaw_pitch += (drag_delta / 10.0) * vec2(-1.0, 1.3);
+                    yaw_pitch.y = yaw_pitch.y.clamp(-89.0, 89.0);
 
-                camera.rotation = Quat::from_rotation_z(yaw_pitch.x.to_radians())
-                    * Quat::from_rotation_y(yaw_pitch.y.to_radians());
+                    camera.rotation = Quat::from_rotation_z(yaw_pitch.x.to_radians())
+                        * Quat::from_rotation_y(yaw_pitch.y.to_radians());
+                }
             }
         }
     }
