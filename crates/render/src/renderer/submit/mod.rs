@@ -266,6 +266,7 @@ impl Renderer {
         ext.decal.depth_read = view.gbuffers.depth_proxy.lock().srv.clone().into();
         ext.decal.normals_read = view.gbuffers.normal_read.into();
         ext.decal.depth_constants = ext.deferred.depth_constants;
+        ext.decal.unk30 = Vec4::new(fb_res.0 as f32, fb_res.1 as f32, 0.0, 0.0);
 
         // ext.shadow_mask.unk00 = self.gpu.placeholder_white.view.clone().into();
         // ext.shadow_mask.unk08 = self.lighting.ssao.into();
