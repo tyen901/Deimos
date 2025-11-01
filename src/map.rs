@@ -5,7 +5,7 @@ use deimos_data::{
 };
 use deimos_render::{
     feature::{
-        decorators::DecoratorRenderer, rigid_model::DynamicModel,
+        decals::DecalCollectionRenderer, decorators::DecoratorRenderer, rigid_model::DynamicModel,
         static_geometry::StaticInstancesRenderer, terrain_patches::TerrainPatchesRenderer,
     },
     object::{RenderObject, RenderObjectHandle},
@@ -20,7 +20,7 @@ pub struct StaticMapTemp {
     pub models: Vec<StaticInstancesRenderer>,
     pub terrain: Vec<TerrainPatchesRenderer>,
     pub decorators: Vec<DecoratorRenderer>,
-    // pub decals: Vec<Box<DecalCollectionRenderer>>,
+    pub decals: Vec<Box<DecalCollectionRenderer>>,
     pub cubemaps: Vec<RenderObjectHandle>,
     // pub collision_hkx: Option<SStaticMapCollision>,
     pub entities: Vec<(Vec3, Quat, Vec3, RenderObject, TagHash, String)>,
@@ -31,7 +31,7 @@ pub fn load_static_map(taghash: TagHash) -> anyhow::Result<StaticMapTemp> {
         models: Vec::new(),
         terrain: Vec::new(),
         decorators: Vec::new(),
-        // decals: Vec::new(),
+        decals: Vec::new(),
         cubemaps: Vec::new(),
         // collision_hkx: None,
         entities: Vec::new(),
@@ -125,6 +125,12 @@ pub fn load_static_map(taghash: TagHash) -> anyhow::Result<StaticMapTemp> {
                                 ));
                             }
                         }
+                        MapNodeResource::SDecalCollectionComponent(d) => {
+                            if let Some(collection) = &*d.decals {
+                                let renderer = DecalCollectionRenderer::load(collection.clone())?;
+                                map.decals.push(renderer);
+                            }
+                        }
                         // MapNodeResource::SCubemapComponent(c) => {
                         //     let ct = CompactTransform::from_mat4(Mat4::from_rotation_translation(
                         //         node.rotation,
@@ -190,13 +196,6 @@ pub fn load_static_map(taghash: TagHash) -> anyhow::Result<StaticMapTemp> {
                         //         TagHash::NONE,
                         //         format!("Water Plane {}", w.model),
                         //     ));
-                        // }
-                        // MapNodeResource::SDecalCollectionComponent(d) => {
-                        //     if d.decals.is_none() {
-                        //         continue;
-                        //     }
-                        //     let renderer = DecalCollectionRenderer::load(d.decals)?;
-                        //     map.decals.push(renderer);
                         // }
                         MapNodeResource::Unknown { class, offset } => {
                             warn!(
