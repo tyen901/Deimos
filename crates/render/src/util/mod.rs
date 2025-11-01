@@ -7,6 +7,7 @@ pub mod byteutil;
 pub mod d3d;
 pub mod fps_histogram;
 pub mod geometry;
+pub mod math;
 pub mod threading;
 
 lazy_static! {

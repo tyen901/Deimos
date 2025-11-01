@@ -1,5 +1,6 @@
 use core::f32;
 use std::arch::x86_64::{__m128, _mm_fmadd_ps};
+use std::ops::{Add, Mul, Sub};
 
 use anyhow::{ensure, Context};
 use d3d11::SamplerState;
@@ -8,6 +9,7 @@ use glam::{Mat4, Vec4, Vec4Swizzles};
 
 use crate::gpu::command_list::ContextExt;
 use crate::tfx::externs::{ExternAccessor, ExternAccessorExt, TextureView, Uav};
+use crate::util::math::Vec4Ext;
 use crate::Renderer;
 
 use super::opcodes::Opcode;
@@ -279,6 +281,25 @@ impl<'a> InterpreterState<'a> {
                 }
                 Opcode::Frac => {
                     set_top!(cached_top.fract());
+                }
+                Opcode::Unknown0x1F => {
+                    let v58 = Vec4::mul(cached_top, cached_top);
+                    let v59 = Vec4::add(Vec4::add(v58.yyyy(), v58.xxxx()), v58.zzzz());
+                    let v60 = v59.rsqrt();
+                    let v61 = Vec4::add(
+                        Vec4::mul(
+                            Vec4::sub(
+                                Vec4::splat(0.5),
+                                Vec4::mul(Vec4::mul(v60, v60), Vec4::mul(Vec4::splat(0.5), v59)),
+                            ),
+                            v60,
+                        ),
+                        v60,
+                    );
+                    let v62 = v61.cmpeq(v61);
+                    let v63 = Vec4::select(v62, v61, v60);
+                    let s = Vec4::select(Vec4::INFINITY.cmpeq(v63), Vec4::ZERO, cached_top * v63);
+                    set_top!(s);
                 }
                 Opcode::Negate => {
                     set_top!(-cached_top);
