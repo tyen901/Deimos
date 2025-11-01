@@ -801,6 +801,7 @@ name = "deimos"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "bitflags 2.10.0",
  "bytemuck",
  "clap",
  "d3d11",
