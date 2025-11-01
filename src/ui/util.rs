@@ -7,6 +7,8 @@ pub trait UiExt {
     fn d_button(&mut self, text: impl Into<RichText>) -> Response;
 
     fn d_spinner(&mut self, size: Vec2) -> Response;
+
+    fn section_separator(&mut self, text: impl Into<RichText>);
 }
 
 impl UiExt for Ui {
@@ -31,6 +33,11 @@ impl UiExt for Ui {
     fn d_spinner(&mut self, size: Vec2) -> Response {
         self.add(Image::new(spinner_image().clone()).fit_to_exact_size(size))
     }
+
+    fn section_separator(&mut self, text: impl Into<RichText>) {
+        self.add_space(6.0);
+        self.add(egui::Label::new(text.into().weak().size(12.0)).selectable(false));
+    }
 }
 
 pub fn spinner_image() -> &'static ImageSource<'static> {
@@ -49,4 +56,9 @@ pub fn spinner_image() -> &'static ImageSource<'static> {
     const IMG4: ImageSource = include_image!("../../assets/ui/load4.png");
 
     &[IMG0, IMG0, IMG1, IMG2, IMG3, IMG4, IMG4, IMG3, IMG2, IMG1][(time * 5.0) as usize % 10]
+}
+
+/// Extension trait for adding widgets for external data types.
+pub trait ExternalDataWidgetExt {
+    fn show_input(&mut self, ui: &mut Ui) -> Response;
 }
