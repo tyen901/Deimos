@@ -10,7 +10,7 @@ use std::fmt::Debug;
 
 use deimos_core::convar::ConVars;
 use deimos_data::tfx::{FeatureRendererSubscription, PipelineState, ShaderStage};
-use glam::{Mat4, Vec4};
+use glam::{vec4, Mat4, Vec4};
 
 use crate::{
     camera::Camera,
@@ -304,21 +304,23 @@ impl Renderer {
         //     ..Default::default()
         // };
 
-        // *ext.transparent = externs::Transparent {
-        //     // unk00: self.gpu.placeholder_white.view.clone().into(),
-        //     // unk10: self.gpu.placeholder_white.view.clone().into(),
-        //     // unk20: self.gpu.placeholder_white.view.clone().into(),
-        //     // unk48: self.gpu.placeholder_white.view.clone().into(),
-        //     // unk50: self.gpu.placeholder_white.view.clone().into(),
-        //     // unk78: self.gpu.placeholder_white.view.clone().into(),
-        //     // unk38: self.common.temporary_atmos.view.clone().into(),
-        //     unk80: Vec4::new(1.15643, 0.00, 0.70, 44.00),
-        //     unk90: Vec4::new(0.00, 0.00, -0.00938, 0.05583),
-        //     unka0: Vec4::new(0.00, 0.00, -0.01315, 0.10422),
-        //     unkb0: Vec4::new(0.00, 0.00, -0.00815, 0.16667),
-        //     unkc0: Vec4::new(0.00, 0.00, 0.00, 0.00),
-        //     ..Default::default()
-        // };
+        *ext.transparent = externs::Transparent {
+            // unk00: self.gpu.placeholder_white.view.clone().into(),
+            // unk10: self.gpu.placeholder_white.view.clone().into(),
+            // unk20: self.gpu.placeholder_white.view.clone().into(),
+            // unk48: self.gpu.placeholder_white.view.clone().into(),
+            // unk50: self.gpu.placeholder_white.view.clone().into(),
+            // unk78: self.gpu.placeholder_white.view.clone().into(),
+            // unk38: self.common.temporary_atmos.view.clone().into(),
+            unk80: vec4(0.22882, 0.00, 1.00, 45.00),
+            unk90: vec4(0.00, 0.00, 1.17485, 2.86546),
+            unka0: vec4(0.00, 0.00, 2.10913, 5.14044),
+            unkb0: vec4(0.00, 0.00, 3.46762, 8.41667),
+            unkc0: vec4(0.00, 0.00, 0.00, 0.00),
+            unkd0: vec4(0.00, 0.00, 0.00, 0.00),
+            unke0: vec4(0.00, 0.00, 0.00, 0.00),
+            ..Default::default()
+        };
 
         // TODO(cohae): use the actual frame scope instead of the temporary `frame_scope`
         self.globals.scopes.frame.bind(cmd).unwrap();

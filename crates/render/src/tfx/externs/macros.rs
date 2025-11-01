@@ -68,13 +68,20 @@ macro_rules! extern_container {
                 // globals[130] = Vec4::splat(0.50);
 
 
-                Self {
+                let mut r = Self {
                     $(
                         $name: Default::default(),
                     )*
                     globals,
                     global_ids: globs.channels.channel_ids.clone(),
-                }
+                };
+
+                // for hash in [743670141, 743670142, 743670143, 743670136, 743670137, 743670138, 743670139, 743670132, 743670133] {
+                //     r.set_global_channel_by_id(hash, Vec4::splat(0.5));
+                // }
+                r.set_global_channel_by_id(743670137, Vec4::splat(0.1));
+
+                r
             }
         }
     };
