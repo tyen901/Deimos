@@ -686,6 +686,28 @@ impl<'a> InterpreterState<'a> {
 
                     cached_top = self.push(v)?;
                 }
+                // TODO(cohae): This is a placeholder implementation
+                Opcode::PushTexDimensions
+                | Opcode::PushTexTilingParams
+                | Opcode::PushTexTileLayerCount => {
+                    let fields = ptr[1];
+                    let s0 = (fields >> 6) & 0b11;
+                    let s1 = (fields >> 4) & 0b11;
+                    let s2 = (fields >> 2) & 0b11;
+                    let s3 = fields & 0b11;
+
+                    let v = Vec4::new(0.250000, 0.250000, 0.250000, 0.062500);
+                    // let v = Vec4::new(0.200000, 0.164103, 0.200000, 0.033333);
+
+                    let v2 = v.to_array();
+
+                    cached_top = self.push(Vec4::new(
+                        v2[s0 as usize],
+                        v2[s1 as usize],
+                        v2[s2 as usize],
+                        v2[s3 as usize],
+                    ))?;
+                }
                 u => {
                     anyhow::bail!(
                         "Unimplemented opcode: {u:?} / 0x{:02X} (ip=0x{:X})",
