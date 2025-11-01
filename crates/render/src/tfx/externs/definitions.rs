@@ -780,7 +780,7 @@ extern_struct! {
         0x08 => normals_read: TextureView,
         0x10 => depth_constants: Vec4,
         0x20 => unk20: Vec4 > default(vec4(0.03, 0.0, 0.0, 0.0)),
-        0x30 => unk30: Vec4 > default(Vec4::W),
+        0x30 => unk30: Vec4 > default(vec4(1920.0, 1080.0, 0.0, 0.0)), // normals_read resolution+offset
     }
 }
 
