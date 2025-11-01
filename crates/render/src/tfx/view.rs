@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use d3d11::dxgi;
+use deimos_data::tfx::{features::dynamic::RenderStageSubscription, FeatureRendererSubscription};
 use glam::{Mat4, Vec3};
 
 use crate::{
@@ -21,6 +22,7 @@ pub struct View {
     pub(crate) gbuffers: Gbuffers,
     pub(crate) shading_result: SurfaceHandle,
     pub output: SurfaceHandle,
+    pub subscribed_features: FeatureRendererSubscription,
 }
 
 impl View {
@@ -51,6 +53,7 @@ impl View {
             gbuffers,
             shading_result,
             output,
+            subscribed_features: FeatureRendererSubscription::all(),
         })
     }
 

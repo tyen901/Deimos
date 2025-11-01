@@ -9,6 +9,7 @@ use std::{
 };
 
 use d3d11::{dxgi, ShaderResourceView, Texture2D, Texture2dDesc};
+use deimos_data::tfx::FeatureRendererSubscription;
 use deimos_render::{
     camera::Camera,
     gpu::command_list::CommandList,
@@ -23,7 +24,10 @@ use egui::{
 use glam::{Mat4, Vec3};
 use google_material_symbols::GoogleMaterialSymbols;
 
-use crate::ui::scene::controller::CameraController;
+use crate::ui::{
+    scene::controller::CameraController,
+    util::{ExternalDataWidgetExt, UiExt},
+};
 
 pub struct Scene {
     renderer: Arc<Renderer>,
@@ -205,6 +209,7 @@ impl Scene {
     fn show_toolbar(&mut self, ui: &mut Ui) {
         ui.add_space(4.0);
         self.render_mode.ui(ui);
+        self.view.subscribed_features.show_input(ui);
     }
 
     fn render(&mut self, delta_time: f32) {
@@ -255,6 +260,13 @@ impl Scene {
                             .write()
                             .get_mut(node.render_object_handle.into())
                         {
+                            if !self
+                                .view
+                                .subscribed_features
+                                .is_subscribed(render_object.feature_type)
+                            {
+                                return false;
+                            }
                             render_object.visibility_test(&self.camera)
                         } else {
                             true
@@ -354,7 +366,6 @@ pub enum RenderMode {
 
     // Material:
     Albedo,
-    // Normals,
     Smoothness,
     Metalness,
     AmbientOcclusion,
@@ -362,56 +373,46 @@ pub enum RenderMode {
     Transmission,
     IridescenceId,
 
-    // Misc:
+    // Geometry:
     DepthEdges,
     WorldNormal,
 }
 
 impl RenderMode {
     pub fn ui(&mut self, ui: &mut Ui) {
-        ui.horizontal(|ui| {
-            ui.style_mut()
-                .text_styles
-                .insert(TextStyle::Button, FontId::proportional(16.0));
+        ui.style_mut()
+            .text_styles
+            .insert(TextStyle::Button, FontId::proportional(16.0));
 
-            ui.style_mut().spacing.item_spacing = vec2(4.0, 0.0);
-            ui.label(GoogleMaterialSymbols::EvShadow.to_string());
-            egui::ComboBox::from_id_salt("Render Mode")
-                .height(400.0)
-                .selected_text(format!("{:?}", self))
-                .show_ui(ui, |ui| {
-                    ui.style_mut()
-                        .text_styles
-                        .insert(TextStyle::Button, FontId::proportional(16.0));
-                    ui.style_mut().spacing.button_padding = Vec2::new(8.0, 2.0);
-                    ui.style_mut().spacing.item_spacing = Vec2::ZERO;
+        ui.style_mut().spacing.item_spacing = vec2(4.0, 0.0);
+        ui.label(GoogleMaterialSymbols::EvShadow.to_string());
+        egui::ComboBox::from_id_salt("Render Mode")
+            .height(400.0)
+            .selected_text(format!("{:?}", self))
+            .show_ui(ui, |ui| {
+                ui.style_mut()
+                    .text_styles
+                    .insert(TextStyle::Button, FontId::proportional(16.0));
+                ui.style_mut().spacing.button_padding = Vec2::new(8.0, 2.0);
+                ui.style_mut().spacing.item_spacing = Vec2::ZERO;
 
-                    ui.selectable_value(self, RenderMode::Shaded, "Shaded");
-                    // ui.selectable_value(self, RenderMode::Matcap, "Matcap");
+                ui.selectable_value(self, RenderMode::Shaded, "Shaded");
+                // ui.selectable_value(self, RenderMode::Matcap, "Matcap");
 
-                    ui.add_space(6.0);
-                    ui.add(
-                        egui::Label::new(RichText::new("Material:").weak().size(12.0))
-                            .selectable(false),
-                    );
-                    ui.selectable_value(self, RenderMode::Albedo, "Albedo");
-                    // ui.selectable_value(self, RenderMode::Normals, "Normals");
-                    ui.selectable_value(self, RenderMode::Smoothness, "Smoothness");
-                    ui.selectable_value(self, RenderMode::Metalness, "Metalness");
-                    ui.selectable_value(self, RenderMode::AmbientOcclusion, "Ambient Occlusion");
-                    ui.selectable_value(self, RenderMode::Emission, "Emission");
-                    ui.selectable_value(self, RenderMode::Transmission, "Transmission");
-                    ui.selectable_value(self, RenderMode::IridescenceId, "Iridescence ID");
+                ui.section_separator("Material:");
+                ui.selectable_value(self, RenderMode::Albedo, "Albedo");
+                // ui.selectable_value(self, RenderMode::Normals, "Normals");
+                ui.selectable_value(self, RenderMode::Smoothness, "Smoothness");
+                ui.selectable_value(self, RenderMode::Metalness, "Metalness");
+                ui.selectable_value(self, RenderMode::AmbientOcclusion, "Ambient Occlusion");
+                ui.selectable_value(self, RenderMode::Emission, "Emission");
+                ui.selectable_value(self, RenderMode::Transmission, "Transmission");
+                ui.selectable_value(self, RenderMode::IridescenceId, "Iridescence ID");
 
-                    ui.add_space(6.0);
-                    ui.add(
-                        egui::Label::new(RichText::new("Geometry:").weak().size(12.0))
-                            .selectable(false),
-                    );
-                    ui.selectable_value(self, RenderMode::DepthEdges, "Depth Edges");
-                    ui.selectable_value(self, RenderMode::WorldNormal, "World Normal");
-                });
-        });
+                ui.section_separator("Geometry:");
+                ui.selectable_value(self, RenderMode::DepthEdges, "Depth Edges");
+                ui.selectable_value(self, RenderMode::WorldNormal, "World Normal");
+            });
     }
 }
 
@@ -421,7 +422,6 @@ impl From<RenderMode> for Option<DebugPipeline> {
             RenderMode::Shaded => None,
             // RenderMode::Matcap => Some(DebugPipeline::Matcap),
             RenderMode::Albedo => Some(DebugPipeline::Albedo),
-            // RenderMode::Normals => Some(DebugPipeline::Normals),
             RenderMode::Smoothness => Some(DebugPipeline::Smoothness),
             RenderMode::Metalness => Some(DebugPipeline::Metalness),
             RenderMode::AmbientOcclusion => Some(DebugPipeline::AmbientOcclusion),
@@ -431,5 +431,72 @@ impl From<RenderMode> for Option<DebugPipeline> {
             RenderMode::DepthEdges => Some(DebugPipeline::DepthEdges),
             RenderMode::WorldNormal => Some(DebugPipeline::WorldNormal),
         }
+    }
+}
+
+impl ExternalDataWidgetExt for FeatureRendererSubscription {
+    fn show_input(&mut self, ui: &mut Ui) -> egui::Response {
+        ui.style_mut()
+            .text_styles
+            .insert(TextStyle::Button, FontId::proportional(16.0));
+
+        ui.style_mut().spacing.item_spacing = vec2(4.0, 0.0);
+        ui.label(GoogleMaterialSymbols::CheckBox.to_string());
+        egui::ComboBox::from_id_salt("Feature Renderers")
+            .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
+            .height(400.0)
+            .selected_text("Enabled Features")
+            .show_ui(ui, |ui| {
+                ui.style_mut()
+                    .text_styles
+                    .insert(TextStyle::Button, FontId::proportional(16.0));
+                ui.style_mut().spacing.button_padding = Vec2::new(8.0, 2.0);
+                ui.style_mut().spacing.item_spacing = Vec2::ZERO;
+
+                macro_rules! feature {
+                    ($flag:expr, $name:literal) => {
+                        if ui.selectable_label(self.contains($flag), $name).clicked() {
+                            if self.contains($flag) {
+                                self.remove($flag);
+                            } else {
+                                self.insert($flag);
+                            }
+                        }
+                    };
+                }
+
+                feature!(
+                    FeatureRendererSubscription::STATIC_OBJECTS,
+                    "Static Objects"
+                );
+                feature!(
+                    FeatureRendererSubscription::TERRAIN_PATCH,
+                    "Terrain Patches"
+                );
+                feature!(FeatureRendererSubscription::RIGID_OBJECT, "Rigid Objects");
+                feature!(
+                    FeatureRendererSubscription::SKY_TRANSPARENT,
+                    "Sky Transparents"
+                );
+                feature!(FeatureRendererSubscription::SPEEDTREE_TREES, "Decorators");
+                feature!(
+                    FeatureRendererSubscription::DYNAMIC_DECALS,
+                    "Dynamic Decals"
+                );
+                feature!(FeatureRendererSubscription::WATER, "Water");
+                feature!(FeatureRendererSubscription::LENS_FLARES, "Lens Flares");
+                feature!(FeatureRendererSubscription::PARTICLES, "Particles");
+                ui.section_separator("Lighting");
+                feature!(FeatureRendererSubscription::CUBEMAPS, "Cubemaps");
+                feature!(
+                    FeatureRendererSubscription::CHUNKED_LIGHTS,
+                    "Chunked Lights"
+                );
+                feature!(
+                    FeatureRendererSubscription::DEFERRED_LIGHTS,
+                    "Deferred Lights"
+                );
+            })
+            .response
     }
 }
