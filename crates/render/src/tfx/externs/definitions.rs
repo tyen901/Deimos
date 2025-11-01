@@ -67,6 +67,7 @@ extern_struct! {
         0x1A0 => world_to_projective: Mat4,
         0x1E0 => unk1e0: Mat4,
         0x260 => unk260: Mat4,
+        0x2A0 => unk220: Mat4,
 
         // Bungie messed up a good portion of this extern with Marathon, everything prefixed with 0x8_ here needs to be figured out again
         0x8_60 => world_to_camera: Mat4,
@@ -77,7 +78,7 @@ extern_struct! {
         0x8_1A0 => projective_to_world: Mat4,
         0x8_1E0 => target_pixel_to_world: Mat4,
         // 0x8_220 => target_pixel_to_camera: Mat4,
-        0x8_260 => unk220: Mat4,
+        // 0x8_260 => unk220: Mat4,
         0x8_2A0 => tptow_no_proj_w: Mat4,
         0x8_2E0 => unk2a0: Mat4,
 
@@ -736,17 +737,19 @@ extern_struct! {
 extern_struct! {
     struct GlobalLighting("global_lighting") {
         0x08 => unk08: TextureView,
-        0x10 => unk10: Vec4,
-        0x30 => unk30: Vec4,
-        0x50 => unk50: Vec4,
-        0x70 => unk70: Vec4,
-        0x80 => unk80: Vec4,
-        0x90 => unk90: f32,
-        0x94 => unk94: f32,
-        0xA0 => unka0: Vec4,
-        0xB0 => unkb0: Vec4,
-        0xC0 => unkc0: Vec4,
-        0xD0 => unkd0: f32,
+        0x10 => unk10: Vec4 > default(Vec4::ZERO),
+        0x30 => unk30: Vec4 > default(Vec4::NEG_Z),
+        0x50 => unk50: Vec4 > default(Vec4::ZERO),
+        0x70 => unk70: Vec4 > default(Vec4::ZERO),
+        0x80 => unk80: Vec4 > default(Vec4::ZERO),
+        0x90 => unk90: f32 > default(0.0),
+        0x94 => unk94: f32 > default(0.0),
+        0x98 => unk98: f32 > default(0.0),
+        0x9C => unk9c: f32 > default(0.0),
+        0xA0 => unka0: f32 > default(0.0),
+        0xB0 => unkb0: Vec4 > default(Vec4::ZERO),
+        0xC0 => unkc0: Vec4 > default(Vec4::ZERO),
+        0xD0 => unkd0: Vec4 > default(Vec4::ZERO),
         0xD4 => unkd4: f32,
         0xD8 => unkd8: f32,
     }
@@ -773,18 +776,18 @@ extern_struct! {
 
 extern_struct! {
     struct Decal("decal") {
-        0x00 => unk00: TextureView,
-        0x08 => unk08: TextureView,
-        0x10 => unk10: Vec4,
-        0x20 => unk20: Vec4,
-        0x30 => unk30: Vec4,
+        0x00 => depth_read: TextureView,
+        0x08 => normals_read: TextureView,
+        0x10 => depth_constants: Vec4,
+        0x20 => unk20: Vec4 > default(vec4(0.03, 0.0, 0.0, 0.0)),
+        0x30 => unk30: Vec4 > default(Vec4::W),
     }
 }
 
 extern_struct! {
     struct DecalSetTransform("decal_set_transform") {
-        0x00 => unk00: Vec4,
-        0x10 => unk10: Vec4,
+        0x00 => unk00: Vec4 > default(Vec4::W),
+        0x10 => unk10: Vec4 > default(Vec4::W),
     }
 }
 
@@ -797,7 +800,7 @@ extern_struct! {
 
 extern_struct! {
     struct DecoratorWind("decorator_wind") {
-        0x00 => unk00: Vec4,
+        0x00 => unk00: Vec4 > default(vec4(0.0, 0.0, -0.5, 0.01)),
         0x10 => unk10: Vec4,
     }
 }

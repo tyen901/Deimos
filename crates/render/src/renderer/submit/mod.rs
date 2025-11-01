@@ -263,9 +263,9 @@ impl Renderer {
 
         // ext.deferred.sky_hemisphere_mips = self.common.temporary_sky_hemisphere.view.clone().into();
 
-        // ext.decal.depth_read = self.gbuffers.depth_proxy.lock().srv.clone().into();
-        // ext.decal.normals_read = self.gbuffers.normal_read.into();
-        // ext.decal.depth_constants = ext.deferred.depth_constants;
+        ext.decal.depth_read = view.gbuffers.depth_proxy.lock().srv.clone().into();
+        ext.decal.normals_read = view.gbuffers.normal_read.into();
+        ext.decal.depth_constants = ext.deferred.depth_constants;
 
         // ext.shadow_mask.unk00 = self.gpu.placeholder_white.view.clone().into();
         // ext.shadow_mask.unk08 = self.lighting.ssao.into();

@@ -86,12 +86,17 @@ impl RenderStates {
             // println!("Layout {}", l.index);
             // for (ei, element) in layout_elements.iter().enumerate() {
             //     println!(
-            //         " - {} v{ei} : {}{}, // Format {:?} size {}",
+            //         " - {} v{ei} : {}{}, // Format {:?} size {}{}",
             //         element.hlsl_type,
             //         element.semantic_name,
             //         element.semantic_index,
             //         element.format,
-            //         element.stride
+            //         element._stride,
+            //         if element.is_instance_data {
+            //             " (instanced)"
+            //         } else {
+            //             ""
+            //         }
             //     );
             // }
 
