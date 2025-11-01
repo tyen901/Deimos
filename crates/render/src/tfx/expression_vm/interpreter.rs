@@ -400,6 +400,16 @@ impl<'a> InterpreterState<'a> {
                         cached_top, cl[0], cl[1], cl[2], cl[3], cl[4], cl[5],
                     );
                 }
+                Opcode::Unknown0x49 => {
+                    let constant_start = ptr[1];
+                    ensure!(
+                        (constant_start + 10) < constants.len() as u8,
+                        "Invalid constant index"
+                    );
+
+                    let cl = &constants[constant_start as usize..];
+                    set_top!(super::helpers::bytecode_op_unk3b_const(cached_top, cl));
+                }
                 // Push a temporary value onto the stack
                 Opcode::PushTemp => {
                     let slot = ptr[1];

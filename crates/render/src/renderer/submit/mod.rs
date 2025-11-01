@@ -304,14 +304,19 @@ impl Renderer {
         //     ..Default::default()
         // };
 
-        // ext.transparent = Transparent {
-        //     unk28: self.lighting.volumetrics_rt0.into(),
-        //     unk38: self.common.temporary_atmos.view.clone().into(),
-        //     unk50: Vec4::new(1.15643, 0.00, 0.70, 44.00),
-        //     unk60: Vec4::new(0.00, 0.00, -0.00938, 0.05583),
-        //     unk70: Vec4::new(0.00, 0.00, -0.01315, 0.10422),
-        //     unk80: Vec4::new(0.00, 0.00, -0.00815, 0.16667),
-        //     unk90: Vec4::new(0.00, 0.00, 0.00, 0.00),
+        // *ext.transparent = externs::Transparent {
+        //     // unk00: self.gpu.placeholder_white.view.clone().into(),
+        //     // unk10: self.gpu.placeholder_white.view.clone().into(),
+        //     // unk20: self.gpu.placeholder_white.view.clone().into(),
+        //     // unk48: self.gpu.placeholder_white.view.clone().into(),
+        //     // unk50: self.gpu.placeholder_white.view.clone().into(),
+        //     // unk78: self.gpu.placeholder_white.view.clone().into(),
+        //     // unk38: self.common.temporary_atmos.view.clone().into(),
+        //     unk80: Vec4::new(1.15643, 0.00, 0.70, 44.00),
+        //     unk90: Vec4::new(0.00, 0.00, -0.00938, 0.05583),
+        //     unka0: Vec4::new(0.00, 0.00, -0.01315, 0.10422),
+        //     unkb0: Vec4::new(0.00, 0.00, -0.00815, 0.16667),
+        //     unkc0: Vec4::new(0.00, 0.00, 0.00, 0.00),
         //     ..Default::default()
         // };
 

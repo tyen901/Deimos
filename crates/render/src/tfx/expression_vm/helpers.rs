@@ -1,6 +1,6 @@
 use std::ops::{Add, BitAnd, Mul, Shr, Sub};
 
-use glam::{IVec4, UVec4, Vec4, Vec4Swizzles};
+use glam::{vec4, IVec4, UVec4, Vec4, Vec4Swizzles};
 
 fn lerp(start: f32, end: f32, t: f32) -> f32 {
     start + (end - start) * t
@@ -301,6 +301,135 @@ pub fn bytecode_op_25(v: Vec4) -> Vec4 {
         ),
         rhs,
     )
+}
+
+pub fn bytecode_op_unk3b_const(input: Vec4, constants: &[Vec4]) -> Vec4 {
+    unsafe {
+        use std::arch::x86_64::{
+            __m128, _mm_add_ps, _mm_and_ps, _mm_andnot_ps, _mm_cmple_ps, _mm_cmplt_ps, _mm_div_ps,
+            _mm_max_ps, _mm_min_ps, _mm_mul_ps, _mm_or_ps, _mm_set1_ps, _mm_shuffle_ps, _mm_sub_ps,
+        };
+
+        let f32_mask = f32::from_bits(u32::MAX);
+        let mask_all = _mm_set1_ps(f32_mask);
+        let mask_xyz = __m128::from(vec4(f32_mask, f32_mask, f32_mask, 0.0));
+        let mask_x = __m128::from(vec4(f32_mask, 0.0, 0.0, 0.0));
+        let mask_y = __m128::from(vec4(0.0, f32_mask, 0.0, 0.0));
+        let mask_z = __m128::from(vec4(0.0, 0.0, f32_mask, 0.0));
+        let mask_w = __m128::from(vec4(0.0, 0.0, 0.0, f32_mask));
+        let zero = _mm_set1_ps(0.0);
+        let one = _mm_set1_ps(1.0);
+        let epsilon = _mm_set1_ps(0.0001);
+
+        let v4 = __m128::from(constants[10]);
+        let v5 = __m128::from(constants[9]);
+        let v6 = __m128::from(constants[0]);
+        let v7 = _mm_sub_ps(input.into(), v5);
+        let v8 = _mm_sub_ps(input.into(), v4);
+        let v9 = _mm_sub_ps(
+            _mm_or_ps(
+                _mm_and_ps(_mm_and_ps(_mm_shuffle_ps(v4, v4, 57), mask_all), mask_xyz),
+                _mm_andnot_ps(mask_xyz, one),
+            ),
+            v4,
+        );
+        let v10 = _mm_sub_ps(
+            _mm_add_ps(
+                _mm_or_ps(
+                    _mm_and_ps(_mm_and_ps(_mm_shuffle_ps(v4, v4, 0), mask_w), mask_all),
+                    _mm_andnot_ps(mask_all, one),
+                ),
+                _mm_and_ps(_mm_shuffle_ps(v5, v5, 57), mask_xyz),
+            ),
+            v5,
+        );
+        let v11 = _mm_cmplt_ps(epsilon, _mm_max_ps(_mm_sub_ps(zero, v10), v10));
+        let v12 = _mm_cmplt_ps(epsilon, _mm_max_ps(_mm_sub_ps(zero, v9), v9));
+        let v13 = _mm_min_ps(
+            _mm_max_ps(
+                _mm_or_ps(
+                    _mm_andnot_ps(v11, _mm_and_ps(_mm_cmple_ps(zero, v7), one)),
+                    _mm_and_ps(_mm_div_ps(v7, v10), v11),
+                ),
+                zero,
+            ),
+            one,
+        );
+        let v14 = _mm_min_ps(
+            _mm_max_ps(
+                _mm_or_ps(
+                    _mm_andnot_ps(v12, _mm_and_ps(_mm_cmple_ps(zero, v8), one)),
+                    _mm_and_ps(_mm_div_ps(v8, v9), v12),
+                ),
+                zero,
+            ),
+            one,
+        );
+        let v15 = _mm_mul_ps(
+            _mm_add_ps(
+                _mm_mul_ps(__m128::from(constants[1]), v13),
+                _mm_mul_ps(__m128::from(constants[5]), v14),
+            ),
+            one,
+        );
+        let v16 = _mm_add_ps(_mm_shuffle_ps(v15, v15, 78), v15);
+        let v17 = _mm_add_ps(
+            _mm_or_ps(
+                _mm_and_ps(
+                    _mm_and_ps(_mm_add_ps(_mm_shuffle_ps(v16, v16, 147), v16), mask_x),
+                    mask_all,
+                ),
+                _mm_andnot_ps(mask_all, one),
+            ),
+            v6,
+        );
+        let v18 = _mm_add_ps(
+            _mm_mul_ps(__m128::from(constants[2]), v13),
+            _mm_mul_ps(__m128::from(constants[6]), v14),
+        );
+        let v19 = _mm_mul_ps(v18, one);
+        let v20 = _mm_add_ps(_mm_shuffle_ps(v19, v19, 78), v19);
+        let v21 = _mm_add_ps(
+            _mm_or_ps(
+                _mm_and_ps(
+                    _mm_and_ps(_mm_add_ps(_mm_shuffle_ps(v20, v20, 147), v20), mask_y),
+                    mask_all,
+                ),
+                _mm_andnot_ps(mask_all, one),
+            ),
+            v17,
+        );
+        let v22 = _mm_mul_ps(__m128::from(constants[3]), v13);
+        let v23 = _mm_mul_ps(__m128::from(constants[7]), v14);
+        let v24 = _mm_mul_ps(_mm_add_ps(v22, v23), one);
+        let v25 = _mm_add_ps(_mm_shuffle_ps(v24, v24, 78), v24);
+        let v27 = _mm_mul_ps(__m128::from(constants[4]), v13);
+        let v28 = _mm_add_ps(
+            _mm_or_ps(
+                _mm_and_ps(
+                    _mm_and_ps(_mm_add_ps(_mm_shuffle_ps(v25, v25, 147), v25), mask_z),
+                    mask_all,
+                ),
+                _mm_andnot_ps(mask_all, one),
+            ),
+            v21,
+        );
+        let v29 = _mm_mul_ps(__m128::from(constants[8]), v14);
+        let v30 = _mm_mul_ps(_mm_add_ps(v27, v29), one);
+        let v31 = _mm_add_ps(_mm_shuffle_ps(v30, v30, 78), v30);
+        let result = _mm_add_ps(
+            _mm_or_ps(
+                _mm_and_ps(
+                    _mm_and_ps(_mm_add_ps(_mm_shuffle_ps(v31, v31, 147), v31), mask_w),
+                    mask_all,
+                ),
+                _mm_andnot_ps(mask_all, one),
+            ),
+            v28,
+        );
+
+        Vec4::from(result)
+    }
 }
 
 trait Vec4SimdExt {
