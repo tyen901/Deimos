@@ -1,10 +1,7 @@
 use deimos_data::tfx::{
     common::AxisAlignedBBox,
     features::{decals::SDecalCollection, dynamic::RenderStageSubscription},
-    TfxFeatureRenderer,
 };
-use tiger_parse::PackageManagerExt;
-use tiger_pkg::{package_manager, TagHash};
 
 use crate::{
     asset::{vertex_buffer::VertexBuffer, Handle},
@@ -106,7 +103,7 @@ impl FeatureRenderer for DecalCollectionRenderer {
             Some(&[0, 0]),
         )
         .unwrap();
-        cmd.set_input_layout(23);
+        cmd.set_input_layout(17);
         cmd.set_input_topology(deimos_data::tfx::PrimitiveType::Triangles);
         for set in self.sets.iter().filter(|s| s.visible) {
             let Some(t) = set.technique.get() else {
