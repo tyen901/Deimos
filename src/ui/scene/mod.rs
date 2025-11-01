@@ -8,6 +8,7 @@ use std::{
     time::Instant,
 };
 
+use bitflags::Flags;
 use d3d11::{dxgi, ShaderResourceView, Texture2D, Texture2dDesc};
 use deimos_data::tfx::FeatureRendererSubscription;
 use deimos_render::{
@@ -18,9 +19,7 @@ use deimos_render::{
     tfx::{packet::CompactTransform, view::View},
     Gpu, Renderer,
 };
-use egui::{
-    load::SizedTexture, vec2, FontId, Label, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2,
-};
+use egui::{load::SizedTexture, vec2, FontId, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2};
 use glam::{Mat4, Vec3};
 use google_material_symbols::GoogleMaterialSymbols;
 
@@ -128,7 +127,7 @@ impl Scene {
         }
 
         let mut bar_rect = r.rect;
-        bar_rect.set_height(28.0);
+        bar_rect.set_height(32.0);
         ui.painter().rect_filled(
             bar_rect,
             0.0,
@@ -207,7 +206,8 @@ impl Scene {
     }
 
     fn show_toolbar(&mut self, ui: &mut Ui) {
-        ui.add_space(4.0);
+        ui.style_mut().spacing.item_spacing = vec2(8.0, 0.0);
+        ui.label("");
         self.render_mode.ui(ui);
         self.view.subscribed_features.show_input(ui);
     }
@@ -384,11 +384,9 @@ impl RenderMode {
             .text_styles
             .insert(TextStyle::Button, FontId::proportional(16.0));
 
-        ui.style_mut().spacing.item_spacing = vec2(4.0, 0.0);
-        ui.label(GoogleMaterialSymbols::EvShadow.to_string());
         egui::ComboBox::from_id_salt("Render Mode")
             .height(400.0)
-            .selected_text(format!("{:?}", self))
+            .selected_text(format!("{} {:?}", GoogleMaterialSymbols::EvShadow, self))
             .show_ui(ui, |ui| {
                 ui.style_mut()
                     .text_styles
@@ -440,12 +438,13 @@ impl ExternalDataWidgetExt for FeatureRendererSubscription {
             .text_styles
             .insert(TextStyle::Button, FontId::proportional(16.0));
 
-        ui.style_mut().spacing.item_spacing = vec2(4.0, 0.0);
-        ui.label(GoogleMaterialSymbols::CheckBox.to_string());
         egui::ComboBox::from_id_salt("Feature Renderers")
             .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
             .height(400.0)
-            .selected_text("Enabled Features")
+            .selected_text(format!(
+                "{} Enabled Features",
+                GoogleMaterialSymbols::CheckBox
+            ))
             .show_ui(ui, |ui| {
                 ui.style_mut()
                     .text_styles
@@ -453,10 +452,18 @@ impl ExternalDataWidgetExt for FeatureRendererSubscription {
                 ui.style_mut().spacing.button_padding = Vec2::new(8.0, 2.0);
                 ui.style_mut().spacing.item_spacing = Vec2::ZERO;
 
+                let ctrl = ui.input(|i| i.modifiers.ctrl);
+                let alt = ui.input(|i| i.modifiers.alt);
                 macro_rules! feature {
                     ($flag:expr, $name:literal) => {
                         if ui.selectable_label(self.contains($flag), $name).clicked() {
-                            if self.contains($flag) {
+                            if ctrl {
+                                self.clear();
+                                self.insert($flag);
+                            } else if alt {
+                                *self = FeatureRendererSubscription::all();
+                                self.remove($flag);
+                            } else if self.contains($flag) {
                                 self.remove($flag);
                             } else {
                                 self.insert($flag);
