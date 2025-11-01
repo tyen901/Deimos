@@ -77,7 +77,7 @@ pub enum Opcode {
     Spline8Const,
     Spline8ChainConst,
     Gradient4Const,
-    Unk49,
+    Unknown0x49,
     PushExternInputFloat,
     PushExternInputVec4,
     PushExternInputMat4,
@@ -227,7 +227,7 @@ impl Opcode {
             | Opcode::Unk66
             | Opcode::Unk67 => 1,
 
-            Opcode::Unk49 | Opcode::Unk57 | Opcode::Unk5a | Opcode::Unk5e => 2,
+            Opcode::Unknown0x49 | Opcode::Unk57 | Opcode::Unk5a | Opcode::Unk5e => 2,
         }
     }
 }

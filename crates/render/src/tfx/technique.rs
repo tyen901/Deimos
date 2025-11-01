@@ -7,9 +7,7 @@ use tiger_parse::PackageManagerExt;
 use tiger_pkg::{package_manager, TagHash};
 
 use crate::{
-    gpu::command_list::CommandList,
-    tfx::expression_vm::interpreter::TempObjectChannels,
-    Gpu,
+    gpu::command_list::CommandList, tfx::expression_vm::interpreter::TempObjectChannels, Gpu,
 };
 
 use super::dynamic_constants::DynamicConstants;
@@ -89,7 +87,7 @@ impl Technique {
     }
 
     // #[profiling::function]
-    // #[tracing::instrument(skip(self, cmd, channels), fields(technique = %self.hash))]
+    #[tracing::instrument(skip(self, cmd, channels), fields(technique = %self.hash))]
     pub fn bind_with_channels(
         &self,
         cmd: &mut CommandList,
