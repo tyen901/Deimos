@@ -49,10 +49,17 @@ impl MapTab {
                             Box::new(()),
                         ));
                     }
-                    for s in map.decorators {
+                    for d in map.decorators {
                         self.scene.add_static_object(RenderObject::new(
                             TfxFeatureRenderer::SpeedtreeTrees,
-                            Box::new(s),
+                            Box::new(d),
+                            Box::new(()),
+                        ));
+                    }
+                    for d in map.decals {
+                        self.scene.add_static_object(RenderObject::new(
+                            TfxFeatureRenderer::DynamicDecals,
+                            d,
                             Box::new(()),
                         ));
                     }

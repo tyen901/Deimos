@@ -1,3 +1,4 @@
+pub mod decals;
 pub mod decorators;
 pub mod dynamic;
 pub mod sky_objects;

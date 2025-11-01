@@ -9,6 +9,7 @@ use crate::{
 
 pub mod immediate;
 // pub mod light;
+pub mod decals;
 pub mod decorators;
 pub mod rigid_model;
 mod shared;
