@@ -156,4 +156,5 @@ fn fix_windows_console() {
 
 // Workaround for subsecond missing this symbol while linking (even though its not used)
 #[no_mangle]
+#[cfg(not(target_os = "windows"))]
 extern "C" fn CoCreateGuid() {}
