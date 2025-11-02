@@ -49,7 +49,6 @@ egui-d3d11 = { path = "./crates/egui-d3d11" }
 egui-sdl3-platform = { path = "./crates/egui-sdl3-platform" }
 
 # (De)serialization
-game-detector = { version = "0.1.7" }
 gltf = { package = "gltf-json", version = "1.4.1" }
 serde_json = "1.0.140"
 tiger-parse.workspace = true

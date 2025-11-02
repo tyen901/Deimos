@@ -47,35 +47,7 @@ fn main() -> anyhow::Result<()> {
 
     let args = AppArgs::parse();
 
-    let game_path = if let Some(path) = &args.gamedir {
-        path.clone()
-    } else {
-        let Some(steamapp) = game_detector::steam::get_all_apps()
-            .context("Failed to enumerate Steam apps")?
-            .into_iter()
-            .find(|a| a.appid == MARATHON_APP_ID)
-        else {
-            error!("Failed to find Marathon app in Steam library. If you don't have Marathon installed through Steam, then you can specify the path to the game directory using the --gamedir/-g argument.");
-            return Ok(());
-        };
-
-        info!(
-            "Found Marathon Alpha installation at '{}'",
-            steamapp.game_path
-        );
-
-        steamapp.game_path
-    };
-
-    let pm = Arc::new(
-        PackageManager::new(
-            PathBuf::from(&game_path).join("packages"),
-            tiger_pkg::GameVersion::Marathon(tiger_pkg::MarathonVersion::MarathonAlpha),
-            None,
-        )
-        .context("Failed to initialize package manager")?,
-    );
-    tiger_pkg::initialize_package_manager(&pm);
+    deimos_core::initialize_package_manager(args.gamedir.as_deref())?;
 
     let sdl_context = Rc::new(sdl3::init().expect("Failed to initialize SDL"));
     let video_subsystem = sdl_context

@@ -816,7 +816,6 @@ dependencies = [
  "egui_extras",
  "embed-resource",
  "env_logger",
- "game-detector",
  "glam",
  "gltf-json",
  "google_material_symbols",
@@ -839,9 +838,12 @@ dependencies = [
 name = "deimos-core"
 version = "0.0.0"
 dependencies = [
+ "anyhow",
+ "game-detector",
  "lazy_static",
  "parking_lot",
  "serde",
+ "tiger-pkg",
  "toml",
  "tracing 0.2.0",
 ]
@@ -1409,9 +1411,9 @@ dependencies = [
 
 [[package]]
 name = "glob"
-version = "0.3.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8d1add55171497b4705a648c6b583acafb01d58050a51727785f0b2c8e0a2b2"
+checksum = "0cc23270f6e1808e30a928bdc84dea0b9b4136a8bc82338574f23baf47bbd280"
 
 [[package]]
 name = "gltf-derive"
@@ -1671,13 +1673,11 @@ checksum = "f5d4a7da358eff58addd2877a45865158f0d78c911d43a5784ceb7bbf52833b0"
 
 [[package]]
 name = "keyvalues-parser"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e4c8354918309196302015ac9cae43362f1a13d0d5c5539a33b4c2fd2cd6d25"
+checksum = "8a08dbe66b5c751fa0ccb33b447931646bf7dc055e8d48562dfed7fa6ee216bf"
 dependencies = [
  "pest",
- "pest_derive",
- "thiserror 1.0.69",
 ]
 
 [[package]]
