@@ -1,38 +1,13 @@
-use std::{collections::HashSet, path::PathBuf, sync::Arc};
+use std::collections::HashSet;
 
-use anyhow::Context;
-use deimos_core::MARATHON_APP_ID;
 use deimos_data::tfx::{scope::SScope, ExternIndex, SDynamicConstants, STechnique};
 use deimos_render::tfx::expression_vm::opcodes::{pascal_to_snake, Opcode, OpcodeIterator};
 use itertools::Itertools;
 use tiger_parse::{PackageManagerExt, TigerReadable};
-use tiger_pkg::{package_manager, PackageManager};
+use tiger_pkg::package_manager;
 
 fn main() -> anyhow::Result<()> {
-    let game_path = if let Some(path) = std::env::args().nth(1) {
-        path.clone()
-    } else {
-        let Some(steamapp) = game_detector::steam::get_all_apps()
-            .context("Failed to enumerate Steam apps")?
-            .into_iter()
-            .find(|a| a.appid == MARATHON_APP_ID)
-        else {
-            eprintln!("Failed to find Marathon app in Steam library. If you don't have Marathon installed through Steam, then you can specify the path to the game directory using the --gamedir/-g argument.");
-            return Ok(());
-        };
-
-        steamapp.game_path
-    };
-
-    let pm = Arc::new(
-        PackageManager::new(
-            PathBuf::from(&game_path).join("packages"),
-            tiger_pkg::GameVersion::Marathon(tiger_pkg::MarathonVersion::MarathonAlpha),
-            None,
-        )
-        .context("Failed to initialize package manager")?,
-    );
-    tiger_pkg::initialize_package_manager(&pm);
+    deimos_core::initialize_package_manager(std::env::args().nth(1).as_deref())?;
 
     #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
     pub enum ExternFieldType {
