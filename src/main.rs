@@ -1,12 +1,9 @@
-use std::{path::PathBuf, rc::Rc, sync::Arc};
+use std::rc::Rc;
 
-use anyhow::Context;
 use app::App;
 use clap::Parser;
 use cli::AppArgs;
-use deimos_core::MARATHON_APP_ID;
 use itertools::Itertools;
-use tiger_pkg::PackageManager;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 
 mod app;

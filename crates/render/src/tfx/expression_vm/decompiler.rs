@@ -1,10 +1,59 @@
 use anyhow::{ensure, Context};
-use deimos_data::tfx::ExternIndex;
+use deimos_data::tfx::{ExternIndex, ShaderStage};
 use glam::Vec4;
 
 use crate::tfx::externs::Externs;
 
 use super::opcodes::Opcode;
+
+#[derive(Default, Debug)]
+pub struct DecompilationResult {
+    pub textures: Vec<(usize, ShaderStage, String)>,
+    pub samplers: Vec<(usize, ShaderStage, String)>,
+    pub uavs: Vec<(usize, ShaderStage, String)>,
+    pub cb_expressions: Vec<(usize, String)>,
+}
+
+impl DecompilationResult {
+    pub fn pretty_print(&self) -> String {
+        let mut r = String::new();
+
+        if !self.samplers.is_empty() {
+            r.push_str("// Samplers\n");
+            for (slot, _stage, expr) in &self.samplers {
+                r.push_str(&format!("SamplerState s{slot} = {expr};\n"));
+            }
+        }
+
+        if !self.textures.is_empty() {
+            r.push_str("\n// Textures\n");
+            for (slot, _stage, expr) in &self.textures {
+                r.push_str(&format!("Texture<float4> t{slot} = {expr};\n"));
+            }
+        }
+
+        if !self.uavs.is_empty() {
+            r.push_str("\n// UAVs\n");
+            for (slot, _stage, expr) in &self.uavs {
+                r.push_str(&format!("RWTexture<float4> t{slot} = {expr};\n"));
+            }
+        }
+
+        if !self.cb_expressions.is_empty() {
+            r.push_str("\n// Constant buffer\n");
+            for (slot, expr) in &self.cb_expressions {
+                let slot_fixed = if expr.starts_with("extern<float4x4>") {
+                    format!("{slot}..={}", slot + 3)
+                } else {
+                    format!("{slot}")
+                };
+                r.push_str(&format!("cb0[{slot_fixed}] = {expr};\n"));
+            }
+        }
+
+        r
+    }
+}
 
 pub struct DecompilerState<'a> {
     data: &'a [u8],
@@ -91,7 +140,9 @@ impl<'a> DecompilerState<'a> {
     // }
 
     // #[profiling::function]
-    pub fn evaluate(&mut self, constants: &[Vec4], out: &mut [String]) -> anyhow::Result<()> {
+    pub fn evaluate(&mut self, constants: &[Vec4]) -> anyhow::Result<DecompilationResult> {
+        let mut result = DecompilationResult::default();
+
         let mut cached_top = "NULL".to_string();
 
         macro_rules! set_top {
@@ -272,6 +323,9 @@ impl<'a> DecompilerState<'a> {
                 Opcode::Frac => {
                     set_top!(format!("fract({cached_top})"));
                 }
+                Opcode::Unknown0x1F => {
+                    set_top!(format!("bytecode_op_1f({cached_top})"));
+                }
                 Opcode::Negate => {
                     set_top!(format!("(-{cached_top})"));
                 }
@@ -353,10 +407,35 @@ impl<'a> DecompilerState<'a> {
                     self.temp[slot as usize] = cached_top;
                     cached_top = self.pop_top();
                 }
-                Opcode::PopTextureView => {}
-                Opcode::PopSamplerState => {}
-                Opcode::PopUav => {}
-                Opcode::PushSamplerState => {}
+                Opcode::PopTextureView => {
+                    let shader_stage = ShaderStage::from_index(ptr[1] >> 5)
+                        .context("Invalid shader stage value")?;
+                    let slot = ptr[1] & 0x1F;
+                    let v = cached_top;
+                    cached_top = self.pop_top();
+                    result.textures.push((slot as usize, shader_stage, v));
+                }
+                Opcode::PopSamplerState => {
+                    let shader_stage = ShaderStage::from_index(ptr[1] >> 5)
+                        .context("Invalid shader stage value")?;
+                    let slot = ptr[1] & 0x1F;
+                    let v = cached_top;
+                    cached_top = self.pop_top();
+                    result.samplers.push((slot as usize, shader_stage, v));
+                }
+                Opcode::PopUav => {
+                    let shader_stage = ShaderStage::from_index(ptr[1] >> 5)
+                        .context("Invalid shader stage value")?;
+                    let slot = ptr[1] & 0x1F;
+                    let v = cached_top;
+                    cached_top = self.pop_top();
+                    result.uavs.push((slot as usize, shader_stage, v));
+                }
+                Opcode::PushSamplerState => {
+                    let index = ptr[1];
+
+                    cached_top = self.push(format!("samplers[{index}]"))?;
+                }
                 Opcode::PushExternInputFloat => {
                     let extern_id = ExternIndex::try_from(ptr[1])
                         .ok()
@@ -391,33 +470,44 @@ impl<'a> DecompilerState<'a> {
                         .unwrap_or(format!("0x{:X}", offset as usize * 16));
                     cached_top = self.push(format!("extern<float4x4>({extern_id:?}->{field})"))?;
                 }
-                Opcode::PushExternInputTextureView => {}
-                Opcode::PushExternInputUav => {}
+                Opcode::PushExternInputTextureView => {
+                    let extern_id = ExternIndex::try_from(ptr[1])
+                        .ok()
+                        .context("Invalid extern index")?;
+                    let offset = ptr[2];
+
+                    let field = Externs::get_extern_field_name(extern_id, offset as usize * 8)
+                        .map(str::to_string)
+                        .unwrap_or(format!("0x{:X}", offset as usize * 8));
+                    cached_top =
+                        self.push(format!("extern<TextureView>({extern_id:?}->{field})"))?;
+                }
+                Opcode::PushExternInputUav => {
+                    let extern_id = ExternIndex::try_from(ptr[1])
+                        .ok()
+                        .context("Invalid extern index")?;
+                    let offset = ptr[2];
+
+                    let field = Externs::get_extern_field_name(extern_id, offset as usize * 8)
+                        .map(str::to_string)
+                        .unwrap_or(format!("0x{:X}", offset as usize * 8));
+                    cached_top = self.push(format!("extern<UAV>({extern_id:?}->{field})"))?;
+                }
                 Opcode::PushFromOutput => {
                     let element = ptr[1] as usize;
-                    anyhow::ensure!(element < out.len(), "Invalid output element index");
-                    cached_top = self.push(out[element].clone())?;
+                    cached_top = self.push(format!("output[{element}]"))?;
                 }
                 Opcode::PopOutput => {
                     let element = ptr[1] as usize;
-                    anyhow::ensure!(element < out.len(), "Invalid output element index");
-                    out[element] = cached_top;
+                    let v = cached_top;
                     cached_top = self.pop_top();
+                    result.cb_expressions.push((element, v));
                 }
                 Opcode::PopOutputMat4 => {
                     let start_element = ptr[1] as usize;
-                    anyhow::ensure!(
-                        (start_element + 3) < out.len(),
-                        "Invalid mat4 output starting element index"
-                    );
-
-                    out[start_element] = format!("{cached_top}[0]");
-                    out[start_element + 1] = format!("{cached_top}[1]");
-                    out[start_element + 2] = format!("{cached_top}[2]");
-                    out[start_element + 3] = format!("{cached_top}[3]");
-
-                    self.stack_pointer -= 1;
-                    cached_top = self.get(0)?;
+                    let v = cached_top;
+                    cached_top = self.pop_top();
+                    result.cb_expressions.push((start_element, v));
                 }
                 Opcode::PushObjectChannelVector => {
                     let channel = u32::from_be_bytes([ptr[1], ptr[2], ptr[3], ptr[4]]);
@@ -439,6 +529,6 @@ impl<'a> DecompilerState<'a> {
             self.ip += op.size();
         }
 
-        Ok(())
+        Ok(result)
     }
 }
