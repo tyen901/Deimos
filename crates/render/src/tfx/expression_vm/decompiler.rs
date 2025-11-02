@@ -60,7 +60,7 @@ impl<'a> DecompilerState<'a> {
         #[cfg(debug_assertions)]
         anyhow::ensure!(
             (0..16).contains(&index),
-            "Stack index out of bounds (ip=0x{:X})",
+            "Stack index out of bounds (index={index}, ip=0x{:X})",
             self.ip
         );
         Ok(self.stack[index as usize].clone())
@@ -181,6 +181,71 @@ impl<'a> DecompilerState<'a> {
                     self.stack_pointer -= 2;
                     set_top!(format!("lerp({x}, {y}, {s})"));
                 }
+                Opcode::LerpConstant => {
+                    let constant_start = ptr[1];
+                    ensure!(
+                        (constant_start + 1) < constants.len() as u8,
+                        "Invalid constant index"
+                    );
+                    let a = constants[constant_start as usize];
+                    let b = constants[(constant_start + 1) as usize];
+                    let t = cached_top;
+
+                    cached_top = format!("lerp({a}, {b}, {t})");
+                    *self.stack_top() = cached_top.clone();
+                }
+                Opcode::Spline4Const => {
+                    let constant_start = ptr[1];
+                    ensure!(
+                        (constant_start + 4) < constants.len() as u8,
+                        "Invalid constant index"
+                    );
+
+                    let cl = &constants[constant_start as usize..constant_start as usize + 5];
+                    cached_top = format!(
+                        "spline4({}, {}, {}, {}, {}, {})",
+                        cached_top, cl[0], cl[1], cl[2], cl[3], cl[4]
+                    );
+                }
+                Opcode::Spline8Const => {
+                    let constant_start = ptr[1];
+                    ensure!(
+                        (constant_start + 9) < constants.len() as u8,
+                        "Invalid constant index"
+                    );
+
+                    let cl = &constants[constant_start as usize..];
+                    cached_top = format!(
+                        "spline8({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})",
+                        cached_top,
+                        cl[0],
+                        cl[1],
+                        cl[2],
+                        cl[3],
+                        cl[4],
+                        cl[5],
+                        cl[6],
+                        cl[7],
+                        cl[8],
+                        cl[9]
+                    );
+                }
+                Opcode::Gradient4Const => {
+                    let constant_start = ptr[1];
+                    ensure!(
+                        (constant_start + 5) < constants.len() as u8,
+                        "Invalid constant index"
+                    );
+
+                    let cl = &constants[constant_start as usize..constant_start as usize + 6];
+                    // cached_top = super::helpers::bytecode_op_gradient4_const(
+                    //     cached_top, cl[0], cl[1], cl[2], cl[3], cl[4], cl[5],
+                    // );
+                    cached_top = format!(
+                        "gradient4({}, {}, {}, {}, {}, {}, {})",
+                        cached_top, cl[0], cl[1], cl[2], cl[3], cl[4], cl[5]
+                    );
+                }
                 Opcode::MultiplyAdd => {
                     let c = cached_top;
                     let b = self.get(-1)?;
@@ -275,42 +340,6 @@ impl<'a> DecompilerState<'a> {
                     cached_top =
                         self.push(format!("float4({}, {}, {}, {})", c.x, c.y, c.z, c.w))?;
                 }
-                Opcode::LerpConstant => {
-                    let constant_start = ptr[1];
-                    ensure!(
-                        (constant_start + 1) < constants.len() as u8,
-                        "Invalid constant index"
-                    );
-                    let a = constants[constant_start as usize];
-                    let b = constants[(constant_start + 1) as usize];
-                    let t = cached_top;
-
-                    cached_top = format!("lerp({a}, {b}, {t})");
-                    *self.stack_top() = cached_top.clone();
-                }
-                Opcode::Spline8Const => {
-                    let constant_start = ptr[1];
-                    ensure!(
-                        (constant_start + 9) < constants.len() as u8,
-                        "Invalid constant index"
-                    );
-
-                    let cl = &constants[constant_start as usize..];
-                    cached_top = format!(
-                        "spline8({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})",
-                        cached_top,
-                        cl[0],
-                        cl[1],
-                        cl[2],
-                        cl[3],
-                        cl[4],
-                        cl[5],
-                        cl[6],
-                        cl[7],
-                        cl[8],
-                        cl[9]
-                    );
-                }
                 // Push a temporary value onto the stack
                 Opcode::PushTemp => {
                     let slot = ptr[1];
@@ -397,6 +426,10 @@ impl<'a> DecompilerState<'a> {
                 Opcode::PushGlobalChannelVector => {
                     let channel = ptr[1];
                     cached_top = self.push(format!("global_channels[{channel}]"))?;
+                }
+                Opcode::Unknown0x5e => {
+                    let unk = ptr[1];
+                    cached_top = self.push(format!("unknown0x5e({unk})"))?;
                 }
                 u => {
                     anyhow::bail!("Unimplemented opcode: {u:?} / 0x{:02X}", ptr[0]);

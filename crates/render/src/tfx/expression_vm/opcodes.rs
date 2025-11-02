@@ -84,31 +84,31 @@ pub enum Opcode {
     PushExternInputTextureView,
     PushExternInputU32,
     PushExternInputUav,
-    Unk50,
+    Unknown0x50,
     PushFromOutput,
     PopOutput,
     PopOutputMat4,
     PushTemp,
     PopTemp,
     PopTextureView,
-    Unk57,
+    Unknown0x57,
     PopSamplerState,
     PopUav,
-    Unk5a,
+    Unknown0x5a,
     PushSamplerState,
     PushObjectChannelVector,
     PushGlobalChannelVector,
-    Unk5e,
-    Unk5f,
+    Unknown0x5e,
+    Unknown0x5f,
     // TODO(cohae): These need to be rechecked
     PushTexDimensions,
     PushTexTilingParams,
     PushTexTileLayerCount,
-    Unk63,
-    Unk64,
-    Unk65,
-    Unk66,
-    Unk67,
+    Unknown0x63,
+    Unknown0x64,
+    Unknown0x65,
+    Unknown0x66,
+    Unknown0x67,
 
     // Extended instruction set (only used internally by the interpreter)
     ExtReturn = 0x80,
@@ -212,7 +212,7 @@ impl Opcode {
             | Opcode::PushExternInputUav
             | Opcode::PushTexTilingParams
             | Opcode::PushTexTileLayerCount
-            | Opcode::Unk63
+            | Opcode::Unknown0x63
             => 3,
 
             Opcode::PushObjectChannelVector => 5,
@@ -220,14 +220,14 @@ impl Opcode {
             Opcode::ExtReturn => 1,
 
             // Unknowns
-            Opcode::Unk50
-            | Opcode::Unk5f
-            | Opcode::Unk64
-            | Opcode::Unk65
-            | Opcode::Unk66
-            | Opcode::Unk67 => 1,
+            Opcode::Unknown0x50
+            | Opcode::Unknown0x5f
+            | Opcode::Unknown0x64
+            | Opcode::Unknown0x65
+            | Opcode::Unknown0x66
+            | Opcode::Unknown0x67 => 1,
 
-            Opcode::Unknown0x49 | Opcode::Unk57 | Opcode::Unk5a | Opcode::Unk5e => 2,
+            Opcode::Unknown0x49 | Opcode::Unknown0x57 | Opcode::Unknown0x5a | Opcode::Unknown0x5e => 2,
         }
     }
 }

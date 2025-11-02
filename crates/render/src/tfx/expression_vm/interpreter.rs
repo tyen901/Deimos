@@ -697,7 +697,7 @@ impl<'a> InterpreterState<'a> {
 
                 //     cached_top = self.push(val)?;
                 // }
-                Opcode::Unk5e | Opcode::PushGlobalChannelVector => {
+                Opcode::Unknown0x5e | Opcode::PushGlobalChannelVector => {
                     let channel = ptr[1];
                     // Direct indexing is safe here, as globals is 256 elements long
                     let val = Renderer::instance().externs.globals[channel as usize];
