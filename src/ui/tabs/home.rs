@@ -3,7 +3,7 @@ use google_material_symbols::GoogleMaterialSymbols;
 
 use crate::ui::{colors, util::UiExt};
 
-use super::{dynamic_list::DynamicListTab, map_list::MapListTab, Tab, TabResult};
+use super::{Tab, TabResult, entity_list::EntityListTab, map_list::MapListTab};
 
 pub struct HomeTab;
 
@@ -23,11 +23,11 @@ impl HomeTab {
             uis[0].heading("3D");
             uis[0].add_space(4.0);
             if uis[0]
-                .d_button(format!("{} DYNAMICS", GoogleMaterialSymbols::DeployedCode))
+                .d_button(format!("{} ENTITIES", GoogleMaterialSymbols::DeployedCode))
                 .clicked()
             {
                 // self.added_nodes.push(Tab::DynamicList);
-                result = TabResult::Open(Tab::DynamicList(Box::new(DynamicListTab::new())));
+                result = TabResult::Open(Tab::EntityList(Box::new(EntityListTab::new())));
             }
             if uis[0]
                 .d_button(format!("{} MAPS", GoogleMaterialSymbols::Map))

@@ -90,7 +90,7 @@ pub struct SDynamicMeshPart {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_type(id = 0x80806D97)]
+#[tiger_type(id = 0x80808681)]
 pub struct SDynamicMeshMaterialVariants {
     pub technique_count: u32,
     pub technique_start: u32,

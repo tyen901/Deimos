@@ -1,21 +1,27 @@
 use std::collections::BTreeMap;
 
-use deimos_data::tfx::{features::dynamic::SDynamicModel, TfxFeatureRenderer};
+use deimos_data::{
+    pattern::SPattern,
+    tfx::{TfxFeatureRenderer, features::dynamic::SDynamicModel},
+};
 use deimos_render::{
-    camera::Camera, feature::rigid_model::DynamicModel, object::RenderObject,
-    tfx::packet::CompactTransform, Renderer,
+    Renderer, camera::Camera, feature::rigid_model::DynamicModel, object::RenderObject,
+    tfx::packet::CompactTransform,
 };
 use egui::{FontId, TextStyle, Ui, Vec2};
 use glam::{Mat4, Vec3, Vec4Swizzles};
 use itertools::Itertools;
 use tiger_parse::TigerReadable;
-use tiger_pkg::{package_manager, TagHash};
+use tiger_pkg::{TagHash, package_manager};
 
-use crate::ui::scene::Scene;
+use crate::{
+    ui::scene::Scene,
+    world::{pattern::spawn_pattern, transform::Transform},
+};
 
 use super::TabResult;
 
-pub struct DynamicListTab {
+pub struct EntityListTab {
     packages: BTreeMap<u16, Vec<TagHash>>,
     tag_lookup_input: String,
 
@@ -24,7 +30,7 @@ pub struct DynamicListTab {
     scene: Scene,
 }
 
-impl DynamicListTab {
+impl EntityListTab {
     pub fn new() -> Self {
         Self {
             packages: package_manager()
@@ -34,7 +40,7 @@ impl DynamicListTab {
                     let tags = package_manager().lookup.tag32_entries_by_pkg[id]
                         .iter()
                         .enumerate()
-                        .filter(|(_, e)| e.reference == SDynamicModel::ID.unwrap())
+                        .filter(|(_, e)| e.reference == SPattern::ID.unwrap())
                         .map(|(i, _)| TagHash::new(*id, i as u16))
                         .collect_vec();
 
@@ -63,7 +69,7 @@ impl DynamicListTab {
             .insert(TextStyle::Button, FontId::proportional(16.0));
         ui.style_mut().spacing.button_padding = Vec2::new(8.0, 4.0);
 
-        egui::SidePanel::left("dynamics_packages_list").show_inside(ui, |ui| {
+        egui::SidePanel::left("entities_packages_list").show_inside(ui, |ui| {
             egui::ScrollArea::vertical()
                 .auto_shrink([false; 2])
                 .show(ui, |ui| {
@@ -81,7 +87,7 @@ impl DynamicListTab {
                     }
                 });
         });
-        egui::SidePanel::left("dynamics_entry_list").show_inside(ui, |ui| {
+        egui::SidePanel::left("entities_entry_list").show_inside(ui, |ui| {
             egui::ScrollArea::vertical()
                 .auto_shrink([false; 2])
                 .show(ui, |ui| {
@@ -97,18 +103,20 @@ impl DynamicListTab {
                             self.current_tag = *tag;
 
                             self.scene.clear();
-                            match DynamicModel::load(*tag, vec![], vec![]) {
-                                Ok(model) => {
+                            match spawn_pattern(&mut self.scene.world, *tag, None) {
+                                Ok(entity) => {
+                                    self.scene.world.insert_one(entity, Transform::default());
+                                    self.scene.focus_on(Vec3::ZERO);
                                     // self.scene.focus_fit(model.model.bounding_sphere());
-                                    self.scene.focus_on(model.model.model_offset.xyz());
-                                    self.scene.add_dynamic_object(
-                                        RenderObject::new(
-                                            TfxFeatureRenderer::RigidObject,
-                                            model,
-                                            Box::new(CompactTransform::IDENTITY),
-                                        ),
-                                        Mat4::IDENTITY,
-                                    );
+                                    // self.scene.focus_on(model.model.model_offset.xyz());
+                                    // self.scene.add_dynamic_object(
+                                    //     RenderObject::new(
+                                    //         TfxFeatureRenderer::RigidObject,
+                                    //         model,
+                                    //         Box::new(CompactTransform::IDENTITY),
+                                    //     ),
+                                    //     Mat4::IDENTITY,
+                                    // );
                                 }
                                 Err(err) => {
                                     error!("Failed to load model: {err}");
