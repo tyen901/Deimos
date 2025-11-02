@@ -41,7 +41,7 @@ pub struct SMapContainer {
 #[tiger_type(id = 0x8080B1A7)]
 pub struct SMapNodeTable {
     pub file_size: u64,
-    pub data_entries: Vec<SMapNodeEntry>,
+    pub nodes: Vec<SMapNodeEntry>,
 }
 
 #[tiger_type(id = 0x8080B3F5)]
@@ -58,14 +58,14 @@ pub struct SMapNodeEntry {
     pub unk68: FnvHash,
     pub unk6c: u32,
     pub world_id: u64,
-    pub data_resource: OptionalVariantPointer<MapNodeResource>,
+    pub primary_component_data: OptionalVariantPointer<ComponentData>,
     pub unk80: [u32; 4],
 }
 
 tiger_variant_enum! {
     [offset = 0x10]
     [Unknown(true)]
-    enum MapNodeResource {
+    enum ComponentData {
         SStaticTerrainPatchesComponent,
         SStaticInstancesCollectionComponent,
         SSkyObjectCollectionComponent,
@@ -86,7 +86,7 @@ pub struct SStaticInstancesCollectionComponent {
 
 #[tiger_type(id = 0x80808378)]
 pub struct SSkyObjectCollectionComponent {
-    pub objects: Tag<SSkyObjectCollection>,
+    pub objects: OptionalTag<SSkyObjectCollection>,
 }
 
 // #[tiger_type(id = 0x80806F5A)]

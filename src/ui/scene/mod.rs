@@ -2,33 +2,34 @@ pub mod controller;
 
 use std::{
     sync::{
-        atomic::{AtomicUsize, Ordering},
         Arc,
+        atomic::{AtomicUsize, Ordering},
     },
     time::Instant,
 };
 
 use bitflags::Flags;
-use d3d11::{dxgi, ShaderResourceView, Texture2D, Texture2dDesc};
+use d3d11::{ShaderResourceView, Texture2D, Texture2dDesc, dxgi};
 use deimos_data::tfx::FeatureRendererSubscription;
 use deimos_render::{
-    camera::Camera,
-    gpu::command_list::CommandList,
-    object::{RenderObject, RenderObjectHandle},
-    renderer::submit::DebugPipeline,
-    tfx::{packet::CompactTransform, view::View},
-    Gpu, Renderer,
+    Gpu, Renderer, camera::Camera, gpu::command_list::CommandList, object::RenderObject,
+    renderer::submit::DebugPipeline, tfx::view::View,
 };
-use egui::{load::SizedTexture, vec2, FontId, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2};
+use egui::{FontId, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2, load::SizedTexture, vec2};
 use glam::{Mat4, Vec3};
 use google_material_symbols::GoogleMaterialSymbols;
 
-use crate::ui::{
-    scene::controller::CameraController,
-    util::{ExternalDataWidgetExt, UiExt},
+use crate::{
+    ui::{
+        scene::controller::CameraController,
+        util::{ExternalDataWidgetExt, UiExt},
+    },
+    world::render_objects::s_extract_render_objects,
 };
 
 pub struct Scene {
+    world: hecs::World,
+
     renderer: Arc<Renderer>,
     camera: Camera,
     view: View,
@@ -37,9 +38,6 @@ pub struct Scene {
     render_mode: RenderMode,
 
     controller: CameraController,
-
-    static_render_objects: Vec<RenderObjectHandle>,
-    dynamic_render_objects: Vec<(RenderObjectHandle, Mat4)>,
 
     surface: d3d11::Texture2D,
     surface_srv: d3d11::ShaderResourceView,
@@ -52,14 +50,13 @@ impl Scene {
         let (surface, surface_srv) = Self::create_surface(&renderer.gpu, (128, 128))?;
 
         Ok(Self {
+            world: hecs::World::new(),
             view: View::new(&renderer.gpu, (128, 128))?,
             renderer,
             camera,
             sun_light_angle: -120f32,
             render_mode: RenderMode::Shaded,
             controller: CameraController::new_orbit(Vec3::ZERO, 2.5),
-            static_render_objects: Vec::new(),
-            dynamic_render_objects: Vec::new(),
             surface,
             surface_srv,
             last_frame_time: Instant::now(),
@@ -93,22 +90,23 @@ impl Scene {
     }
 
     pub fn add_static_object(&mut self, object: RenderObject) {
-        self.static_render_objects
-            .push(self.renderer.add_object(object));
+        warn!("Static render objects are not yet reimplemented in Scene");
+        // self.static_render_objects
+        //     .push(self.renderer.add_object(object));
     }
 
     pub fn add_dynamic_object(&mut self, object: RenderObject, transform: Mat4) {
-        self.dynamic_render_objects
-            .push((self.renderer.add_object(object), transform));
+        warn!("Dynamic render objects are not yet reimplemented in Scene");
+        // self.dynamic_render_objects
+        //     .push((self.renderer.add_object(object), transform));
+    }
+
+    pub fn set_world(&mut self, world: hecs::World) {
+        self.world = world;
     }
 
     pub fn clear(&mut self) {
-        self.static_render_objects
-            .drain(..)
-            .for_each(|h| self.renderer.remove_object(h));
-        self.dynamic_render_objects
-            .drain(..)
-            .for_each(|(h, _)| self.renderer.remove_object(h));
+        self.world.clear();
     }
 
     pub fn show(&mut self, ui: &mut Ui, size: Vec2, egui_d3d11: &mut egui_d3d11::D3D11Renderer) {
@@ -196,7 +194,10 @@ impl Scene {
         self.view
             .update(world_to_camera, camera_to_projective, resolution);
 
-        if r.dragged_by(egui::PointerButton::Secondary) {
+        if (r.dragged_by(egui::PointerButton::Secondary)
+            || r.dragged_by(egui::PointerButton::Primary))
+            && ui.input(|i| i.modifiers.alt)
+        {
             let delta_adjusted = r.drag_delta() / 4.0;
             self.sun_light_angle += delta_adjusted.x;
             self.sun_light_angle = self.sun_light_angle.rem_euclid(360.0);
@@ -232,12 +233,7 @@ impl Scene {
 
         {
             let mut fp = self.renderer.frame_packet.write();
-            for t in &self.static_render_objects {
-                fp.push_static_render_object(*t);
-            }
-            for (t, transform) in &self.dynamic_render_objects {
-                fp.push_dynamic_render_object(*t, CompactTransform::from_mat4(*transform));
-            }
+            s_extract_render_objects(&self.world, &mut fp);
         }
 
         {
@@ -366,17 +362,6 @@ impl Scene {
     //         CameraController::FirstPerson { .. } => {}
     //     }
     // }
-}
-
-impl Drop for Scene {
-    fn drop(&mut self) {
-        for &h in &self.static_render_objects {
-            self.renderer.remove_object(h);
-        }
-        for &(h, _) in &self.dynamic_render_objects {
-            self.renderer.remove_object(h);
-        }
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

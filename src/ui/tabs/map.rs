@@ -1,28 +1,30 @@
-use deimos_data::tfx::TfxFeatureRenderer;
-use deimos_render::{camera::Camera, object::RenderObject, Renderer};
-use egui::{vec2, Color32, Rect};
-use glam::Mat4;
+use deimos_render::{Renderer, camera::Camera};
+use egui::{Color32, Rect, vec2};
 use tiger_pkg::TagHash;
 
 use crate::{
-    map::{load_static_map, StaticMapTemp},
     task::Task,
     ui::{
-        scene::{controller::CameraController, Scene},
+        scene::{Scene, controller::CameraController},
         util::spinner_image,
     },
 };
 
 pub struct MapTab {
     pub tag: TagHash,
-    load_task: Task<StaticMapTemp>,
+    load_task: Task<hecs::World>,
     scene: Box<Scene>,
 }
 
 impl MapTab {
     pub fn new(tag: TagHash) -> anyhow::Result<Self> {
         Ok(Self {
-            load_task: Task::new(move || load_static_map(tag).unwrap()),
+            load_task: Task::new(move || {
+                let mut world = hecs::World::new();
+                crate::world::map::load_map_into_world(tag, &mut world)
+                    .expect("Failed to load map into world");
+                world
+            }),
             tag,
             scene: Box::new(
                 Scene::new(Renderer::instance().clone(), Camera::default())?
@@ -34,41 +36,8 @@ impl MapTab {
     pub fn ui(&mut self, ui: &mut egui::Ui, egui_d3d11: &mut egui_d3d11::D3D11Renderer) {
         if let Some(map) = self.load_task.get() {
             match map {
-                Ok(map) => {
-                    for t in map.terrain {
-                        self.scene.add_static_object(RenderObject::new(
-                            TfxFeatureRenderer::TerrainPatch,
-                            Box::new(t),
-                            Box::new(()),
-                        ));
-                    }
-                    for s in map.models {
-                        self.scene.add_static_object(RenderObject::new(
-                            TfxFeatureRenderer::StaticObjects,
-                            Box::new(s),
-                            Box::new(()),
-                        ));
-                    }
-                    for d in map.decorators {
-                        self.scene.add_static_object(RenderObject::new(
-                            TfxFeatureRenderer::SpeedtreeTrees,
-                            Box::new(d),
-                            Box::new(()),
-                        ));
-                    }
-                    for d in map.decals {
-                        self.scene.add_static_object(RenderObject::new(
-                            TfxFeatureRenderer::DynamicDecals,
-                            d,
-                            Box::new(()),
-                        ));
-                    }
-                    for (translation, rotation, scale, render_object, _tag, _name) in map.entities {
-                        self.scene.add_dynamic_object(
-                            render_object,
-                            Mat4::from_scale_rotation_translation(scale, rotation, translation),
-                        );
-                    }
+                Ok(world) => {
+                    self.scene.set_world(world);
                 }
                 Err(_e) => {
                     error!("Failed to load map: unknown error");
