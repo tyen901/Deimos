@@ -3,6 +3,7 @@ use std::str::FromStr;
 use anyhow::Context;
 use deimos_data::tfx::STechnique;
 use deimos_render::tfx::expression_vm::{self, decompiler::DecompilerState};
+use itertools::Itertools;
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::{package_manager, TagHash};
 
@@ -39,12 +40,10 @@ fn main() -> anyhow::Result<()> {
         println!("\t// Decompiled assignments:");
         let mut outputs = vec![String::new(); 1024];
         match DecompilerState::new(&shader.constants.bytecode)
-            .evaluate(&shader.constants.bytecode_constants, &mut outputs)
+            .evaluate(&shader.constants.bytecode_constants)
         {
-            Ok(()) => {
-                for (i, line) in outputs.iter().enumerate().filter(|(_i, s)| !s.is_empty()) {
-                    println!("\tcb[{i}] = {line};");
-                }
+            Ok(o) => {
+                println!("\t{}", o.pretty_print().split("\n").join("\n\t"));
             }
             Err(e) => println!("\t// Failed to decompile expression: {e}"),
         };
