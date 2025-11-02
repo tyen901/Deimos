@@ -479,7 +479,7 @@ impl ExternalDataWidgetExt for FeatureRendererSubscription {
 
                 feature!(
                     ui,
-                    FeatureRendererSubscription::STATIC_OBJECTS,
+                    FeatureRendererSubscription::CHUNKED_INSTANCE_OBJECTS,
                     "Static Objects"
                 );
                 feature!(
