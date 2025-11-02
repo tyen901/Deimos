@@ -54,7 +54,7 @@ fn main() -> anyhow::Result<()> {
     let mut window = {
         let mut builder = video_subsystem.window("Deimos", 1920, 1080);
 
-        let mut builder_ref = builder.position_centered().resizable();
+        let mut builder_ref = builder.position_centered().resizable().maximized();
 
         if cfg!(not(target_os = "windows")) {
             builder_ref = builder_ref.vulkan();
