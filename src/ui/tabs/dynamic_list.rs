@@ -48,14 +48,7 @@ impl DynamicListTab {
             current_package: 0,
             tag_lookup_input: String::new(),
             current_tag: TagHash::NONE,
-            scene: Scene::new(
-                Renderer::instance().clone(),
-                Camera {
-                    near: 0.01,
-                    ..Default::default()
-                },
-            )
-            .unwrap(),
+            scene: Scene::new(Renderer::instance().clone(), Camera::default()).unwrap(),
         }
     }
 
@@ -106,6 +99,7 @@ impl DynamicListTab {
                             self.scene.clear();
                             match DynamicModel::load(*tag, vec![], vec![]) {
                                 Ok(model) => {
+                                    // self.scene.focus_fit(model.model.bounding_sphere());
                                     self.scene.focus_on(model.model.model_offset.xyz());
                                     self.scene.add_dynamic_object(
                                         RenderObject::new(

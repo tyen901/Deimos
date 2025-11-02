@@ -19,7 +19,7 @@ impl CameraController {
         Self::Orbit {
             target,
             distance,
-            yaw_pitch: Vec2::new(180.0, 0.0),
+            yaw_pitch: Vec2::new(220.0, 25.0),
         }
     }
 
