@@ -197,6 +197,12 @@ impl<'a> InterpreterState<'a> {
                     self.stack_pointer -= 1;
                     *self.stack_top() = cached_top;
                 }
+
+                Opcode::IsZero => {
+                    let zero_mask = cached_top.cmpeq(Vec4::ZERO);
+                    let result = Vec4::select(zero_mask, Vec4::ONE, Vec4::ZERO);
+                    set_top!(result);
+                }
                 Opcode::Min => {
                     cached_top = cached_top.min(self.get(-1)?);
                     self.stack_pointer -= 1;
@@ -206,6 +212,12 @@ impl<'a> InterpreterState<'a> {
                     cached_top = cached_top.max(self.get(-1)?);
                     self.stack_pointer -= 1;
                     *self.stack_top() = cached_top;
+                }
+                Opcode::LessThan => {
+                    let cmp_mask = self.get(-1)?.cmplt(cached_top);
+                    let result = Vec4::select(cmp_mask, Vec4::ONE, Vec4::ZERO);
+                    self.stack_pointer -= 1;
+                    set_top!(result);
                 }
                 Opcode::Dot => {
                     cached_top = Vec4::splat(self.get(-1)?.dot(cached_top));
