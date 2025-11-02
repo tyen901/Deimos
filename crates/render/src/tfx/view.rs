@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use d3d11::dxgi;
-use deimos_data::tfx::{features::dynamic::RenderStageSubscription, FeatureRendererSubscription};
+use deimos_data::tfx::FeatureRendererSubscription;
 use glam::{Mat4, Vec3};
 
 use crate::{
