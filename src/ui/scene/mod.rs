@@ -28,7 +28,7 @@ use crate::{
 };
 
 pub struct Scene {
-    world: hecs::World,
+    pub world: hecs::World,
 
     renderer: Arc<Renderer>,
     camera: Camera,

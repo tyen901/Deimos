@@ -1,3 +1,5 @@
+use std::io::{Cursor, Seek, SeekFrom};
+
 use crate::world::{
     UnimplementedTigerComponent, UnimplementedTigerComponents,
     render_objects::{DynamicRenderObject, StaticRenderObject},
@@ -7,7 +9,10 @@ use anyhow::Context;
 use deimos_data::{
     map::ComponentData,
     pattern::SPattern,
-    tfx::{TfxFeatureRenderer, features::statics::SUnk808082D5},
+    tfx::{
+        TfxFeatureRenderer,
+        features::{dynamic::SDynamicMeshMaterialVariants, statics::SUnk808082D5},
+    },
 };
 use deimos_render::{
     Renderer,
@@ -18,7 +23,7 @@ use deimos_render::{
     object::RenderObject,
     tfx::packet::CompactTransform,
 };
-use tiger_parse::PackageManagerExt;
+use tiger_parse::{Endian, PackageManagerExt, TigerReadable};
 use tiger_pkg::{TagHash, package_manager};
 
 pub fn spawn_pattern(
@@ -77,30 +82,30 @@ pub fn spawn_pattern(
         }
 
         match component.unk10.resource_type {
-            0x808072b8 => {
-                // let mut cur = Cursor::new(package_manager().read_tag(component.taghash())?);
-                // cur.seek(SeekFrom::Start(component.unk18.offset + 0x1dc))?;
-                // let model_hash: TagHash = TigerReadable::read_ds_endian(&mut cur, Endian::Little)?;
+            0x80808673 => {
+                let mut cur = Cursor::new(package_manager().read_tag(component.taghash())?);
+                cur.seek(SeekFrom::Start(component.unk18.offset + 0x244))?;
+                let model_hash: TagHash = TigerReadable::read_ds_endian(&mut cur, Endian::Little)?;
 
-                // cur.seek(SeekFrom::Start(component.unk18.offset + 0x2d0))?;
-                // let technique_map: Vec<SDynamicMeshMaterialVariants> =
+                cur.seek(SeekFrom::Start(component.unk18.offset + 0x3e8))?;
+                let technique_map: Vec<SDynamicMeshMaterialVariants> =
+                    TigerReadable::read_ds_endian(&mut cur, Endian::Little)?;
+
+                // cur.seek(SeekFrom::Start(entref.unk18.offset + 0x3f0))?;
+                // let entity_material_map_pre: Vec<(u16, u16)> =
                 //     TigerReadable::read_ds_endian(&mut cur, Endian::Little)?;
 
-                // // cur.seek(SeekFrom::Start(entref.unk18.offset + 0x3f0))?;
-                // // let entity_material_map_pre: Vec<(u16, u16)> =
-                // //     TigerReadable::read_ds_endian(&mut cur, Endian::Little)?;
+                cur.seek(SeekFrom::Start(component.unk18.offset + 0x428))?;
+                let techniques: Vec<TagHash> =
+                    TigerReadable::read_ds_endian(&mut cur, Endian::Little)?;
 
-                // cur.seek(SeekFrom::Start(component.unk18.offset + 0x310))?;
-                // let techniques: Vec<TagHash> = TigerReadable::read_ds_endian(&mut cur, Endian::Little)?;
+                let obj = Renderer::instance().add_object(RenderObject::new(
+                    TfxFeatureRenderer::RigidObject,
+                    DynamicModel::load(model_hash, technique_map, techniques)?,
+                    Box::new(CompactTransform::IDENTITY),
+                ));
 
-                // let obj = Renderer::instance().add_object(RenderObject::new(
-                //     format!("Dynamic Model {model_hash}"),
-                //     TfxFeatureRenderer::RigidObject,
-                //     DynamicModel::load(model_hash, technique_map, techniques)?,
-                //     Box::new(RigidModelData::default()),
-                // ));
-
-                // go.add_component(Box::new(SimpleRigidModel::from_render_object(obj)), true);
+                world.insert_one(entity, DynamicRenderObject::new(obj))?;
             }
             0x80808562 => {
                 let data = get_component_data!(SStaticTerrainPatchesComponent);

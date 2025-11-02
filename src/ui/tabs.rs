@@ -1,4 +1,4 @@
-mod dynamic_list;
+mod entity_list;
 mod home;
 mod map;
 mod map_list;
@@ -6,9 +6,9 @@ mod tag_lookup;
 
 use std::fmt::Display;
 
-use dynamic_list::DynamicListTab;
 use egui::{Margin, Widget};
 use egui_dock::{DockState, NodeIndex, SurfaceIndex, TabIndex};
+use entity_list::EntityListTab;
 use google_material_symbols::GoogleMaterialSymbols;
 use home::HomeTab;
 use map::MapTab;
@@ -18,7 +18,7 @@ use tag_lookup::TagLookupTab;
 pub enum Tab {
     Home,
     Settings,
-    DynamicList(Box<DynamicListTab>),
+    EntityList(Box<EntityListTab>),
     MapList(MapListTab),
     Map(MapTab),
     TagLookup(TagLookupTab),
@@ -34,7 +34,7 @@ impl Tab {
         match self {
             Tab::Home => 0,
             Tab::Settings => 0,
-            Tab::DynamicList(_) => 0,
+            Tab::EntityList(_) => 0,
             Tab::MapList(_) => 0,
             Tab::Map(tab) => tab.tag.0 as u64,
             Tab::TagLookup(_) => 0,
@@ -47,7 +47,7 @@ impl Display for Tab {
         let s = match self {
             Tab::Settings => GoogleMaterialSymbols::Settings.to_string(),
             Tab::Home => format!("{} Home", GoogleMaterialSymbols::Home),
-            Tab::DynamicList(_) => format!("{} Dynamics", GoogleMaterialSymbols::DeployedCode),
+            Tab::EntityList(_) => format!("{} Entities", GoogleMaterialSymbols::DeployedCode),
             Tab::MapList(_) => format!("{} Maps", GoogleMaterialSymbols::Map),
             Tab::Map(tab) => format!("Map {}", tab.tag),
             Tab::TagLookup(_) => format!("{} Tag Lookup", GoogleMaterialSymbols::Search),
@@ -86,7 +86,7 @@ impl<'a> egui_dock::TabViewer for TabViewer<'a> {
                         Tab::Settings => {
                             ui.weak("No settings are available");
                         }
-                        Tab::DynamicList(tab) => {
+                        Tab::EntityList(tab) => {
                             let res = tab.ui(ui, self.egui_d3d11);
                             self.process_result(res);
                         }
