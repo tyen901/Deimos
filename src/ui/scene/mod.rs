@@ -57,7 +57,7 @@ impl Scene {
             camera,
             sun_light_angle: -120f32,
             render_mode: RenderMode::Shaded,
-            controller: CameraController::new_orbit(Vec3::ZERO, 3.5),
+            controller: CameraController::new_orbit(Vec3::ZERO, 2.5),
             static_render_objects: Vec::new(),
             dynamic_render_objects: Vec::new(),
             surface,
@@ -346,6 +346,26 @@ impl Scene {
             }
         }
     }
+
+    // pub fn focus_fit(&mut self, bounding_sphere: (Vec3, f32)) {
+    //     let (center, radius) = bounding_sphere;
+    //     match &mut self.controller {
+    //         CameraController::Orbit {
+    //             target, distance, ..
+    //         } => {
+    //             *target = center;
+    //             let mut half_fov = self.camera.fov_y.to_radians() / 2.;
+    //             if self.camera.aspect_ratio < 1.0 {
+    //                 // Camera is in portrait mode, adjust half_fov to match the width instead of height
+    //                 half_fov = (half_fov.tan() * self.camera.aspect_ratio).atan();
+    //             }
+
+    //             *distance = radius * half_fov.sin();
+    //             *distance *= 8.0;
+    //         }
+    //         CameraController::FirstPerson { .. } => {}
+    //     }
+    // }
 }
 
 impl Drop for Scene {

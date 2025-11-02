@@ -19,6 +19,12 @@ pub struct SDynamicModel {
     pub texcoord_offset: glam::Vec2,
 }
 
+impl SDynamicModel {
+    pub fn bounding_sphere(&self) -> (glam::Vec3, f32) {
+        (self.model_offset.truncate(), self.model_scale.x)
+    }
+}
+
 #[derive(Debug, Clone)]
 #[tiger_type(id = 0x808087CB, size = 0x88)]
 pub struct SDynamicMesh {
