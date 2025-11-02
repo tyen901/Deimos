@@ -8,10 +8,10 @@ use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 
 mod app;
 mod cli;
-mod map;
 mod panic_hook;
 mod task;
 mod ui;
+mod world;
 
 #[macro_use]
 extern crate tracing;
@@ -124,6 +124,6 @@ fn fix_windows_console() {
 }
 
 // Workaround for subsecond missing this symbol while linking (even though its not used)
-#[no_mangle]
+#[unsafe(no_mangle)]
 #[cfg(not(target_os = "windows"))]
 extern "C" fn CoCreateGuid() {}

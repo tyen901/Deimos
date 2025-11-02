@@ -53,7 +53,7 @@ pub struct TerrainPatchesRenderer {
 }
 
 impl TerrainPatchesRenderer {
-    pub fn load(gpu: &Arc<Gpu>, hash: TagHash, identifier: u64) -> anyhow::Result<Self> {
+    pub fn load(gpu: &Arc<Gpu>, hash: TagHash, identifier: u64) -> anyhow::Result<Box<Self>> {
         let terrain: STerrain = package_manager().read_tag_struct(hash)?;
 
         let assets = &Renderer::instance().asset_manager;
@@ -74,7 +74,7 @@ impl TerrainPatchesRenderer {
             .collect::<Result<Vec<_>, _>>()
             .context("Failed to create group constant buffers")?;
 
-        Ok(Self {
+        Ok(Box::new(Self {
             vertex0_buffer: assets.load(terrain.vertex0_buffer),
             vertex1_buffer: assets.load(terrain.vertex1_buffer),
             index_buffer: assets.load(terrain.index_buffer),
@@ -86,7 +86,7 @@ impl TerrainPatchesRenderer {
             group_cbuffers,
             hash,
             identifier,
-        })
+        }))
     }
 
     #[profiling::function]

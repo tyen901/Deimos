@@ -1,5 +1,5 @@
-use deimos_render::{camera::Camera, Renderer};
-use egui::{vec2, Response, Ui, Vec2};
+use deimos_render::{Renderer, camera::Camera};
+use egui::{Response, Ui, Vec2, vec2};
 use glam::{Quat, Vec3};
 
 pub enum CameraController {
@@ -46,7 +46,10 @@ impl CameraController {
 
                 let drag_delta = response.drag_delta();
                 // Rotate
-                if response.dragged_by(egui::PointerButton::Primary) {
+                if (response.dragged_by(egui::PointerButton::Secondary)
+                    || response.dragged_by(egui::PointerButton::Primary))
+                    && ui.input(|i| !i.modifiers.alt)
+                {
                     *yaw_pitch += (drag_delta / 5.0) * vec2(-1.0, 1.3);
                     yaw_pitch.y = yaw_pitch.y.clamp(-89.0, 89.0);
                 }
@@ -104,8 +107,9 @@ impl CameraController {
                 });
                 camera.position += movement * delta_time * *speed;
 
-                if response.dragged_by(egui::PointerButton::Primary)
-                    | response.dragged_by(egui::PointerButton::Secondary)
+                if (response.dragged_by(egui::PointerButton::Primary)
+                    || response.dragged_by(egui::PointerButton::Secondary))
+                    && ui.input(|i| !i.modifiers.alt)
                 {
                     let drag_delta = response.drag_delta();
                     *yaw_pitch += (drag_delta / 10.0) * vec2(-1.0, 1.3);

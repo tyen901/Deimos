@@ -12,6 +12,11 @@ impl<T: TigerReadable> TigerReadable for Tag<T> {
         endian: tiger_parse::Endian,
     ) -> tiger_parse::Result<Self> {
         let tag = TagHash::read_ds_endian(reader, endian)?;
+        if tag.is_none() {
+            return Err(tiger_parse::Error::TagReadFailed(
+                "Attempted to read Tag with an unset TagHash (0xFFFFFFFF). Perhaps you meant to use an OptionalTag<T>?".to_string(),
+            ));
+        }
         Ok(Tag(package_manager().read_tag_struct(tag)?, tag))
     }
 
@@ -121,6 +126,10 @@ impl WideHash {
             // TODO(cohae): Double check this
             WideHash::Hash64(h) => h.0 != 0 && h.0 != u64::MAX,
         }
+    }
+
+    pub fn is_none(&self) -> bool {
+        !self.is_some()
     }
 }
 

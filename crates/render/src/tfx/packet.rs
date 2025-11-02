@@ -101,6 +101,12 @@ impl CompactTransform {
     }
 }
 
+impl From<Mat4> for CompactTransform {
+    fn from(mat: Mat4) -> Self {
+        Self::from_mat4(mat)
+    }
+}
+
 // #[repr(C)]
 // pub struct UniformTransform {
 //     pub rotation: Quat,
