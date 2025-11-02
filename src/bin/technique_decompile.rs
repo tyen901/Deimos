@@ -38,8 +38,8 @@ fn main() -> anyhow::Result<()> {
         }
 
         println!("\t// Decompiled assignments:");
-        let mut outputs = vec![String::new(); 1024];
         match DecompilerState::new(&shader.constants.bytecode)
+            .with_ansi(true)
             .evaluate(&shader.constants.bytecode_constants)
         {
             Ok(o) => {

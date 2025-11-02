@@ -11,10 +11,62 @@ pub struct DecompilationResult {
     pub textures: Vec<(usize, ShaderStage, String)>,
     pub samplers: Vec<(usize, ShaderStage, String)>,
     pub uavs: Vec<(usize, ShaderStage, String)>,
-    pub cb_expressions: Vec<(usize, String)>,
+    pub cb_expressions: Vec<(usize, String, bool)>,
 }
 
 impl DecompilationResult {
+    fn process_all_tags(&mut self, strip: bool) {
+        for (_slot, _stage, expr) in &mut self.samplers {
+            *expr = Self::process_ansi_tags(expr, strip);
+        }
+        for (_slot, _stage, expr) in &mut self.textures {
+            *expr = Self::process_ansi_tags(expr, strip);
+        }
+        for (_slot, _stage, expr) in &mut self.uavs {
+            *expr = Self::process_ansi_tags(expr, strip);
+        }
+        for (_slot, expr, _is_float4x4) in &mut self.cb_expressions {
+            *expr = Self::process_ansi_tags(expr, strip);
+        }
+    }
+
+    fn process_ansi_tags(s: &str, strip: bool) -> String {
+        const RESET: &str = "\x1b[0m";
+        const BLUE: &str = "\x1b[34m";
+        const YELLOW: &str = "\x1b[38;2;250;200;100m";
+        const ORANGE: &str = "\x1b[38;2;230;144;100m";
+        const GREEN: &str = "\x1b[32m";
+        // rgb 200 130 255
+        const MAGENTA: &str = "\x1b[38;2;200;130;255m";
+        const CYAN: &str = "\x1b[38;2;90;200;255m";
+        let tags = [
+            ("<fun>", YELLOW),
+            ("<op>", ORANGE),
+            ("<num>", MAGENTA),
+            ("<ident>", CYAN),
+            ("<reset>", RESET),
+        ];
+
+        let mut r = s.to_string();
+        for (tag, ansi) in &tags {
+            if strip {
+                r = r.replace(tag, "");
+            } else {
+                r = r.replace(tag, ansi);
+            }
+        }
+
+        let ops = ["->", "+", " - ", "*", "/", "=", "<", ">"];
+
+        for op in &ops {
+            if !strip {
+                r = r.replace(op, &format!("{}{}{}", ORANGE, op, RESET));
+            }
+        }
+
+        r
+    }
+
     pub fn pretty_print(&self) -> String {
         let mut r = String::new();
 
@@ -41,8 +93,8 @@ impl DecompilationResult {
 
         if !self.cb_expressions.is_empty() {
             r.push_str("\n// Constant buffer\n");
-            for (slot, expr) in &self.cb_expressions {
-                let slot_fixed = if expr.starts_with("extern<float4x4>") {
+            for (slot, expr, is_float4x4) in &self.cb_expressions {
+                let slot_fixed = if *is_float4x4 {
                     format!("{slot}..={}", slot + 3)
                 } else {
                     format!("{slot}")
@@ -63,6 +115,9 @@ pub struct DecompilerState<'a> {
     stack_pointer: usize,
 
     temp: [String; 16],
+
+    // Configuration
+    use_ansi: bool,
 }
 
 impl<'a> DecompilerState<'a> {
@@ -73,7 +128,13 @@ impl<'a> DecompilerState<'a> {
             stack: std::array::from_fn(|_| "NULL".to_string()),
             stack_pointer: 0,
             temp: std::array::from_fn(|_| "NULL".to_string()),
+            use_ansi: false,
         }
+    }
+
+    pub fn with_ansi(mut self, use_ansi: bool) -> Self {
+        self.use_ansi = use_ansi;
+        self
     }
 
     fn data_ptr(&self) -> &[u8] {
@@ -152,6 +213,22 @@ impl<'a> DecompilerState<'a> {
             }};
         }
 
+        let get_constant = |index: usize| -> anyhow::Result<String> {
+            anyhow::ensure!(index < constants.len(), "Invalid constant index");
+            let c = constants[index];
+            Ok(format!(
+                "<fun>float4<reset>(<num>{}<reset>, <num>{}<reset>, <num>{}<reset>, <num>{}<reset>)",
+                c.x, c.y, c.z, c.w
+            ))
+        };
+        let get_constants = |range: std::ops::Range<usize>| -> anyhow::Result<Vec<String>> {
+            let mut r = Vec::new();
+            for i in range {
+                r.push(get_constant(i)?);
+            }
+            Ok(r)
+        };
+
         'exec: while self.ip < self.data.len() {
             let ptr = self.data_ptr();
             let Ok(op) = Opcode::try_from(ptr[0]) else {
@@ -186,17 +263,17 @@ impl<'a> DecompilerState<'a> {
                     *self.stack_top() = cached_top.clone();
                 }
                 Opcode::Min => {
-                    cached_top = format!("min({}, {cached_top})", self.get(-1)?);
+                    cached_top = format!("<fun>min<reset>({}, {cached_top})", self.get(-1)?);
                     self.stack_pointer -= 1;
                     *self.stack_top() = cached_top.clone();
                 }
                 Opcode::Max => {
-                    cached_top = format!("max({}, {cached_top})", self.get(-1)?);
+                    cached_top = format!("<fun>max<reset>({}, {cached_top})", self.get(-1)?);
                     self.stack_pointer -= 1;
                     *self.stack_top() = cached_top.clone();
                 }
                 Opcode::Dot => {
-                    cached_top = format!("dot({}, {cached_top})", self.get(-1)?);
+                    cached_top = format!("<fun>dot<reset>({}, {cached_top})", self.get(-1)?);
                     self.stack_pointer -= 1;
                     *self.stack_top() = cached_top.clone();
                 }
@@ -204,33 +281,33 @@ impl<'a> DecompilerState<'a> {
                     let a0 = cached_top;
                     let a1 = self.get(-1)?;
                     self.stack_pointer -= 1;
-                    cached_top = format!("float4({a1}.x, {a0}.xyz)");
+                    cached_top = format!("<fun>float4<reset>({a1}.x, {a0}.xyz)");
                     *self.stack_top() = cached_top.clone();
                 }
                 Opcode::Merge2_2 => {
                     let a0 = cached_top;
                     let a1 = self.get(-1)?;
                     self.stack_pointer -= 1;
-                    cached_top = format!("float4({a1}.xy, {a0}.xy)");
+                    cached_top = format!("<fun>float4<reset>({a1}.xy, {a0}.xy)");
                     *self.stack_top() = cached_top.clone();
                 }
                 Opcode::Merge3_1 => {
                     let a0 = cached_top;
                     let a1 = self.get(-1)?;
                     self.stack_pointer -= 1;
-                    set_top!(format!("float4({a1}.xyz, {a0}.x)"));
+                    set_top!(format!("<fun>float4<reset>({a1}.xyz, {a0}.x)"));
                 }
                 Opcode::Cubic => {
                     let x = cached_top;
                     let coefficients = self.get(-1)?;
-                    set_top!(format!("cubic({x}, {coefficients})"))
+                    set_top!(format!("<fun>cubic<reset>({x}, {coefficients})"))
                 }
                 Opcode::Lerp => {
                     let s = cached_top;
                     let y = self.get(-1)?;
                     let x = self.get(-2)?;
                     self.stack_pointer -= 2;
-                    set_top!(format!("lerp({x}, {y}, {s})"));
+                    set_top!(format!("<fun>lerp<reset>({x}, {y}, {s})"));
                 }
                 Opcode::LerpConstant => {
                     let constant_start = ptr[1];
@@ -238,11 +315,11 @@ impl<'a> DecompilerState<'a> {
                         (constant_start + 1) < constants.len() as u8,
                         "Invalid constant index"
                     );
-                    let a = constants[constant_start as usize];
-                    let b = constants[(constant_start + 1) as usize];
+                    let a = get_constant(constant_start as usize)?;
+                    let b = get_constant((constant_start + 1) as usize)?;
                     let t = cached_top;
 
-                    cached_top = format!("lerp({a}, {b}, {t})");
+                    cached_top = format!("<fun>lerp<reset>({a}, {b}, {t})");
                     *self.stack_top() = cached_top.clone();
                 }
                 Opcode::Spline4Const => {
@@ -252,9 +329,9 @@ impl<'a> DecompilerState<'a> {
                         "Invalid constant index"
                     );
 
-                    let cl = &constants[constant_start as usize..constant_start as usize + 5];
+                    let cl = get_constants(constant_start as usize..constant_start as usize + 5)?;
                     cached_top = format!(
-                        "spline4({}, {}, {}, {}, {}, {})",
+                        "<fun>spline4<reset>({}, {}, {}, {}, {}, {})",
                         cached_top, cl[0], cl[1], cl[2], cl[3], cl[4]
                     );
                 }
@@ -265,9 +342,9 @@ impl<'a> DecompilerState<'a> {
                         "Invalid constant index"
                     );
 
-                    let cl = &constants[constant_start as usize..];
+                    let cl = get_constants(constant_start as usize..constant_start as usize + 10)?;
                     cached_top = format!(
-                        "spline8({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})",
+                        "<fun>spline8<reset>({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})",
                         cached_top,
                         cl[0],
                         cl[1],
@@ -288,12 +365,12 @@ impl<'a> DecompilerState<'a> {
                         "Invalid constant index"
                     );
 
-                    let cl = &constants[constant_start as usize..constant_start as usize + 6];
+                    let cl = get_constants(constant_start as usize..constant_start as usize + 60)?;
                     // cached_top = super::helpers::bytecode_op_gradient4_const(
                     //     cached_top, cl[0], cl[1], cl[2], cl[3], cl[4], cl[5],
                     // );
                     cached_top = format!(
-                        "gradient4({}, {}, {}, {}, {}, {}, {})",
+                        "<fun>gradient4<reset>({}, {}, {}, {}, {}, {}, {})",
                         cached_top, cl[0], cl[1], cl[2], cl[3], cl[4], cl[5]
                     );
                 }
@@ -302,29 +379,29 @@ impl<'a> DecompilerState<'a> {
                     let b = self.get(-1)?;
                     let a = self.get(-2)?;
                     self.stack_pointer -= 2;
-                    set_top!(format!("({a} * {b} + {c})"));
+                    set_top!(format!("({a} <op>*<op/> {b} <op>+<op/> {c})"));
                 }
                 Opcode::Clamp => {
                     let min = cached_top;
                     let max = self.get(-1)?;
                     let value = self.get(-2)?;
                     self.stack_pointer -= 2;
-                    set_top!(format!("clamp({value}, {min}, {max})"));
+                    set_top!(format!("<fun>clamp<reset>({value}, {min}, {max})"));
                 }
                 Opcode::Floor => {
-                    set_top!(format!("floor({cached_top})"));
+                    set_top!(format!("<fun>floor<reset>({cached_top})"));
                 }
                 Opcode::Ceil => {
-                    set_top!(format!("ceil({cached_top})"));
+                    set_top!(format!("<fun>ceil<reset>({cached_top})"));
                 }
                 Opcode::Round => {
-                    set_top!(format!("round({cached_top})"));
+                    set_top!(format!("<fun>round<reset>({cached_top})"));
                 }
                 Opcode::Frac => {
-                    set_top!(format!("fract({cached_top})"));
+                    set_top!(format!("<fun>fract<reset>({cached_top})"));
                 }
                 Opcode::Unknown0x1F => {
-                    set_top!(format!("bytecode_op_1f({cached_top})"));
+                    set_top!(format!("<fun>bytecode_op_1f<reset>({cached_top})"));
                 }
                 Opcode::Negate => {
                     set_top!(format!("(-{cached_top})"));
@@ -350,22 +427,22 @@ impl<'a> DecompilerState<'a> {
                     ));
                 }
                 Opcode::Saturate => {
-                    set_top!(format!("saturate({cached_top})"));
+                    set_top!(format!("<fun>saturate<reset>({cached_top})"));
                 }
                 Opcode::Unknown0x25 => {
-                    set_top!(format!("bytecode_op_25({cached_top})"));
+                    set_top!(format!("<fun>bytecode_op_25<reset>({cached_top})"));
                 }
                 Opcode::Triangle => {
-                    set_top!(format!("triangle({cached_top})"));
+                    set_top!(format!("<fun>triangle<reset>({cached_top})"));
                 }
                 Opcode::Jitter => {
-                    set_top!(format!("jitter({cached_top})"));
+                    set_top!(format!("<fun>jitter<reset>({cached_top})"));
                 }
                 Opcode::Wander => {
-                    set_top!(format!("wander({cached_top})"));
+                    set_top!(format!("<fun>wander<reset>({cached_top})"));
                 }
                 Opcode::Rand => {
-                    set_top!(format!("rand({cached_top})"));
+                    set_top!(format!("<fun>rand<reset>({cached_top})"));
                 }
                 Opcode::TransformVec4 => {
                     let value = cached_top;
@@ -373,26 +450,31 @@ impl<'a> DecompilerState<'a> {
 
                     self.stack_pointer -= 1;
 
-                    set_top!(format!("mul({mat}, {value})"));
+                    set_top!(format!("<fun>mul<reset>({mat}, {value})"));
                 }
                 Opcode::VectorRotationsSin => {
                     // set_top!(super::helpers::_trig_helper_vector_sin_rotations_estimate(
                     //     cached_top
                     // ));
-                    set_top!(format!("vector_sin_rotations_estimate({cached_top})"));
+                    set_top!(format!(
+                        "<fun>vector_sin_rotations_estimate<reset>({cached_top})"
+                    ));
                 }
                 Opcode::VectorRotationsCos => {
-                    set_top!(format!("vector_cos_rotations_estimate({cached_top})"));
+                    set_top!(format!(
+                        "<fun>vector_cos_rotations_estimate<reset>({cached_top})"
+                    ));
                 }
                 Opcode::VectorRotationsSinCos => {
-                    set_top!(format!("vector_sin_cos_rotations_estimate({cached_top})"));
+                    set_top!(format!(
+                        "<fun>vector_sin_cos_rotations_estimate<reset>({cached_top})"
+                    ));
                 }
                 Opcode::PushConstVec4 => {
                     let index = ptr[1];
                     anyhow::ensure!(index < constants.len() as u8, "Invalid constant index");
-                    let c = constants[index as usize];
-                    cached_top =
-                        self.push(format!("float4({}, {}, {}, {})", c.x, c.y, c.z, c.w))?;
+                    let c = get_constant(index as usize)?;
+                    cached_top = self.push(c)?;
                 }
                 // Push a temporary value onto the stack
                 Opcode::PushTemp => {
@@ -446,7 +528,9 @@ impl<'a> DecompilerState<'a> {
                         .map(str::to_string)
                         .unwrap_or(format!("0x{:X}", offset as usize * 4));
 
-                    cached_top = self.push(format!("extern<float>({extern_id:?}->{field})"))?;
+                    cached_top = self.push(format!(
+                        "<fun>extern<reset><float>(<ident>{extern_id:?}<reset>->{field})"
+                    ))?;
                 }
                 Opcode::PushExternInputVec4 => {
                     let extern_id = ExternIndex::try_from(ptr[1])
@@ -457,7 +541,9 @@ impl<'a> DecompilerState<'a> {
                     let field = Externs::get_extern_field_name(extern_id, offset as usize * 16)
                         .map(str::to_string)
                         .unwrap_or(format!("0x{:X}", offset as usize * 16));
-                    cached_top = self.push(format!("extern<float4>({extern_id:?}->{field})",))?;
+                    cached_top = self.push(format!(
+                        "<fun>extern<reset><float4>(<ident>{extern_id:?}<reset>->{field})",
+                    ))?;
                 }
                 Opcode::PushExternInputMat4 => {
                     let extern_id = ExternIndex::try_from(ptr[1])
@@ -468,7 +554,9 @@ impl<'a> DecompilerState<'a> {
                     let field = Externs::get_extern_field_name(extern_id, offset as usize * 16)
                         .map(str::to_string)
                         .unwrap_or(format!("0x{:X}", offset as usize * 16));
-                    cached_top = self.push(format!("extern<float4x4>({extern_id:?}->{field})"))?;
+                    cached_top = self.push(format!(
+                        "<fun>extern<reset><float4x4>(<ident>{extern_id:?}<reset>->{field})"
+                    ))?;
                 }
                 Opcode::PushExternInputTextureView => {
                     let extern_id = ExternIndex::try_from(ptr[1])
@@ -479,8 +567,9 @@ impl<'a> DecompilerState<'a> {
                     let field = Externs::get_extern_field_name(extern_id, offset as usize * 8)
                         .map(str::to_string)
                         .unwrap_or(format!("0x{:X}", offset as usize * 8));
-                    cached_top =
-                        self.push(format!("extern<TextureView>({extern_id:?}->{field})"))?;
+                    cached_top = self.push(format!(
+                        "<fun>extern<reset><TextureView>(<ident>{extern_id:?}<reset>->{field})"
+                    ))?;
                 }
                 Opcode::PushExternInputUav => {
                     let extern_id = ExternIndex::try_from(ptr[1])
@@ -491,7 +580,9 @@ impl<'a> DecompilerState<'a> {
                     let field = Externs::get_extern_field_name(extern_id, offset as usize * 8)
                         .map(str::to_string)
                         .unwrap_or(format!("0x{:X}", offset as usize * 8));
-                    cached_top = self.push(format!("extern<UAV>({extern_id:?}->{field})"))?;
+                    cached_top = self.push(format!(
+                        "<fun>extern<reset><UAV>(<ident>{extern_id:?}<reset>->{field})"
+                    ))?;
                 }
                 Opcode::PushFromOutput => {
                     let element = ptr[1] as usize;
@@ -501,21 +592,25 @@ impl<'a> DecompilerState<'a> {
                     let element = ptr[1] as usize;
                     let v = cached_top;
                     cached_top = self.pop_top();
-                    result.cb_expressions.push((element, v));
+                    result.cb_expressions.push((element, v, false));
                 }
                 Opcode::PopOutputMat4 => {
                     let start_element = ptr[1] as usize;
                     let v = cached_top;
                     cached_top = self.pop_top();
-                    result.cb_expressions.push((start_element, v));
+                    result.cb_expressions.push((start_element, v, true));
                 }
                 Opcode::PushObjectChannelVector => {
                     let channel = u32::from_be_bytes([ptr[1], ptr[2], ptr[3], ptr[4]]);
-                    cached_top = self.push(format!("object_channels[{channel:08X}]"))?;
+                    cached_top = self.push(format!(
+                        "<ident>object_channels<reset>[<num>{channel:08X}<reset>]"
+                    ))?;
                 }
                 Opcode::PushGlobalChannelVector => {
                     let channel = ptr[1];
-                    cached_top = self.push(format!("global_channels[{channel}]"))?;
+                    cached_top = self.push(format!(
+                        "<ident>global_channels<reset>[<num>{channel}<reset>]"
+                    ))?;
                 }
                 Opcode::Unknown0x5e => {
                     let unk = ptr[1];
@@ -529,6 +624,7 @@ impl<'a> DecompilerState<'a> {
             self.ip += op.size();
         }
 
+        result.process_all_tags(!self.use_ansi);
         Ok(result)
     }
 }
