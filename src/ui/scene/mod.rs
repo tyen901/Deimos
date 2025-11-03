@@ -15,12 +15,11 @@ use deimos_render::{
     Gpu, Renderer,
     camera::Camera,
     gpu::command_list::CommandList,
-    object::RenderObject,
-    renderer::{submit::DebugPipeline, surface::SurfaceProxy},
+    renderer::submit::DebugPipeline,
     tfx::view::View,
 };
 use egui::{FontId, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2, load::SizedTexture, vec2};
-use glam::{Mat4, Vec3};
+use glam::Vec3;
 use google_material_symbols::GoogleMaterialSymbols;
 
 use crate::{
@@ -41,7 +40,7 @@ pub struct Scene {
     sun_light_angle: f32,
     render_mode: RenderMode,
 
-    controller: CameraController,
+    pub controller: CameraController,
 
     surface: d3d11::Texture2D,
     surface_srv: d3d11::ShaderResourceView,
@@ -329,6 +328,10 @@ impl Scene {
         {
             self.profiler_results = Some(self.renderer.profiler.get_results_string());
         }
+    }
+
+    pub fn output_srv(&self) -> &d3d11::ShaderResourceView {
+        &self.surface_srv
     }
 
     pub fn copy_output_as_texture(&self) -> anyhow::Result<d3d11::ShaderResourceView> {

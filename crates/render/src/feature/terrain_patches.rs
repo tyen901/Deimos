@@ -185,8 +185,8 @@ impl TerrainPatchesRenderer {
 impl FeatureRenderer for TerrainPatchesRenderer {
     fn visibility_test(&mut self, camera: &Camera) -> bool {
         let center = self.terrain.bounds.center();
-        let radius = self.terrain.bounds.radius();
-        let distance = camera.position.distance(center);
+        let _radius = self.terrain.bounds.radius();
+        let _distance = camera.position.distance(center);
         // self.detail_level = match distance {
         //     d if d > radius * 4.0 => TerrainDetailLevel::Low,
         //     d if d > radius * 2.0 => TerrainDetailLevel::Medium,

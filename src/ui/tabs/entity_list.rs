@@ -12,10 +12,7 @@ use crate::{
         scene::{Scene, controller::CameraController},
         util::spinner_image,
     },
-    world::{
-        pattern::{spawn_pattern, spawn_pattern_from_header},
-        transform::Transform,
-    },
+    world::pattern::{spawn_pattern, spawn_pattern_from_header},
 };
 
 use super::TabResult;
@@ -23,8 +20,7 @@ use super::TabResult;
 struct EntityEntry {
     hash: TagHash,
     pattern: SPattern,
-    /// World used to render the thumbnail once ready. The world is consumed when the thumbnail is rendered.
-    pending_thumbnail_world: Option<hecs::World>,
+    thumbnail_world: Option<hecs::World>,
     thumbnail: Option<d3d11::ShaderResourceView>,
 }
 
@@ -47,6 +43,8 @@ pub struct EntityListTab {
 
     /// Scene used exclusively for rendering thumbnails
     thumbnail_scene: Scene,
+    hovered_tag: TagHash,
+    hover_vector: Vec2,
 }
 
 impl EntityListTab {
@@ -77,12 +75,14 @@ impl EntityListTab {
                     max_ortho_width: 1.0,
                     projection: deimos_render::camera::CameraProjection::Orthographic,
                     near: 0.1,
-                    far: 1000.0,
+                    far: 250.0,
                     ..Default::default()
                 },
             )
             .unwrap()
-            .with_controller(CameraController::new_orbit(Vec3::ZERO, 10.0)),
+            .with_controller(CameraController::new_orbit(Vec3::ZERO, 25.0)),
+            hovered_tag: TagHash::NONE,
+            hover_vector: Vec2::ZERO,
         }
     }
 
@@ -96,9 +96,8 @@ impl EntityListTab {
             return;
         };
 
-        for entry in entries.iter_mut() {
-            // .filter(|e| e.thumbnail.is_none()) {
-            if let Some(world) = entry.pending_thumbnail_world.take() {
+        for entry in entries.iter_mut().filter(|e| e.thumbnail.is_none()) {
+            if let Some(world) = entry.thumbnail_world.take() {
                 let bb = world
                     .query::<&AxisAlignedBBox>()
                     .iter()
@@ -117,9 +116,33 @@ impl EntityListTab {
                     }
                 }
                 egui_ctx.request_repaint();
-                // entry.pending_thumbnail_world = Some(self.thumbnail_scene.take_world());
+                entry.thumbnail_world = Some(self.thumbnail_scene.take_world());
                 break;
             }
+        }
+    }
+
+    fn render_live_preview(&mut self, hash: TagHash, _hover_vector: Vec2) {
+        let Some(entries) = self.packages.get_mut(&self.current_package) else {
+            return;
+        };
+        let Some(entry) = entries.iter_mut().find(|e| e.hash == hash) else {
+            return;
+        };
+        if let Some(world) = entry.thumbnail_world.take() {
+            let bb = world
+                .query::<&AxisAlignedBBox>()
+                .iter()
+                .next()
+                .map(|(_, bb)| bb.clone())
+                .unwrap_or(AxisAlignedBBox::from_center_extents(Vec3::ZERO, Vec3::ONE));
+            self.thumbnail_scene.set_world(world);
+            self.thumbnail_scene.focus_fit_ortho(&bb);
+            self.thumbnail_scene.controller.set_yaw_pitch(
+                CameraController::DEFAULT_YAW_PITCH + self.hover_vector * vec2(-15.0, 15.0),
+            );
+            self.thumbnail_scene.render(1.0 / 60.0, (512, 512));
+            entry.thumbnail_world = Some(self.thumbnail_scene.take_world());
         }
     }
 
@@ -146,7 +169,7 @@ impl EntityListTab {
                         Some(EntityEntry {
                             hash,
                             pattern,
-                            pending_thumbnail_world: Some(world),
+                            thumbnail_world: Some(world),
                             thumbnail: None,
                         })
                     }
@@ -162,6 +185,10 @@ impl EntityListTab {
     pub fn ui(&mut self, ui: &mut Ui, egui_d3d11: &mut egui_d3d11::D3D11Renderer) -> TabResult {
         self.load_entries_for_pkg(self.current_package);
         self.render_thumbnails(ui.ctx());
+
+        if self.hovered_tag != TagHash::NONE {
+            self.render_live_preview(self.hovered_tag, self.hover_vector);
+        }
 
         ui.separator();
         ui.style_mut()
@@ -232,9 +259,17 @@ impl EntityListTab {
                         return;
                     };
                     ui.horizontal_wrapped(|ui| {
+                        let Self {
+                            show_entities_without_models,
+                            thumbnail_scene,
+                            hovered_tag,
+                            hover_vector: card_hover_vector,
+                            ..
+                        } = self;
+
                         ui.spacing_mut().item_spacing = vec2(16.0, 16.0);
                         for entity in entries {
-                            if !self.show_entities_without_models && !entity.has_model() {
+                            if !*show_entities_without_models && !entity.has_model() {
                                 continue;
                             }
                             const TAG_BOX_HEIGHT: f32 = 30.0;
@@ -268,11 +303,28 @@ impl EntityListTab {
                                 ui.visuals().text_color(),
                             );
 
-                            if let Some(thumbnail) = &entity.thumbnail {
-                                let tid = egui_d3d11.textures_mut().allocate_dx_temporary(
-                                    thumbnail.clone(),
-                                    Some(egui::TextureFilter::Linear),
-                                );
+                            if let Some(thumbnail) = entity.thumbnail.clone() {
+                                let srv = if let Some(hover_pos) = card_response.hover_pos() {
+                                    ui.ctx().request_repaint();
+                                    *card_hover_vector = (hover_pos - card_image_rect.center())
+                                        / (card_image_rect.size() / 2.0);
+                                    *card_hover_vector = card_hover_vector
+                                        .clamp(Vec2::splat(-1.0), Vec2::splat(1.0));
+
+                                    if *hovered_tag != entity.hash {
+                                        *hovered_tag = entity.hash;
+                                        // Use the existing thumbnail until we render the live one next frame
+                                        thumbnail.clone()
+                                    } else {
+                                        thumbnail_scene.output_srv().clone()
+                                    }
+                                } else {
+                                    thumbnail.clone()
+                                };
+
+                                let tid = egui_d3d11
+                                    .textures_mut()
+                                    .allocate_dx_temporary(srv, Some(egui::TextureFilter::Linear));
                                 card_painter.image(
                                     tid,
                                     card_image_rect,
