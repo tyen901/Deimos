@@ -158,7 +158,7 @@ fn asset_loader_loop(rx: crossbeam::channel::Receiver<LoadRequest>, gpu: Arc<Gpu
             Texture::ASSET_TYPE => {
                 match Texture::load(&gpu.device, request.tag) {
                     Ok(o) => {
-                        request.handle.update_boxed(o.into());
+                        request.handle.update(o.into());
                     }
                     Err(e) => {
                         // TODO(cohae): Some more transparent error handling would perhaps be nice? Right now this just leaves the handle without data.
@@ -168,7 +168,7 @@ fn asset_loader_loop(rx: crossbeam::channel::Receiver<LoadRequest>, gpu: Arc<Gpu
             }
             VertexBuffer::ASSET_TYPE => match load_vertex_buffer(&gpu, request.tag) {
                 Ok(o) => {
-                    request.handle.update_boxed(o.into());
+                    request.handle.update(o.into());
                 }
                 Err(e) => {
                     error!("Failed to load vertex buffer: {:?}", e);
@@ -176,7 +176,7 @@ fn asset_loader_loop(rx: crossbeam::channel::Receiver<LoadRequest>, gpu: Arc<Gpu
             },
             IndexBuffer::ASSET_TYPE => match load_index_buffer(&gpu, request.tag) {
                 Ok(o) => {
-                    request.handle.update_boxed(o.into());
+                    request.handle.update(o.into());
                 }
                 Err(e) => {
                     error!("Failed to load index buffer: {:?}", e);
@@ -184,7 +184,7 @@ fn asset_loader_loop(rx: crossbeam::channel::Receiver<LoadRequest>, gpu: Arc<Gpu
             },
             Technique::ASSET_TYPE => match Technique::load(&gpu, request.tag) {
                 Ok(o) => {
-                    request.handle.update_boxed(o.into());
+                    request.handle.update(o.into());
                 }
                 Err(e) => {
                     error!("Failed to load technique: {:?}", e);
