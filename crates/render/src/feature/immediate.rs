@@ -157,10 +157,16 @@ impl ImmediateShapeRenderer {
 // Shape methods
 impl ImmediateShapeRenderer {
     #[inline]
-    pub fn line(&mut self, start: Vec3, end: Vec3, color: u32) {
+    pub fn line(&mut self, start: impl Into<Vec3>, end: impl Into<Vec3>, color: u32) {
         self.add_vertices(&[
-            ImmediateVertex { pos: start, color },
-            ImmediateVertex { pos: end, color },
+            ImmediateVertex {
+                pos: start.into(),
+                color,
+            },
+            ImmediateVertex {
+                pos: end.into(),
+                color,
+            },
         ]);
     }
 

@@ -63,13 +63,13 @@ impl DecalCollectionRenderer {
 
 impl FeatureRenderer for DecalCollectionRenderer {
     fn visibility_test(&mut self, camera: &crate::camera::Camera) -> bool {
-        if !camera.frustum.aabb_intersecting(&self.bounds) {
+        if !camera.culling_frustum.aabb_intersecting(&self.bounds) {
             return false;
         }
 
         let mut any_visible = false;
         for set in &mut self.sets {
-            let is_visible = camera.frustum.aabb_intersecting(&set.bounds);
+            let is_visible = camera.culling_frustum.aabb_intersecting(&set.bounds);
             if is_visible {
                 set.visible = true;
                 any_visible = true;

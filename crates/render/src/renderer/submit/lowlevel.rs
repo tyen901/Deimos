@@ -28,7 +28,10 @@ impl Renderer {
         }
         profiling::scope!("submit_stage", &format!("stage={stage:?}"));
 
-        for obj in self.frame_packet.read().frame_nodes[frame_node_range].iter() {
+        for obj in self.frame_packet.read().frame_nodes[frame_node_range]
+            .iter()
+            .filter(|n| n.visible)
+        {
             if let Some(render_object) = self
                 .objects
                 .read()
