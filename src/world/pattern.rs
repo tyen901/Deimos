@@ -11,6 +11,7 @@ use deimos_data::{
     pattern::SPattern,
     tfx::{
         TfxFeatureRenderer,
+        common::AxisAlignedBBox,
         features::{dynamic::SDynamicMeshMaterialVariants, statics::SUnk808082D5},
     },
 };
@@ -23,6 +24,7 @@ use deimos_render::{
     object::RenderObject,
     tfx::packet::CompactTransform,
 };
+use glam::Vec4Swizzles;
 use tiger_parse::{Endian, PackageManagerExt, TigerReadable};
 use tiger_pkg::{TagHash, package_manager};
 
@@ -107,12 +109,20 @@ pub fn spawn_pattern_from_header(
                 let techniques: Vec<TagHash> =
                     TigerReadable::read_ds_endian(&mut cur, Endian::Little)?;
 
+                let model = DynamicModel::load(model_hash, technique_map, techniques)?;
+                world.insert_one(
+                    entity,
+                    AxisAlignedBBox::from_center_extents(
+                        model.model.model_offset.xyz(),
+                        model.model.model_scale.xyz(),
+                    ),
+                )?;
+
                 let obj = Renderer::instance().add_object(RenderObject::new(
                     TfxFeatureRenderer::RigidObject,
-                    DynamicModel::load(model_hash, technique_map, techniques)?,
+                    model,
                     Box::new(CompactTransform::IDENTITY),
                 ));
-
                 world.insert_one(entity, DynamicRenderObject::new(obj))?;
             }
             0x80808562 => {
