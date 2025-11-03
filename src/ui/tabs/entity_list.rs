@@ -9,14 +9,17 @@ use deimos_render::{
     Renderer, camera::Camera, feature::rigid_model::DynamicModel, object::RenderObject,
     tfx::packet::CompactTransform,
 };
-use egui::{Color32, CornerRadius, FontId, Rect, Sense, TextStyle, Ui, Vec2, vec2};
+use egui::{Color32, CornerRadius, FontId, Pos2, Rect, Sense, TextStyle, Ui, Vec2, vec2};
 use glam::{Mat4, Vec3, Vec4Swizzles};
 use itertools::Itertools;
 use tiger_parse::{PackageManagerExt, TigerReadable};
 use tiger_pkg::{TagHash, package, package_manager};
 
 use crate::{
-    ui::{scene::Scene, util::spinner_image},
+    ui::{
+        scene::{Scene, controller::CameraController},
+        util::spinner_image,
+    },
     world::{
         pattern::{spawn_pattern, spawn_pattern_from_header},
         transform::Transform,
@@ -28,7 +31,9 @@ use super::TabResult;
 struct EntityEntry {
     hash: TagHash,
     pattern: SPattern,
-    world: Option<hecs::World>,
+    /// World used to render the thumbnail once ready. The world is consumed when the thumbnail is rendered.
+    pending_thumbnail_world: Option<hecs::World>,
+    thumbnail: Option<d3d11::ShaderResourceView>,
 }
 
 impl EntityEntry {
@@ -47,6 +52,9 @@ pub struct EntityListTab {
     current_package: u16,
     current_tag: TagHash,
     scene: Scene,
+
+    /// Scene used exclusively for rendering thumbnails
+    thumbnail_scene: Scene,
 }
 
 impl EntityListTab {
@@ -71,6 +79,48 @@ impl EntityListTab {
             show_entities_without_models: false,
             current_tag: TagHash::NONE,
             scene: Scene::new(Renderer::instance().clone(), Camera::default()).unwrap(),
+            thumbnail_scene: Scene::new(
+                Renderer::instance().clone(),
+                Camera {
+                    max_ortho_width: 1.0,
+                    projection: deimos_render::camera::CameraProjection::Orthographic,
+                    near: 0.1,
+                    far: 1000.0,
+                    ..Default::default()
+                },
+            )
+            .unwrap()
+            .with_controller(CameraController::new_orbit(Vec3::ZERO, 10.0)),
+        }
+    }
+
+    fn render_thumbnails(&mut self, egui_ctx: &egui::Context) {
+        // Wait for the asset manager to finish loading before rendering thumbnails
+        if Renderer::instance().asset_manager.count_loading() > 0 {
+            return;
+        }
+
+        let Some(entries) = self.packages.get_mut(&self.current_package) else {
+            return;
+        };
+
+        for entry in entries.iter_mut() {
+            // .filter(|e| e.thumbnail.is_none()) {
+            if let Some(world) = entry.pending_thumbnail_world.take() {
+                self.thumbnail_scene.set_world(world);
+                self.thumbnail_scene.render(1.0 / 60.0, (512, 512));
+                match self.thumbnail_scene.copy_output_as_texture() {
+                    Ok(o) => {
+                        entry.thumbnail = Some(o);
+                    }
+                    Err(e) => {
+                        error!("Failed to render thumbnail for {}: {}", entry.hash, e);
+                    }
+                }
+                egui_ctx.request_repaint();
+                // entry.pending_thumbnail_world = Some(self.thumbnail_scene.take_world());
+                break;
+            }
         }
     }
 
@@ -97,7 +147,8 @@ impl EntityListTab {
                         Some(EntityEntry {
                             hash,
                             pattern,
-                            world: Some(world),
+                            pending_thumbnail_world: Some(world),
+                            thumbnail: None,
                         })
                     }
                     Err(err) => {
@@ -111,6 +162,7 @@ impl EntityListTab {
 
     pub fn ui(&mut self, ui: &mut Ui, egui_d3d11: &mut egui_d3d11::D3D11Renderer) -> TabResult {
         self.load_entries_for_pkg(self.current_package);
+        self.render_thumbnails(ui.ctx());
 
         ui.separator();
         ui.style_mut()
@@ -216,10 +268,27 @@ impl EntityListTab {
                                 FontId::proportional(16.0),
                                 ui.visuals().text_color(),
                             );
-                            egui::Image::new(spinner_image().clone()).paint_at(
-                                ui,
-                                Rect::from_center_size(card_image_rect.center(), vec2(64.0, 64.0)),
-                            );
+
+                            if let Some(thumbnail) = &entity.thumbnail {
+                                let tid = egui_d3d11.textures_mut().allocate_dx_temporary(
+                                    thumbnail.clone(),
+                                    Some(egui::TextureFilter::Linear),
+                                );
+                                card_painter.image(
+                                    tid,
+                                    card_image_rect,
+                                    Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
+                                    Color32::WHITE,
+                                );
+                            } else {
+                                egui::Image::new(spinner_image().clone()).paint_at(
+                                    ui,
+                                    Rect::from_center_size(
+                                        card_image_rect.center(),
+                                        vec2(64.0, 64.0),
+                                    ),
+                                );
+                            }
 
                             if card_response.hovered() || entity.hash == self.current_tag {
                                 let opacity = if entity.hash == self.current_tag {
