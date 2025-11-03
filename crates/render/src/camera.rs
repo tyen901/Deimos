@@ -15,7 +15,7 @@ pub struct Camera {
     pub max_ortho_width: f32,
 
     pub aspect_ratio: f32,
-    pub frustum: Frustum,
+    pub culling_frustum: Frustum,
 }
 
 impl Default for Camera {
@@ -30,7 +30,7 @@ impl Default for Camera {
             fov_y: 90.0,
             max_ortho_width: 2.0,
             aspect_ratio: 16. / 9.,
-            frustum: Frustum::default(),
+            culling_frustum: Frustum::default(),
         }
     }
 }
@@ -40,7 +40,9 @@ impl Camera {
     pub const FAR: f32 = 50000.0;
 
     pub fn update(&mut self) {
-        self.frustum = Frustum::from_camera(self);
+        self.fov_y += 10.0;
+        self.culling_frustum = Frustum::from_camera(self);
+        self.fov_y -= 10.0;
     }
 
     pub fn view_matrix(&self) -> glam::Mat4 {

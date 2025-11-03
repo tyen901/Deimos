@@ -130,7 +130,7 @@ impl DecoratorRenderer {
 
 impl FeatureRenderer for DecoratorRenderer {
     fn visibility_test(&mut self, camera: &crate::camera::Camera) -> bool {
-        camera.frustum.aabb_intersecting(&self.data.bounds)
+        camera.culling_frustum.aabb_intersecting(&self.data.bounds)
     }
 
     fn extract_and_prepare(

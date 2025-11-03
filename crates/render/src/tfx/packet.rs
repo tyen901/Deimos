@@ -24,6 +24,7 @@ impl FramePacket {
             render_object_handle,
             data: Box::new(()),
             distance: f32::MAX,
+            visible: true,
         });
     }
 
@@ -36,7 +37,12 @@ impl FramePacket {
             render_object_handle,
             data: Box::new(transform),
             distance: f32::MAX,
+            visible: true,
         });
+    }
+
+    pub fn iter_visible(&self) -> impl Iterator<Item = &FrameNode> {
+        self.frame_nodes.iter().filter(|node| node.visible)
     }
 }
 
@@ -44,12 +50,12 @@ impl FramePacket {
 #[derive(AssertOffsets)]
 pub struct FrameNode {
     pub render_object_handle: RenderObjectHandle,
-    #[offset(0x8)]
     pub data: Box<dyn Any>,
-    // pub data: Box<dyn Any, &'a Bump>,
-    #[offset(0x18)]
     pub distance: f32, // TODO: Needs to be on view node
+    pub visible: bool,
 }
+
+unsafe impl Send for FrameNode {}
 
 // #[repr(C)]
 // struct ViewNode {

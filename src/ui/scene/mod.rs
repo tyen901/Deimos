@@ -18,6 +18,7 @@ use deimos_render::{
 use egui::{FontId, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2, load::SizedTexture, vec2};
 use glam::Vec3;
 use google_material_symbols::GoogleMaterialSymbols;
+use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 
 use crate::{
     ui::{
@@ -254,32 +255,62 @@ impl Scene {
             {
                 profiling::scope!("visibility");
                 let _gpuspan = self.renderer.profiler.scope(&cmd, "visibility");
+                // self.renderer
+                //     .frame_packet
+                //     .write()
+                //     .frame_nodes
+                //     .retain(|node| {
+                //         if let Some(render_object) = self
+                //             .renderer
+                //             .objects
+                //             .write()
+                //             .get_mut(node.render_object_handle.into())
+                //         {
+                //             if !self
+                //                 .view
+                //                 .subscribed_features
+                //                 .is_subscribed(render_object.feature_type)
+                //             {
+                //                 return false;
+                //             }
+                //             render_object.visibility_test(&self.camera)
+                //         } else {
+                //             true
+                //         }
+                //     });
+
                 self.renderer
                     .frame_packet
                     .write()
                     .frame_nodes
-                    .retain(|node| {
-                        if let Some(render_object) = self
-                            .renderer
-                            .objects
-                            .write()
-                            .get_mut(node.render_object_handle.into())
-                        {
-                            if !self
-                                .view
-                                .subscribed_features
-                                .is_subscribed(render_object.feature_type)
+                    .par_iter_mut()
+                    .for_each(|node| {
+                        let p = self.renderer.objects.data_ptr();
+                        // SAFETY: We have exclusive access to the frame packet and the objects data, and each render object only has one frame node
+                        unsafe {
+                            if let Some(render_object) =
+                                (*p).get_mut(node.render_object_handle.into())
                             {
-                                return false;
+                                if !self
+                                    .view
+                                    .subscribed_features
+                                    .is_subscribed(render_object.feature_type)
+                                {
+                                    node.visible = false;
+                                } else {
+                                    node.visible = render_object.visibility_test(&self.camera);
+                                }
                             }
-                            render_object.visibility_test(&self.camera)
-                        } else {
-                            true
                         }
                     });
+                // self.renderer
+                //     .frame_packet
+                //     .write()
+                //     .frame_nodes
+                //     .retain(|node| node.visible);
             }
 
-            for node in self.renderer.frame_packet.read().frame_nodes.iter() {
+            for node in self.renderer.frame_packet.read().iter_visible() {
                 if let Some(render_object) = self
                     .renderer
                     .objects

@@ -1,28 +1,32 @@
 use std::ops::Deref;
 
 use deimos_data::tfx::common::AxisAlignedBBox;
-use glam::{vec4, Vec3, Vec4, Vec4Swizzles};
+use glam::{vec4, Vec3, Vec3A, Vec4, Vec4Swizzles};
 
-use crate::camera::Camera;
+use crate::{camera::Camera, Renderer};
 
 #[derive(Default)]
 pub struct Plane(pub Vec4);
 
 impl Plane {
-    pub fn intersect(p0: &Self, p1: &Self, p2: &Self) -> Vec3 {
-        let bxc = p1.xyz().cross(p2.xyz());
-        let cxa = p2.xyz().cross(p0.xyz());
-        let axb = p0.xyz().cross(p1.xyz());
+    pub fn normal(&self) -> Vec3A {
+        self.xyz().into()
+    }
+
+    pub fn intersect(p0: &Self, p1: &Self, p2: &Self) -> Vec3A {
+        let bxc = p1.normal().cross(p2.normal());
+        let cxa = p2.normal().cross(p0.normal());
+        let axb = p0.normal().cross(p1.normal());
         let r = -bxc * p0.w - cxa * p1.w - axb * p2.w;
-        r * (1.0 / bxc.dot(p0.xyz()))
+        r * (1.0 / bxc.dot(p0.normal()))
     }
 
     pub fn normalized(&self) -> Self {
         Plane(self.0 / self.xyz().length())
     }
 
-    pub fn get_signed_distance(&self, point: Vec3) -> f32 {
-        self.xyz().dot(point) + self.w
+    pub fn get_signed_distance(&self, point: Vec3A) -> f32 {
+        self.normal().dot(point) + self.w
     }
 }
 
@@ -37,15 +41,15 @@ impl Deref for Plane {
 #[derive(Default)]
 pub struct Frustum {
     pub planes: [Plane; 6],
-    pub points: [Vec3; 8],
+    pub points: [Vec3A; 8],
 }
 
 impl Frustum {
-    const NEAR: usize = 0;
-    const LEFT: usize = 1;
-    const RIGHT: usize = 2;
-    const BOTTOM: usize = 3;
-    const TOP: usize = 4;
+    const LEFT: usize = 0;
+    const RIGHT: usize = 1;
+    const BOTTOM: usize = 2;
+    const TOP: usize = 3;
+    const NEAR: usize = 4;
     const FAR: usize = 5;
 
     #[rustfmt::skip]
@@ -104,27 +108,29 @@ impl Frustum {
             cols[3][3] - cols[3][2],
         ));
 
-        Self::new([near, left, right, bottom, top, far])
+        Self::new([left, right, bottom, top, near, far])
     }
 
     pub fn aabb_intersecting(&self, bb: &AxisAlignedBBox) -> bool {
-        let extents = bb.extents();
-        let center = bb.center();
+        let extents: Vec3A = bb.extents().into();
+        let center: Vec3A = bb.center().into();
         let is_on_or_forward_plane = |plane: &Plane| {
-            let r =
-                extents.x * plane.x.abs() + extents.y * plane.y.abs() + extents.z * plane.z.abs();
+            let r = extents.dot(Vec3A::from(plane.xyz()).abs());
+            // let r =
+            //     extents.x * plane.x.abs() + extents.y * plane.y.abs() + extents.z * plane.z.abs();
             -r <= plane.get_signed_distance(center)
         };
 
         self.planes.iter().all(is_on_or_forward_plane)
     }
 
-    pub fn sphere_intersecting(&self, center: Vec3, radius: f32) -> bool {
-        for plane in &self.planes {
-            if plane.get_signed_distance(center) < -radius {
-                return false;
-            }
-        }
-        true
-    }
+    // pub fn sphere_intersecting(&self, center: impl Into<Vec3A>, radius: f32) -> bool {
+    //     let center = center.into();
+    //     for plane in &self.planes {
+    //         if plane.get_signed_distance(center) < -radius {
+    //             return false;
+    //         }
+    //     }
+    //     true
+    // }
 }

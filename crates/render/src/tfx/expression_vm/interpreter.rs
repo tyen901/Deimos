@@ -1,5 +1,6 @@
 use core::f32;
 use std::arch::x86_64::{__m128, _mm_fmadd_ps};
+use std::mem::transmute;
 use std::ops::{Add, Mul, Sub};
 
 use anyhow::{ensure, Context};

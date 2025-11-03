@@ -15,7 +15,18 @@ fn main() {
         bytecode.push(0x01);
         // cubic
         bytecode.push(Opcode::Cubic as u8);
-        // pop_output 3        bytecode.push(Opcode::PopOutput as u8);
+        for _ in 0..3 {
+            // jitter
+            bytecode.push(Opcode::Jitter as u8);
+            // triangle
+            bytecode.push(Opcode::Triangle as u8);
+            // wander
+            bytecode.push(Opcode::Wander as u8);
+        }
+        // permute .xxxx
+        bytecode.push(Opcode::Splat as u8);
+        // pop_output 3
+        bytecode.push(Opcode::PopOutput as u8);
         bytecode.push(0x02);
     }
 

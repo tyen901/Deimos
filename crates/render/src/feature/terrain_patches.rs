@@ -193,7 +193,9 @@ impl FeatureRenderer for TerrainPatchesRenderer {
         //     _ => TerrainDetailLevel::High,
         // };
 
-        camera.frustum.aabb_intersecting(&self.terrain.bounds)
+        camera
+            .culling_frustum
+            .aabb_intersecting(&self.terrain.bounds)
     }
 
     fn extract_and_prepare(
