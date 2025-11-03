@@ -87,7 +87,7 @@ impl Technique {
     }
 
     // #[profiling::function]
-    #[tracing::instrument(skip(self, cmd, channels), fields(technique = %self.hash))]
+    // #[tracing::instrument(skip(self, cmd, channels), fields(technique = %self.hash))]
     pub fn bind_with_channels(
         &self,
         cmd: &mut CommandList,
