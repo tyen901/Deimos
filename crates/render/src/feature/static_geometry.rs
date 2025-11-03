@@ -312,12 +312,9 @@ impl FeatureRenderer for StaticInstancesRenderer {
             return false;
         }
 
-        let max_dist = ConVars::get("render.max_distance").unwrap_or(f32::INFINITY);
-
         self.visible_instance_ids.clear();
         for (i, (_, b)) in self.transforms.iter().enumerate() {
-            let distance = (camera.position.distance(b.center()) - b.radius()).max(0.0);
-            if distance < max_dist && camera.culling_frustum.aabb_intersecting(b) {
+            if camera.culling_frustum.aabb_intersecting(b) {
                 self.visible_instance_ids.push(1 + i as u32);
             }
         }
