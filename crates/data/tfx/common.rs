@@ -80,22 +80,11 @@ impl AxisAlignedBBox {
     }
 }
 
-impl Add for AxisAlignedBBox {
-    type Output = Self;
-
-    fn add(self, other: Self) -> Self {
-        Self {
-            min: self.min.min(other.min),
-            max: self.max.max(other.max),
-        }
-    }
-}
-
 impl Sum for AxisAlignedBBox {
     fn sum<I>(iter: I) -> Self
     where
         I: Iterator<Item = Self>,
     {
-        iter.fold(Self::NONE, |acc, bbox| acc + bbox)
+        iter.fold(Self::NONE, |acc, bbox| acc.union(&bbox))
     }
 }

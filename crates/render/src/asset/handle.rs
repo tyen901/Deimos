@@ -1,18 +1,18 @@
 use std::{
     any::Any,
+    cell::UnsafeCell,
     sync::{
         atomic::{AtomicBool, AtomicUsize},
         Arc,
     },
 };
 
-use arc_atomic::AtomicArc;
 use tiger_pkg::TagHash;
 
 use super::Asset;
 
 struct AssetHolder {
-    data: AtomicArc<Arc<dyn Any + Send + Sync>>,
+    data: UnsafeCell<Arc<dyn Any + Send + Sync>>,
     loaded: AtomicBool,
     ref_count: AtomicUsize,
 }
@@ -20,12 +20,15 @@ struct AssetHolder {
 impl AssetHolder {
     fn new() -> Self {
         Self {
-            data: AtomicArc::new(Arc::new(Arc::new(()))),
+            data: UnsafeCell::new(Arc::new(Arc::new(()))),
             loaded: AtomicBool::new(false),
             ref_count: AtomicUsize::new(1),
         }
     }
 }
+
+unsafe impl Send for AssetHolder {}
+unsafe impl Sync for AssetHolder {}
 
 pub struct UntypedHandle {
     inner: Arc<AssetHolder>,
@@ -46,6 +49,10 @@ impl UntypedHandle {
         }
     }
 
+    pub fn is_loaded(&self) -> bool {
+        self.inner.loaded.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
     /// # Safety
     /// The caller must ensure that the asset is of the correct type.
     pub unsafe fn clone_as_typed_unchecked<T: Asset>(&self) -> Handle<T> {
@@ -55,13 +62,16 @@ impl UntypedHandle {
         }
     }
 
-    #[deprecated(note = "Use `update_boxed` instead")]
-    pub fn update<T: Asset + Send + Sync + 'static>(&self, asset: T) {
-        self.update_boxed(Box::new(asset));
-    }
+    pub fn update<T: Asset + Send + Sync + 'static>(&self, asset: Box<T>) {
+        if self.is_loaded() {
+            error!(
+                "Attempted to update already loaded asset handle {}",
+                self.tag
+            );
+            return;
+        }
 
-    pub fn update_boxed<T: Asset + Send + Sync + 'static>(&self, asset: Box<T>) {
-        self.inner.data.store(Arc::new(Arc::<T>::from(asset)));
+        unsafe { *self.inner.data.get() = Arc::new(Arc::<T>::from(asset)) };
         self.inner
             .loaded
             .store(true, std::sync::atomic::Ordering::Relaxed);
@@ -101,10 +111,7 @@ pub struct Handle<T: Asset + 'static> {
 
 impl<T: Asset + Sync + Send + 'static> Handle<T> {
     pub fn is_loaded(&self) -> bool {
-        self.asset
-            .inner
-            .loaded
-            .load(std::sync::atomic::Ordering::Relaxed)
+        self.asset.is_loaded()
     }
 
     pub fn is_null(&self) -> bool {
@@ -120,12 +127,12 @@ impl<T: Asset + Sync + Send + 'static> Handle<T> {
             return None;
         }
 
-        let data = Arc::clone(&*self.asset.inner.data.load());
-        data.downcast().ok()
+        let data = unsafe { &*self.asset.inner.data.get() };
+        data.downcast_ref().cloned()
     }
 
     pub fn update(&self, asset: Box<T>) {
-        self.asset.update_boxed(asset);
+        self.asset.update(asset);
     }
 
     pub fn ref_count(&self) -> usize {
