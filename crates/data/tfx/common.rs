@@ -30,6 +30,23 @@ impl AxisAlignedBBox {
         max: Vec4::new(f32::MIN, f32::MIN, f32::MIN, f32::MIN),
     };
 
+    pub fn from_center_extents(center: Vec3, extents: Vec3) -> Self {
+        Self {
+            min: vec3(
+                center.x - extents.x / 2.0,
+                center.y - extents.y / 2.0,
+                center.z - extents.z / 2.0,
+            )
+            .extend(0.0),
+            max: vec3(
+                center.x + extents.x / 2.0,
+                center.y + extents.y / 2.0,
+                center.z + extents.z / 2.0,
+            )
+            .extend(0.0),
+        }
+    }
+
     pub fn extents(&self) -> Vec3 {
         (self.max - self.min).xyz()
     }

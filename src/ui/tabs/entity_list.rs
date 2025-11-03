@@ -1,19 +1,11 @@
 use std::collections::BTreeMap;
 
-use deimos_data::{
-    map::ComponentData,
-    pattern::SPattern,
-    tfx::{TfxFeatureRenderer, features::dynamic::SDynamicModel},
-};
-use deimos_render::{
-    Renderer, camera::Camera, feature::rigid_model::DynamicModel, object::RenderObject,
-    tfx::packet::CompactTransform,
-};
+use deimos_data::{pattern::SPattern, tfx::common::AxisAlignedBBox};
+use deimos_render::{Renderer, camera::Camera};
 use egui::{Color32, CornerRadius, FontId, Pos2, Rect, Sense, TextStyle, Ui, Vec2, vec2};
-use glam::{Mat4, Vec3, Vec4Swizzles};
-use itertools::Itertools;
+use glam::Vec3;
 use tiger_parse::{PackageManagerExt, TigerReadable};
-use tiger_pkg::{TagHash, package, package_manager};
+use tiger_pkg::{TagHash, package_manager};
 
 use crate::{
     ui::{
@@ -107,7 +99,14 @@ impl EntityListTab {
         for entry in entries.iter_mut() {
             // .filter(|e| e.thumbnail.is_none()) {
             if let Some(world) = entry.pending_thumbnail_world.take() {
+                let bb = world
+                    .query::<&AxisAlignedBBox>()
+                    .iter()
+                    .next()
+                    .map(|(_, bb)| bb.clone())
+                    .unwrap_or(AxisAlignedBBox::from_center_extents(Vec3::ZERO, Vec3::ONE));
                 self.thumbnail_scene.set_world(world);
+                self.thumbnail_scene.focus_fit_ortho(&bb);
                 self.thumbnail_scene.render(1.0 / 60.0, (512, 512));
                 match self.thumbnail_scene.copy_output_as_texture() {
                     Ok(o) => {
