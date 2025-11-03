@@ -103,7 +103,7 @@ fn fix_windows_console() {
     {
         pub type Handle = *mut std::ffi::c_void;
 
-        extern "C" {
+        unsafe extern "C" {
             fn SetConsoleMode(handle: Handle, mode: u32) -> i32;
             fn GetStdHandle(handle: u32) -> Handle;
         }

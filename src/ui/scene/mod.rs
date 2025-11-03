@@ -12,10 +12,7 @@ use bitflags::Flags;
 use d3d11::{ShaderResourceView, Texture2D, Texture2dDesc, dxgi};
 use deimos_data::tfx::{FeatureRendererSubscription, common::AxisAlignedBBox};
 use deimos_render::{
-    Gpu, Renderer,
-    camera::Camera,
-    gpu::command_list::CommandList,
-    renderer::submit::DebugPipeline,
+    Gpu, Renderer, camera::Camera, gpu::command_list::CommandList, renderer::submit::DebugPipeline,
     tfx::view::View,
 };
 use egui::{FontId, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2, load::SizedTexture, vec2};
@@ -155,6 +152,20 @@ impl Scene {
             egui::FontId::monospace(16.0),
             egui::Color32::GREEN,
         );
+
+        if self.renderer.asset_manager.count_loading() > 0 {
+            ui.painter_at(r.rect).text(
+                r.rect.left_bottom() + Vec2::new(6.0, -3.0),
+                egui::Align2::LEFT_BOTTOM,
+                format!(
+                    "{} Loading assets... ({} in progress)",
+                    GoogleMaterialSymbols::HardDrive,
+                    self.renderer.asset_manager.count_loading()
+                ),
+                egui::FontId::proportional(16.0),
+                egui::Color32::WHITE,
+            );
+        }
 
         ui.style_mut().spacing.tooltip_width = 4096.0;
         ui.interact(
