@@ -1,5 +1,5 @@
 use tiger_parse::{
-    tiger_type, tiger_variant_enum, ResourcePointer, ResourcePointerWithClass, VariantPointer,
+    tiger_type, ResourcePointer, ResourcePointerWithClass, VariantPointer,
 };
 
 use crate::{map::ComponentData, tag::Tag};

@@ -1,7 +1,6 @@
 pub mod convar;
 use std::{
-    path::{Path, PathBuf},
-    str::FromStr,
+    path::PathBuf,
     sync::Arc,
 };
 

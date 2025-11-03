@@ -15,11 +15,12 @@ pub enum CameraController {
 }
 
 impl CameraController {
+    pub const DEFAULT_YAW_PITCH: Vec2 = Vec2::new(220.0, 25.0);
     pub fn new_orbit(target: Vec3, distance: f32) -> Self {
         Self::Orbit {
             target,
             distance,
-            yaw_pitch: Vec2::new(220.0, 25.0),
+            yaw_pitch: Self::DEFAULT_YAW_PITCH,
         }
     }
 
@@ -116,6 +117,17 @@ impl CameraController {
         }
 
         self.update_rotation(camera);
+    }
+
+    pub fn set_yaw_pitch(&mut self, yaw_pitch: Vec2) {
+        match self {
+            CameraController::Orbit { yaw_pitch: yp, .. } => {
+                *yp = yaw_pitch;
+            }
+            CameraController::FirstPerson { yaw_pitch: yp, .. } => {
+                *yp = yaw_pitch;
+            }
+        }
     }
 
     pub fn update_rotation(&mut self, camera: &mut Camera) {
