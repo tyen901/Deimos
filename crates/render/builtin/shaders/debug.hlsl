@@ -116,7 +116,7 @@ float remap(float value, float min, float max) {
 }
 
 // static float3 SkyColor = float3(0.58, 0.78, 1);
-static float3 SkyColor = float3(0.063, 0.059, 0.067) / 4;
+static float3 SkyColor = float3(0.063, 0.059, 0.067) / 8;
 
 float4 mainPS(VSOutput input) : SV_TARGET {
   float4 rt0 = gbuffer_albedo.Sample(samplerState, input.uv);
