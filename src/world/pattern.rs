@@ -31,10 +31,18 @@ pub fn spawn_pattern(
     pattern_tag: TagHash,
     map_data: Option<&ComponentData>,
 ) -> anyhow::Result<hecs::Entity> {
-    let renderer = Renderer::instance();
     let header = package_manager()
         .read_tag_struct::<SPattern>(pattern_tag)
         .context("Failed to read SEntity")?;
+    spawn_pattern_from_header(world, &header, map_data)
+}
+
+pub fn spawn_pattern_from_header(
+    world: &mut hecs::World,
+    header: &SPattern,
+    map_data: Option<&ComponentData>,
+) -> anyhow::Result<hecs::Entity> {
+    let renderer = Renderer::instance();
 
     let entity = world.spawn(());
 
