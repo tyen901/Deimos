@@ -43,9 +43,11 @@ pub fn s_extract_render_objects(world: &hecs::World, frame_packet: &mut FramePac
         frame_packet.push_static_render_object(static_render_object.handle);
     }
 
-    for (_entity, (transform, render_object)) in
-        world.query::<(&Transform, &DynamicRenderObject)>().iter()
+    for (_entity, (transform, render_object)) in world
+        .query::<(Option<&Transform>, &DynamicRenderObject)>()
+        .iter()
     {
+        let transform = transform.copied().unwrap_or_default();
         frame_packet
             .push_dynamic_render_object(render_object.handle, transform.local_to_world().into());
     }

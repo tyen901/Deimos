@@ -12,8 +12,12 @@ use bitflags::Flags;
 use d3d11::{ShaderResourceView, Texture2D, Texture2dDesc, dxgi};
 use deimos_data::tfx::FeatureRendererSubscription;
 use deimos_render::{
-    Gpu, Renderer, camera::Camera, gpu::command_list::CommandList, object::RenderObject,
-    renderer::submit::DebugPipeline, tfx::view::View,
+    Gpu, Renderer,
+    camera::Camera,
+    gpu::command_list::CommandList,
+    object::RenderObject,
+    renderer::{submit::DebugPipeline, surface::SurfaceProxy},
+    tfx::view::View,
 };
 use egui::{FontId, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2, load::SizedTexture, vec2};
 use glam::{Mat4, Vec3};
@@ -47,7 +51,7 @@ pub struct Scene {
 
 impl Scene {
     pub fn new(renderer: Arc<Renderer>, camera: Camera) -> anyhow::Result<Self> {
-        let (surface, surface_srv) = Self::create_surface(&renderer.gpu, (128, 128))?;
+        let (surface, surface_srv) = Self::create_surface(&renderer.gpu, (512, 512))?;
 
         Ok(Self {
             world: hecs::World::new(),
@@ -89,20 +93,12 @@ impl Scene {
         Ok((texture, srv))
     }
 
-    pub fn add_static_object(&mut self, object: RenderObject) {
-        warn!("Static render objects are not yet reimplemented in Scene");
-        // self.static_render_objects
-        //     .push(self.renderer.add_object(object));
-    }
-
-    pub fn add_dynamic_object(&mut self, object: RenderObject, transform: Mat4) {
-        warn!("Dynamic render objects are not yet reimplemented in Scene");
-        // self.dynamic_render_objects
-        //     .push((self.renderer.add_object(object), transform));
-    }
-
     pub fn set_world(&mut self, world: hecs::World) {
         self.world = world;
+    }
+
+    pub fn take_world(&mut self) -> hecs::World {
+        std::mem::take(&mut self.world)
     }
 
     pub fn clear(&mut self) {
@@ -179,20 +175,8 @@ impl Scene {
 
         let size_pixels = size * ui.ctx().pixels_per_point();
         let resolution = (size_pixels.x as u32, size_pixels.y as u32);
-        if resolution != self.surface.get_desc().resolution() {
-            let (texture, srv) = Self::create_surface(&self.renderer.gpu, resolution)
-                .expect("Failed to resize scene surface");
-            self.surface = texture;
-            self.surface_srv = srv;
-        }
 
-        self.camera.aspect_ratio = resolution.0 as f32 / resolution.1 as f32;
         self.controller.update(&mut self.camera, ui, &r, delta_time);
-        self.camera.update();
-        let camera_to_projective = self.camera.projection_matrix(self.camera.aspect_ratio);
-        let world_to_camera = self.camera.view_matrix();
-        self.view
-            .update(world_to_camera, camera_to_projective, resolution);
 
         if (r.dragged_by(egui::PointerButton::Secondary)
             || r.dragged_by(egui::PointerButton::Primary))
@@ -203,7 +187,7 @@ impl Scene {
             self.sun_light_angle = self.sun_light_angle.rem_euclid(360.0);
         }
 
-        self.render(delta_time);
+        self.render(delta_time, resolution);
     }
 
     fn show_toolbar(&mut self, ui: &mut Ui) {
@@ -213,7 +197,22 @@ impl Scene {
         self.view.subscribed_features.show_input(ui);
     }
 
-    fn render(&mut self, delta_time: f32) {
+    pub fn render(&mut self, delta_time: f32, resolution: (u32, u32)) {
+        if resolution != self.surface.get_desc().resolution() {
+            let (texture, srv) = Self::create_surface(&self.renderer.gpu, resolution)
+                .expect("Failed to resize scene surface");
+            self.surface = texture;
+            self.surface_srv = srv;
+        }
+
+        self.camera.aspect_ratio = resolution.0 as f32 / resolution.1 as f32;
+        self.controller.update_rotation(&mut self.camera);
+        self.camera.update();
+        let camera_to_projective = self.camera.projection_matrix(self.camera.aspect_ratio);
+        let world_to_camera = self.camera.view_matrix();
+        self.view
+            .update(world_to_camera, camera_to_projective, resolution);
+
         let gpu = &self.renderer.gpu;
         let mut cmd = CommandList::from_device_context(gpu, gpu.context().clone());
         let _gpuspan = self.renderer.profiler.scope(&cmd, "Scene::render (total)");
@@ -330,6 +329,21 @@ impl Scene {
         {
             self.profiler_results = Some(self.renderer.profiler.get_results_string());
         }
+    }
+
+    pub fn copy_output_as_texture(&self) -> anyhow::Result<d3d11::ShaderResourceView> {
+        let texture = self
+            .renderer
+            .gpu
+            .create_texture2d(&self.surface.get_desc(), None)?;
+        self.renderer
+            .gpu
+            .context()
+            .copy_resource(&self.surface, &texture);
+        Ok(self
+            .renderer
+            .gpu
+            .create_shader_resource_view(&texture, None)?)
     }
 
     pub fn focus_on(&mut self, position: Vec3) {

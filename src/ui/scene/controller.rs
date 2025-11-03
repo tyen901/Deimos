@@ -68,9 +68,6 @@ impl CameraController {
                         .cross(*target, 0.15, 0xffffff);
                 }
 
-                camera.rotation = Quat::from_rotation_z(yaw_pitch.x.to_radians())
-                    * Quat::from_rotation_y(yaw_pitch.y.to_radians());
-
                 camera.position = *target - camera.forward() * real_distance;
             }
             Self::FirstPerson { speed, yaw_pitch } => {
@@ -105,7 +102,6 @@ impl CameraController {
                         movement *= 2.5;
                     }
                 });
-                camera.position += movement * delta_time * *speed;
 
                 if (response.dragged_by(egui::PointerButton::Primary)
                     || response.dragged_by(egui::PointerButton::Secondary))
@@ -114,10 +110,29 @@ impl CameraController {
                     let drag_delta = response.drag_delta();
                     *yaw_pitch += (drag_delta / 10.0) * vec2(-1.0, 1.3);
                     yaw_pitch.y = yaw_pitch.y.clamp(-89.0, 89.0);
-
-                    camera.rotation = Quat::from_rotation_z(yaw_pitch.x.to_radians())
-                        * Quat::from_rotation_y(yaw_pitch.y.to_radians());
                 }
+                camera.position += movement * delta_time * *speed;
+            }
+        }
+
+        self.update_rotation(camera);
+    }
+
+    pub fn update_rotation(&mut self, camera: &mut Camera) {
+        match self {
+            CameraController::Orbit {
+                target,
+                yaw_pitch,
+                distance,
+            } => {
+                camera.rotation = Quat::from_rotation_z(yaw_pitch.x.to_radians())
+                    * Quat::from_rotation_y(yaw_pitch.y.to_radians());
+                let real_distance = 2.0f32.powf(*distance * 0.3) - 0.9;
+                camera.position = *target - camera.forward() * real_distance;
+            }
+            CameraController::FirstPerson { yaw_pitch, .. } => {
+                camera.rotation = Quat::from_rotation_z(yaw_pitch.x.to_radians())
+                    * Quat::from_rotation_y(yaw_pitch.y.to_radians());
             }
         }
     }

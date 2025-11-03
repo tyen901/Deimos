@@ -71,6 +71,7 @@ impl TextureAllocator {
         tid
     }
 
+    /// Allocate a temporary texture that will be freed after the current frame finishes painting
     pub fn allocate_dx_temporary(
         &mut self,
         srv: d3d11::ShaderResourceView,
