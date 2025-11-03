@@ -396,6 +396,22 @@ impl EntityListTab {
                                     }
                                 }
                             }
+
+                            card_response.context_menu(|ui| {
+                                ui.style_mut()
+                                    .text_styles
+                                    .insert(TextStyle::Button, FontId::proportional(16.0));
+                                if ui.button("Copy hash").clicked() {
+                                    ui.ctx().copy_text(entity.hash.to_string());
+                                    ui.close_menu();
+                                }
+
+                                if ui.button("Copy hash (MIDA)").clicked() {
+                                    ui.ctx()
+                                        .copy_text(format!("{:08X}", entity.hash.0.swap_bytes()));
+                                    ui.close_menu();
+                                }
+                            });
                         }
                     });
                 });
