@@ -316,19 +316,28 @@ impl EntityListTab {
 
                                 self.scene.clear();
                                 match spawn_pattern(&mut self.scene.world, entity.hash, None) {
-                                    Ok(entity) => {
-                                        self.scene.world.insert_one(entity, Transform::default());
-                                        self.scene.focus_on(Vec3::ZERO);
-                                        // self.scene.focus_fit(model.model.bounding_sphere());
-                                        // self.scene.focus_on(model.model.model_offset.xyz());
-                                        // self.scene.add_dynamic_object(
-                                        //     RenderObject::new(
-                                        //         TfxFeatureRenderer::RigidObject,
-                                        //         model,
-                                        //         Box::new(CompactTransform::IDENTITY),
-                                        //     ),
-                                        //     Mat4::IDENTITY,
-                                        // );
+                                    Ok(_entity) => {
+                                        let bb = self
+                                            .scene
+                                            .world
+                                            .query::<&AxisAlignedBBox>()
+                                            .iter()
+                                            .fold(
+                                                Option::<AxisAlignedBBox>::None,
+                                                |acc, (_, bb)| {
+                                                    if let Some(acc) = acc {
+                                                        Some(acc.union(bb))
+                                                    } else {
+                                                        Some(bb.clone())
+                                                    }
+                                                },
+                                            )
+                                            .unwrap_or(AxisAlignedBBox::from_center_extents(
+                                                Vec3::ZERO,
+                                                Vec3::ONE,
+                                            ));
+
+                                        self.scene.focus_on(bb.center());
                                     }
                                     Err(err) => {
                                         error!("Failed to load model: {err}");

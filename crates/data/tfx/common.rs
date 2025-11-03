@@ -71,6 +71,13 @@ impl AxisAlignedBBox {
             vec3(self.max.x, self.max.y, self.max.z),
         ]
     }
+
+    pub fn union(&self, other: &Self) -> Self {
+        Self {
+            min: self.min.min(other.min),
+            max: self.max.max(other.max),
+        }
+    }
 }
 
 impl Add for AxisAlignedBBox {
