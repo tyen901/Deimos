@@ -2,13 +2,14 @@ use std::any::Any;
 
 use anyhow::Context;
 use deimos_data::tfx::{
+    common::AxisAlignedBBox,
     features::dynamic::{
         RenderStageSubscription, SDynamicMesh, SDynamicMeshMaterialVariants, SDynamicMeshPart,
         SDynamicModel,
     },
     RenderStage, ShaderStage, TfxScopeBits,
 };
-use glam::{Mat4, Vec4};
+use glam::{Mat4, Vec4, Vec4Swizzles};
 use itertools::{multizip, Itertools};
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::package_manager;
@@ -47,6 +48,7 @@ pub struct DynamicModel {
 
     pub cb: ConstantBuffer<RigidModel>,
     pub channels: TempObjectChannels,
+    pub transform: Mat4,
 }
 
 impl DynamicModel {
@@ -125,6 +127,7 @@ impl DynamicModel {
             cb: ConstantBuffer::create(&Renderer::instance().gpu, None)
                 .context("Failed to create constant buffer")?,
             channels: TempObjectChannels::default(),
+            transform: Mat4::IDENTITY,
         }))
     }
 
@@ -248,6 +251,16 @@ impl DynamicModel {
 }
 
 impl FeatureRenderer for DynamicModel {
+    fn visibility_test(&mut self, camera: &crate::camera::Camera) -> bool {
+        let bounds = AxisAlignedBBox::from_center_extents(
+            self.model.model_offset.xyz(),
+            self.model.model_scale.xyz() * 2.0,
+        )
+        .transformed(self.transform);
+
+        camera.is_visible(&bounds)
+    }
+
     fn extract_and_prepare(
         &mut self,
         renderer: &Renderer,
@@ -261,6 +274,7 @@ impl FeatureRenderer for DynamicModel {
             .downcast_ref::<CompactTransform>()
             .expect("Invalid extracted data type")
             .clone();
+        self.transform = obj_local_to_world.to_mat4();
 
         self.cb
             .write(
