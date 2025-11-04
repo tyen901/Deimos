@@ -255,54 +255,54 @@ impl Scene {
             {
                 profiling::scope!("visibility");
                 let _gpuspan = self.renderer.profiler.scope(&cmd, "visibility");
-                // self.renderer
-                //     .frame_packet
-                //     .write()
-                //     .frame_nodes
-                //     .retain(|node| {
-                //         if let Some(render_object) = self
-                //             .renderer
-                //             .objects
-                //             .write()
-                //             .get_mut(node.render_object_handle.into())
-                //         {
-                //             if !self
-                //                 .view
-                //                 .subscribed_features
-                //                 .is_subscribed(render_object.feature_type)
-                //             {
-                //                 return false;
-                //             }
-                //             render_object.visibility_test(&self.camera)
-                //         } else {
-                //             true
-                //         }
-                //     });
-
                 self.renderer
                     .frame_packet
                     .write()
                     .frame_nodes
-                    .par_iter_mut()
-                    .for_each(|node| {
-                        let p = self.renderer.objects.data_ptr();
-                        // SAFETY: We have exclusive access to the frame packet and the objects data, and each render object only has one frame node
-                        unsafe {
-                            if let Some(render_object) =
-                                (*p).get_mut(node.render_object_handle.into())
+                    .retain(|node| {
+                        if let Some(render_object) = self
+                            .renderer
+                            .objects
+                            .write()
+                            .get_mut(node.render_object_handle.into())
+                        {
+                            if !self
+                                .view
+                                .subscribed_features
+                                .is_subscribed(render_object.feature_type)
                             {
-                                if !self
-                                    .view
-                                    .subscribed_features
-                                    .is_subscribed(render_object.feature_type)
-                                {
-                                    node.visible = false;
-                                } else {
-                                    node.visible = render_object.visibility_test(&self.camera);
-                                }
+                                return false;
                             }
+                            render_object.visibility_test(&self.camera)
+                        } else {
+                            true
                         }
                     });
+
+                // self.renderer
+                //     .frame_packet
+                //     .write()
+                //     .frame_nodes
+                //     .par_iter_mut()
+                //     .for_each(|node| {
+                //         let p = self.renderer.objects.data_ptr();
+                //         // SAFETY: We have exclusive access to the frame packet and the objects data, and each render object only has one frame node
+                //         unsafe {
+                //             if let Some(render_object) =
+                //                 (*p).get_mut(node.render_object_handle.into())
+                //             {
+                //                 if !self
+                //                     .view
+                //                     .subscribed_features
+                //                     .is_subscribed(render_object.feature_type)
+                //                 {
+                //                     node.visible = false;
+                //                 } else {
+                //                     node.visible = render_object.visibility_test(&self.camera);
+                //                 }
+                //             }
+                //         }
+                //     });
                 // self.renderer
                 //     .frame_packet
                 //     .write()

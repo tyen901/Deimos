@@ -18,8 +18,11 @@ use deimos_data::{
 use deimos_render::{
     Renderer,
     feature::{
-        decals::DecalCollectionRenderer, decorators::DecoratorRenderer, rigid_model::DynamicModel,
-        static_geometry::StaticInstancesRenderer, terrain_patches::TerrainPatchesRenderer,
+        decals::DecalCollectionRenderer,
+        decorators::DecoratorRenderer,
+        rigid_model::DynamicModel,
+        static_geometry::{StaticInstancesRenderer, StaticModelRenderer},
+        terrain_patches::TerrainPatchesRenderer,
     },
     object::RenderObject,
     tfx::packet::CompactTransform,
@@ -143,37 +146,48 @@ pub fn spawn_pattern_from_header(
             0x808085AF => {
                 let data = get_component_data!(SStaticInstancesCollectionComponent);
                 let instances: SUnk808082D5 = package_manager().read_tag_struct(data.instances)?;
+                world.insert_one(
+                    entity,
+                    StaticRenderObject::new(renderer.add_object(RenderObject::new(
+                        TfxFeatureRenderer::ChunkedInstanceObjects,
+                        Box::new(StaticInstancesRenderer::load(
+                            &renderer.gpu,
+                            instances.instances,
+                        )?),
+                        Box::new(()),
+                    ))),
+                );
 
-                for group in &instances.instances.instance_groups {
-                    let model = instances.instances.statics[group.static_index as usize];
-                    let range = (group.instance_start as usize)
-                        ..(group.instance_start + group.instance_count) as usize;
+                // for group in &instances.instances.instance_groups {
+                //     let model = instances.instances.statics[group.static_index as usize];
+                //     let range = (group.instance_start as usize)
+                //         ..(group.instance_start + group.instance_count) as usize;
 
-                    let renderer = StaticInstancesRenderer::new(
-                        &renderer.gpu,
-                        instances.instances.transforms[range.clone()]
-                            .iter()
-                            .cloned()
-                            .zip(
-                                instances.instances.occlusion_bounds.bounds[range]
-                                    .iter()
-                                    .map(|b| &b.bb)
-                                    .cloned(),
-                            )
-                            .collect(),
-                        model,
-                        instances.instances.vertex_ao_identifier,
-                    )?;
+                //     let renderer = StaticModelRenderer::new(
+                //         &renderer.gpu,
+                //         instances.instances.transforms[range.clone()]
+                //             .iter()
+                //             .cloned()
+                //             .zip(
+                //                 instances.instances.occlusion_bounds.bounds[range]
+                //                     .iter()
+                //                     .map(|b| &b.bb)
+                //                     .cloned(),
+                //             )
+                //             .collect(),
+                //         model,
+                //         instances.instances.vertex_ao_identifier,
+                //     )?;
 
-                    // TODO(cohae): It's pretty stupid that we have to spawn a new entity for each group, since it breaks up the pattern structure
-                    world.spawn((StaticRenderObject::new(Renderer::instance().add_object(
-                        RenderObject::new(
-                            deimos_data::tfx::TfxFeatureRenderer::ChunkedInstanceObjects,
-                            Box::new(renderer),
-                            Box::new(()),
-                        ),
-                    )),));
-                }
+                //     // TODO(cohae): It's pretty stupid that we have to spawn a new entity for each group, since it breaks up the pattern structure
+                //     world.spawn((StaticRenderObject::new(Renderer::instance().add_object(
+                //         RenderObject::new(
+                //             deimos_data::tfx::TfxFeatureRenderer::ChunkedInstanceObjects,
+                //             Box::new(renderer),
+                //             Box::new(()),
+                //         ),
+                //     )),));
+                // }
 
                 // world.insert_one(
                 //     entity,

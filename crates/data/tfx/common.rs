@@ -1,4 +1,4 @@
-use std::{iter::Sum, ops::Add};
+use std::iter::Sum;
 
 use glam::{vec3, Vec3, Vec4, Vec4Swizzles};
 use tiger_parse::tiger_type;

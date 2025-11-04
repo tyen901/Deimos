@@ -82,7 +82,9 @@ impl TextureView {
                 }
             }
             TextureView::Resource(texture) => {
-                if let Some(t) = texture.get() { f(&t.view) }
+                if let Some(t) = texture.get() {
+                    f(&t.view)
+                }
             }
             TextureView::Raw(srv) => f(srv),
             TextureView::None => {}
@@ -99,7 +101,7 @@ impl Debug for TextureView {
         match self {
             TextureView::None => write!(f, "None"),
             TextureView::Surface(surface) => write!(f, "Surface({surface:?})"),
-            TextureView::Resource(texture) => write!(f, "Resource({})", texture.tag()),
+            TextureView::Resource(texture) => write!(f, "Resource({})", texture.hash()),
             TextureView::Raw(_) => write!(f, "Raw"),
         }
     }
