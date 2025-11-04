@@ -16,7 +16,7 @@ use deimos_data::tfx::{
 use glam::{Mat4, Vec3, Vec4};
 use hashbrown::HashMap;
 use itertools::Itertools;
-use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
+use rayon::iter::{IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::package_manager;
 use tiger_pkg::TagHash;
@@ -24,7 +24,7 @@ use tiger_pkg::TagHash;
 use crate::{
     asset::{vertex_buffer::VertexBuffer, Handle},
     camera::Camera,
-    gpu::{cbuffer::ConstantBuffer, command_list::CommandList},
+    gpu::{cbuffer::ConstantBuffer, command_list::CommandList, state::GpuState},
     tfx::technique::Technique,
     Gpu, Renderer,
 };
@@ -167,70 +167,79 @@ impl StaticModelRenderer {
         })
     }
 
-    // #[profiling::function]
-    // pub fn render_all(&self, cmd: &mut CommandList, stage: RenderStage) {
-    //     self.unk_cb1.bind(cmd, ShaderStage::Vertex, 1);
-    //     self.instance_buffer.bind(cmd, ShaderStage::Vertex, 2);
-    //     self.instance_id_buffer.bind_single(cmd, 2);
+    #[profiling::function]
+    pub fn render_all(&self, cmd: &mut CommandList, stage: RenderStage) {
+        self.unk_cb1.bind(cmd, ShaderStage::Vertex, 1);
+        self.instance_buffer.bind(cmd, ShaderStage::Vertex, 2);
+        self.instance_id_buffer.bind_single(cmd, 2);
 
-    //     let opaque_meshes = &self.model.model.opaque_meshes;
-    //     for (i, group, part) in opaque_meshes
-    //         .mesh_groups
-    //         .iter()
-    //         .enumerate()
-    //         .map(|(i, g)| (i, g, &opaque_meshes.parts[g.part_index as usize]))
-    //         .filter(|(_, g, p)| g.render_stage == stage && p.lod_category.is_highest_detail())
-    //     {
-    //         let buffers = &self.model.buffers[part.buffer_index as usize];
-    //         if buffers.bind(cmd).is_none() {
-    //             continue;
-    //         }
+        let is_opaque = matches!(
+            stage,
+            RenderStage::ShadowGenerate | RenderStage::DepthPrepass | RenderStage::GenerateGbuffer
+        );
 
-    //         if let Some(technique) = &self.model.materials.get(i).and_then(Handle::get) {
-    //             technique.bind(cmd);
-    //         } else {
-    //             continue;
-    //         }
+        if is_opaque {
+            let opaque_meshes = &self.model.model.opaque_meshes;
+            for (i, group, part) in opaque_meshes
+                .mesh_groups
+                .iter()
+                .enumerate()
+                .map(|(i, g)| (i, g, &opaque_meshes.parts[g.part_index as usize]))
+                .filter(|(_, g, p)| g.render_stage == stage && p.lod_category.is_highest_detail())
+            {
+                let buffers = &self.model.buffers[part.buffer_index as usize];
+                if buffers.bind(cmd).is_none() {
+                    continue;
+                }
 
-    //         cmd.set_input_layout(group.input_layout_index as usize);
-    //         cmd.set_input_topology(part.primitive_type);
+                if let Some(technique) = &self.model.materials.get(i).and_then(Handle::get) {
+                    technique.bind(cmd);
+                } else {
+                    continue;
+                }
 
-    //         cmd.draw_indexed_instanced(
-    //             part.index_count,
-    //             self.visible_instance_ids.len() as u32,
-    //             part.index_start,
-    //             0,
-    //             0,
-    //         );
-    //     }
+                cmd.set_input_layout(group.input_layout_index as usize);
+                cmd.set_input_topology(part.primitive_type);
 
-    //     for mesh in self
-    //         .model
-    //         .special_meshes
-    //         .iter()
-    //         .filter(|m| m.mesh.render_stage == stage && m.mesh.lod.is_highest_detail())
-    //     {
-    //         if mesh.buffers.bind(cmd).is_none() {
-    //             continue;
-    //         }
+                cmd.draw_indexed_instanced(
+                    part.index_count,
+                    self.visible_instance_ids.len() as u32,
+                    part.index_start,
+                    0,
+                    0,
+                );
+            }
+        }
 
-    //         if let Some(technique) = &mesh.technique.get() {
-    //             technique.bind(cmd);
-    //         } else {
-    //             continue;
-    //         }
-    //         cmd.set_input_layout(mesh.input_layout_index as usize);
-    //         cmd.set_input_topology(mesh.primitive_type);
+        if !is_opaque {
+            for mesh in self
+                .model
+                .special_meshes
+                .iter()
+                .filter(|m| m.mesh.render_stage == stage && m.mesh.lod.is_highest_detail())
+            {
+                if mesh.buffers.bind(cmd).is_none() {
+                    continue;
+                }
 
-    //         cmd.draw_indexed_instanced(
-    //             mesh.index_count,
-    //             self.visible_instance_ids.len() as u32,
-    //             mesh.index_start,
-    //             0,
-    //             0,
-    //         );
-    //     }
-    // }
+                if let Some(technique) = &mesh.technique.get() {
+                    technique.bind(cmd);
+                } else {
+                    continue;
+                }
+                cmd.set_input_layout(mesh.input_layout_index as usize);
+                cmd.set_input_topology(mesh.primitive_type);
+
+                cmd.draw_indexed_instanced(
+                    mesh.index_count,
+                    self.visible_instance_ids.len() as u32,
+                    mesh.index_start,
+                    0,
+                    0,
+                );
+            }
+        }
+    }
 
     #[profiling::function]
     pub fn render_group(&self, cmd: &mut CommandList, stage: RenderStage, group: usize) {
@@ -269,33 +278,6 @@ impl StaticModelRenderer {
             0,
             0,
         );
-
-        // for mesh in self
-        //     .model
-        //     .special_meshes
-        //     .iter()
-        //     .filter(|m| m.mesh.render_stage == stage && m.mesh.lod.is_highest_detail())
-        // {
-        //     if mesh.buffers.bind(cmd).is_none() {
-        //         continue;
-        //     }
-
-        //     if let Some(technique) = &mesh.technique.get() {
-        //         technique.bind(cmd);
-        //     } else {
-        //         continue;
-        //     }
-        //     cmd.set_input_layout(mesh.input_layout_index as usize);
-        //     cmd.set_input_topology(mesh.primitive_type);
-
-        //     cmd.draw_indexed_instanced(
-        //         mesh.index_count,
-        //         self.visible_instance_ids.len() as u32,
-        //         mesh.index_start,
-        //         0,
-        //         0,
-        //     );
-        // }
     }
 
     #[profiling::function]
@@ -507,18 +489,45 @@ impl FeatureRenderer for StaticInstancesRenderer {
     fn submit(&self, cmd: &mut CommandList, stage: RenderStage) {
         let Some(groups_sorted_by_technique) = self.groups_by_stage_sorted_by_technique.get(&stage)
         else {
+            // Special meshes are rendered single-threaded for now
+            for (model, _visible) in self.models.iter().filter(|(_, v)| *v) {
+                model.render_all(cmd, stage);
+            }
             return;
         };
 
-        for (_technique_hash, model_index, group_index) in groups_sorted_by_technique.iter() {
-            let (model, visible) = &self.models[*model_index];
-            if *visible {
-                model.render_group(cmd, stage, *group_index);
-            }
+        // Equally divide groups_sorted_by_technique into X ranges for parallel processing
+        let mut job_ranges = vec![];
+        let job_count = 6;
+        let node_count = groups_sorted_by_technique.len();
+        for i in 0..job_count {
+            let node_start = (i * node_count) / job_count;
+            let node_end = ((i + 1) * node_count) / job_count;
+
+            job_ranges.push(node_start..node_end);
         }
-        // for (model, _visible) in self.models.iter().filter(|(_, visible)| *visible) {
-        //     model.render(cmd, stage);
-        // }
+
+        let initial_state = Arc::new(GpuState::backup(cmd));
+        let command_lists = job_ranges
+            .par_iter()
+            .map(|range| {
+                let mut cmd = cmd.new_sublist();
+                initial_state.restore(&mut cmd);
+                for (_technique_hash, model_index, group_index) in
+                    &groups_sorted_by_technique[range.clone()]
+                {
+                    let (model, visible) = &self.models[*model_index];
+                    if *visible {
+                        model.render_group(&mut cmd, stage, *group_index);
+                    }
+                }
+
+                cmd
+            })
+            .collect::<Vec<_>>();
+        for command_list in command_lists {
+            cmd.execute_command_list(&command_list.finish_command_list(false).unwrap(), true);
+        }
     }
 
     fn subscribed_stages(&self) -> RenderStageSubscription {
