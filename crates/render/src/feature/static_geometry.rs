@@ -1,17 +1,22 @@
 use std::{f32, io::Write, ops::Deref, sync::Arc};
 
 use bytemuck::{Pod, Zeroable};
-use deimos_core::ConVars;
+use d3d11::DeviceContext;
 use deimos_data::tfx::{
     common::AxisAlignedBBox,
     features::{
         dynamic::RenderStageSubscription,
-        statics::{SStaticInstanceTransform, SStaticMesh, SStaticSpecialMesh},
+        statics::{
+            SStaticInstanceTransform, SStaticMesh, SStaticMeshInstanceGroup, SStaticMeshInstances,
+            SStaticSpecialMesh,
+        },
     },
     RenderStage, ShaderStage,
 };
 use glam::{Mat4, Vec3, Vec4};
+use hashbrown::HashMap;
 use itertools::Itertools;
+use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::package_manager;
 use tiger_pkg::TagHash;
@@ -106,7 +111,7 @@ impl StaticModel {
     }
 }
 
-pub struct StaticInstancesRenderer {
+pub struct StaticModelRenderer {
     unk_cb1: ConstantBuffer<Vec4>,
     instance_buffer: ConstantBuffer<u8>,
     instance_id_buffer: VertexBuffer,
@@ -127,7 +132,7 @@ pub struct InstanceTransformBlock {
     pub params1: Vec4,
 }
 
-impl StaticInstancesRenderer {
+impl StaticModelRenderer {
     pub fn new(
         gpu: &Arc<Gpu>,
         transforms: Vec<(SStaticInstanceTransform, AxisAlignedBBox)>,
@@ -162,69 +167,135 @@ impl StaticInstancesRenderer {
         })
     }
 
+    // #[profiling::function]
+    // pub fn render_all(&self, cmd: &mut CommandList, stage: RenderStage) {
+    //     self.unk_cb1.bind(cmd, ShaderStage::Vertex, 1);
+    //     self.instance_buffer.bind(cmd, ShaderStage::Vertex, 2);
+    //     self.instance_id_buffer.bind_single(cmd, 2);
+
+    //     let opaque_meshes = &self.model.model.opaque_meshes;
+    //     for (i, group, part) in opaque_meshes
+    //         .mesh_groups
+    //         .iter()
+    //         .enumerate()
+    //         .map(|(i, g)| (i, g, &opaque_meshes.parts[g.part_index as usize]))
+    //         .filter(|(_, g, p)| g.render_stage == stage && p.lod_category.is_highest_detail())
+    //     {
+    //         let buffers = &self.model.buffers[part.buffer_index as usize];
+    //         if buffers.bind(cmd).is_none() {
+    //             continue;
+    //         }
+
+    //         if let Some(technique) = &self.model.materials.get(i).and_then(Handle::get) {
+    //             technique.bind(cmd);
+    //         } else {
+    //             continue;
+    //         }
+
+    //         cmd.set_input_layout(group.input_layout_index as usize);
+    //         cmd.set_input_topology(part.primitive_type);
+
+    //         cmd.draw_indexed_instanced(
+    //             part.index_count,
+    //             self.visible_instance_ids.len() as u32,
+    //             part.index_start,
+    //             0,
+    //             0,
+    //         );
+    //     }
+
+    //     for mesh in self
+    //         .model
+    //         .special_meshes
+    //         .iter()
+    //         .filter(|m| m.mesh.render_stage == stage && m.mesh.lod.is_highest_detail())
+    //     {
+    //         if mesh.buffers.bind(cmd).is_none() {
+    //             continue;
+    //         }
+
+    //         if let Some(technique) = &mesh.technique.get() {
+    //             technique.bind(cmd);
+    //         } else {
+    //             continue;
+    //         }
+    //         cmd.set_input_layout(mesh.input_layout_index as usize);
+    //         cmd.set_input_topology(mesh.primitive_type);
+
+    //         cmd.draw_indexed_instanced(
+    //             mesh.index_count,
+    //             self.visible_instance_ids.len() as u32,
+    //             mesh.index_start,
+    //             0,
+    //             0,
+    //         );
+    //     }
+    // }
+
     #[profiling::function]
-    pub fn render(&self, cmd: &mut CommandList, stage: RenderStage) {
+    pub fn render_group(&self, cmd: &mut CommandList, stage: RenderStage, group: usize) {
         self.unk_cb1.bind(cmd, ShaderStage::Vertex, 1);
         self.instance_buffer.bind(cmd, ShaderStage::Vertex, 2);
         self.instance_id_buffer.bind_single(cmd, 2);
 
-        let opaque_meshes = &self.model.model.opaque_meshes;
-        for (i, group, part) in opaque_meshes
-            .mesh_groups
-            .iter()
-            .enumerate()
-            .map(|(i, g)| (i, g, &opaque_meshes.parts[g.part_index as usize]))
-            .filter(|(_, g, p)| g.render_stage == stage && p.lod_category.is_highest_detail())
-        {
-            let buffers = &self.model.buffers[part.buffer_index as usize];
-            if buffers.bind(cmd).is_none() {
-                continue;
-            }
-
-            if let Some(technique) = &self.model.materials.get(i).and_then(Handle::get) {
-                technique.bind(cmd);
-            } else {
-                continue;
-            }
-
-            cmd.set_input_layout(group.input_layout_index as usize);
-            cmd.set_input_topology(part.primitive_type);
-
-            cmd.draw_indexed_instanced(
-                part.index_count,
-                self.visible_instance_ids.len() as u32,
-                part.index_start,
-                0,
-                0,
-            );
+        let i = group;
+        let group = &self.model.model.opaque_meshes.mesh_groups[i];
+        if group.render_stage != stage {
+            return;
+        }
+        let part = &self.model.model.opaque_meshes.parts[group.part_index as usize];
+        if !part.lod_category.is_highest_detail() {
+            return;
         }
 
-        for mesh in self
-            .model
-            .special_meshes
-            .iter()
-            .filter(|m| m.mesh.render_stage == stage && m.mesh.lod.is_highest_detail())
-        {
-            if mesh.buffers.bind(cmd).is_none() {
-                continue;
-            }
-
-            if let Some(technique) = &mesh.technique.get() {
-                technique.bind(cmd);
-            } else {
-                continue;
-            }
-            cmd.set_input_layout(mesh.input_layout_index as usize);
-            cmd.set_input_topology(mesh.primitive_type);
-
-            cmd.draw_indexed_instanced(
-                mesh.index_count,
-                self.visible_instance_ids.len() as u32,
-                mesh.index_start,
-                0,
-                0,
-            );
+        let buffers = &self.model.buffers[part.buffer_index as usize];
+        if buffers.bind(cmd).is_none() {
+            return;
         }
+
+        if let Some(technique) = &self.model.materials.get(i).and_then(Handle::get) {
+            technique.bind(cmd);
+        } else {
+            return;
+        }
+
+        cmd.set_input_layout(group.input_layout_index as usize);
+        cmd.set_input_topology(part.primitive_type);
+
+        cmd.draw_indexed_instanced(
+            part.index_count,
+            self.visible_instance_ids.len() as u32,
+            part.index_start,
+            0,
+            0,
+        );
+
+        // for mesh in self
+        //     .model
+        //     .special_meshes
+        //     .iter()
+        //     .filter(|m| m.mesh.render_stage == stage && m.mesh.lod.is_highest_detail())
+        // {
+        //     if mesh.buffers.bind(cmd).is_none() {
+        //         continue;
+        //     }
+
+        //     if let Some(technique) = &mesh.technique.get() {
+        //         technique.bind(cmd);
+        //     } else {
+        //         continue;
+        //     }
+        //     cmd.set_input_layout(mesh.input_layout_index as usize);
+        //     cmd.set_input_topology(mesh.primitive_type);
+
+        //     cmd.draw_indexed_instanced(
+        //         mesh.index_count,
+        //         self.visible_instance_ids.len() as u32,
+        //         mesh.index_start,
+        //         0,
+        //         0,
+        //     );
+        // }
     }
 
     #[profiling::function]
@@ -304,9 +375,7 @@ impl StaticInstancesRenderer {
             self.instance_buffer.write_array(ctx, &buffer).unwrap();
         }
     }
-}
 
-impl FeatureRenderer for StaticInstancesRenderer {
     fn visibility_test(&mut self, camera: &Camera) -> bool {
         if !camera.culling_frustum.aabb_intersecting(&self.bounds) {
             return false;
@@ -322,31 +391,182 @@ impl FeatureRenderer for StaticInstancesRenderer {
         !self.visible_instance_ids.is_empty()
     }
 
-    fn extract_and_prepare(
-        &mut self,
-        renderer: &Renderer,
-        _data: &mut dyn super::FeatureRendererData,
-        _extracted_data: &dyn std::any::Any,
-    ) {
-        if self.constants_dirty {
-            self.update_constants(
-                &renderer.gpu.context(), /*, renderer.ao.read().as_ref() */
-            );
-            self.constants_dirty = false;
-        }
-    }
-
-    fn submit(&self, cmd: &mut CommandList, stage: RenderStage) {
+    fn prepare_write_instance_ids(&self, cmd: &DeviceContext) {
         // Safety: there's never more instances than we allocated space for (hopefully)
         unsafe {
             self.instance_id_buffer
                 .write(cmd, bytemuck::cast_slice(&self.visible_instance_ids))
                 .unwrap();
         }
-        self.render(cmd, stage);
+    }
+}
+
+pub struct StaticInstancesRenderer {
+    subscribed_stages: RenderStageSubscription,
+    /// (model, visible)
+    models: Vec<(StaticModelRenderer, bool)>,
+
+    // (technique_hash, model_index, group_index) sorted by the group's technique hash
+    groups_by_stage_sorted_by_technique: HashMap<RenderStage, Vec<(TagHash, usize, usize)>>,
+}
+
+impl StaticInstancesRenderer {
+    pub fn load(gpu: &Arc<Gpu>, instances_hash: TagHash) -> anyhow::Result<Self> {
+        let instances: SStaticMeshInstances = package_manager().read_tag_struct(instances_hash)?;
+        let mut models = Vec::with_capacity(instances.instance_groups.len());
+        for group in &instances.instance_groups {
+            let model = instances.statics[group.static_index as usize];
+            let range = (group.instance_start as usize)
+                ..(group.instance_start + group.instance_count) as usize;
+
+            let renderer = StaticModelRenderer::new(
+                gpu,
+                instances.transforms[range.clone()]
+                    .iter()
+                    .cloned()
+                    .zip(
+                        instances.occlusion_bounds.bounds[range]
+                            .iter()
+                            .map(|b| &b.bb)
+                            .cloned(),
+                    )
+                    .collect(),
+                model,
+                instances.vertex_ao_identifier,
+            )?;
+
+            models.push((renderer, false));
+        }
+
+        let mut groups_by_stage_sorted_by_technique: HashMap<
+            RenderStage,
+            Vec<(TagHash, usize, usize)>,
+        > = HashMap::default();
+        for (model_index, (model, _visible)) in models.iter().enumerate() {
+            for (group_index, (group, technique)) in model
+                .model
+                .model
+                .opaque_meshes
+                .mesh_groups
+                .iter()
+                .zip(model.model.materials.iter())
+                .enumerate()
+            {
+                let part = &model.model.model.opaque_meshes.parts[group.part_index as usize];
+                if part.lod_category.is_highest_detail() {
+                    groups_by_stage_sorted_by_technique
+                        .entry(group.render_stage)
+                        .or_default()
+                        .push((technique.hash(), model_index, group_index));
+                }
+            }
+        }
+
+        for (_stage, groups_sorted_by_technique) in groups_by_stage_sorted_by_technique.iter_mut() {
+            groups_sorted_by_technique.sort_unstable_by_key(|k| k.0);
+        }
+
+        Ok(Self {
+            subscribed_stages: models
+                .iter()
+                .fold(RenderStageSubscription::empty(), |acc, m| {
+                    acc | m.0.model.subscribed_stages
+                }),
+            models,
+            groups_by_stage_sorted_by_technique,
+        })
+    }
+}
+
+impl FeatureRenderer for StaticInstancesRenderer {
+    fn visibility_test(&mut self, camera: &Camera) -> bool {
+        self.models.par_iter_mut().for_each(|(model, visible)| {
+            *visible = model.visibility_test(camera);
+        });
+        true
+    }
+
+    fn extract_and_prepare(
+        &mut self,
+        renderer: &Renderer,
+        _data: &mut dyn super::FeatureRendererData,
+        _extracted_data: &dyn std::any::Any,
+    ) {
+        let ctx = renderer.gpu.context();
+        for (model, _visible) in self.models.iter_mut().filter(|(_, visible)| *visible) {
+            model.prepare_write_instance_ids(&ctx);
+            if model.constants_dirty {
+                model.update_constants(
+                    &renderer.gpu.context(), /*, renderer.ao.read().as_ref() */
+                );
+                model.constants_dirty = false;
+            }
+        }
+    }
+
+    fn submit(&self, cmd: &mut CommandList, stage: RenderStage) {
+        let Some(groups_sorted_by_technique) = self.groups_by_stage_sorted_by_technique.get(&stage)
+        else {
+            return;
+        };
+
+        for (_technique_hash, model_index, group_index) in groups_sorted_by_technique.iter() {
+            let (model, visible) = &self.models[*model_index];
+            if *visible {
+                model.render_group(cmd, stage, *group_index);
+            }
+        }
+        // for (model, _visible) in self.models.iter().filter(|(_, visible)| *visible) {
+        //     model.render(cmd, stage);
+        // }
     }
 
     fn subscribed_stages(&self) -> RenderStageSubscription {
-        self.model.subscribed_stages
+        self.subscribed_stages
     }
 }
+
+// impl FeatureRenderer for StaticModelRenderer {
+//     fn visibility_test(&mut self, camera: &Camera) -> bool {
+//         if !camera.culling_frustum.aabb_intersecting(&self.bounds) {
+//             return false;
+//         }
+
+//         self.visible_instance_ids.clear();
+//         for (i, (_, b)) in self.transforms.iter().enumerate() {
+//             if camera.culling_frustum.aabb_intersecting(b) {
+//                 self.visible_instance_ids.push(1 + i as u32);
+//             }
+//         }
+
+//         !self.visible_instance_ids.is_empty()
+//     }
+
+//     fn extract_and_prepare(
+//         &mut self,
+//         renderer: &Renderer,
+//         _data: &mut dyn super::FeatureRendererData,
+//         _extracted_data: &dyn std::any::Any,
+//     ) {
+//         if self.constants_dirty {
+//             self.update_constants(
+//                 &renderer.gpu.context(), /*, renderer.ao.read().as_ref() */
+//             );
+//             self.constants_dirty = false;
+//         }
+//     }
+
+//     fn submit(&self, cmd: &mut CommandList, stage: RenderStage) {
+//         // Safety: there's never more instances than we allocated space for (hopefully)
+//         unsafe {
+//             self.instance_id_buffer
+//                 .write(cmd, bytemuck::cast_slice(&self.visible_instance_ids))
+//                 .unwrap();
+//         }
+//         self.render(cmd, stage);
+//     }
+
+//     fn subscribed_stages(&self) -> RenderStageSubscription {
+//         self.model.subscribed_stages
+//     }
+// }

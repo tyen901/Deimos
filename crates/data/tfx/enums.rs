@@ -7,7 +7,7 @@ use tiger_parse::{tiger_type, TigerReadable};
 use super::features::dynamic::RenderStageSubscription;
 
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq, IntEnum)]
+#[derive(Clone, Copy, Debug, PartialEq, IntEnum, Hash, Eq)]
 pub enum RenderStage {
     GenerateGbuffer = 0,
     RoadDecals,

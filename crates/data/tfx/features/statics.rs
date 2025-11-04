@@ -129,5 +129,5 @@ pub struct SStaticSpecialMesh {
 #[tiger_type(id = 0x808082D5, size = 0x24)]
 pub struct SUnk808082D5 {
     pub unk0: u64,
-    pub instances: Tag<SStaticMeshInstances>,
+    pub instances: TagHash, //Tag<SStaticMeshInstances>,
 }

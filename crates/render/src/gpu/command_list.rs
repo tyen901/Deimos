@@ -66,6 +66,21 @@ impl CommandList {
         }
     }
 
+    pub fn new_sublist(&self) -> Self {
+        let mut new = CommandList::from_device_context(
+            &self.parent,
+            self.parent
+                .create_deferred_context()
+                .expect("Failed to create deferred context"),
+        );
+
+        new.state = self.state;
+        new.state_override = self.state_override;
+        new.depth_mode = self.depth_mode;
+
+        new
+    }
+
     pub fn gpu(&self) -> &Gpu {
         &self.parent
     }
