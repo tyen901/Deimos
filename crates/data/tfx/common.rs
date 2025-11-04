@@ -47,16 +47,19 @@ impl AxisAlignedBBox {
         }
     }
 
-    pub fn extents(&self) -> Vec3 {
-        (self.max - self.min).xyz()
-    }
+    pub fn from_points(points: &[Vec3]) -> Self {
+        let mut min = Vec3::splat(f32::MAX);
+        let mut max = Vec3::splat(f32::MIN);
 
-    pub fn center(&self) -> Vec3 {
-        ((self.min + self.max) / 2.0).xyz()
-    }
+        for &point in points {
+            min = min.min(point);
+            max = max.max(point);
+        }
 
-    pub fn radius(&self) -> f32 {
-        self.extents().length() / 2.0
+        Self {
+            min: min.extend(1.0),
+            max: max.extend(1.0),
+        }
     }
 
     pub fn points(&self) -> [Vec3; 8] {
@@ -70,6 +73,27 @@ impl AxisAlignedBBox {
             vec3(self.max.x, self.max.y, self.min.z),
             vec3(self.max.x, self.max.y, self.max.z),
         ]
+    }
+
+    pub fn transformed(&self, transform: glam::Mat4) -> Self {
+        let points = self.points();
+        let transformed_points: Vec<Vec3> = points
+            .iter()
+            .map(|&point| transform.transform_point3(point))
+            .collect();
+        Self::from_points(&transformed_points)
+    }
+
+    pub fn extents(&self) -> Vec3 {
+        (self.max - self.min).xyz()
+    }
+
+    pub fn center(&self) -> Vec3 {
+        ((self.min + self.max) / 2.0).xyz()
+    }
+
+    pub fn radius(&self) -> f32 {
+        self.extents().length() / 2.0
     }
 
     pub fn union(&self, other: &Self) -> Self {

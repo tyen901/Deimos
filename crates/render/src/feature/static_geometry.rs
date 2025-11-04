@@ -365,7 +365,7 @@ impl StaticModelRenderer {
 
         self.visible_instance_ids.clear();
         for (i, (_, b)) in self.transforms.iter().enumerate() {
-            if camera.culling_frustum.aabb_intersecting(b) {
+            if camera.is_visible(b) {
                 self.visible_instance_ids.push(1 + i as u32);
             }
         }
