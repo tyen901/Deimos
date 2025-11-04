@@ -53,7 +53,9 @@ impl View {
             gbuffers,
             shading_result,
             output,
-            subscribed_features: FeatureRendererSubscription::all(),
+            subscribed_features: FeatureRendererSubscription::all_but(
+                deimos_data::tfx::TfxFeatureRenderer::SpeedtreeTrees,
+            ),
         })
     }
 
