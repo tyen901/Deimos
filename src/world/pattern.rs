@@ -2,6 +2,7 @@ use std::io::{Cursor, Seek, SeekFrom};
 
 use crate::world::{
     UnimplementedTigerComponent, UnimplementedTigerComponents,
+    permutations::PermutationConfig,
     render_objects::{DynamicRenderObject, StaticRenderObject},
     transform::Transform,
 };
@@ -12,7 +13,10 @@ use deimos_data::{
     tfx::{
         TfxFeatureRenderer,
         common::AxisAlignedBBox,
-        features::{dynamic::SDynamicMeshMaterialVariants, statics::SUnk808082D5},
+        features::{
+            dynamic::{SDynamicMeshMaterialVariants, SDynamicModelComponent},
+            statics::SUnk808082D5,
+        },
     },
 };
 use deimos_render::{
@@ -93,22 +97,15 @@ pub fn spawn_pattern_from_header(
         match component.unk10.resource_type {
             0x80808673 => {
                 let mut cur = Cursor::new(package_manager().read_tag(component.taghash())?);
-                cur.seek(SeekFrom::Start(component.unk18.offset + 0x244))?;
-                let model_hash: TagHash = TigerReadable::read_ds_endian(&mut cur, Endian::Little)?;
+                cur.seek(SeekFrom::Start(component.unk18.offset))?;
+                let model: SDynamicModelComponent = TigerReadable::read_ds(&mut cur)?;
 
-                cur.seek(SeekFrom::Start(component.unk18.offset + 0x3e8))?;
-                let technique_map: Vec<SDynamicMeshMaterialVariants> =
-                    TigerReadable::read_ds_endian(&mut cur, Endian::Little)?;
+                if let Some(permutations) = PermutationConfig::from_model(&model) {
+                    world.insert_one(entity, permutations)?;
+                }
 
-                // cur.seek(SeekFrom::Start(entref.unk18.offset + 0x3f0))?;
-                // let entity_material_map_pre: Vec<(u16, u16)> =
-                //     TigerReadable::read_ds_endian(&mut cur, Endian::Little)?;
-
-                cur.seek(SeekFrom::Start(component.unk18.offset + 0x428))?;
-                let techniques: Vec<TagHash> =
-                    TigerReadable::read_ds_endian(&mut cur, Endian::Little)?;
-
-                let model = DynamicModel::load(model_hash, technique_map, techniques)?;
+                let model =
+                    DynamicModel::load(model.model_hash, model.technique_map, model.techniques)?;
                 world.insert_one(
                     entity,
                     AxisAlignedBBox::from_center_extents(

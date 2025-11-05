@@ -110,7 +110,7 @@ impl DynamicModel {
             + 1;
 
         Ok(Box::new(Self {
-            permutation: 0,
+            permutation: permutation_count - 1,
             permutation_count,
             // selected_mesh: 0,
             identifier_count,
