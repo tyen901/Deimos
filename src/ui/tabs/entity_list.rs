@@ -242,21 +242,24 @@ impl EntityListTab {
         egui::SidePanel::right("entities_scene")
             .default_width(ui.ctx().screen_rect().width() * 0.3)
             .show_inside(ui, |ui| {
-                if let Some((_, (config, obj))) = self
+                if let Some((_, config)) = self
                     .scene
                     .world
-                    .query::<(&mut PermutationConfig, &mut DynamicRenderObject)>()
+                    .query::<&mut PermutationConfig>()
                     .iter()
                     .next()
                 {
                     ui.style_mut()
                         .text_styles
-                        .insert(TextStyle::Button, FontId::proportional(16.0));
+                        .insert(TextStyle::Button, FontId::proportional(14.0));
+                    ui.style_mut()
+                        .text_styles
+                        .insert(TextStyle::Body, FontId::proportional(12.0));
                     egui::TopBottomPanel::bottom("entities_scene_configuration").show_inside(
                         ui,
                         |ui| {
                             ui.add_space(12.0);
-                            let mut config_changed = false;
+
                             config.for_each_key_mut(|key, available_values, current_value| {
                                 ui.horizontal(|ui| {
                                     ui.label(permutations::find_kv_name_or_default(key));
@@ -277,24 +280,27 @@ impl EntityListTab {
                                             if *value == OPTION_KEY_INVALID {
                                                 continue;
                                             }
-                                            config_changed |= ui
+                                            ui
                                                 .selectable_value(
                                                     current_value,
                                                     *value,
                                                     permutations::find_kv_name_or_default(*value),
-                                                )
-                                                .changed();
+                                                );
                                         }
                                     });
                                 });
                             });
 
-                            if config_changed {
-                                if let Some(permutation) = config.calculate_permutation_index() {
-                                    obj.permutation = permutation;
-                                } else {
-                                    warn!("Failed to calculate permutation index");
-                                }
+                            if config.calculate_permutation_index().is_none() {
+                                ui.colored_label(
+                                    Color32::YELLOW,
+                                    "Warning: Current configuration does not map to a valid permutation (hover for details)",
+                                ).on_hover_ui(|ui| {
+                                    ui.style_mut()
+                                        .text_styles
+                                        .insert(TextStyle::Body, FontId::proportional(12.0));
+                                    ui.label("The current combination of permutation keys does not correspond to any valid permutation for this model.\nThis is a bug in Deimos, and may happen more frequently with models that have a large number of options.");
+                                });
                             }
                         },
                     );

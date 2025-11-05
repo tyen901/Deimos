@@ -1,6 +1,6 @@
 use deimos_render::{Renderer, object::RenderObjectHandle, tfx::packet::FramePacket};
 
-use crate::world::transform::Transform;
+use crate::world::{permutations::PermutationConfig, transform::Transform};
 
 pub struct StaticRenderObject {
     handle: RenderObjectHandle,
@@ -45,15 +45,27 @@ pub fn s_extract_render_objects(world: &hecs::World, frame_packet: &mut FramePac
         frame_packet.push_static_render_object(static_render_object.handle);
     }
 
-    for (_entity, (transform, render_object)) in world
-        .query::<(Option<&Transform>, &DynamicRenderObject)>()
+    for (_entity, (transform, render_object, permutations)) in world
+        .query::<(
+            Option<&Transform>,
+            &DynamicRenderObject,
+            Option<&PermutationConfig>,
+        )>()
         .iter()
     {
         let transform = transform.copied().unwrap_or_default();
+        let permutation = if let Some(permutation) = permutations {
+            permutation
+                .calculate_permutation_index()
+                .unwrap_or(render_object.permutation)
+        } else {
+            render_object.permutation
+        };
+
         frame_packet.push_dynamic_render_object(
             render_object.handle,
             transform.local_to_world().into(),
-            render_object.permutation,
+            permutation,
         );
     }
 }
