@@ -6,7 +6,7 @@ mod tag_lookup;
 
 use std::fmt::Display;
 
-use egui::{Margin, Widget};
+use egui::Margin;
 use egui_dock::{DockState, NodeIndex, SurfaceIndex, TabIndex};
 use entity_list::EntityListTab;
 use google_material_symbols::GoogleMaterialSymbols;

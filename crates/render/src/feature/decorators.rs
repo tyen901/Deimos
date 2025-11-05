@@ -133,14 +133,8 @@ impl FeatureRenderer for DecoratorRenderer {
         camera.culling_frustum.aabb_intersecting(&self.data.bounds)
     }
 
-    fn extract_and_prepare(
-        &mut self,
-        renderer: &Renderer,
-        data: &mut dyn super::FeatureRendererData,
-        extracted_data: &dyn std::any::Any,
-    ) {
+    fn extract_and_prepare(&mut self, renderer: &Renderer, extracted_data: &dyn std::any::Any) {
         _ = renderer;
-        _ = data;
         _ = extracted_data;
 
         // for (m, _, _) in &mut self.models {

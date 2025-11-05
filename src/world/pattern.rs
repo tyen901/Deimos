@@ -18,14 +18,10 @@ use deimos_data::{
 use deimos_render::{
     Renderer,
     feature::{
-        decals::DecalCollectionRenderer,
-        decorators::DecoratorRenderer,
-        rigid_model::DynamicModel,
-        static_geometry::{StaticInstancesRenderer, StaticModelRenderer},
-        terrain_patches::TerrainPatchesRenderer,
+        decals::DecalCollectionRenderer, decorators::DecoratorRenderer, rigid_model::DynamicModel,
+        static_geometry::StaticInstancesRenderer, terrain_patches::TerrainPatchesRenderer,
     },
     object::RenderObject,
-    tfx::packet::CompactTransform,
 };
 use glam::Vec4Swizzles;
 use tiger_parse::{Endian, PackageManagerExt, TigerReadable};
@@ -121,11 +117,8 @@ pub fn spawn_pattern_from_header(
                     ),
                 )?;
 
-                let obj = Renderer::instance().add_object(RenderObject::new(
-                    TfxFeatureRenderer::RigidObject,
-                    model,
-                    Box::new(CompactTransform::IDENTITY),
-                ));
+                let obj = Renderer::instance()
+                    .add_object(RenderObject::new(TfxFeatureRenderer::RigidObject, model));
                 world.insert_one(entity, DynamicRenderObject::new(obj))?;
             }
             0x80808562 => {
@@ -139,7 +132,6 @@ pub fn spawn_pattern_from_header(
                     StaticRenderObject::new(Renderer::instance().add_object(RenderObject::new(
                         deimos_data::tfx::TfxFeatureRenderer::TerrainPatch,
                         renderer,
-                        Box::new(()),
                     ))),
                 )?;
             }
@@ -154,9 +146,8 @@ pub fn spawn_pattern_from_header(
                             &renderer.gpu,
                             instances.instances,
                         )?),
-                        Box::new(()),
                     ))),
-                );
+                )?;
 
                 // for group in &instances.instances.instance_groups {
                 //     let model = instances.instances.statics[group.static_index as usize];
@@ -208,7 +199,6 @@ pub fn spawn_pattern_from_header(
                             RenderObject::new(
                                 deimos_data::tfx::TfxFeatureRenderer::DynamicDecals,
                                 renderer,
-                                Box::new(()),
                             ),
                         )),
                     )?;
@@ -228,7 +218,6 @@ pub fn spawn_pattern_from_header(
                             RenderObject::new(
                                 deimos_data::tfx::TfxFeatureRenderer::SpeedtreeTrees,
                                 Box::new(renderer),
-                                Box::new(()),
                             ),
                         )),
                     )?;
@@ -246,7 +235,6 @@ pub fn spawn_pattern_from_header(
                     let render_obj = RenderObject::new(
                         TfxFeatureRenderer::SkyTransparent,
                         DynamicModel::load(obj.model_ref.entity_model, vec![], vec![])?,
-                        Box::new(CompactTransform::IDENTITY),
                     );
 
                     // TODO(cohae): Again, spawning new entities for each object is kinda dumb

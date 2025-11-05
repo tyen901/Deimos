@@ -81,13 +81,7 @@ impl FeatureRenderer for DecalCollectionRenderer {
         any_visible
     }
 
-    fn extract_and_prepare(
-        &mut self,
-        _renderer: &Renderer,
-        _data: &mut dyn super::FeatureRendererData,
-        _extracted_data: &dyn std::any::Any,
-    ) {
-    }
+    fn extract_and_prepare(&mut self, _renderer: &Renderer, _extracted_data: &dyn std::any::Any) {}
 
     fn submit(&self, cmd: &mut CommandList, _stage: deimos_data::tfx::RenderStage) {
         let Some((vb0, vb1)) = self.vb0.get().zip(self.vb1.get()) else {

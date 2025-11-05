@@ -23,12 +23,7 @@ pub trait FeatureRenderer {
     }
 
     // TODO(cohae): Storing the extracted data in the render object seems a bit excessive when the frame node data is guaranteed to be valid for the duration of this call, do we really need it?
-    fn extract_and_prepare(
-        &mut self,
-        renderer: &Renderer,
-        data: &mut dyn FeatureRendererData,
-        extracted_data: &dyn Any,
-    );
+    fn extract_and_prepare(&mut self, renderer: &Renderer, extracted_data: &dyn Any);
     fn submit(&self, cmd: &mut CommandList, stage: RenderStage);
 
     fn dyn_clone(&self) -> Option<Box<dyn FeatureRenderer>> {

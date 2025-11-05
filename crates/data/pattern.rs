@@ -1,6 +1,4 @@
-use tiger_parse::{
-    tiger_type, ResourcePointer, ResourcePointerWithClass, VariantPointer,
-};
+use tiger_parse::{tiger_type, ResourcePointer, ResourcePointerWithClass, VariantPointer};
 
 use crate::{map::ComponentData, tag::Tag};
 
