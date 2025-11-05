@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
-use deimos_data::tfx::{scope::SScope, ExternIndex, SDynamicConstants, STechnique};
-use deimos_render::tfx::expression_vm::opcodes::{pascal_to_snake, Opcode, OpcodeIterator};
+use deimos_data::tfx::{ExternIndex, SDynamicConstants, STechnique, scope::SScope};
+use deimos_render::tfx::expression_vm::opcodes::{Opcode, OpcodeIterator, pascal_to_snake};
 use itertools::Itertools;
 use tiger_parse::{PackageManagerExt, TigerReadable};
 use tiger_pkg::package_manager;

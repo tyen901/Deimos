@@ -5,7 +5,7 @@ use deimos_data::tfx::STechnique;
 use deimos_render::tfx::expression_vm::{self, decompiler::DecompilerState};
 use itertools::Itertools;
 use tiger_parse::PackageManagerExt;
-use tiger_pkg::{package_manager, TagHash};
+use tiger_pkg::{TagHash, package_manager};
 
 fn main() -> anyhow::Result<()> {
     let Some(hash) = std::env::args().nth(1) else {
