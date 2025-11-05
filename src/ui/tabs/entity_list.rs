@@ -12,7 +12,11 @@ use crate::{
         scene::{Scene, controller::CameraController},
         util::spinner_image,
     },
-    world::pattern::{spawn_pattern, spawn_pattern_from_header},
+    world::{
+        pattern::{spawn_pattern, spawn_pattern_from_header},
+        permutations::{self, PermutationConfig},
+        render_objects::DynamicRenderObject,
+    },
 };
 
 use super::TabResult;
@@ -31,6 +35,18 @@ impl EntityEntry {
             .iter()
             .any(|comp| comp.unk0.unk10.resource_type == 0x80808673)
     }
+
+    fn option_count(&self) -> usize {
+        let Some(world) = &self.thumbnail_world else {
+            return 0;
+        };
+
+        world
+            .query::<&PermutationConfig>()
+            .iter()
+            .map(|(_, config)| config.iter_keys().count())
+            .sum()
+    }
 }
 
 pub struct EntityListTab {
@@ -41,7 +57,7 @@ pub struct EntityListTab {
     current_tag: TagHash,
     scene: Scene,
 
-    /// Scene used exclusively for rendering thumbnails
+    /// Scene used for rendering thumbnails
     thumbnail_scene: Scene,
     hovered_tag: TagHash,
     hover_vector: Vec2,
@@ -226,7 +242,67 @@ impl EntityListTab {
         egui::SidePanel::right("entities_scene")
             .default_width(ui.ctx().screen_rect().width() * 0.3)
             .show_inside(ui, |ui| {
+                if let Some((_, (config, obj))) = self
+                    .scene
+                    .world
+                    .query::<(&mut PermutationConfig, &mut DynamicRenderObject)>()
+                    .iter()
+                    .next()
+                {
+                    ui.style_mut()
+                        .text_styles
+                        .insert(TextStyle::Button, FontId::proportional(16.0));
+                    egui::TopBottomPanel::bottom("entities_scene_configuration").show_inside(
+                        ui,
+                        |ui| {
+                            ui.add_space(6.0);
+                            let mut config_changed = false;
+                            config.for_each_key_mut(|key, available_values, current_value| {
+                                ui.horizontal(|ui| {
+                                    ui.label(permutations::find_kv_name_or_default(key));
+                                    egui::ComboBox::from_id_salt(format!(
+                                        "permutation_combo_{key:X}"
+                                    ))
+                                    .selected_text(permutations::find_kv_name_or_default(
+                                        *current_value,
+                                    ))
+                                    .show_ui(ui, |ui| {
+                                        ui.style_mut()
+                                            .text_styles
+                                            .insert(TextStyle::Button, FontId::proportional(16.0));
+                                        ui.style_mut().spacing.button_padding = Vec2::new(8.0, 2.0);
+                                        ui.style_mut().spacing.item_spacing = Vec2::ZERO;
+
+                                        for value in available_values {
+                                            if *value == 0x871AC0EA {
+                                                continue;
+                                            }
+                                            config_changed |= ui
+                                                .selectable_value(
+                                                    current_value,
+                                                    *value,
+                                                    permutations::find_kv_name_or_default(*value),
+                                                )
+                                                .changed();
+                                        }
+                                    });
+                                });
+                            });
+
+                            if config_changed {
+                                if let Some(permutation) = config.calculate_permutation_index() {
+                                    obj.permutation = permutation;
+                                } else {
+                                    warn!("Failed to calculate permutation index");
+                                }
+                            }
+                        },
+                    );
+                }
+
+                // egui::CentralPanel::default().show_inside(ui, |ui| {
                 self.scene.show(ui, ui.available_size(), egui_d3d11);
+                // });
             });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
@@ -302,6 +378,16 @@ impl EntityListTab {
                                 FontId::proportional(16.0),
                                 ui.visuals().text_color(),
                             );
+                            let option_count = entity.option_count();
+                            if option_count >= 1 {
+                                card_painter.text(
+                                    card_rect.right_bottom() + vec2(-8.0, -3.0),
+                                    egui::Align2::RIGHT_BOTTOM,
+                                    format!("{option_count} options"),
+                                    FontId::proportional(16.0),
+                                    ui.visuals().text_color().gamma_multiply(0.8),
+                                );
+                            }
 
                             if let Some(thumbnail) = entity.thumbnail.clone() {
                                 let srv = if let Some(hover_pos) = card_response.hover_pos() {

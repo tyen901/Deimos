@@ -2,6 +2,7 @@ use tiger_pkg::TagHash;
 
 pub mod map;
 pub mod pattern;
+pub mod permutations;
 pub mod render_objects;
 pub mod transform;
 
