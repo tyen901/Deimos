@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::{any::Any, sync::atomic::AtomicUsize};
 
 use anyhow::Context;
 use deimos_data::tfx::{
@@ -39,8 +39,8 @@ pub struct DynamicModel {
     part_techniques: Vec<Vec<Handle<Technique>>>,
 
     // pub selected_mesh: usize,
-    pub selected_variant: usize,
-    variant_count: usize,
+    pub permutation: usize,
+    permutation_count: usize,
 
     identifier_count: usize,
 
@@ -88,7 +88,7 @@ impl DynamicModel {
             })
             .collect_vec();
 
-        let variant_count = technique_map
+        let permutation_count = technique_map
             .iter()
             .filter(|m| m.unk8 == 0)
             .map(|m| m.technique_count as usize)
@@ -110,8 +110,8 @@ impl DynamicModel {
             + 1;
 
         Ok(Box::new(Self {
-            selected_variant: rand::random_range(0..variant_count),
-            variant_count,
+            permutation: 0,
+            permutation_count,
             // selected_mesh: 0,
             identifier_count,
             mesh_buffers,
@@ -136,23 +136,27 @@ impl DynamicModel {
     }
 
     pub fn variant_count(&self) -> usize {
-        self.variant_count
+        self.permutation_count
     }
 
     pub fn identifier_count(&self) -> usize {
         self.identifier_count
     }
 
-    fn get_variant_technique(&self, index: u16, variant: usize) -> Option<Handle<Technique>> {
+    fn get_permutation_technique(
+        &self,
+        index: u16,
+        permutation_count: usize,
+    ) -> Option<Handle<Technique>> {
         if index == u16::MAX {
             None
         } else {
             self.technique_map
                 .get(index as usize)
                 .as_ref()
-                .map(|variant_range| {
-                    self.techniques[variant_range.technique_start as usize
-                        + (variant % variant_range.technique_count as usize)]
+                .map(|permutation_range| {
+                    self.techniques[permutation_range.technique_start as usize
+                        + (permutation_count % permutation_range.technique_count as usize)]
                         .clone()
                 })
         }
@@ -215,7 +219,7 @@ impl DynamicModel {
                 }
 
                 let variant_material =
-                    self.get_variant_technique(part.variant_shader_index, self.selected_variant);
+                    self.get_permutation_technique(part.variant_shader_index, self.permutation);
 
                 let mut all_scopes = TfxScopeBits::empty();
                 if let Some(technique) = mesh_techniques[part_index].get() {
@@ -261,20 +265,13 @@ impl FeatureRenderer for DynamicModel {
         camera.is_visible(&bounds)
     }
 
-    fn extract_and_prepare(
-        &mut self,
-        renderer: &Renderer,
-        data: &mut dyn FeatureRendererData,
-        extracted_data: &dyn Any,
-    ) {
-        let obj_local_to_world = (data as &mut dyn Any)
-            .downcast_mut::<CompactTransform>()
-            .expect("Invalid data type, expected CompactTransform");
-        *obj_local_to_world = extracted_data
-            .downcast_ref::<CompactTransform>()
+    fn extract_and_prepare(&mut self, renderer: &Renderer, extracted_data: &dyn Any) {
+        let (obj_local_to_world, permutation) = extracted_data
+            .downcast_ref::<(CompactTransform, usize)>()
             .expect("Invalid extracted data type")
             .clone();
         self.transform = obj_local_to_world.to_mat4();
+        self.permutation = permutation;
 
         self.cb
             .write(

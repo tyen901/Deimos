@@ -468,12 +468,7 @@ impl FeatureRenderer for StaticInstancesRenderer {
         true
     }
 
-    fn extract_and_prepare(
-        &mut self,
-        renderer: &Renderer,
-        _data: &mut dyn super::FeatureRendererData,
-        _extracted_data: &dyn std::any::Any,
-    ) {
+    fn extract_and_prepare(&mut self, renderer: &Renderer, _extracted_data: &dyn std::any::Any) {
         let ctx = renderer.gpu.context();
         for (model, _visible) in self.models.iter_mut().filter(|(_, visible)| *visible) {
             model.prepare_write_instance_ids(&ctx);

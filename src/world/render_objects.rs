@@ -22,12 +22,14 @@ impl Drop for StaticRenderObject {
 
 pub struct DynamicRenderObject {
     handle: RenderObjectHandle,
+    pub permutation: usize,
 }
 
 impl DynamicRenderObject {
     pub fn new(render_object: RenderObjectHandle) -> Self {
         Self {
             handle: render_object,
+            permutation: 0,
         }
     }
 }
@@ -48,7 +50,10 @@ pub fn s_extract_render_objects(world: &hecs::World, frame_packet: &mut FramePac
         .iter()
     {
         let transform = transform.copied().unwrap_or_default();
-        frame_packet
-            .push_dynamic_render_object(render_object.handle, transform.local_to_world().into());
+        frame_packet.push_dynamic_render_object(
+            render_object.handle,
+            transform.local_to_world().into(),
+            render_object.permutation,
+        );
     }
 }

@@ -464,6 +464,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "chroma-dbg"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ab8861d19c334c1df60438b87b2dd6207d496791722befa4c8a7bdd20c56b71"
+dependencies = [
+ "anstyle",
+ "pest",
+ "pest_derive",
+]
+
+[[package]]
 name = "cipher"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -803,6 +814,7 @@ dependencies = [
  "anyhow",
  "bitflags 2.10.0",
  "bytemuck",
+ "chroma-dbg 0.2.1",
  "clap",
  "d3d11",
  "deimos-core",
@@ -877,7 +889,7 @@ dependencies = [
  "bon",
  "bumpalo",
  "bytemuck",
- "chroma-dbg",
+ "chroma-dbg 0.1.1",
  "crossbeam",
  "d3d11",
  "ddsfile",
@@ -3159,7 +3171,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "319c70195101a93f56db4c74733e272d720768e13471f400c78406a326b172b0"
 dependencies = [
  "cc",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]

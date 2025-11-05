@@ -90,11 +90,54 @@ pub struct SDynamicMeshPart {
 }
 
 #[derive(Debug, Clone)]
+#[tiger_type(size = 0x450)]
+pub struct SDynamicModelComponent {
+    #[tiger(offset = 0x38)]
+    pub unk38: Vec<S8080BACC>,
+
+    #[tiger(offset = 0x244)]
+    pub model_hash: TagHash,
+
+    #[tiger(offset = 0x3e8)]
+    pub technique_map: Vec<SDynamicMeshMaterialVariants>,
+
+    #[tiger(offset = 0x408)]
+    pub unk408: Vec<u16>,
+    pub unk418: Vec<S80808682>,
+
+    #[tiger(offset = 0x428)]
+    pub techniques: Vec<TagHash>,
+}
+
+#[derive(Debug, Clone)]
 #[tiger_type(id = 0x80808681)]
 pub struct SDynamicMeshMaterialVariants {
     pub technique_count: u32,
     pub technique_start: u32,
     pub unk8: u32,
+}
+
+#[derive(Debug, Clone)]
+#[tiger_type(id = 0x80808682, size = 0x8)]
+pub struct S80808682 {
+    pub unk0: u16,
+    pub unk2: i16,
+    pub unk4: u16,
+    pub unk6: i16,
+}
+
+#[derive(Debug, Clone)]
+#[tiger_type(id = 0x8080BACC, size = 0x18)]
+pub struct S8080BACC {
+    pub unk0: u64,
+    pub unk8: Vec<S8080BAD0>,
+}
+
+#[derive(Debug, Clone)]
+#[tiger_type(id = 0x8080BAD0, size = 0x8)]
+pub struct S8080BAD0 {
+    pub switch_key: u32,
+    pub value: u32,
 }
 
 bitflags::bitflags! {

@@ -32,10 +32,11 @@ impl FramePacket {
         &mut self,
         render_object_handle: RenderObjectHandle,
         transform: CompactTransform,
+        permutation: usize,
     ) {
         self.frame_nodes.push(FrameNode {
             render_object_handle,
-            data: Box::new(transform),
+            data: Box::new((transform, permutation)),
             distance: f32::MAX,
             visible: true,
         });

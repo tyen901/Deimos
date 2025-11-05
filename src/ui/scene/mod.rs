@@ -18,7 +18,6 @@ use deimos_render::{
 use egui::{FontId, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2, load::SizedTexture, vec2};
 use glam::Vec3;
 use google_material_symbols::GoogleMaterialSymbols;
-use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 
 use crate::{
     ui::{
