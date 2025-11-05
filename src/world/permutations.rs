@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use deimos_data::{hash::fnv1, tfx::features::dynamic::SDynamicModelComponent};
 
@@ -7,7 +7,7 @@ pub struct PermutationConfig {
     pub configuration: HashMap<u32, u32>,
 
     /// Available values for each key
-    keys: HashMap<u32, HashSet<u32>>,
+    keys: BTreeMap<u32, HashSet<u32>>,
 
     /// Maps from key-value pairs to permutation index
     pairs_to_permutation: HashMap<Vec<(u32, u32)>, usize>,
@@ -31,7 +31,7 @@ impl PermutationConfig {
             }
         }
 
-        let mut keys = HashMap::new();
+        let mut keys = BTreeMap::new();
         for u0 in &model.unk38 {
             for pair in &u0.unk8 {
                 keys.entry(pair.switch_key)
