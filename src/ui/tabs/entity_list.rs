@@ -14,7 +14,7 @@ use crate::{
     },
     world::{
         pattern::{spawn_pattern, spawn_pattern_from_header},
-        permutations::{self, PermutationConfig},
+        permutations::{self, OPTION_KEY_INVALID, PermutationConfig},
         render_objects::DynamicRenderObject,
     },
 };
@@ -255,7 +255,7 @@ impl EntityListTab {
                     egui::TopBottomPanel::bottom("entities_scene_configuration").show_inside(
                         ui,
                         |ui| {
-                            ui.add_space(6.0);
+                            ui.add_space(12.0);
                             let mut config_changed = false;
                             config.for_each_key_mut(|key, available_values, current_value| {
                                 ui.horizontal(|ui| {
@@ -274,7 +274,7 @@ impl EntityListTab {
                                         ui.style_mut().spacing.item_spacing = Vec2::ZERO;
 
                                         for value in available_values {
-                                            if *value == 0x871AC0EA {
+                                            if *value == OPTION_KEY_INVALID {
                                                 continue;
                                             }
                                             config_changed |= ui

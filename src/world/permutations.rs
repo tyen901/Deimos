@@ -113,12 +113,32 @@ const FNV_NAMES: &[&str] = &[
     "weapon", "weapon_mod", "weapon_type", "white", "worker", "yellow", "zero",
 ];
 
+pub const OPTION_KEY_INVALID: u32 = 0x871AC0EA;
+
+const FNV_NAME_GUESSES: &[(u32, &str)] = &[
+    (OPTION_KEY_INVALID, "<invalid>"),
+    (0x20809827, "dark gray*"),
+    (0xCFA916D2, "light gray*"),
+    (0x9D102655, "white*"),
+    (0x78532C1A, "olive*"),
+    (0xDFF5552A, "dark green*"),
+    (0x1023B2D3, "color*"),
+];
+
 fn find_fnv_name(hash: u32) -> Option<&'static str> {
-    FNV_NAMES
+    if let Some(s) = FNV_NAMES
         .iter()
         .find(|&&name| fnv1(name.as_bytes()) == hash)
         .copied()
         .map(|v| v as _)
+    {
+        Some(s)
+    } else {
+        FNV_NAME_GUESSES
+            .iter()
+            .find(|&&(h, _)| h == hash)
+            .map(|&(_, name)| name)
+    }
 }
 
 pub fn find_kv_name(hash: u32) -> Option<&'static str> {
