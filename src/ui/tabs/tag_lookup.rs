@@ -1,4 +1,3 @@
-
 use deimos_data::{
     map::SBubbleParent,
     tfx::features::{dynamic::SDynamicModel, statics::SStaticMesh},
@@ -6,7 +5,7 @@ use deimos_data::{
 use egui::{Color32, RichText, TextEdit, Widget};
 use google_material_symbols::GoogleMaterialSymbols;
 use tiger_parse::TigerReadable;
-use tiger_pkg::{package::UEntryHeader, package_manager, TagHash};
+use tiger_pkg::{TagHash, package::UEntryHeader, package_manager};
 
 use crate::ui::util::UiExt;
 

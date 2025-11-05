@@ -1,8 +1,5 @@
 pub mod convar;
-use std::{
-    path::PathBuf,
-    sync::Arc,
-};
+use std::{path::PathBuf, sync::Arc};
 
 use anyhow::Context;
 pub use convar::*;

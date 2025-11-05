@@ -1,11 +1,11 @@
 use deimos_data::map::SBubbleParent;
 use egui::{Margin, Ui};
 use tiger_parse::TigerReadable;
-use tiger_pkg::{package_manager, TagHash};
+use tiger_pkg::{TagHash, package_manager};
 
 use crate::ui::util::UiExt;
 
-use super::{map::MapTab, Tab, TabResult};
+use super::{Tab, TabResult, map::MapTab};
 
 pub struct MapListTab {
     map_tags: Vec<TagHash>,

@@ -5,9 +5,9 @@
 use std::{rc::Rc, sync::Arc, time::Instant};
 
 use deimos_render::{
+    Gpu, Renderer,
     gpu::{command_list::CommandList, spinner::FullscreenSpinner},
     util::fps_histogram::FrametimeHistogram,
-    Gpu, Renderer,
 };
 use sdl3::video::Window;
 

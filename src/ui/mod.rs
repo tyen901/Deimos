@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, mem::discriminant, rc::Rc, sync::Arc};
 
-use deimos_render::{gpu::command_list::CommandList, Gpu};
+use deimos_render::{Gpu, gpu::command_list::CommandList};
 use egui::{Color32, FontId};
 use egui_dock::{DockArea, DockState, TabInteractionStyle};
 use google_material_symbols::GoogleMaterialSymbols;
