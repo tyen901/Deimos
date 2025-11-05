@@ -24,6 +24,9 @@ impl PermutationConfig {
         let mut configuration = HashMap::new();
         for keys1 in &model.unk38 {
             for keys in &keys1.unk8 {
+                if keys.value == OPTION_KEY_INVALID {
+                    continue;
+                }
                 configuration.insert(keys.switch_key, keys.value);
             }
         }
