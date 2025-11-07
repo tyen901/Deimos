@@ -70,8 +70,14 @@ tiger_variant_enum! {
         SStaticInstancesCollectionComponent,
         SSkyObjectCollectionComponent,
         SDecalCollectionComponent,
-        SDecoratorsComponent
+        SDecoratorsComponent,
+        SMaterialPermutationsComponent
     }
+}
+
+#[tiger_type(id = 0x8080402E)]
+pub struct SMaterialPermutationsComponent {
+    pub config: Vec<(u32, u32)>,
 }
 
 // #[tiger_type(id = 0x80806F38)]

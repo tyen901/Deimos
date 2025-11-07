@@ -118,6 +118,21 @@ pub fn spawn_pattern_from_header(
                     .add_object(RenderObject::new(TfxFeatureRenderer::RigidObject, model));
                 world.insert_one(entity, DynamicRenderObject::new(obj))?;
             }
+            0x80804030 => {
+                let Some(ComponentData::SMaterialPermutationsComponent(data)) = map_data else {
+                    continue;
+                };
+
+                if let Ok(mut config) = world.get::<&mut PermutationConfig>(entity) {
+                    for (key, value) in &data.config {
+                        config.configuration.insert(*key, *value);
+                    }
+                } else {
+                    error!(
+                        "Material permutations component found in map data, but entity does not have a permutation config set?"
+                    );
+                }
+            }
             0x80808562 => {
                 let data = get_component_data!(SStaticTerrainPatchesComponent);
 
