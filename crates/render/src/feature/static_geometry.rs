@@ -495,10 +495,28 @@ impl FeatureRenderer for StaticInstancesRenderer {
         let mut job_ranges = vec![];
         let job_count = 6;
         let node_count = groups_sorted_by_technique.len();
-        for i in 0..job_count {
-            let node_start = (i * node_count) / job_count;
-            let node_end = ((i + 1) * node_count) / job_count;
+        let nodes_per_job = node_count / job_count;
+        let mut last_end = 0;
+        for _i in 0..job_count {
+            let node_start = last_end;
+            let mut node_end = (node_start + nodes_per_job).min(node_count);
 
+            if node_start >= node_count {
+                break;
+            }
+
+            let last_technique = groups_sorted_by_technique[node_end - 1].0;
+            // Extend node_end to include all groups with the same technique hash
+            loop {
+                if node_end < node_count && groups_sorted_by_technique[node_end].0 == last_technique
+                {
+                    node_end += 1;
+                } else {
+                    break;
+                }
+            }
+
+            last_end = node_end;
             job_ranges.push(node_start..node_end);
         }
 

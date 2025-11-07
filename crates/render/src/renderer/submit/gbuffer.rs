@@ -25,7 +25,7 @@ impl Renderer {
 
             cmd.state = PipelineState::new(Some(0), Some(2), Some(2), Some(0));
 
-            self.submit_stage_multi(cmd, RenderStage::GenerateGbuffer, 32);
+            self.submit_stage_multi(cmd, RenderStage::GenerateGbuffer, 16);
         }
 
         {
