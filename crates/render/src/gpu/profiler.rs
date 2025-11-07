@@ -236,12 +236,33 @@ impl D3D11Profiler {
         output.push_str(&"-".repeat(56));
         output.push('\n');
 
+        let mut longest_duration_cpu = 0f64;
+        let mut longest_duration_gpu = 0f64;
         for scope in results {
             output.push_str(&format!(
                 "{:<30} {:>12.1} {:>12.1}\n",
                 scope.name, scope.cpu_duration_us, scope.gpu_duration_us
             ));
+            longest_duration_cpu = longest_duration_cpu.max(scope.cpu_duration_us);
+            longest_duration_gpu = longest_duration_gpu.max(scope.gpu_duration_us);
         }
+
+        output.push_str(&"-".repeat(56));
+        output.push('\n');
+        output.push_str(&format!(
+            "{:<30} {:>12.1} {:>12.1}\n",
+            "Potential FPS",
+            if longest_duration_cpu > 0.0 {
+                1_000_000.0 / longest_duration_cpu
+            } else {
+                f64::INFINITY
+            },
+            if longest_duration_gpu > 0.0 {
+                1_000_000.0 / longest_duration_gpu
+            } else {
+                f64::INFINITY
+            }
+        ));
 
         output
     }
