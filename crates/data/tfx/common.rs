@@ -39,7 +39,7 @@ pub struct AxisAlignedBBox {
 }
 
 impl AxisAlignedBBox {
-    const NONE: Self = Self {
+    pub const NONE: Self = Self {
         min: Vec4::new(f32::MAX, f32::MAX, f32::MAX, f32::MAX),
         max: Vec4::new(f32::MIN, f32::MIN, f32::MIN, f32::MIN),
     };

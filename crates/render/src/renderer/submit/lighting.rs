@@ -56,7 +56,11 @@ impl Renderer {
         {
             cmd_event_span!(cmd, "cubemaps");
             let _gpuspan = self.profiler.scope(cmd, "cubemaps");
-            self.submit_stage_multi(cmd, RenderStage::Cubemaps, 16);
+            // self.submit_stage(
+            //     cmd,
+            //     RenderStage::Cubemaps,
+            //     FeatureRendererSubscription::all(),
+            // );
         }
         view.lighting.bind_diffuse_specular(cmd, &view.surfaces);
         cmd.state = PipelineState::new(Some(8), None, Some(2), Some(2));
