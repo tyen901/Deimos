@@ -58,6 +58,7 @@ impl Renderer {
         if matches!(
             debug_pipeline,
             Some(DebugPipeline::DeferredShading)
+                | Some(DebugPipeline::DeferredShadingNoSun)
                 | Some(DebugPipeline::LightDiffuse)
                 | Some(DebugPipeline::LightSpecular)
         ) {
@@ -146,7 +147,8 @@ impl Renderer {
             if let Some(debug_pipeline) = debug_pipeline {
                 let p = &self.globals.pipelines;
                 let technique = match debug_pipeline {
-                    DebugPipeline::DeferredShading => &p.deferred_shading_no_atm,
+                    DebugPipeline::DeferredShading => &p.global_lighting_and_shading,
+                    DebugPipeline::DeferredShadingNoSun => &p.deferred_shading_no_atm,
                     DebugPipeline::Albedo => &p.debug_source_color,
                     DebugPipeline::Smoothness => &p.debug_specular_smoothness,
                     DebugPipeline::Metalness => &p.debug_metalness,
@@ -415,6 +417,7 @@ impl Renderer {
 #[derive(Debug, PartialEq)]
 pub enum DebugPipeline {
     DeferredShading,
+    DeferredShadingNoSun,
 
     Albedo,
     Smoothness,
