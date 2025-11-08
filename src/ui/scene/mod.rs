@@ -54,8 +54,8 @@ impl Scene {
             view: View::new(&renderer.gpu, (128, 128))?,
             renderer,
             camera,
-            sun_light_angle: -120f32,
-            render_mode: RenderMode::Shaded,
+            sun_light_angle: 60f32,
+            render_mode: RenderMode::Lookdev,
             controller: CameraController::new_orbit(Vec3::ZERO, 2.5),
             surface,
             surface_srv,
@@ -231,7 +231,7 @@ impl Scene {
         let sun_light_direction = Vec3::new(
             self.sun_light_angle.to_radians().cos(),
             self.sun_light_angle.to_radians().sin(),
-            -0.7,
+            0.7,
         )
         .normalize();
 
@@ -415,6 +415,7 @@ impl Scene {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RenderMode {
     Shaded,
+    Lookdev,
     // Matcap,
 
     // Material:
@@ -451,6 +452,7 @@ impl RenderMode {
                 ui.style_mut().spacing.button_padding = Vec2::new(8.0, 2.0);
                 ui.style_mut().spacing.item_spacing = Vec2::ZERO;
 
+                ui.selectable_value(self, RenderMode::Lookdev, "Lookdev");
                 ui.selectable_value(self, RenderMode::Shaded, "Shaded");
                 // ui.selectable_value(self, RenderMode::Matcap, "Matcap");
 
@@ -478,7 +480,8 @@ impl RenderMode {
 impl From<RenderMode> for Option<DebugPipeline> {
     fn from(val: RenderMode) -> Self {
         match val {
-            RenderMode::Shaded => None,
+            RenderMode::Lookdev => None,
+            RenderMode::Shaded => Some(DebugPipeline::DeferredShading),
             // RenderMode::Matcap => Some(DebugPipeline::Matcap),
             RenderMode::Albedo => Some(DebugPipeline::Albedo),
             RenderMode::Smoothness => Some(DebugPipeline::Smoothness),

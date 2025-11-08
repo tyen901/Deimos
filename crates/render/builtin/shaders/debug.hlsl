@@ -154,7 +154,7 @@ float4 mainPS(VSOutput input) : SV_TARGET {
   F0 = lerp(F0, albedo, metallic);
 
   float3 V = normalize(camera_position - worldPos.xyz);
-  float3 L = normalize(-sun_light_direction);
+  float3 L = normalize(sun_light_direction);
   float3 H = normalize(V + L);
 
   // Cook-Torrance BRDF
@@ -178,7 +178,7 @@ float4 mainPS(VSOutput input) : SV_TARGET {
   float3 radiance = 2.2f;
   float3 Lo = (kD * albedo / PI + specular) * radiance * NdotL;
 
-  float3 ambient = float(0.01).xxx * albedo * ao;
+  float3 ambient = float(0.04).xxx * albedo * ao;
 
   float3 color = ambient + Lo;
 

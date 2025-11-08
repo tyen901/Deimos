@@ -130,6 +130,8 @@ tfx_global_pipelines! {
     clear_color_2_mrt,
     deferred_shading,
     deferred_shading_no_atm,
+    global_lighting,
+    global_lighting_and_shading,
     global_lighting_and_shading_gel,
     final_combine_no_film_curve,
     final_combine,

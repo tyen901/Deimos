@@ -10,14 +10,14 @@ use std::fmt::Debug;
 
 use deimos_core::convar::ConVars;
 use deimos_data::tfx::{FeatureRendererSubscription, PipelineState, ShaderStage};
-use glam::{vec4, Mat4, Vec4};
+use glam::{vec4, Mat4, Vec3, Vec4};
 
 use crate::{
     camera::Camera,
     cmd_event_span,
     gpu::command_list::CommandList,
     tfx::{
-        externs::{self},
+        externs::{self, GlobalLighting},
         scope::TempFrameScope,
         view::View,
     },
@@ -55,7 +55,14 @@ impl Renderer {
 
         self.submit_gbuffer_generation(cmd, view);
 
-        self.submit_lighting(cmd, view);
+        if matches!(
+            debug_pipeline,
+            Some(DebugPipeline::DeferredShading)
+                | Some(DebugPipeline::LightDiffuse)
+                | Some(DebugPipeline::LightSpecular)
+        ) {
+            self.submit_lighting(cmd, view);
+        }
 
         self.clear_surface(cmd, view.shading_result, [0., 0., 0., 1.0]);
         self.bind_surfaces(cmd, &[view.shading_result], None);
@@ -139,6 +146,7 @@ impl Renderer {
             if let Some(debug_pipeline) = debug_pipeline {
                 let p = &self.globals.pipelines;
                 let technique = match debug_pipeline {
+                    DebugPipeline::DeferredShading => &p.deferred_shading_no_atm,
                     DebugPipeline::Albedo => &p.debug_source_color,
                     DebugPipeline::Smoothness => &p.debug_specular_smoothness,
                     DebugPipeline::Metalness => &p.debug_metalness,
@@ -186,7 +194,7 @@ impl Renderer {
             }
         });
 
-        // self.submit_transparent(cmd, view);
+        self.submit_transparent(cmd, view);
 
         {
             profiling::scope!("prepare/submit immediate geometry");
@@ -234,7 +242,7 @@ impl Renderer {
             delta_game_time: delta_time,
             exposure_time: 0.016666668,
             // exposure_scale: 7.71489,
-            exposure_scale: 1.0,
+            exposure_scale: 2.0,
             exposure_illum_relative: 0.25438,
             ..*ext.frame.clone()
         };
@@ -269,6 +277,25 @@ impl Renderer {
         ext.decal.normals_read = view.gbuffers.normal_read.into();
         ext.decal.depth_constants = ext.deferred.depth_constants;
         ext.decal.unk30 = Vec4::new(fb_res.0 as f32, fb_res.1 as f32, 0.0, 0.0);
+
+        *ext.global_lighting = GlobalLighting {
+            unk08: self.gpu.placeholder_white.view.clone().into(),
+            unk10: ext.get_global_channel_by_name("sun_color")
+                * ext.get_global_channel_by_name("sun_intensity").x,
+            unk30: ext.get_global_channel_by_name("sun_light_direction"),
+            unk50: ext.get_global_channel_by_name("sun_ambient_direction"),
+            unk70: ext.get_global_channel_by_name("up_ambient_color")
+                * ext.get_global_channel_by_name("up_ambient_intensity").x,
+            unk80: ext.get_global_channel_by_name("down_ambient_color")
+                * ext.get_global_channel_by_name("down_ambient_intensity").x,
+            unk90: ext.get_global_channel_by_name("up_ambient_sharpness").x,
+            unk94: ext.get_global_channel_by_name("down_ambient_sharpness").x,
+            unka0: vec4(0.01, 0.01, -0.5, -0.5),
+            unkb0: vec4(0.02, -2.0, 0.0, 0.0),
+            // unkd0: vec4(f32::NAN, f32::NAN, 0.5, 0.5),
+            unkc0: vec4(0.00333, -2.33333, 0.00, 0.00),
+            ..Default::default()
+        };
 
         // ext.shadow_mask.unk00 = self.gpu.placeholder_white.view.clone().into();
         // ext.shadow_mask.unk08 = self.lighting.ssao.into();
@@ -385,8 +412,10 @@ impl Renderer {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum DebugPipeline {
+    DeferredShading,
+
     Albedo,
     Smoothness,
     Metalness,
