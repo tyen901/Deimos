@@ -151,7 +151,7 @@ impl FeatureRenderer for LightRenderer {
             //     self.local_to_world.to_scale_rotation_translation();
 
             let local_to_world_scaled = self.local_to_world * self.light_space_transform;
-            let externs = Renderer::instance().externs.get_mut();
+            let externs = Renderer::instance().externs.get();
             cmd.externs.simple_geometry = Some(Box::new(SimpleGeometry {
                 local_to_world: externs.view.world_to_projective
                     * local_to_world_scaled
