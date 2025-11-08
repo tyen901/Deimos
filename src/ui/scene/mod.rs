@@ -414,8 +414,9 @@ impl Scene {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RenderMode {
-    Shaded,
     Lookdev,
+    Shaded,
+    ShadedNoSun,
     // Matcap,
 
     // Material:
@@ -454,6 +455,7 @@ impl RenderMode {
 
                 ui.selectable_value(self, RenderMode::Lookdev, "Lookdev");
                 ui.selectable_value(self, RenderMode::Shaded, "Shaded");
+                ui.selectable_value(self, RenderMode::ShadedNoSun, "Shaded (No Sun)");
                 // ui.selectable_value(self, RenderMode::Matcap, "Matcap");
 
                 ui.section_separator("Material:");
@@ -482,6 +484,7 @@ impl From<RenderMode> for Option<DebugPipeline> {
         match val {
             RenderMode::Lookdev => None,
             RenderMode::Shaded => Some(DebugPipeline::DeferredShading),
+            RenderMode::ShadedNoSun => Some(DebugPipeline::DeferredShadingNoSun),
             // RenderMode::Matcap => Some(DebugPipeline::Matcap),
             RenderMode::Albedo => Some(DebugPipeline::Albedo),
             RenderMode::Smoothness => Some(DebugPipeline::Smoothness),
@@ -572,10 +575,10 @@ impl ExternalDataWidgetExt for FeatureRendererSubscription {
                 ui.add_enabled_ui(false, |ui| {
                     feature!(ui, FeatureRendererSubscription::LENS_FLARES, "Lens Flares");
                     feature!(ui, FeatureRendererSubscription::PARTICLES, "Particles");
+                    ui.section_separator("Lighting");
+                    feature!(ui, FeatureRendererSubscription::CUBEMAPS, "Cubemaps");
                 });
 
-                ui.section_separator("Lighting");
-                feature!(ui, FeatureRendererSubscription::CUBEMAPS, "Cubemaps");
                 feature!(
                     ui,
                     FeatureRendererSubscription::CHUNKED_LIGHTS,

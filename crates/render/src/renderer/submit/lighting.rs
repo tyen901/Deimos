@@ -43,12 +43,12 @@ impl Renderer {
         // }
 
         cmd.state = PipelineState::new(Some(0), Some(0), Some(0), Some(0));
-        view.lighting.bind_diffuse_specular(cmd, &view.surfaces);
-        self.execute_global_pipeline(
-            cmd,
-            &self.globals.pipelines.global_lighting,
-            "global_lighting",
-        );
+        // view.lighting.bind_diffuse_specular(cmd, &view.surfaces);
+        // self.execute_global_pipeline(
+        //     cmd,
+        //     &self.globals.pipelines.global_lighting,
+        //     "global_lighting",
+        // );
 
         view.lighting.bind_diffuse_ibl(cmd, &view.surfaces);
         cmd.state = PipelineState::new(Some(23), Some(1), Some(3), Some(1));
