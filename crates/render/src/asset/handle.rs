@@ -1,6 +1,7 @@
 use std::{
     any::Any,
     cell::UnsafeCell,
+    ops::Deref,
     sync::{
         atomic::{AtomicBool, AtomicUsize},
         Arc,
@@ -20,7 +21,7 @@ struct AssetHolder {
 impl AssetHolder {
     fn new() -> Self {
         Self {
-            data: UnsafeCell::new(Arc::new(Arc::new(()))),
+            data: UnsafeCell::new(Arc::new(())),
             loaded: AtomicBool::new(false),
             ref_count: AtomicUsize::new(1),
         }
@@ -71,7 +72,7 @@ impl UntypedHandle {
             return;
         }
 
-        unsafe { *self.inner.data.get() = Arc::new(Arc::<T>::from(asset)) };
+        unsafe { *self.inner.data.get() = Arc::<T>::from(asset) };
         self.inner
             .loaded
             .store(true, std::sync::atomic::Ordering::Relaxed);
@@ -128,7 +129,22 @@ impl<T: Asset + Sync + Send + 'static> Handle<T> {
         }
 
         let data = unsafe { &*self.asset.inner.data.get() };
-        data.downcast_ref().cloned()
+        // data.downcast_ref().cloned()
+        Arc::downcast(Arc::clone(data)).ok()
+    }
+
+    // Passes the ref in a closure to avoid cloning the Arc unnecessarily
+    pub fn get_ref<F, R>(&self, f: F) -> Option<R>
+    where
+        F: FnOnce(&T) -> R,
+    {
+        if !self.is_loaded() {
+            return None;
+        }
+
+        let data = unsafe { &*self.asset.inner.data.get() };
+        let asset = data.downcast_ref::<T>()?;
+        Some(f(asset))
     }
 
     pub fn update(&self, asset: Box<T>) {

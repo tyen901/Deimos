@@ -71,6 +71,7 @@ impl StaticModel {
             .map(
                 |&(index_buffer, vertex0_buffer, vertex1_buffer, _unk_buffer)| {
                     ModelBuffers::load(vertex0_buffer, vertex1_buffer, index_buffer)
+                        .expect("Failed to load static model opaque mesh buffers")
                 },
             )
             .collect();
@@ -94,7 +95,8 @@ impl StaticModel {
                         mesh.vertex0_buffer,
                         mesh.vertex1_buffer,
                         mesh.index_buffer,
-                    ),
+                    )
+                    .expect("Failed to load special mesh buffers"),
                     technique: Renderer::instance().asset_manager.load(mesh.technique),
                 }
             })
@@ -389,7 +391,7 @@ pub struct StaticInstancesRenderer {
     models: Vec<(StaticModelRenderer, bool)>,
 
     // (technique_hash, model_index, group_index) sorted by the group's technique hash
-    groups_by_stage_sorted_by_technique: HashMap<RenderStage, Vec<(TagHash, usize, usize)>>,
+    groups_by_stage_sorted_by_technique: HashMap<RenderStage, Arc<Vec<(TagHash, usize, usize)>>>,
 }
 
 impl StaticInstancesRenderer {
@@ -448,6 +450,11 @@ impl StaticInstancesRenderer {
             groups_sorted_by_technique.sort_unstable_by_key(|k| k.0);
         }
 
+        let groups_by_stage_sorted_by_technique = groups_by_stage_sorted_by_technique
+            .into_iter()
+            .map(|(k, v)| (k, Arc::new(v)))
+            .collect();
+
         Ok(Self {
             subscribed_stages: models
                 .iter()
@@ -491,12 +498,15 @@ impl FeatureRenderer for StaticInstancesRenderer {
             return;
         };
 
+        let initial_state = Arc::new(GpuState::backup(cmd));
+
         // Equally divide groups_sorted_by_technique into X ranges for parallel processing
-        let mut job_ranges = vec![];
+        // let mut job_ranges = vec![];
         let job_count = 6;
         let node_count = groups_sorted_by_technique.len();
         let nodes_per_job = node_count / job_count;
         let mut last_end = 0;
+        let mut jobs_scheduled = 0;
         for _i in 0..job_count {
             let node_start = last_end;
             let mut node_end = (node_start + nodes_per_job).min(node_count);
@@ -517,30 +527,60 @@ impl FeatureRenderer for StaticInstancesRenderer {
             }
 
             last_end = node_end;
-            job_ranges.push(node_start..node_end);
-        }
+            let range = node_start..node_end;
+            // job_ranges.push(node_start..node_end);
 
-        let initial_state = Arc::new(GpuState::backup(cmd));
-        let command_lists = job_ranges
-            .par_iter()
-            .map(|range| {
-                let mut cmd = cmd.new_sublist();
-                initial_state.restore(&mut cmd);
-                for (_technique_hash, model_index, group_index) in
-                    &groups_sorted_by_technique[range.clone()]
-                {
-                    let (model, visible) = &self.models[*model_index];
-                    if *visible {
-                        model.render_group(&mut cmd, stage, *group_index);
+            let groups_sorted_by_technique = groups_sorted_by_technique.clone();
+            let initial_state = initial_state.clone();
+            let p_models = &self.models as *const _ as u64;
+            Renderer::instance()
+                .cmd_pool
+                .queue_job(Box::new(move |job_cmd: &mut CommandList| {
+                    // Safety: p_models is valid for the lifetime of this closure
+                    // TODO(cohae): need a better way to pass self.models to the job
+                    let p_models = p_models as *const Vec<(StaticModelRenderer, bool)>;
+                    let models = unsafe { &*p_models };
+                    initial_state.restore(job_cmd);
+                    for (_technique_hash, model_index, group_index) in
+                        &groups_sorted_by_technique[range.clone()]
+                    {
+                        let (model, visible) = &models[*model_index];
+                        if *visible {
+                            model.render_group(job_cmd, stage, *group_index);
+                        }
                     }
-                }
-
-                cmd
-            })
-            .collect::<Vec<_>>();
-        for command_list in command_lists {
-            cmd.execute_command_list(&command_list.finish_command_list(false).unwrap(), true);
+                }));
+            jobs_scheduled += 1;
         }
+
+        for cmd_result in Renderer::instance()
+            .cmd_pool
+            .collect_results(jobs_scheduled)
+        {
+            cmd.execute_command_list(&cmd_result, true);
+        }
+
+        // let initial_state = Arc::new(GpuState::backup(cmd));
+        // let command_lists = job_ranges
+        //     .par_iter()
+        //     .map(|range| {
+        //         let mut cmd = cmd.new_sublist();
+        //         initial_state.restore(&mut cmd);
+        //         for (_technique_hash, model_index, group_index) in
+        //             &groups_sorted_by_technique[range.clone()]
+        //         {
+        //             let (model, visible) = &self.models[*model_index];
+        //             if *visible {
+        //                 model.render_group(&mut cmd, stage, *group_index);
+        //             }
+        //         }
+
+        //         cmd
+        //     })
+        //     .collect::<Vec<_>>();
+        // for command_list in command_lists {
+        //     cmd.execute_command_list(&command_list.finish_command_list(false).unwrap(), true);
+        // }
     }
 
     fn subscribed_stages(&self) -> RenderStageSubscription {
