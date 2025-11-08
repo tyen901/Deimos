@@ -1,7 +1,21 @@
 use std::iter::Sum;
 
-use glam::{vec3, Vec3, Vec4, Vec4Swizzles};
+use glam::{vec3, Quat, Vec3, Vec4, Vec4Swizzles};
 use tiger_parse::tiger_type;
+
+#[tiger_type(id = 0x8080BF47)]
+#[derive(Clone, Debug, Copy)]
+pub struct SRotationTranslation {
+    pub rotation: Quat,
+    pub translation: Vec4,
+}
+
+impl SRotationTranslation {
+    pub const IDENTITY: Self = Self {
+        rotation: Quat::IDENTITY,
+        translation: Vec4::ZERO,
+    };
+}
 
 #[derive(Debug, Clone)]
 #[tiger_type(id = 0x8080A7F5, size = 0x18)]

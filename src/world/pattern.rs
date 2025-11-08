@@ -28,7 +28,8 @@ use deimos_render::{
     },
     object::RenderObject,
 };
-use glam::Vec4Swizzles;
+use glam::{Vec3, Vec4Swizzles};
+use itertools::multizip;
 use tiger_parse::{Endian, PackageManagerExt, TigerReadable};
 use tiger_pkg::{TagHash, package_manager};
 
@@ -232,6 +233,30 @@ pub fn spawn_pattern_from_header(
                     entity,
                     DynamicRenderObject::new(Renderer::instance().add_object(render_obj)),
                 )?;
+            }
+            0x80808334 => {
+                let data = get_component_data!(SLightCollectionComponent);
+                let Some(lights) = data.lights.0.as_ref() else {
+                    continue;
+                };
+
+                for (light, transform, bounds) in multizip((
+                    &lights.lights,
+                    &lights.transforms,
+                    &lights.occlusion_bounds.bounds,
+                )) {
+                    let render_obj = Renderer::instance().add_object(RenderObject::new(
+                        TfxFeatureRenderer::ChunkedLights,
+                        LightRenderer::new(Renderer::instance(), light, bounds.bb.clone())
+                            .context("Failed to load light")?,
+                    ));
+
+                    // TODO(cohae): ChunkedLights need to be chunked like static geometry
+                    world.spawn((
+                        Transform::new(transform.translation.xyz(), transform.rotation, Vec3::ONE),
+                        DynamicRenderObject::new(render_obj),
+                    ));
+                }
             }
             u => {
                 debug!(
