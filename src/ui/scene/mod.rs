@@ -429,6 +429,10 @@ pub enum RenderMode {
     // Geometry:
     DepthEdges,
     WorldNormal,
+
+    // Lighting:
+    LightDiffuse,
+    LightSpecular,
 }
 
 impl RenderMode {
@@ -463,6 +467,10 @@ impl RenderMode {
                 ui.section_separator("Geometry:");
                 ui.selectable_value(self, RenderMode::DepthEdges, "Depth Edges");
                 ui.selectable_value(self, RenderMode::WorldNormal, "World Normal");
+
+                ui.section_separator("Lighting:");
+                ui.selectable_value(self, RenderMode::LightDiffuse, "Diffuse Light");
+                ui.selectable_value(self, RenderMode::LightSpecular, "Specular Light");
             });
     }
 }
@@ -481,6 +489,8 @@ impl From<RenderMode> for Option<DebugPipeline> {
             RenderMode::IridescenceId => Some(DebugPipeline::Overcoat),
             RenderMode::DepthEdges => Some(DebugPipeline::DepthEdges),
             RenderMode::WorldNormal => Some(DebugPipeline::WorldNormal),
+            RenderMode::LightDiffuse => Some(DebugPipeline::LightDiffuse),
+            RenderMode::LightSpecular => Some(DebugPipeline::LightSpecular),
         }
     }
 }
@@ -561,17 +571,17 @@ impl ExternalDataWidgetExt for FeatureRendererSubscription {
                     feature!(ui, FeatureRendererSubscription::PARTICLES, "Particles");
                     ui.section_separator("Lighting");
                     feature!(ui, FeatureRendererSubscription::CUBEMAPS, "Cubemaps");
-                    feature!(
-                        ui,
-                        FeatureRendererSubscription::CHUNKED_LIGHTS,
-                        "Chunked Lights"
-                    );
-                    feature!(
-                        ui,
-                        FeatureRendererSubscription::DEFERRED_LIGHTS,
-                        "Deferred Lights"
-                    );
                 });
+                feature!(
+                    ui,
+                    FeatureRendererSubscription::CHUNKED_LIGHTS,
+                    "Chunked Lights"
+                );
+                feature!(
+                    ui,
+                    FeatureRendererSubscription::DEFERRED_LIGHTS,
+                    "Deferred Lights"
+                );
             })
             .response
     }

@@ -185,6 +185,8 @@ tfx_global_pipelines! {
     debug_colored_overcoat_id,
     debug_depth_edges,
     debug_world_normal,
+    debug_diffuse_light,
+    debug_specular_light,
 
     // LUT3D variants
     screen_area_global_lut3d_distort,

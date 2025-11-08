@@ -167,240 +167,182 @@ impl Gbuffers {
     }
 }
 
-// pub struct LightBuffers {
-//     pub light_diffuse: SurfaceHandle,
-//     pub light_specular: SurfaceHandle,
-//     pub light_specular_ibl: SurfaceHandle,
-//     pub vertex_ao: SurfaceHandle,
-//     pub distortion: SurfaceHandle,
+pub struct LightBuffers {
+    pub light_diffuse: SurfaceHandle,
+    pub light_specular: SurfaceHandle,
+    pub light_specular_ibl: SurfaceHandle,
+    pub vertex_ao: SurfaceHandle,
+    pub distortion: SurfaceHandle,
 
-//     pub volumetrics_rt0: SurfaceHandle,
-//     pub volumetrics_rt1: SurfaceHandle,
-//     pub volumetrics_rt2: SurfaceHandle,
-//     pub volumetrics_rt3: SurfaceHandle,
+    pub volumetrics_rt0: SurfaceHandle,
+    pub volumetrics_rt1: SurfaceHandle,
+    pub volumetrics_rt2: SurfaceHandle,
+    pub volumetrics_rt3: SurfaceHandle,
 
-//     pub volumetrics_upres: SurfaceHandle,
+    pub volumetrics_upres: SurfaceHandle,
 
-//     pub ssao: SurfaceHandle,
-//     /// Intermediate buffer used for holding the horizontal blur result of the SSAO pass
-//     pub ssao_pong: SurfaceHandle,
-// }
+    pub ssao: SurfaceHandle,
+    /// Intermediate buffer used for holding the horizontal blur result of the SSAO pass
+    pub ssao_pong: SurfaceHandle,
+}
 
-// impl LightBuffers {
-//     pub fn create(surfaces: &Surfaces, base_resolution: (u32, u32)) -> anyhow::Result<Self> {
-//         let light_diffuse = surfaces.create_surface(
-//             base_resolution,
-//             SurfaceDesc::builder("light_diffuse", SizeRelativity::RelativeToFramebuffer)
-//                 .format(dxgi::Format::R11g11b10Float)
-//                 .build(),
-//         )?;
+impl LightBuffers {
+    pub fn create(surfaces: &Surfaces, base_resolution: (u32, u32)) -> anyhow::Result<Self> {
+        let light_diffuse = surfaces.create_surface(
+            base_resolution,
+            SurfaceDesc::builder("light_diffuse", SizeRelativity::RelativeToFramebuffer)
+                .format(dxgi::Format::R11g11b10Float)
+                .build(),
+        )?;
 
-//         let light_specular = surfaces.create_surface(
-//             base_resolution,
-//             SurfaceDesc::builder("light_specular", SizeRelativity::RelativeToFramebuffer)
-//                 .format(dxgi::Format::R11g11b10Float)
-//                 .build(),
-//         )?;
+        let light_specular = surfaces.create_surface(
+            base_resolution,
+            SurfaceDesc::builder("light_specular", SizeRelativity::RelativeToFramebuffer)
+                .format(dxgi::Format::R11g11b10Float)
+                .build(),
+        )?;
 
-//         let light_specular_ibl = surfaces.create_surface(
-//             base_resolution,
-//             SurfaceDesc::builder("light_specular_ibl", SizeRelativity::RelativeToFramebuffer)
-//                 .format(dxgi::Format::R11g11b10Float)
-//                 .build(),
-//         )?;
+        let light_specular_ibl = surfaces.create_surface(
+            base_resolution,
+            SurfaceDesc::builder("light_specular_ibl", SizeRelativity::RelativeToFramebuffer)
+                .format(dxgi::Format::R11g11b10Float)
+                .build(),
+        )?;
 
-//         let gbuffer_ao = surfaces.create_surface(
-//             base_resolution,
-//             SurfaceDesc::builder("gbuffer_ao", SizeRelativity::RelativeToFramebuffer)
-//                 .format(dxgi::Format::R8Typeless)
-//                 .view_format(dxgi::Format::R8Unorm)
-//                 .build(),
-//         )?;
+        let gbuffer_ao = surfaces.create_surface(
+            base_resolution,
+            SurfaceDesc::builder("gbuffer_ao", SizeRelativity::RelativeToFramebuffer)
+                .format(dxgi::Format::R8Typeless)
+                .view_format(dxgi::Format::R8Unorm)
+                .build(),
+        )?;
 
-//         let distortion = surfaces.create_surface(
-//             base_resolution,
-//             SurfaceDesc::builder("distortion", SizeRelativity::RelativeToFramebuffer)
-//                 .format(dxgi::Format::R8g8b8a8Typeless)
-//                 .view_format(dxgi::Format::R8g8b8a8Unorm)
-//                 .scale(SurfaceScale::Half)
-//                 .build(),
-//         )?;
+        let distortion = surfaces.create_surface(
+            base_resolution,
+            SurfaceDesc::builder("distortion", SizeRelativity::RelativeToFramebuffer)
+                .format(dxgi::Format::R8g8b8a8Typeless)
+                .view_format(dxgi::Format::R8g8b8a8Unorm)
+                .scale(SurfaceScale::Half)
+                .build(),
+        )?;
 
-//         let [volumetrics_rt0, volumetrics_rt1, volumetrics_rt2, volumetrics_rt3] =
-//             std::array::from_fn(|i| {
-//                 surfaces.create_surface(
-//                     base_resolution,
-//                     SurfaceDesc::builder(
-//                         format!("volumetrics_{i}"),
-//                         SizeRelativity::RelativeToFramebuffer,
-//                     )
-//                     .format(dxgi::Format::R16g16b16a16Typeless)
-//                     .view_format(dxgi::Format::R16g16b16a16Float)
-//                     .scale(SurfaceScale::Eighth)
-//                     .build(),
-//                 )
-//             });
+        let [volumetrics_rt0, volumetrics_rt1, volumetrics_rt2, volumetrics_rt3] =
+            std::array::from_fn(|i| {
+                surfaces.create_surface(
+                    base_resolution,
+                    SurfaceDesc::builder(
+                        format!("volumetrics_{i}"),
+                        SizeRelativity::RelativeToFramebuffer,
+                    )
+                    .format(dxgi::Format::R16g16b16a16Typeless)
+                    .view_format(dxgi::Format::R16g16b16a16Float)
+                    .scale(SurfaceScale::Eighth)
+                    .build(),
+                )
+            });
 
-//         let volumetrics_upres = surfaces.create_surface(
-//             base_resolution,
-//             SurfaceDesc::builder(
-//                 "volumetrics_upres".to_string(),
-//                 SizeRelativity::RelativeToFramebuffer,
-//             )
-//             .format(dxgi::Format::R16g16b16a16Typeless)
-//             .view_format(dxgi::Format::R16g16b16a16Float)
-//             .scale(SurfaceScale::Half)
-//             .build(),
-//         )?;
+        let volumetrics_upres = surfaces.create_surface(
+            base_resolution,
+            SurfaceDesc::builder(
+                "volumetrics_upres".to_string(),
+                SizeRelativity::RelativeToFramebuffer,
+            )
+            .format(dxgi::Format::R16g16b16a16Typeless)
+            .view_format(dxgi::Format::R16g16b16a16Float)
+            .scale(SurfaceScale::Half)
+            .build(),
+        )?;
 
-//         let ssao_desc = SurfaceDesc::builder("ssao", SizeRelativity::RelativeToFramebuffer)
-//             .format(dxgi::Format::R8g8Typeless)
-//             .view_format(dxgi::Format::R8g8Unorm)
-//             .build();
+        let ssao_desc = SurfaceDesc::builder("ssao", SizeRelativity::RelativeToFramebuffer)
+            .format(dxgi::Format::R8g8Typeless)
+            .view_format(dxgi::Format::R8g8Unorm)
+            .build();
 
-//         let ssao = surfaces.create_surface(base_resolution, ssao_desc.clone())?;
-//         let ssao_pong = surfaces.create_surface(base_resolution, ssao_desc)?;
+        let ssao = surfaces.create_surface(base_resolution, ssao_desc.clone())?;
+        let ssao_pong = surfaces.create_surface(base_resolution, ssao_desc)?;
 
-//         Ok(Self {
-//             light_diffuse,
-//             light_specular,
-//             light_specular_ibl,
-//             vertex_ao: gbuffer_ao,
-//             distortion,
-//             volumetrics_rt0: volumetrics_rt0?,
-//             volumetrics_rt1: volumetrics_rt1?,
-//             volumetrics_rt2: volumetrics_rt2?,
-//             volumetrics_rt3: volumetrics_rt3?,
-//             volumetrics_upres,
-//             ssao,
-//             ssao_pong,
-//         })
-//     }
+        Ok(Self {
+            light_diffuse,
+            light_specular,
+            light_specular_ibl,
+            vertex_ao: gbuffer_ao,
+            distortion,
+            volumetrics_rt0: volumetrics_rt0?,
+            volumetrics_rt1: volumetrics_rt1?,
+            volumetrics_rt2: volumetrics_rt2?,
+            volumetrics_rt3: volumetrics_rt3?,
+            volumetrics_upres,
+            ssao,
+            ssao_pong,
+        })
+    }
 
-//     pub fn clear(&self, context: &d3d11::DeviceContext) {
-//         Renderer::instance()
-//             .surfaces
-//             .get(self.light_diffuse)
-//             .clear_color(context, [0., 0., 0., 1.]);
-//         Renderer::instance()
-//             .surfaces
-//             .get(self.light_specular)
-//             .clear_color(context, [0., 0., 0., 1.]);
-//         Renderer::instance()
-//             .surfaces
-//             .get(self.light_specular_ibl)
-//             .clear_color(context, [0., 0., 0., 1.]);
+    pub fn clear(&self, context: &d3d11::DeviceContext, surfaces: &Surfaces) {
+        surfaces
+            .get(self.light_diffuse)
+            .clear_color(context, [0., 0., 0., 1.]);
+        surfaces
+            .get(self.light_specular)
+            .clear_color(context, [0., 0., 0., 1.]);
+        surfaces
+            .get(self.light_specular_ibl)
+            .clear_color(context, [0., 0., 0., 1.]);
 
-//         for rt in &[
-//             self.volumetrics_rt0,
-//             self.volumetrics_rt1,
-//             self.volumetrics_rt2,
-//             self.volumetrics_rt3,
-//         ] {
-//             Renderer::instance()
-//                 .surfaces
-//                 .get(*rt)
-//                 .clear_color(context, [0., 0., 0., 1.]);
-//         }
-//     }
+        for rt in &[
+            self.volumetrics_rt0,
+            self.volumetrics_rt1,
+            self.volumetrics_rt2,
+            self.volumetrics_rt3,
+        ] {
+            surfaces.get(*rt).clear_color(context, [0., 0., 0., 1.]);
+        }
+    }
 
-//     pub fn bind_ibl_vertex_ao(&self, context: &d3d11::DeviceContext) {
-//         context.rasterizer_set_viewports(&[Renderer::instance()
-//             .surfaces
-//             .get(self.light_diffuse)
-//             .viewport()]);
-//         context.output_merger_set_render_targets(
-//             &[
-//                 Some(
-//                     Renderer::instance()
-//                         .surfaces
-//                         .get(self.light_diffuse)
-//                         .rtv
-//                         .clone()
-//                         .unwrap(),
-//                 ),
-//                 Some(
-//                     Renderer::instance()
-//                         .surfaces
-//                         .get(self.light_specular_ibl)
-//                         .rtv
-//                         .clone()
-//                         .unwrap(),
-//                 ),
-//                 Some(
-//                     Renderer::instance()
-//                         .surfaces
-//                         .get(self.vertex_ao)
-//                         .rtv
-//                         .clone()
-//                         .unwrap(),
-//                 ),
-//             ],
-//             None,
-//         );
-//     }
+    pub fn bind_ibl_vertex_ao(&self, context: &d3d11::DeviceContext, surfaces: &Surfaces) {
+        context.rasterizer_set_viewports(&[surfaces.get(self.light_diffuse).viewport()]);
+        context.output_merger_set_render_targets(
+            &[
+                Some(surfaces.get(self.light_diffuse).rtv.as_ref().unwrap()),
+                Some(surfaces.get(self.light_specular_ibl).rtv.as_ref().unwrap()),
+                Some(surfaces.get(self.vertex_ao).rtv.as_ref().unwrap()),
+            ],
+            None,
+        );
+    }
 
-//     pub fn bind_diffuse_ibl(&self, context: &d3d11::DeviceContext) {
-//         context.output_merger_set_render_targets(
-//             &[
-//                 Some(
-//                     Renderer::instance()
-//                         .surfaces
-//                         .get(self.light_diffuse)
-//                         .rtv
-//                         .clone()
-//                         .unwrap(),
-//                 ),
-//                 Some(
-//                     Renderer::instance()
-//                         .surfaces
-//                         .get(self.light_specular_ibl)
-//                         .rtv
-//                         .clone()
-//                         .unwrap(),
-//                 ),
-//             ],
-//             None,
-//         );
-//     }
+    pub fn bind_diffuse_ibl(&self, context: &d3d11::DeviceContext, surfaces: &Surfaces) {
+        context.output_merger_set_render_targets(
+            &[
+                Some(surfaces.get(self.light_diffuse).rtv.as_ref().unwrap()),
+                Some(surfaces.get(self.light_specular_ibl).rtv.as_ref().unwrap()),
+            ],
+            None,
+        );
+    }
 
-//     pub fn bind_diffuse_specular(&self, context: &d3d11::DeviceContext) {
-//         context.output_merger_set_render_targets(
-//             &[
-//                 Some(
-//                     Renderer::instance()
-//                         .surfaces
-//                         .get(self.light_diffuse)
-//                         .rtv
-//                         .clone()
-//                         .unwrap(),
-//                 ),
-//                 Some(
-//                     Renderer::instance()
-//                         .surfaces
-//                         .get(self.light_specular)
-//                         .rtv
-//                         .clone()
-//                         .unwrap(),
-//                 ),
-//             ],
-//             None,
-//         );
-//     }
+    pub fn bind_diffuse_specular(&self, context: &d3d11::DeviceContext, surfaces: &Surfaces) {
+        context.output_merger_set_render_targets(
+            &[
+                Some(surfaces.get(self.light_diffuse).rtv.as_ref().unwrap()),
+                Some(surfaces.get(self.light_specular).rtv.as_ref().unwrap()),
+            ],
+            None,
+        );
+    }
 
-//     pub fn bind_volumetrics(&self, renderer: &Renderer, cmd: &mut CommandList) {
-//         renderer.bind_surfaces(
-//             cmd,
-//             &[
-//                 self.volumetrics_rt0,
-//                 self.volumetrics_rt1,
-//                 self.volumetrics_rt2,
-//                 self.volumetrics_rt3,
-//             ],
-//             None,
-//         );
-//     }
-// }
+    pub fn bind_volumetrics(&self, renderer: &Renderer, cmd: &mut CommandList) {
+        renderer.bind_surfaces(
+            cmd,
+            &[
+                self.volumetrics_rt0,
+                self.volumetrics_rt1,
+                self.volumetrics_rt2,
+                self.volumetrics_rt3,
+            ],
+            None,
+        );
+    }
+}
 
 // pub struct WaterBuffers {
 //     pub water_uv: SurfaceHandle,

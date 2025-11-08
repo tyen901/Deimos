@@ -1,7 +1,7 @@
 // pub mod bloom;
 pub mod buffers;
 pub mod gbuffer;
-// pub mod lighting;
+pub mod lighting;
 pub mod lowlevel;
 pub mod transparent;
 // pub mod water;
@@ -55,7 +55,7 @@ impl Renderer {
 
         self.submit_gbuffer_generation(cmd, view);
 
-        // self.submit_lighting(cmd);
+        self.submit_lighting(cmd, view);
 
         self.clear_surface(cmd, view.shading_result, [0., 0., 0., 1.0]);
         self.bind_surfaces(cmd, &[view.shading_result], None);
@@ -148,6 +148,8 @@ impl Renderer {
                     DebugPipeline::Overcoat => &p.debug_colored_overcoat_id,
                     DebugPipeline::DepthEdges => &p.debug_depth_edges,
                     DebugPipeline::WorldNormal => &p.debug_world_normal,
+                    DebugPipeline::LightDiffuse => &p.debug_diffuse_light,
+                    DebugPipeline::LightSpecular => &p.debug_specular_light,
                 };
 
                 self.execute_global_pipeline(cmd, technique, &format!("{debug_pipeline:?}"));
@@ -184,7 +186,7 @@ impl Renderer {
             }
         });
 
-        self.submit_transparent(cmd, view);
+        // self.submit_transparent(cmd, view);
 
         {
             profiling::scope!("prepare/submit immediate geometry");
@@ -257,9 +259,9 @@ impl Renderer {
         ext.deferred.deferred_rt1 = view.gbuffers.normal.into();
         ext.deferred.deferred_rt2 = view.gbuffers.third.into();
 
-        // ext.deferred.light_diffuse = self.lighting.light_diffuse.into();
-        // ext.deferred.light_specular = self.lighting.light_specular.into();
-        // ext.deferred.light_specular_ibl = self.lighting.light_specular_ibl.into();
+        ext.deferred.light_diffuse = view.lighting.light_diffuse.into();
+        ext.deferred.light_specular = view.lighting.light_specular.into();
+        ext.deferred.light_specular_ibl = view.lighting.light_specular_ibl.into();
 
         // ext.deferred.sky_hemisphere_mips = self.common.temporary_sky_hemisphere.view.clone().into();
 
@@ -395,4 +397,7 @@ pub enum DebugPipeline {
 
     DepthEdges,
     WorldNormal,
+
+    LightDiffuse,
+    LightSpecular,
 }
