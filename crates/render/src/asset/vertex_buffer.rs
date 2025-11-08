@@ -19,6 +19,23 @@ pub struct VertexBuffer {
 }
 
 impl VertexBuffer {
+    pub fn load(device: &d3d11::Device, hash: TagHash) -> anyhow::Result<Self> {
+        let entry = package_manager()
+            .get_entry(hash)
+            .context("Entry not found")?;
+
+        let header: VertexBufferHeader = package_manager()
+            .read_tag_struct(hash)
+            .context("Failed to read header data")?;
+        let data = package_manager()
+            .read_tag(entry.reference)
+            .context("Failed to read buffer data")?;
+
+        let vb = VertexBuffer::load_data(device, &data, header.stride as _)?;
+        vb.buffer.set_debug_name(format!("VertexBuffer {hash}"));
+        Ok(vb)
+    }
+
     pub fn load_data(device: &d3d11::Device, data: &[u8], stride: u32) -> anyhow::Result<Self> {
         Self::load_data_ex(device, data, stride, false)
     }
@@ -108,19 +125,9 @@ impl VertexBuffer {
     }
 }
 
-pub(crate) fn load_vertex_buffer(gctx: &Gpu, hash: TagHash) -> anyhow::Result<VertexBuffer> {
-    let entry = package_manager()
-        .get_entry(hash)
-        .context("Entry not found")?;
-
-    let header: VertexBufferHeader = package_manager()
-        .read_tag_struct(hash)
-        .context("Failed to read header data")?;
-    let data = package_manager()
-        .read_tag(entry.reference)
-        .context("Failed to read buffer data")?;
-
-    let vb = VertexBuffer::load_data(&gctx.device, &data, header.stride as _)?;
-    vb.buffer.set_debug_name(format!("VertexBuffer {hash}"));
-    Ok(vb)
+pub(crate) fn load_vertex_buffer(
+    device: &d3d11::Device,
+    hash: TagHash,
+) -> anyhow::Result<VertexBuffer> {
+    VertexBuffer::load(device, hash)
 }

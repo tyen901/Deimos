@@ -16,6 +16,40 @@ pub struct IndexBuffer {
 }
 
 impl IndexBuffer {
+    pub fn load(device: &d3d11::Device, hash: TagHash) -> anyhow::Result<Self> {
+        let entry = package_manager()
+            .get_entry(hash)
+            .context("Entry not found")?;
+
+        let header: IndexBufferHeader = package_manager()
+            .read_tag_struct(hash)
+            .context("Failed to read header data")?;
+        let data = package_manager()
+            .read_tag(entry.reference)
+            .context("Failed to read buffer data")?;
+
+        let buffer = device.create_buffer(
+            &BufferDesc::builder()
+                .byte_width(header.data_size as u32)
+                .usage(Usage::Immutable)
+                .bind_flags(BindFlags::INDEX_BUFFER)
+                .build(),
+            Some(&data),
+        )?;
+
+        buffer.set_debug_name(format!("IndexBuffer: {hash}"));
+
+        Ok(IndexBuffer {
+            buffer,
+            length: header.data_size as usize / if header.is_32bit { 4 } else { 2 },
+            format: if header.is_32bit {
+                dxgi::Format::R32Uint
+            } else {
+                dxgi::Format::R16Uint
+            },
+        })
+    }
+
     pub fn load_u16(gpu: &Gpu, data: &[u16]) -> anyhow::Result<Self> {
         let buffer = gpu.create_buffer(
             &BufferDesc::builder()
@@ -56,35 +90,5 @@ impl IndexBuffer {
 }
 
 pub(crate) fn load_index_buffer(gctx: &Gpu, hash: TagHash) -> anyhow::Result<IndexBuffer> {
-    let entry = package_manager()
-        .get_entry(hash)
-        .context("Entry not found")?;
-
-    let header: IndexBufferHeader = package_manager()
-        .read_tag_struct(hash)
-        .context("Failed to read header data")?;
-    let data = package_manager()
-        .read_tag(entry.reference)
-        .context("Failed to read buffer data")?;
-
-    let buffer = gctx.create_buffer(
-        &BufferDesc::builder()
-            .byte_width(header.data_size as u32)
-            .usage(Usage::Immutable)
-            .bind_flags(BindFlags::INDEX_BUFFER)
-            .build(),
-        Some(&data),
-    )?;
-
-    buffer.set_debug_name(format!("IndexBuffer: {hash}"));
-
-    Ok(IndexBuffer {
-        buffer,
-        length: header.data_size as usize / if header.is_32bit { 4 } else { 2 },
-        format: if header.is_32bit {
-            dxgi::Format::R32Uint
-        } else {
-            dxgi::Format::R16Uint
-        },
-    })
+    IndexBuffer::load(&gctx.device, hash)
 }

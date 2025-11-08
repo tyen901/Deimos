@@ -1,4 +1,4 @@
-use std::{any::Any, sync::atomic::AtomicUsize};
+use std::any::Any;
 
 use anyhow::Context;
 use deimos_data::tfx::{
@@ -25,7 +25,7 @@ use crate::{
     Renderer,
 };
 
-use super::{shared::ModelBuffers, FeatureRenderer, FeatureRendererData};
+use super::{shared::ModelBuffers, FeatureRenderer};
 
 pub struct DynamicModel {
     mesh_buffers: Vec<ModelBuffers>,
@@ -68,7 +68,10 @@ impl DynamicModel {
         let mesh_buffers = model
             .meshes
             .iter()
-            .map(|m| ModelBuffers::load(m.vertex0_buffer, m.vertex1_buffer, m.index_buffer))
+            .map(|m| {
+                ModelBuffers::load(m.vertex0_buffer, m.vertex1_buffer, m.index_buffer)
+                    .expect("Failed to load model buffers for dynamic model")
+            })
             .collect_vec();
 
         let mesh_stages = model

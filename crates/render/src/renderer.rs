@@ -28,7 +28,10 @@ use crate::{
     gpu::{cbuffer::ConstantBuffer, debug_text::DebugTextRenderer, profiler::D3D11Profiler},
     object::{RenderObject, RenderObjectHandle},
     tfx::{externs::Externs, packet::FramePacket, scope::TempFrameScope},
-    util::{arena::Arena, threading::ThreadMutCell},
+    util::{
+        arena::Arena,
+        threading::{CommandThreadPool, ThreadMutCell},
+    },
     Gpu,
 };
 
@@ -50,7 +53,9 @@ pub struct Renderer {
     pub globals: RenderGlobals,
 
     surfaces: RwLock<Arc<Surfaces>>,
+    // TODO(cohae): both of these need to be jobified
     submit_jobs: submit::lowlevel::SubmitJobManager,
+    pub cmd_pool: CommandThreadPool,
 
     frame_scope: ConstantBuffer<TempFrameScope>,
     debug_vs: d3d11::VertexShader,
@@ -126,6 +131,7 @@ impl Renderer {
                 &gpu,
                 gdt_cpus::num_physical_cores().unwrap_or(4),
             ),
+            cmd_pool: CommandThreadPool::new(gdt_cpus::num_physical_cores().unwrap_or(4), &gpu),
             frame_scope: ConstantBuffer::create(&gpu, None)?,
             debug_cbuffer: ConstantBuffer::create(&gpu, Some(&Mat4::ZERO))?,
 
