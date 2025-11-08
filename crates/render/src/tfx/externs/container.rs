@@ -151,5 +151,7 @@ impl Externs {
 
 local_extern_container! {
     rigid_model: RigidModel,
-    speedtree_placements: SpeedtreePlacements
+    speedtree_placements: SpeedtreePlacements,
+    simple_geometry: SimpleGeometry,
+    deferred_light: DeferredLight
 }

@@ -7,10 +7,10 @@ use crate::{
     camera::Camera, gpu::command_list::CommandList, tfx::packet::CompactTransform, Renderer,
 };
 
-pub mod immediate;
-// pub mod light;
 pub mod decals;
 pub mod decorators;
+pub mod immediate;
+pub mod light;
 pub mod rigid_model;
 mod shared;
 pub mod static_geometry;

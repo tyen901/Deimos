@@ -68,6 +68,7 @@ extern_struct! {
         0x1E0 => unk1e0: Mat4,
         0x260 => unk260: Mat4,
         0x2A0 => unk220: Mat4,
+        0x2E0 => tptow_no_proj_w: Mat4,
 
         // Bungie messed up a good portion of this extern with Marathon, everything prefixed with 0x8_ here needs to be figured out again
         0x8_60 => world_to_camera: Mat4,
@@ -79,10 +80,8 @@ extern_struct! {
         0x8_1E0 => target_pixel_to_world: Mat4,
         // 0x8_220 => target_pixel_to_camera: Mat4,
         // 0x8_260 => unk220: Mat4,
-        0x8_2A0 => tptow_no_proj_w: Mat4,
         0x8_2E0 => unk2a0: Mat4,
 
-        0x2E0 => unk2e0: Mat4,
         0x320 => unk320: Mat4,
         0x3A0 => unk3a0: Mat4,
         0x3E0 => unk3e0: Mat4,
@@ -166,7 +165,7 @@ extern_struct! {
     struct Deferred("deferred") {
         0x00 => depth_constants: Vec4 > default(vec4(1.0 / 50000.0, 1. / 0.02, 0.0, 0.0)),
         0x10 => unk10: Vec4,
-        0x30 => unk30: Vec4,
+        0x30 => unk30: Vec4 > default(Vec4::ZERO),
         0x40 => gbuffer_resolution_scale_offset: Vec4 > default(vec4(1920.0, 1080.0, 0.0, 0.0)), // UV scaling+offset
         0x50 => unk50: Mat4,
         0x90 => unk90: f32,
@@ -175,9 +174,9 @@ extern_struct! {
         0xA8 => deferred_rt0: TextureView,
         0xB0 => deferred_rt1: TextureView,
         0xB8 => deferred_rt2: TextureView,
-        0xC0 => unkc0: TextureView,
-        0xC8 => unkc8: TextureView,
-        0xD0 => unkd0: TextureView,
+        0xC0 => light_diffuse: TextureView,
+        0xC8 => light_specular: TextureView,
+        0xD0 => light_specular_ibl: TextureView,
         0xD8 => unkd8: TextureView,
         0xE8 => unke8: TextureView,
         0xF0 => unkf0: TextureView,
@@ -189,15 +188,15 @@ extern_struct! {
 extern_struct! {
     struct DeferredLight("deferred_light") {
         0x40 => unk40: Mat4,
-        0x80 => unk80: Mat4,
+        0x80 => unk80: Mat4, // New in Marathon
         0xC0 => unkc0: Mat4,
-        0x100 => unk100: Vec4,
-        0x110 => unk110: Vec4,
-        0x120 => unk120: Vec4,
-        0x130 => unk130: Vec4,
+        0x100 => unk100: Vec4 > default(Vec4::W),
+        0x110 => unk110: Vec4 > default(Vec4::W),
+        0x120 => unk120: Vec4 > default(Vec4::W),
+        0x130 => unk130: Vec4 > default(Vec4::W),
         0x140 => unk140: Vec4,
         0x150 => unk150: f32,
-        0x154 => unk154: f32,
+        0x154 => unk154: f32 > default(7500.0),
         0x158 => unk158: f32,
         0x160 => unk160: f32,
     }
@@ -228,8 +227,8 @@ extern_struct! {
         0x00 => unk00: TextureView,
         0x08 => unk08: TextureView,
         0x10 => unk10: TextureView,
-        0x18 => unk18: f32,
-        0x1C => unk1c: f32,
+        0x18 => resolution_width: f32,
+        0x1C => resolution_height: f32,
         0x20 => unk20: f32,
         0x28 => unk28: TextureView,
         0x30 => unk30: Vec4,
@@ -428,7 +427,7 @@ extern_struct! {
 
 extern_struct! {
     struct SimpleGeometry("simple_geometry") {
-        0x00 => unk00: Mat4,
+        0x00 => local_to_world: Mat4,
     }
 }
 

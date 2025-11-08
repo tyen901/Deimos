@@ -6,7 +6,8 @@ use tiger_pkg::TagHash;
 use crate::{
     tag::{OptionalTag, Tag, WideHash, WideTag},
     tfx::features::{
-        decals::SDecalCollection, decorators::SDecorator, sky_objects::SSkyObjectCollection,
+        decals::SDecalCollection, decorators::SDecorator, light::SShadowingLight,
+        sky_objects::SSkyObjectCollection,
     },
 };
 
@@ -71,7 +72,8 @@ tiger_variant_enum! {
         SSkyObjectCollectionComponent,
         SDecalCollectionComponent,
         SDecoratorsComponent,
-        SMaterialPermutationsComponent
+        SMaterialPermutationsComponent,
+        SShadowingLightComponent
     }
 }
 
@@ -105,10 +107,10 @@ pub struct SSkyObjectCollectionComponent {
 //     pub model: TagHash,
 // }
 
-// #[tiger_type(id = 0x80807133)]
-// pub struct SShadowingLightComponent {
-//     pub light: Tag<SShadowingLight>,
-// }
+#[tiger_type(id = 0x80808544)]
+pub struct SShadowingLightComponent {
+    pub light: OptionalTag<SShadowingLight>,
+}
 
 #[tiger_type(id = 0x8080821E)]
 pub struct SDecalCollectionComponent {

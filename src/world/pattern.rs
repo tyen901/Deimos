@@ -22,8 +22,9 @@ use deimos_data::{
 use deimos_render::{
     Renderer,
     feature::{
-        decals::DecalCollectionRenderer, decorators::DecoratorRenderer, rigid_model::DynamicModel,
-        static_geometry::StaticInstancesRenderer, terrain_patches::TerrainPatchesRenderer,
+        decals::DecalCollectionRenderer, decorators::DecoratorRenderer, light::LightRenderer,
+        rigid_model::DynamicModel, static_geometry::StaticInstancesRenderer,
+        terrain_patches::TerrainPatchesRenderer,
     },
     object::RenderObject,
 };
@@ -160,46 +161,6 @@ pub fn spawn_pattern_from_header(
                         )?),
                     ))),
                 )?;
-
-                // for group in &instances.instances.instance_groups {
-                //     let model = instances.instances.statics[group.static_index as usize];
-                //     let range = (group.instance_start as usize)
-                //         ..(group.instance_start + group.instance_count) as usize;
-
-                //     let renderer = StaticModelRenderer::new(
-                //         &renderer.gpu,
-                //         instances.instances.transforms[range.clone()]
-                //             .iter()
-                //             .cloned()
-                //             .zip(
-                //                 instances.instances.occlusion_bounds.bounds[range]
-                //                     .iter()
-                //                     .map(|b| &b.bb)
-                //                     .cloned(),
-                //             )
-                //             .collect(),
-                //         model,
-                //         instances.instances.vertex_ao_identifier,
-                //     )?;
-
-                //     // TODO(cohae): It's pretty stupid that we have to spawn a new entity for each group, since it breaks up the pattern structure
-                //     world.spawn((StaticRenderObject::new(Renderer::instance().add_object(
-                //         RenderObject::new(
-                //             deimos_data::tfx::TfxFeatureRenderer::ChunkedInstanceObjects,
-                //             Box::new(renderer),
-                //             Box::new(()),
-                //         ),
-                //     )),));
-                // }
-
-                // world.insert_one(
-                //     entity,
-                //     StaticRenderObject::new(Renderer::instance().add_object(RenderObject::new(
-                //         deimos_data::tfx::TfxFeatureRenderer::TerrainPatch,
-                //         renderer,
-                //         Box::new(()),
-                //     ))),
-                // )?;
             }
             0x80808220 => {
                 let data = get_component_data!(SDecalCollectionComponent);
@@ -255,6 +216,22 @@ pub fn spawn_pattern_from_header(
                         DynamicRenderObject::new(Renderer::instance().add_object(render_obj)),
                     ));
                 }
+            }
+            0x80808543 => {
+                let data = get_component_data!(SShadowingLightComponent);
+                let Some(light) = data.light.0.as_ref() else {
+                    continue;
+                };
+
+                let render_obj = RenderObject::new(
+                    TfxFeatureRenderer::DeferredLights,
+                    LightRenderer::new_shadowing(renderer, light)?,
+                );
+
+                world.insert_one(
+                    entity,
+                    DynamicRenderObject::new(Renderer::instance().add_object(render_obj)),
+                )?;
             }
             u => {
                 debug!(

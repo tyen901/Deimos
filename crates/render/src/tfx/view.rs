@@ -6,7 +6,7 @@ use glam::{Mat4, Vec3};
 
 use crate::{
     renderer::{
-        submit::buffers::Gbuffers,
+        submit::buffers::{Gbuffers, LightBuffers},
         surface::{SizeRelativity, SurfaceDesc, SurfaceHandle, Surfaces},
     },
     Gpu,
@@ -20,6 +20,7 @@ pub struct View {
     pub(crate) surfaces: Arc<Surfaces>,
     pub(crate) resolution: (u32, u32),
     pub(crate) gbuffers: Gbuffers,
+    pub(crate) lighting: LightBuffers,
     pub(crate) shading_result: SurfaceHandle,
     pub output: SurfaceHandle,
     pub subscribed_features: FeatureRendererSubscription,
@@ -29,6 +30,7 @@ impl View {
     pub fn new(gpu: &Gpu, resolution: (u32, u32)) -> anyhow::Result<Self> {
         let surfaces = Arc::new(Surfaces::new(gpu.device.clone(), resolution));
         let gbuffers = Gbuffers::create(gpu, &surfaces, resolution)?;
+        let lighting = LightBuffers::create(&surfaces, resolution)?;
 
         let shading_result = surfaces.create_surface(
             resolution,
@@ -51,6 +53,7 @@ impl View {
             resolution,
             surfaces,
             gbuffers,
+            lighting,
             shading_result,
             output,
             subscribed_features: FeatureRendererSubscription::all_but(
