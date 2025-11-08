@@ -22,8 +22,8 @@ use deimos_data::{
 use deimos_render::{
     Renderer,
     feature::{
-        decals::DecalCollectionRenderer, decorators::DecoratorRenderer, light::LightRenderer,
-        rigid_model::DynamicModel, static_geometry::StaticInstancesRenderer,
+        cubemap::CubemapRenderer, decals::DecalCollectionRenderer, decorators::DecoratorRenderer,
+        light::LightRenderer, rigid_model::DynamicModel, static_geometry::StaticInstancesRenderer,
         terrain_patches::TerrainPatchesRenderer,
     },
     object::RenderObject,
@@ -257,6 +257,19 @@ pub fn spawn_pattern_from_header(
                         DynamicRenderObject::new(render_obj),
                     ));
                 }
+            }
+            0x80807F3B => {
+                let data = get_component_data!(SCubemapComponent);
+
+                let render_obj = RenderObject::new(
+                    TfxFeatureRenderer::Cubemaps,
+                    Box::new(CubemapRenderer::load(&renderer.gpu, data)?),
+                );
+
+                world.insert_one(
+                    entity,
+                    DynamicRenderObject::new(Renderer::instance().add_object(render_obj)),
+                )?;
             }
             u => {
                 debug!(

@@ -572,9 +572,10 @@ impl ExternalDataWidgetExt for FeatureRendererSubscription {
                 ui.add_enabled_ui(false, |ui| {
                     feature!(ui, FeatureRendererSubscription::LENS_FLARES, "Lens Flares");
                     feature!(ui, FeatureRendererSubscription::PARTICLES, "Particles");
-                    ui.section_separator("Lighting");
-                    feature!(ui, FeatureRendererSubscription::CUBEMAPS, "Cubemaps");
                 });
+
+                ui.section_separator("Lighting");
+                feature!(ui, FeatureRendererSubscription::CUBEMAPS, "Cubemaps");
                 feature!(
                     ui,
                     FeatureRendererSubscription::CHUNKED_LIGHTS,
