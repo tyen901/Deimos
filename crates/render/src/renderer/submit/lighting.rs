@@ -1,6 +1,4 @@
-use deimos_core::convar::ConVars;
 use deimos_data::tfx::{FeatureRendererSubscription, PipelineState, RenderStage};
-use glam::Vec4;
 
 use crate::{
     cmd_event_span,
@@ -43,6 +41,14 @@ impl Renderer {
         //         &[0.5, 0.5, 0.5, 1.],
         //     );
         // }
+
+        cmd.state = PipelineState::new(Some(0), Some(0), Some(0), Some(0));
+        view.lighting.bind_diffuse_specular(cmd, &view.surfaces);
+        self.execute_global_pipeline(
+            cmd,
+            &self.globals.pipelines.global_lighting,
+            "global_lighting",
+        );
 
         view.lighting.bind_diffuse_ibl(cmd, &view.surfaces);
         cmd.state = PipelineState::new(Some(23), Some(1), Some(3), Some(1));

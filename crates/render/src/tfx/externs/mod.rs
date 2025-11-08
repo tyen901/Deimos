@@ -50,8 +50,9 @@ impl ExternAccessorExt for &dyn ExternAccessor {
         let (ptr, typeid) = self.get_value_ptr(index, offset)?;
         if TypeId::of::<U>() != typeid {
             error!(
-                "Extern type mismatch: expected {:?}, found {:?}",
+                "Extern type mismatch for {index:?}+0x{offset:X}: expected {:?} ({}), found {:?}",
                 TypeId::of::<U>(),
+                std::any::type_name::<U>(),
                 typeid
             );
             return None;

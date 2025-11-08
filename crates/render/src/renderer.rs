@@ -206,6 +206,13 @@ impl Renderer {
                 let gpu = &Renderer::instance().gpu;
                 let data = match (index, offset) {
                     (ExternIndex::Atmosphere, _) => bytemuck::cast_slice(&[[0u8, 0, 0, 0]; 4]),
+                    (ExternIndex::ShadowMask, _) => {
+                        bytemuck::cast_slice(&[[0xffu8, 0xff, 0xff, 0xff]; 4])
+                    }
+                    (ExternIndex::Frame, 0xC0) => {
+                        bytemuck::cast_slice(&[[0xffu8, 0xff, 0xff, 0xff]; 4])
+                    }
+
                     (ExternIndex::Transparent, 0) => bytemuck::cast_slice(&[[0u8, 0, 0, 0]; 4]),
                     (ExternIndex::Water, 0x28) => bytemuck::cast_slice(&[[127u8, 127, 0, 0]; 4]), // RG16_UNORM
                     // VolumetricsPass inputs are generally the results of the last pass, alpha is *ALWAYS* cleared to zero
