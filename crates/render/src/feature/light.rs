@@ -2,7 +2,10 @@ use d3d11::dxgi;
 use deimos_core::convar::ConVars;
 use deimos_data::tfx::{
     common::AxisAlignedBBox,
-    features::{dynamic::RenderStageSubscription, light::SShadowingLight},
+    features::{
+        dynamic::RenderStageSubscription,
+        light::{SLight, SShadowingLight},
+    },
     PrimitiveType, RenderStage,
 };
 use glam::{Mat4, Vec3, Vec4, Vec4Swizzles};
@@ -10,6 +13,7 @@ use itertools::Itertools;
 use tiger_pkg::TagHash;
 
 use crate::{
+    camera::Camera,
     tfx::{
         externs::{self, DeferredLight, SimpleGeometry, VolumeFog},
         packet::CompactTransform,
@@ -35,20 +39,20 @@ pub struct LightRenderer {
 }
 
 impl LightRenderer {
-    // pub fn new(
-    //     renderer: &Renderer,
-    //     light: &SLight,
-    //     bounds: AxisAlignedBBox,
-    // ) -> anyhow::Result<Box<Self>> {
-    //     Self::new_impl(
-    //         renderer,
-    //         light.technique_lighting_apply,
-    //         light.technique_volumetrics,
-    //         // light.technique_light_probe_apply,
-    //         light.light_space_transform,
-    //         Some(bounds),
-    //     )
-    // }
+    pub fn new(
+        renderer: &Renderer,
+        light: &SLight,
+        bounds: AxisAlignedBBox,
+    ) -> anyhow::Result<Box<Self>> {
+        Self::new_impl(
+            renderer,
+            light.technique_lighting_apply,
+            light.technique_volumetrics,
+            // light.technique_light_probe_apply,
+            light.light_space_transform,
+            Some(bounds),
+        )
+    }
 
     pub fn new_shadowing(
         renderer: &Renderer,
@@ -106,13 +110,13 @@ impl LightRenderer {
 }
 
 impl FeatureRenderer for LightRenderer {
-    // fn visibility_test(&mut self, camera: &Camera) -> bool {
-    //     if let Some(ref bounds) = self.bounds {
-    //         camera.frustum.aabb_intersecting(bounds)
-    //     } else {
-    //         true
-    //     }
-    // }
+    fn visibility_test(&mut self, camera: &Camera) -> bool {
+        if let Some(ref bounds) = self.bounds {
+            camera.is_visible(bounds)
+        } else {
+            true
+        }
+    }
 
     fn extract_and_prepare(
         &mut self,
@@ -164,6 +168,11 @@ impl FeatureRenderer for LightRenderer {
                 // unk40: local_to_world_relative.inverse().transpose(),
                 unk40: (view_translation_inverse_mat4 * light_local_to_world).inverse(),
                 unkc0: local_to_world_relative,
+
+                unk150: 1.0,
+                unk154: 0.0,
+                unk158: 0.0,
+
                 ..Default::default()
             }));
 
