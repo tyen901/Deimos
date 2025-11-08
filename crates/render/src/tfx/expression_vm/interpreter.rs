@@ -263,6 +263,13 @@ impl<'a> InterpreterState<'a> {
                     self.stack_pointer -= 2;
                     set_top!((y - x) * s + x);
                 }
+                Opcode::LerpSaturated => {
+                    let s = cached_top;
+                    let y = self.get(-1)?;
+                    let x = self.get(-2)?;
+                    self.stack_pointer -= 2;
+                    set_top!(((y - x) * s + x).clamp(Vec4::ZERO, Vec4::MAX));
+                }
                 Opcode::MultiplyAdd => {
                     let c: __m128 = cached_top.into();
                     let b: __m128 = self.get(-1)?.into();
