@@ -11,7 +11,7 @@ use tiger_pkg::TagHash;
 use crate::{tag::WideHash, tfx::enums::ShaderStage};
 
 #[derive(Clone)]
-#[tiger_type(id = 0x808031D8)]
+#[tiger_type(id = 0x808085B3)]
 pub struct STechnique {
     pub file_size: u64,
     pub bind_mode: TechniqueBindMode,
@@ -95,7 +95,7 @@ pub struct STechniqueShader {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_type(id = 0x808086C6)]
+#[tiger_type(id = 0x808085DD)]
 pub struct SMaterialTextureAssignment {
     /// Material slot to assign to
     pub slot: u32,

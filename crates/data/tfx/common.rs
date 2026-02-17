@@ -3,7 +3,7 @@ use std::iter::Sum;
 use glam::{vec3, Quat, Vec3, Vec4, Vec4Swizzles};
 use tiger_parse::tiger_type;
 
-#[tiger_type(id = 0x8080BF47)]
+#[tiger_type(id = 0x8FFFFFFF)]
 #[derive(Clone, Debug, Copy)]
 pub struct SRotationTranslation {
     pub rotation: Quat,
@@ -18,14 +18,14 @@ impl SRotationTranslation {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_type(id = 0x8080A7F5, size = 0x18)]
+#[tiger_type(id = 0x8FFFFFFF, size = 0x18)]
 pub struct SOcclusionBounds {
     pub file_size: u64,
     pub bounds: Vec<SObjectOcclusionBounds>,
 }
 
 #[derive(Debug, Clone)]
-#[tiger_type(id = 0x8080A7F7, size = 0x30)]
+#[tiger_type(id = 0x8FFFFFFF, size = 0x30)]
 pub struct SObjectOcclusionBounds {
     pub bb: AxisAlignedBBox,
     pub unk20: [u32; 4],

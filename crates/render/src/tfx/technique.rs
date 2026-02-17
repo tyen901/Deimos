@@ -1,8 +1,9 @@
 use std::{ops::Deref, sync::Arc};
 
 use anyhow::{ensure, Context};
-use d3d11::DeviceChild;
+use d3d11::{fxc::ShaderTarget, DeviceChild};
 use deimos_data::tfx::{STechnique, STechniqueShader, ShaderStage, TechniqueBindMode};
+use dxil_spirv::convert_dxil_to_dxbc;
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::{package_manager, TagHash};
 
@@ -300,9 +301,23 @@ impl ShaderModule {
             "Shader header type mismatch"
         );
 
-        let data = package_manager()
+        let data_dxil = package_manager()
             .read_tag(entry.reference)
             .context("Failed to read shader data")?;
+
+        let target = match entry.file_subtype {
+            0 => ShaderTarget::Pixel,
+            1 => ShaderTarget::Vertex,
+            2 => ShaderTarget::Geometry,
+            3..=5 => {
+                anyhow::bail!("Unsupported shader type: {}", entry.file_subtype);
+            }
+            6 => ShaderTarget::Compute,
+            _ => unreachable!(),
+        };
+
+        let data = convert_dxil_to_dxbc(&data_dxil, target)
+            .context("Failed to recompile DXIL->HLSL->DXBC")?;
 
         match entry.file_subtype {
             0 => Ok(ShaderModule::Pixel(gpu.create_pixel_shader(&data)?)),

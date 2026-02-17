@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 deimos-core = { path = "../core" }
 deimos-data = { path = "../data" }
+dxil-spirv = { path = "../dxil-spirv" }
 
 anyhow.workspace = true
 arc-atomic = "0.1"

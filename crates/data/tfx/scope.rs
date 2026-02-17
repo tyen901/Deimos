@@ -3,7 +3,7 @@ use tiger_parse::{tiger_type, NullString, Pointer};
 use super::{SDynamicConstants, ShaderStage};
 
 #[derive(Clone)]
-#[tiger_type(id = 0x808031DC, size = 0x3b8)]
+#[tiger_type(id = 0x808085C9, size = 0x3b8)]
 pub struct SScope {
     pub file_size: u64,
     pub name: Pointer<NullString>,
