@@ -316,7 +316,7 @@ impl ShaderModule {
             _ => unreachable!(),
         };
 
-        let data = convert_dxil_to_dxbc(&data_dxil, target)
+        let data = convert_dxil_to_dxbc(hash.0, &data_dxil, target)
             .context("Failed to recompile DXIL->HLSL->DXBC")?;
 
         match entry.file_subtype {

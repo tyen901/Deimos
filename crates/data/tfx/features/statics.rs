@@ -10,7 +10,7 @@ use crate::{
 };
 
 #[derive(Debug)]
-#[tiger_type(id = 0x8FFFFFFF)]
+#[tiger_type(id = 0x80808421)]
 pub struct SStaticMesh {
     pub file_size: u64,
     /// GenerateGbuffer/DepthPrepass/ShadowGenerate
@@ -26,7 +26,7 @@ pub struct SStaticMesh {
 }
 
 #[derive(Debug)]
-#[tiger_type(id = 0x8FFFFFFF, size = 0x60)]
+#[tiger_type(id = 0x80808406, size = 0x60)]
 pub struct SStaticMeshData {
     pub file_size: u64,
     pub mesh_groups: Vec<SStaticMeshGroup>,
@@ -43,7 +43,7 @@ pub struct SStaticMeshData {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_type(id = 0x8FFFFFFF)]
+#[tiger_type(id = 0x8080840C)]
 pub struct SStaticMeshPart {
     pub index_start: u32,
     pub index_count: u32,
@@ -54,7 +54,7 @@ pub struct SStaticMeshPart {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_type(id = 0x8FFFFFFF)]
+#[tiger_type(id = 0x8080840D)]
 pub struct SStaticMeshGroup {
     pub part_index: u16,
     pub render_stage: RenderStage,
@@ -67,7 +67,7 @@ pub struct SStaticMeshGroup {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_type(id = 0x8FFFFFFF, size = 0xC0)]
+#[tiger_type(id = 0x8080A9E6, size = 0xC0)]
 pub struct SStaticMeshInstances {
     #[tiger(offset = 0x18)]
     pub occlusion_bounds: Tag<SOcclusionBounds>,
@@ -82,7 +82,7 @@ pub struct SStaticMeshInstances {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_type(id = 0x8FFFFFFF)]
+#[tiger_type(id = 0x808083FE)]
 pub struct SStaticMeshInstanceGroup {
     pub instance_start: u32,
     pub instance_count: u32,
@@ -91,7 +91,7 @@ pub struct SStaticMeshInstanceGroup {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_type(id = 0x8FFFFFFF)]
+#[tiger_type(id = 0x80808415)]
 pub struct SStaticInstanceTransform {
     pub rotation: glam::Quat,
     pub translation: glam::Vec3,
@@ -107,7 +107,7 @@ pub struct SStaticInstanceTransform {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_type(id = 0x8FFFFFFF)]
+#[tiger_type(id = 0x80808405)]
 pub struct SStaticSpecialMesh {
     pub render_stage: RenderStage,
     pub input_layout_index: u8,
@@ -126,7 +126,7 @@ pub struct SStaticSpecialMesh {
 }
 
 #[derive(Debug)]
-#[tiger_type(id = 0x8FFFFFFF, size = 0x24)]
+#[tiger_type(id = 0x80808147, size = 0x24)]
 pub struct SUnk808082D5 {
     pub unk0: u64,
     pub instances: TagHash, //Tag<SStaticMeshInstances>,

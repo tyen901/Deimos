@@ -129,9 +129,9 @@ pub struct StaticModelRenderer {
 #[repr(C)]
 #[derive(Pod, Zeroable, Clone, Copy)]
 pub struct InstanceTransformBlock {
-    pub transform: [Vec4; 3],
-    pub params0: Vec4,
-    pub params1: Vec4,
+    pub transform: [Vec4; 3], // 0-4, 4-8, 8-12
+    pub params0: Vec4,        // 12-16,
+    pub params1: Vec4,        // 16-20
 }
 
 impl StaticModelRenderer {
@@ -489,76 +489,80 @@ impl FeatureRenderer for StaticInstancesRenderer {
     }
 
     fn submit(&self, cmd: &mut CommandList, stage: RenderStage) {
-        let Some(groups_sorted_by_technique) = self.groups_by_stage_sorted_by_technique.get(&stage)
-        else {
-            // Special meshes are rendered single-threaded for now
-            for (model, _visible) in self.models.iter().filter(|(_, v)| *v) {
-                model.render_all(cmd, stage);
-            }
-            return;
-        };
-
-        let initial_state = Arc::new(GpuState::backup(cmd));
-
-        // Equally divide groups_sorted_by_technique into X ranges for parallel processing
-        // let mut job_ranges = vec![];
-        let job_count = 6;
-        let node_count = groups_sorted_by_technique.len();
-        let nodes_per_job = node_count / job_count;
-        let mut last_end = 0;
-        let mut jobs_scheduled = 0;
-        for _i in 0..job_count {
-            let node_start = last_end;
-            let mut node_end = (node_start + nodes_per_job).min(node_count);
-
-            if node_start >= node_count {
-                break;
-            }
-
-            let last_technique = groups_sorted_by_technique[node_end - 1].0;
-            // Extend node_end to include all groups with the same technique hash
-            loop {
-                if node_end < node_count && groups_sorted_by_technique[node_end].0 == last_technique
-                {
-                    node_end += 1;
-                } else {
-                    break;
-                }
-            }
-
-            last_end = node_end;
-            let range = node_start..node_end;
-            // job_ranges.push(node_start..node_end);
-
-            let groups_sorted_by_technique = groups_sorted_by_technique.clone();
-            let initial_state = initial_state.clone();
-            let p_models = &self.models as *const _ as u64;
-            Renderer::instance()
-                .cmd_pool
-                .queue_job(Box::new(move |job_cmd: &mut CommandList| {
-                    // Safety: p_models is valid for the lifetime of this closure
-                    // TODO(cohae): need a better way to pass self.models to the job
-                    let p_models = p_models as *const Vec<(StaticModelRenderer, bool)>;
-                    let models = unsafe { &*p_models };
-                    initial_state.restore(job_cmd);
-                    for (_technique_hash, model_index, group_index) in
-                        &groups_sorted_by_technique[range.clone()]
-                    {
-                        let (model, visible) = &models[*model_index];
-                        if *visible {
-                            model.render_group(job_cmd, stage, *group_index);
-                        }
-                    }
-                }));
-            jobs_scheduled += 1;
+        for (model, _visible) in self.models.iter().filter(|(_, v)| *v) {
+            model.render_all(cmd, stage);
         }
 
-        for cmd_result in Renderer::instance()
-            .cmd_pool
-            .collect_results(jobs_scheduled)
-        {
-            cmd.execute_command_list(&cmd_result, true);
-        }
+        // let Some(groups_sorted_by_technique) = self.groups_by_stage_sorted_by_technique.get(&stage)
+        // else {
+        //     // Special meshes are rendered single-threaded for now
+        //     for (model, _visible) in self.models.iter().filter(|(_, v)| *v) {
+        //         model.render_all(cmd, stage);
+        //     }
+        //     return;
+        // };
+
+        // let initial_state = Arc::new(GpuState::backup(cmd));
+
+        // // Equally divide groups_sorted_by_technique into X ranges for parallel processing
+        // // let mut job_ranges = vec![];
+        // let job_count = 6;
+        // let node_count = groups_sorted_by_technique.len();
+        // let nodes_per_job = node_count / job_count;
+        // let mut last_end = 0;
+        // let mut jobs_scheduled = 0;
+        // for _i in 0..job_count {
+        //     let node_start = last_end;
+        //     let mut node_end = (node_start + nodes_per_job).min(node_count);
+
+        //     if node_start >= node_count || node_end == 0 {
+        //         break;
+        //     }
+
+        //     let last_technique = groups_sorted_by_technique[node_end - 1].0;
+        //     // Extend node_end to include all groups with the same technique hash
+        //     loop {
+        //         if node_end < node_count && groups_sorted_by_technique[node_end].0 == last_technique
+        //         {
+        //             node_end += 1;
+        //         } else {
+        //             break;
+        //         }
+        //     }
+
+        //     last_end = node_end;
+        //     let range = node_start..node_end;
+        //     // job_ranges.push(node_start..node_end);
+
+        //     let groups_sorted_by_technique = groups_sorted_by_technique.clone();
+        //     let initial_state = initial_state.clone();
+        //     let p_models = &self.models as *const _ as u64;
+        //     Renderer::instance()
+        //         .cmd_pool
+        //         .queue_job(Box::new(move |job_cmd: &mut CommandList| {
+        //             // Safety: p_models is valid for the lifetime of this closure
+        //             // TODO(cohae): need a better way to pass self.models to the job
+        //             let p_models = p_models as *const Vec<(StaticModelRenderer, bool)>;
+        //             let models = unsafe { &*p_models };
+        //             initial_state.restore(job_cmd);
+        //             for (_technique_hash, model_index, group_index) in
+        //                 &groups_sorted_by_technique[range.clone()]
+        //             {
+        //                 let (model, visible) = &models[*model_index];
+        //                 if *visible {
+        //                     model.render_group(job_cmd, stage, *group_index);
+        //                 }
+        //             }
+        //         }));
+        //     jobs_scheduled += 1;
+        // }
+
+        // for cmd_result in Renderer::instance()
+        //     .cmd_pool
+        //     .collect_results(jobs_scheduled)
+        // {
+        //     cmd.execute_command_list(&cmd_result, true);
+        // }
 
         // let initial_state = Arc::new(GpuState::backup(cmd));
         // let command_lists = job_ranges

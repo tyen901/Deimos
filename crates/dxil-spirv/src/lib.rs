@@ -2,9 +2,14 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-use std::mem::zeroed;
+use std::{
+    collections::HashMap,
+    mem::zeroed,
+    sync::{Arc, Mutex},
+};
 
 use anyhow::Context;
+use lazy_static::lazy_static;
 use spirv_cross2::{
     compile::hlsl::{CompilerOptions, HlslShaderModel},
     targets::Hlsl,
@@ -55,11 +60,29 @@ pub fn convert_dxil_to_hlsl(dxil: &[u8]) -> anyhow::Result<String> {
     }
 }
 
+lazy_static! {
+    static ref SHADER_CACHE: Mutex<HashMap<u32, Arc<Vec<u8>>>> = Mutex::new(HashMap::new());
+}
+
 pub fn convert_dxil_to_dxbc(
+    cache_id: u32,
     dxil: &[u8],
     target: d3d11::fxc::ShaderTarget,
-) -> anyhow::Result<Vec<u8>> {
+) -> anyhow::Result<Arc<Vec<u8>>> {
+    if let Some(dxbc) = SHADER_CACHE.lock().unwrap().get(&cache_id) {
+        return Ok(dxbc.clone());
+    }
+
     let hlsl = convert_dxil_to_hlsl(dxil).expect("Failed to convert DXIL to HLSL");
-    let dxbc = d3d11::fxc::compile(hlsl.as_bytes(), None, &[], "main", target)?;
+    let dxbc = Arc::new(d3d11::fxc::compile(
+        hlsl.as_bytes(),
+        None,
+        &[],
+        "main",
+        target,
+    )?);
+
+    SHADER_CACHE.lock().unwrap().insert(cache_id, dxbc.clone());
+
     Ok(dxbc)
 }

@@ -7,6 +7,7 @@ edition = "2021"
 anyhow.workspace = true
 d3d11.workspace = true
 spirv-cross2 = { version = "0.6.0", default-features = false, features = ["hlsl"] }
+lazy_static = "1.4.0"
 
 [build-dependencies]
 bindgen = "0.71.0"

@@ -1029,6 +1029,7 @@ dependencies = [
  "anyhow",
  "bindgen",
  "d3d11",
+ "lazy_static",
  "spirv-cross2",
 ]
 

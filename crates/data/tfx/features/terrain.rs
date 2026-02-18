@@ -7,7 +7,7 @@ use crate::tfx::common::AxisAlignedBBox;
 
 /// Terrain
 #[derive(Debug)]
-#[tiger_type(id = 0x8FFFFFFF, size = 0x88)]
+#[tiger_type(id = 0x808084CB, size = 0x88)]
 pub struct STerrain {
     pub file_size: u64,
     pub unk8: u64,
@@ -29,7 +29,7 @@ pub struct STerrain {
 }
 
 #[derive(Debug)]
-#[tiger_type(id = 0x8FFFFFFF)]
+#[tiger_type(id = 0x808084D0)]
 pub struct STerrainMeshGroup {
     pub unk0: Vec4,
     pub unk10: f32,
@@ -52,7 +52,7 @@ pub struct STerrainMeshGroup {
 }
 
 #[derive(Debug)]
-#[tiger_type(id = 0x8FFFFFFF)]
+#[tiger_type(id = 0x808084CE)]
 pub struct STerrainMeshPart {
     pub technique: TagHash,
     pub index_start: u32,

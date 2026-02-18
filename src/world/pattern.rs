@@ -135,7 +135,7 @@ pub fn spawn_pattern_from_header(
                     );
                 }
             }
-            0x80808562 => {
+            0x808083CB => {
                 let data = get_component_data!(SStaticTerrainPatchesComponent);
 
                 let renderer =
@@ -149,7 +149,7 @@ pub fn spawn_pattern_from_header(
                     ))),
                 )?;
             }
-            0x808085AF => {
+            0x808084E8 => {
                 let data = get_component_data!(SStaticInstancesCollectionComponent);
                 let instances: SUnk808082D5 = package_manager().read_tag_struct(data.instances)?;
                 world.insert_one(

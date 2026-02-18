@@ -92,7 +92,7 @@ pub struct SMaterialPermutationsComponent {
 //     pub ao: Tag<SStaticAmbientOcclusion>,
 // }
 
-#[tiger_type(id = 0x8FFFFFFF)]
+#[tiger_type(id = 0x808084E9)]
 pub struct SStaticInstancesCollectionComponent {
     pub instances: TagHash,
 }
@@ -123,7 +123,7 @@ pub struct SDecalCollectionComponent {
 }
 
 #[derive(Clone, Debug)]
-#[tiger_type(id = 0x8FFFFFFF)]
+#[tiger_type(id = 0x808083CC)]
 pub struct SStaticTerrainPatchesComponent {
     pub identifier: u64,
     pub terrain: TagHash,
