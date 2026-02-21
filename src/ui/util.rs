@@ -72,19 +72,19 @@ impl<'a> DButton<'a> {
         Self {
             button: egui::Button::new(atoms)
                 .min_size(vec2(120.0, 60.0))
-                .corner_radius(0),
-            text_color: Color32::WHITE,
-            stroke: Stroke::new(1.0, Color32::WHITE),
-            fill_color: Color32::from_gray(96).gamma_multiply(0.2),
+                .corner_radius(8),
+            text_color: Color32::BLACK,
+            stroke: Stroke::new(1.0, Color32::TRANSPARENT),
+            fill_color: Color32::WHITE,
         }
     }
 
-    pub fn new_white(atoms: impl IntoAtoms<'a>) -> Self {
+    pub fn new_black(atoms: impl IntoAtoms<'a>) -> Self {
         Self {
             button: egui::Button::new(atoms)
                 .min_size(vec2(120.0, 60.0))
-                .corner_radius(0),
-            text_color: Color32::BLACK,
+                .corner_radius(8),
+            text_color: Color32::WHITE,
             stroke: Stroke::new(1.0, Color32::WHITE),
             fill_color: Color32::from_white_alpha(196),
         }
@@ -100,13 +100,8 @@ impl<'a> DButton<'a> {
                 .on_hover_cursor(CursorIcon::PointingHand);
 
             if r.hovered() {
-                ui.painter().rect(
-                    r.rect.expand(4.0),
-                    0,
-                    Color32::TRANSPARENT,
-                    Stroke::new(2.0, Color32::from_white_alpha(196)),
-                    StrokeKind::Outside,
-                );
+                ui.painter()
+                    .rect_filled(r.rect, 8, Color32::from_black_alpha(96));
             }
 
             r

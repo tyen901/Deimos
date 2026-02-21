@@ -6,7 +6,10 @@ use egui::{Color32, FontId, vec2};
 use egui_dock::{DockArea, DockState, TabInteractionStyle};
 use google_material_symbols::GoogleMaterialSymbols;
 
-use crate::app::SharedState;
+use crate::{
+    app::SharedState,
+    ui::tabs::{DockStateExt, Tab, TabViewer},
+};
 
 pub mod colors;
 // mod scene;
@@ -18,11 +21,11 @@ pub struct Gui {
     window: Rc<sdl3::video::Window>,
     sdl: Rc<sdl3::Sdl>,
 
-    pub egui_d3d11: egui_d3d12::D3D12Renderer,
+    pub egui_d3d12: egui_d3d12::D3D12Renderer,
     pub egui_sdl3: egui_sdl3_platform::Platform,
-    // tree: DockState<Tab>,
+    tree: DockState<Tab>,
 
-    // added_nodes: Vec<Tab>,
+    added_nodes: Vec<Tab>,
 }
 
 impl Gui {
@@ -146,25 +149,25 @@ impl Gui {
 
         egui_extras::install_image_loaders(egui_sdl3.context());
 
-        // let mut tree = DockState::new(vec![Tab::Settings, Tab::Home]);
-        // if let Some(tab_ref) = tree.find_tab(|t| matches!(t, Tab::Home)) {
-        //     tree.set_active_tab(tab_ref);
-        // }
+        let mut tree = DockState::new(vec![Tab::Settings, Tab::Home]);
+        if let Some(tab_ref) = tree.find_tab(|t| matches!(t, Tab::Home)) {
+            tree.set_active_tab(tab_ref);
+        }
 
         Ok(Self {
             window,
             sdl,
-            egui_d3d11: egui_d3d12::D3D12Renderer::new(gpu)
+            egui_d3d12: egui_d3d12::D3D12Renderer::new(gpu)
                 .context("Failed to initialize D3D12 Egui renderer")?,
             egui_sdl3,
-            // tree,
-            // added_nodes: Vec::new(),
+            tree,
+            added_nodes: Vec::new(),
         })
     }
 
-    // pub fn add_tab(&mut self, tab: Tab) {
-    //     self.added_nodes.push(tab);
-    // }
+    pub fn add_tab(&mut self, tab: Tab) {
+        self.added_nodes.push(tab);
+    }
 
     pub fn draw(
         &mut self,
@@ -177,80 +180,80 @@ impl Gui {
             .begin_frame(self.window.size(), self.window.display_scale());
         ctx.style_mut(|s| s.visuals.panel_fill = Color32::from_black_alpha(96));
 
-        // DockArea::new(&mut self.tree)
-        //     .show_add_buttons(false)
-        //     .style({
-        //         let mut style = egui_dock::Style::from_egui(ctx.style().as_ref());
-        //         // style.tab_bar.fill_tab_bar = true;
-        //         style.tab_bar.height = 32.0;
-        //         style.tab_bar.bg_fill = Color32::from_gray(4);
+        DockArea::new(&mut self.tree)
+            .show_add_buttons(false)
+            .style({
+                let mut style = egui_dock::Style::from_egui(ctx.style().as_ref());
+                // style.tab_bar.fill_tab_bar = true;
+                style.tab_bar.height = 32.0;
+                style.tab_bar.bg_fill = Color32::from_gray(4);
 
-        //         let inactive = TabInteractionStyle {
-        //             outline_color: Color32::TRANSPARENT,
-        //             corner_radius: egui::CornerRadius::ZERO,
-        //             bg_fill: Color32::BLACK,
-        //             text_color: Color32::WHITE,
-        //         };
+                let inactive = TabInteractionStyle {
+                    outline_color: Color32::TRANSPARENT,
+                    corner_radius: egui::CornerRadius::ZERO,
+                    bg_fill: Color32::BLACK,
+                    text_color: Color32::WHITE,
+                };
 
-        //         let hovered = TabInteractionStyle {
-        //             outline_color: Color32::from_gray(127),
-        //             bg_fill: ctx.style().visuals.window_fill().gamma_multiply(0.5),
-        //             ..inactive.clone()
-        //         };
+                let hovered = TabInteractionStyle {
+                    outline_color: Color32::from_gray(127),
+                    bg_fill: ctx.style().visuals.window_fill().gamma_multiply(0.5),
+                    ..inactive.clone()
+                };
 
-        //         let active = TabInteractionStyle {
-        //             bg_fill: ctx.style().visuals.window_fill(),
-        //             ..hovered.clone()
-        //         };
+                let active = TabInteractionStyle {
+                    bg_fill: ctx.style().visuals.window_fill(),
+                    ..hovered.clone()
+                };
 
-        //         let focused = TabInteractionStyle {
-        //             outline_color: Color32::WHITE,
-        //             bg_fill: ctx.style().visuals.window_fill(),
-        //             ..inactive.clone()
-        //         };
+                let focused = TabInteractionStyle {
+                    outline_color: Color32::WHITE,
+                    bg_fill: ctx.style().visuals.window_fill(),
+                    ..inactive.clone()
+                };
 
-        //         style.tab = egui_dock::TabStyle {
-        //             active: active.clone(),
-        //             inactive: inactive.clone(),
-        //             focused: focused.clone(),
-        //             hovered: hovered.clone(),
-        //             inactive_with_kb_focus: inactive.clone(),
-        //             active_with_kb_focus: active.clone(),
-        //             focused_with_kb_focus: focused.clone(),
-        //             tab_body: egui_dock::TabBodyStyle {
-        //                 inner_margin: ctx.style().spacing.window_margin,
-        //                 stroke: ctx.style().visuals.widgets.noninteractive.bg_stroke,
-        //                 corner_radius: ctx.style().visuals.widgets.active.corner_radius,
-        //                 bg_fill: ctx.style().visuals.window_fill(),
-        //                 // bg_fill: Color32::from_black_alpha(128),
-        //             },
-        //             hline_below_active_tab_name: false,
-        //             ..Default::default()
-        //         };
-        //         style
-        //     })
-        //     .show_leaf_collapse_buttons(false)
-        //     .show_leaf_close_all_buttons(false)
-        //     .show(
-        //         &ctx,
-        //         &mut TabViewer {
-        //             added_nodes: &mut self.added_nodes,
-        //             egui_d3d11: &mut self.egui_d3d11,
-        //             shared_state,
-        //         },
-        //     );
+                style.tab = egui_dock::TabStyle {
+                    active: active.clone(),
+                    inactive: inactive.clone(),
+                    focused: focused.clone(),
+                    hovered: hovered.clone(),
+                    inactive_with_kb_focus: inactive.clone(),
+                    active_with_kb_focus: active.clone(),
+                    focused_with_kb_focus: focused.clone(),
+                    tab_body: egui_dock::TabBodyStyle {
+                        inner_margin: ctx.style().spacing.window_margin,
+                        stroke: ctx.style().visuals.widgets.noninteractive.bg_stroke,
+                        corner_radius: ctx.style().visuals.widgets.active.corner_radius,
+                        bg_fill: ctx.style().visuals.window_fill(),
+                        // bg_fill: Color32::from_black_alpha(128),
+                    },
+                    hline_below_active_tab_name: false,
+                    ..Default::default()
+                };
+                style
+            })
+            .show_leaf_collapse_buttons(false)
+            .show_leaf_close_all_buttons(false)
+            .show(
+                &ctx,
+                &mut TabViewer {
+                    added_nodes: &mut self.added_nodes,
+                    egui_d3d12: &mut self.egui_d3d12,
+                    shared_state,
+                },
+            );
 
-        // for tab in self.added_nodes.drain(..) {
-        //     // Is the tab unique and does it already exist? Then switch to it instead of adding it again.
-        //     if let Some(tab_ref) = self
-        //         .tree
-        //         .find_tab(|t| discriminant(t) == discriminant(&tab) && t.key() == tab.key())
-        //     {
-        //         self.tree.set_active_tab(tab_ref);
-        //     } else {
-        //         self.tree.push_to_focused_leaf(tab);
-        //     }
-        // }
+        for tab in self.added_nodes.drain(..) {
+            // Is the tab unique and does it already exist? Then switch to it instead of adding it again.
+            if let Some(tab_ref) = self
+                .tree
+                .find_tab(|t| discriminant(t) == discriminant(&tab) && t.key() == tab.key())
+            {
+                self.tree.set_active_tab(tab_ref);
+            } else {
+                self.tree.push_to_focused_leaf(tab);
+            }
+        }
 
         {
             let painter = ctx.layer_painter(egui::LayerId::new(
@@ -275,7 +278,7 @@ impl Gui {
             .end_frame(&mut self.sdl.video().unwrap())
             .unwrap();
         if let Err(e) = self
-            .egui_d3d11
+            .egui_d3d12
             .paint(gpu, cmd, output, &ctx, self.window.size())
         {
             error!("Failed to paint gui: {}", e);

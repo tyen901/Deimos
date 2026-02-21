@@ -77,7 +77,7 @@ impl Display for Tab {
 
 pub struct TabViewer<'a> {
     pub added_nodes: &'a mut Vec<Tab>,
-    // pub egui_d3d11: &'a mut egui_d3d11::D3D11Renderer,
+    pub egui_d3d12: &'a mut egui_d3d12::D3D12Renderer,
     pub shared_state: &'a Arc<crate::app::SharedState>,
 }
 

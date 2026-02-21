@@ -4,7 +4,7 @@ use d3d12::{
     ElementOffset, Format, GraphicsPipelineStateDesc, RootSignatureBuilder, RootSignatureFlags,
     VertexBufferView,
 };
-use deimos_render::gpu::Gpu;
+use deimos_render::gpu::{buffer::Buffer, Gpu};
 use egui::{epaint::Primitive, Context};
 
 use crate::{
@@ -29,6 +29,7 @@ pub struct D3D12Renderer {
     // samplers: [d3d12::SamplerState; 2],
     // blend_state: d3d12::BlendState,
     // raster_state: d3d12::RasterizerState,
+    buffers: [Vec<(Buffer, Buffer)>; Gpu::FRAMES_IN_FLIGHT],
 }
 
 // impl D3D12Renderer {
@@ -163,6 +164,7 @@ impl D3D12Renderer {
             // samplers,
             // blend_state,
             // raster_state,
+            buffers: [const { Vec::new() }; Gpu::FRAMES_IN_FLIGHT],
         })
     }
 }
@@ -225,16 +227,14 @@ impl D3D12Renderer {
         // cmd.input_assembler_set_primitive_topology(d3d12::PrimitiveTopology::TriangleList);
         cmd.set_pipeline_state(&self.pipeline);
 
+        let buffers = &mut self.buffers[gpu.frame_index() % Gpu::FRAMES_IN_FLIGHT];
+        buffers.clear();
+
         cmd.input_assembler_set_primitive_topology(d3d12::PrimitiveTopology::TriangleList);
         for mesh in primitives {
-            let idx = create_index_buffer(gpu, &mesh)?;
             let vtx = create_vertex_buffer(gpu, &mesh)?;
+            let idx = create_index_buffer(gpu, &mesh)?;
 
-            cmd.input_assembler_set_index_buffer(
-                idx.gpu_virtual_address(),
-                idx.size() as u32,
-                Format::R32Uint,
-            );
             cmd.input_assembler_set_vertex_buffers(
                 0,
                 &[VertexBufferView {
@@ -243,6 +243,12 @@ impl D3D12Renderer {
                     stride_in_bytes: size_of::<GpuVertex>() as u32,
                 }],
             );
+            cmd.input_assembler_set_index_buffer(
+                idx.gpu_virtual_address(),
+                idx.size() as u32,
+                Format::R32Uint,
+            );
+            buffers.push((vtx, idx));
 
             //     let texture = self.tex_alloc.get_by_id(mesh.texture_id);
 
