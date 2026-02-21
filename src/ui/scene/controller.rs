@@ -1,6 +1,6 @@
-use deimos_render::{Renderer, camera::Camera};
-use egui::{Response, Ui, Vec2, vec2};
-use glam::{Quat, Vec3};
+use alkahest_render::{Renderer, camera::Camera};
+use egui::{Response, Ui};
+use glam::{Quat, Vec2, Vec3};
 
 pub enum CameraController {
     Orbit {
@@ -47,17 +47,14 @@ impl CameraController {
 
                 let drag_delta = response.drag_delta();
                 // Rotate
-                if (response.dragged_by(egui::PointerButton::Secondary)
-                    || response.dragged_by(egui::PointerButton::Primary))
-                    && ui.input(|i| !i.modifiers.alt)
-                {
-                    *yaw_pitch += (drag_delta / 5.0) * vec2(-1.0, 1.3);
+                if response.dragged_by(egui::PointerButton::Primary) {
+                    let drag_delta_scaled = (drag_delta / 5.0) * egui::vec2(-1.0, 1.3);
+                    *yaw_pitch += Vec2::new(drag_delta_scaled.x, drag_delta_scaled.y);
                     yaw_pitch.y = yaw_pitch.y.clamp(-89.0, 89.0);
                 }
 
-                // Pan
-                if response.dragged_by(egui::PointerButton::Middle) {
-                    let delta_adjusted = (drag_delta / 250.0) * real_distance;
+                if response.dragged_by(egui::PointerButton::Secondary) {
+                    let delta_adjusted = (drag_delta / 350.0) * real_distance;
                     *target -= camera.right() * delta_adjusted.x;
                     *target += camera.up() * delta_adjusted.y;
                 }
@@ -97,19 +94,19 @@ impl CameraController {
                         movement /= 5.0;
                     }
                     if i.modifiers.shift {
-                        movement *= 2.0;
+                        movement *= 5.0;
                     }
                     if i.key_down(egui::Key::Space) {
-                        movement *= 2.5;
+                        movement *= 5.0;
                     }
                 });
 
-                if (response.dragged_by(egui::PointerButton::Primary)
-                    || response.dragged_by(egui::PointerButton::Secondary))
-                    && ui.input(|i| !i.modifiers.alt)
+                if response.dragged_by(egui::PointerButton::Primary)
+                    || response.dragged_by(egui::PointerButton::Secondary)
                 {
                     let drag_delta = response.drag_delta();
-                    *yaw_pitch += (drag_delta / 10.0) * vec2(-1.0, 1.3);
+                    let drag_delta_scaled = (drag_delta / 10.0) * egui::vec2(-1.0, 1.3);
+                    *yaw_pitch += Vec2::new(drag_delta_scaled.x, drag_delta_scaled.y);
                     yaw_pitch.y = yaw_pitch.y.clamp(-89.0, 89.0);
                 }
                 camera.position += movement * delta_time * *speed;
@@ -127,6 +124,13 @@ impl CameraController {
             CameraController::FirstPerson { yaw_pitch: yp, .. } => {
                 *yp = yaw_pitch;
             }
+        }
+    }
+
+    pub fn yaw_pitch(&self) -> Vec2 {
+        match self {
+            CameraController::Orbit { yaw_pitch, .. } => *yaw_pitch,
+            CameraController::FirstPerson { yaw_pitch, .. } => *yaw_pitch,
         }
     }
 
@@ -148,4 +152,8 @@ impl CameraController {
             }
         }
     }
+}
+
+pub fn egui_to_glam_vec2(vec: egui::Vec2) -> glam::Vec2 {
+    glam::Vec2::new(vec.x, vec.y)
 }

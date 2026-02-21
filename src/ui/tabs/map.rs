@@ -1,4 +1,4 @@
-use deimos_render::{Renderer, camera::Camera};
+use alkahest_render::{Renderer, camera::Camera};
 use egui::{Color32, Rect, vec2};
 use tiger_pkg::TagHash;
 
@@ -6,18 +6,19 @@ use crate::{
     task::Task,
     ui::{
         scene::{Scene, controller::CameraController},
-        util::spinner_image,
+        util::UiExt,
     },
 };
 
 pub struct MapTab {
     pub tag: TagHash,
+    pub name: String,
     load_task: Task<hecs::World>,
     scene: Box<Scene>,
 }
 
 impl MapTab {
-    pub fn new(tag: TagHash) -> anyhow::Result<Self> {
+    pub fn new(tag: TagHash, name: String) -> anyhow::Result<Self> {
         Ok(Self {
             load_task: Task::new(move || {
                 let mut world = hecs::World::new();
@@ -26,6 +27,7 @@ impl MapTab {
                 world
             }),
             tag,
+            name,
             scene: Box::new(
                 Scene::new(Renderer::instance().clone(), Camera::default())?
                     .with_controller(CameraController::new_first_person()),
@@ -48,9 +50,8 @@ impl MapTab {
         if self.load_task.is_pending() {
             let (_, rect) = ui.allocate_space(ui.available_size());
             ui.painter()
-                .rect_filled(rect, 0, Color32::from_rgb(45, 48, 56));
-            egui::Image::new(spinner_image().clone())
-                .paint_at(ui, Rect::from_center_size(rect.center(), vec2(64.0, 64.0)));
+                .rect_filled(rect, 0, Color32::from_rgb(14, 24, 28));
+            ui.d_paint_spinner_at(Rect::from_center_size(rect.center(), vec2(64.0, 64.0)));
             ui.painter().text(
                 rect.center() + vec2(0.0, 42.0),
                 egui::Align2::CENTER_TOP,

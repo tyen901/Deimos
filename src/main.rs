@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{ffi::CStr, rc::Rc};
 
 use app::App;
 use clap::Parser;
@@ -8,10 +8,17 @@ use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 
 mod app;
 mod cli;
+mod config;
 mod panic_hook;
 mod task;
 mod ui;
-mod world;
+// mod world;
+
+#[unsafe(no_mangle)]
+pub static D3D12SDKVersion: u32 = 618;
+
+#[unsafe(no_mangle)]
+pub static D3D12SDKPath: &CStr = c".\\D3D12\\";
 
 #[macro_use]
 extern crate tracing;
@@ -26,9 +33,6 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 //     tracy_client::ProfiledAllocator::new(std::alloc::System, 100);
 
 fn main() -> anyhow::Result<()> {
-    #[cfg(feature = "dhat-heap")]
-    let _profiler = dhat::Profiler::new_heap();
-
     fix_windows_console();
     std::panic::set_hook(Box::new(panic_hook::hook));
     tracing_subscriber::fmt()
@@ -79,7 +83,8 @@ fn main() -> anyhow::Result<()> {
         );
     }
 
-    let mut app = App::new(sdl_context.clone(), Rc::new(window), args)?;
+    let mut app =
+        App::new(sdl_context.clone(), Rc::new(window), args).expect("Failed to initialize app");
 
     let mut event_pump = sdl_context.event_pump().unwrap();
     'app: while app.running {
@@ -90,7 +95,9 @@ fn main() -> anyhow::Result<()> {
             }
         }
 
-        app.render(&event_pump);
+        if let Err(e) = app.render(&event_pump) {
+            error!("Failed to render frame {}: {e:?}", app.gpu.frame_index());
+        };
     }
 
     tiger_pkg::finalize_package_manager();

@@ -1,49 +1,74 @@
-use egui::{RichText, Ui};
+use std::sync::Arc;
+
+use egui::Ui;
 use google_material_symbols::GoogleMaterialSymbols;
 
-use crate::ui::{colors, util::UiExt};
+use crate::{app::SharedState, ui::tabs::TabResult};
 
-use super::{Tab, TabResult, entity_list::EntityListTab, map_list::MapListTab};
+// use super::{Tab, TabResult, entity_list::EntityListTab, map_list::MapListTab};
+// use crate::{
+//     app::SharedState,
+//     ui::{
+//         tabs::{activity_list::ActivityListTab, static_list::StaticListTab},
+//         util::UiExt,
+//     },
+// };
 
 pub struct HomeTab;
 
 impl HomeTab {
-    pub fn ui(&self, ui: &mut Ui) -> TabResult {
+    pub fn ui(&self, ui: &mut Ui, shared_state: &Arc<SharedState>) -> TabResult {
         let mut result = TabResult::Continue;
-        ui.label(
-            RichText::new("127001")
-                .font(egui::FontId::new(
-                    48.0,
-                    egui::FontFamily::Name("encrypted".into()),
-                ))
-                .color(colors::MARATHON_GREEN),
-        );
-        ui.add_space(32.0);
-        ui.columns(2, |uis| {
-            uis[0].heading("3D");
-            uis[0].add_space(4.0);
-            if uis[0]
-                .d_button(format!("{} ENTITIES", GoogleMaterialSymbols::DeployedCode))
-                .clicked()
-            {
-                // self.added_nodes.push(Tab::DynamicList);
-                result = TabResult::Open(Tab::EntityList(Box::new(EntityListTab::new())));
-            }
-            if uis[0]
-                .d_button(format!("{} MAPS", GoogleMaterialSymbols::Map))
-                .clicked()
-            {
-                result = TabResult::Open(Tab::MapList(MapListTab::new()));
-            }
-            uis[0].disable();
-            let _ = uis[0].d_button(format!("{} STATICS", GoogleMaterialSymbols::Landscape));
 
-            uis[1].heading("2D");
-            uis[1].add_space(4.0);
-            uis[1].disable();
-            let _ = uis[1].d_button(format!("{} TEXTURES", GoogleMaterialSymbols::Image));
-            let _ = uis[1].d_button(format!("{} UI", GoogleMaterialSymbols::DesktopWindows));
-        });
+        // #[cfg(debug_assertions)]
+        // if ui
+        //     .d_button(format!("{} TAG LOOKUP", GoogleMaterialSymbols::Search))
+        //     .clicked()
+        // {
+        //     use crate::ui::tabs::tag_lookup::TagLookupTab;
+
+        //     result = TabResult::Open(Tab::TagLookup(TagLookupTab::default()));
+        // }
+
+        // ui.add_space(32.0);
+        // ui.columns(2, |uis| {
+        //     uis[0].heading("3D");
+        //     uis[0].add_space(4.0);
+        //     if uis[0]
+        //         .d_button(format!(
+        //             "{} ACTIVITIES",
+        //             GoogleMaterialSymbols::StadiaController
+        //         ))
+        //         .clicked()
+        //     {
+        //         result = TabResult::Open(Tab::ActivityList(ActivityListTab::new(shared_state)));
+        //     }
+        //     if uis[0]
+        //         .d_button(format!("{} MAPS", GoogleMaterialSymbols::Map))
+        //         .clicked()
+        //     {
+        //         result = TabResult::Open(Tab::MapList(MapListTab::new(shared_state)));
+        //     }
+        //     if uis[0]
+        //         .d_button(format!("{} ENTITIES", GoogleMaterialSymbols::ChessPawn))
+        //         .clicked()
+        //     {
+        //         // self.added_nodes.push(Tab::DynamicList);
+        //         result = TabResult::Open(Tab::EntityList(Box::new(EntityListTab::new())));
+        //     }
+        //     if uis[0]
+        //         .d_button(format!("{} STATICS", GoogleMaterialSymbols::Landscape))
+        //         .clicked()
+        //     {
+        //         result = TabResult::Open(Tab::StaticList(Box::new(StaticListTab::new())));
+        //     }
+
+        //     uis[1].heading("2D");
+        //     uis[1].add_space(4.0);
+        //     uis[1].disable();
+        //     let _ = uis[1].d_button(format!("{} TEXTURES", GoogleMaterialSymbols::Image));
+        //     let _ = uis[1].d_button(format!("{} UI", GoogleMaterialSymbols::DesktopWindows));
+        // });
 
         // ui.separator();
 

@@ -2,48 +2,77 @@
 #![deny(clippy::correctness, clippy::suspicious, clippy::complexity)]
 #![allow(clippy::collapsible_else_if, clippy::missing_transmute_annotations)]
 
-use std::{rc::Rc, sync::Arc, time::Instant};
-
-use deimos_render::{
-    Gpu, Renderer,
-    gpu::{command_list::CommandList, spinner::FullscreenSpinner},
-    util::fps_histogram::FrametimeHistogram,
+use std::{
+    io::{Cursor, Seek},
+    rc::Rc,
+    str::FromStr,
+    sync::Arc,
+    time::Instant,
 };
-use sdl3::video::Window;
 
-use crate::{cli::AppArgs, ui::Gui};
+use ahash::HashMap;
+use anyhow::Context;
+use deimos_core::job::SCHEDULER;
+use deimos_data::{
+    strings::{StringContainer, StringContainerShared},
+    tag::WideHash,
+};
+use deimos_render::{gpu::Gpu, util::fps_histogram::FrametimeHistogram};
+use parking_lot::RwLock;
+use sdl3::video::Window;
+use tiger_parse::TigerReadable;
+use tiger_pkg::{TagHash, package_manager};
+
+use crate::{cli::AppArgs, config::AppConfig, ui::Gui};
 
 pub struct App {
     pub sdl: Rc<sdl3::Sdl>,
-    pub window: Rc<Window>,
+    pub _window: Rc<Window>,
     pub gpu: Arc<Gpu>,
-    pub renderer: Arc<Renderer>,
+    // pub renderer: Arc<Renderer>,
     pub gui: Gui,
     pub running: bool,
 
-    spinner: FullscreenSpinner,
+    shared_state: Arc<SharedState>,
+
+    // _spinner: FullscreenSpinner,
     last_frame_time: Instant,
-    start_time: Instant,
     frametime_histogram: FrametimeHistogram,
 }
 
 impl App {
-    pub fn new(sdl: Rc<sdl3::Sdl>, window: Rc<Window>, _args: AppArgs) -> anyhow::Result<Self> {
-        let gpu = Arc::new(Gpu::create(&window)?);
-        let renderer = Arc::new(Renderer::new(gpu.clone())?);
-        Renderer::set_instance(renderer.clone());
+    pub fn new(sdl: Rc<sdl3::Sdl>, window: Rc<Window>, args: AppArgs) -> anyhow::Result<Self> {
+        let gpu = Arc::new(Gpu::create(&window).context("Failed to create GPU")?);
+        // let renderer = Arc::new(Renderer::new(gpu.clone()).context("Failed to create renderer")?);
+        // Renderer::set_instance(renderer.clone());
+
+        let mut gui = Gui::new(&gpu, sdl.clone(), window.clone())?;
+        // if let Some(map_hash) = args.open_map.as_ref() {
+        //     match TagHash::from_str(map_hash) {
+        //         Ok(tag) => match MapTab::new(tag, String::new()) {
+        //             Ok(tab) => gui.add_tab(Tab::Map(tab)),
+        //             Err(e) => error!("Failed to open map tab for {}: {:?}", map_hash, e),
+        //         },
+        //         Err(e) => {
+        //             error!("Failed to parse map hash {}: {:?}", map_hash, e);
+        //         }
+        //     };
+        // }
 
         Ok(Self {
-            spinner: FullscreenSpinner::create(&renderer.gpu)?,
-            renderer,
-            gui: Gui::new(&gpu, sdl.clone(), window.clone())?,
+            // _spinner: FullscreenSpinner::create(&renderer.gpu)?,
+            // renderer,
+            gui,
             sdl,
-            window,
+            _window: window,
             gpu,
             running: true,
 
+            shared_state: SharedState::new()
+                .context("Failed to create shared state")?
+                .into(),
+
             last_frame_time: Instant::now(),
-            start_time: Instant::now(),
             frametime_histogram: FrametimeHistogram::new(10),
         })
     }
@@ -56,14 +85,14 @@ impl App {
             }
             sdl3::event::Event::Window { win_event, .. } => match win_event {
                 &sdl3::event::WindowEvent::Resized(new_width, new_height) => {
-                    self.gui
-                        .egui_d3d11
-                        .resize_buffers(&self.renderer.gpu, || {
-                            self.renderer
-                                .resize_swapchain((new_width as u32, new_height as u32));
-                            Ok(())
-                        })
-                        .ok();
+                    // self.gui
+                    //     .egui_d3d11
+                    //     .resize_buffers(&self.renderer.gpu, || {
+                    //         self.renderer
+                    //             .resize_swapchain((new_width as u32, new_height as u32));
+                    //         Ok(())
+                    //     })
+                    //     .ok();
                 }
                 sdl3::event::WindowEvent::CloseRequested => {
                     self.running = false;
@@ -79,37 +108,132 @@ impl App {
     }
 
     #[profiling::function]
-    pub fn render(&mut self, _event_pump: &sdl3::EventPump) {
-        let frame_start = std::time::Instant::now();
-        let refresh_rate = if !self.window.has_input_focus() && !self.window.has_mouse_focus() {
-            10.0
-        } else {
-            self.window
-                .get_display()
-                .and_then(|d| d.get_mode())
-                .map(|m| m.refresh_rate)
-                .unwrap_or(60.0)
-        };
-        let frame_end =
-            frame_start + std::time::Duration::from_millis((1000.0 / refresh_rate) as u64);
-
-        let delta_time = (frame_start - self.last_frame_time).as_secs_f32();
-        self.last_frame_time = frame_start;
+    pub fn render(&mut self, _event_pump: &sdl3::EventPump) -> anyhow::Result<()> {
+        let delta_time = self.last_frame_time.elapsed().as_secs_f32();
+        self.last_frame_time = std::time::Instant::now();
 
         self.frametime_histogram.push(delta_time);
 
-        self.renderer.begin_frame();
+        let frame = self.gpu.current_frame();
+        let frame_index = self.gpu.frame_index();
+        frame
+            .wait_for_fence()
+            .context("error waiting for frame fence")?;
 
-        let gpu = &self.renderer.gpu;
-        let mut cmd = CommandList::from_device_context(gpu, gpu.context().clone());
-        self.gui.draw(&mut cmd);
+        frame
+            .command_allocator
+            .reset()
+            .context("error resetting command allocator")?;
+        let cmd = &frame.command_list;
+        cmd.reset(&frame.command_allocator, None)?;
 
-        let vsync = false;
-        self.renderer.present_frame(vsync);
-        if !vsync {
-            spin_sleep::sleep_until(frame_end);
+        {
+            let back_buffer_handle = self
+                .gpu
+                .swapchain
+                .lock()
+                .get_back_buffer_handle(frame_index);
+
+            cmd.clear_render_target_view(back_buffer_handle, &[0.0, 0.0, 0.0, 1.0]);
+            cmd.output_merger_set_render_targets(&[back_buffer_handle], false, None);
+
+            self.gui.draw(&self.gpu, cmd, &self.shared_state);
         }
 
+        cmd.close()?;
+        self.gpu
+            .queue
+            .execute_command_lists(std::slice::from_ref(cmd));
+
+        frame.signal();
+        self.gpu.increment_frame();
+        self.gpu.present(true);
+
+        // self.renderer.begin_frame();
+
+        // let gpu = &self.renderer.gpu;
+        // let mut cmd = CommandList::from_device_context(gpu, gpu.context().clone());
+        // self.gui.draw(&mut cmd, &self.shared_state);
+
+        // self.renderer
+        //     .present_frame(self.shared_state.config.read().vsync);
+
         profiling::finish_frame!();
+
+        Ok(())
+    }
+}
+
+impl Drop for App {
+    fn drop(&mut self) {
+        self.shared_state.save_config().ok();
+        SCHEDULER.shutdown();
+    }
+}
+
+pub struct SharedState {
+    pub strings: StringContainerShared,
+    pub strings_by_package: HashMap<String, StringContainer>,
+    pub config: RwLock<AppConfig>,
+}
+
+impl SharedState {
+    pub fn new() -> anyhow::Result<Self> {
+        let mut strings_by_package = HashMap::default();
+        for (name, tag) in package_manager().get_named_tags_by_class(0x80808E8B) {
+            let Ok(data) = package_manager().read_tag(tag) else {
+                continue;
+            };
+            let mut cur = Cursor::new(data);
+            cur.seek(std::io::SeekFrom::Start(0x10))?;
+            let hash = WideHash::read_ds(&mut cur)?;
+            if hash.is_none() {
+                continue;
+            }
+            strings_by_package.insert(name, StringContainer::load(hash)?);
+        }
+
+        let s = Self {
+            strings: StringContainer::load_all_global().into(),
+            strings_by_package,
+            config: RwLock::new(AppConfig::default()),
+        };
+        if let Err(e) = s.load_config() {
+            warn!("Failed to load config: {:?}", e);
+        }
+
+        Ok(s)
+    }
+
+    pub fn load_config(&self) -> anyhow::Result<()> {
+        let exe_path = std::env::current_exe()?.parent().unwrap().to_path_buf();
+        let config_path = exe_path.join("config.toml");
+        if config_path.exists() {
+            let config_str = std::fs::read_to_string(&config_path)?;
+            let config: AppConfig = toml::from_str(&config_str)?;
+            *self.config.write() = config;
+        }
+
+        Ok(())
+    }
+
+    pub fn save_config(&self) -> anyhow::Result<()> {
+        let exe_path = std::env::current_exe()?.parent().unwrap().to_path_buf();
+        let config_path = exe_path.join("config.toml");
+        let config_str = toml::to_string_pretty(&*self.config.read())?;
+        std::fs::write(&config_path, config_str)?;
+
+        Ok(())
+    }
+
+    pub fn get_string(&self, hash: u32) -> String {
+        self.strings.get(hash)
+    }
+
+    pub fn get_string_by_package(&self, package: &str, hash: u32) -> String {
+        self.strings_by_package
+            .get(package)
+            .and_then(|s| s.try_get(hash))
+            .unwrap_or_else(|| self.get_string(hash))
     }
 }

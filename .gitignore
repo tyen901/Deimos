@@ -23,6 +23,7 @@ package_cache.json
 reversing/
 flamegraph.svg
 *.tracy
+vkd3d-proton.cache
 
 *.deps.json
 *.runtimeconfig.json

@@ -1,13 +1,12 @@
-pub mod convar;
 use std::{path::PathBuf, sync::Arc};
 
 use anyhow::Context;
-pub use convar::*;
 use tiger_pkg::PackageManager;
 use tracing::{error, info};
 pub mod config;
+pub mod job;
 
-pub const MARATHON_APP_ID: u64 = 3547690;
+pub const MARATHON_APP_ID: u64 = 3065800;
 
 pub fn initialize_package_manager<'a>(
     suggested_path: impl Into<Option<&'a str>>,
@@ -24,10 +23,7 @@ pub fn initialize_package_manager<'a>(
             return Ok(());
         };
 
-        info!(
-            "Found Marathon Alpha installation at '{}'",
-            steamapp.game_path
-        );
+        info!("Found Marathon installation at '{}'", steamapp.game_path);
 
         steamapp.game_path
     };

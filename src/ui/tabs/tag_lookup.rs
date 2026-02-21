@@ -1,5 +1,6 @@
-use deimos_data::{
+use alkahest_data::{
     map::SBubbleParent,
+    pattern::SPattern,
     tfx::features::{dynamic::SDynamicModel, statics::SStaticMesh},
 };
 use egui::{Color32, RichText, TextEdit, Widget};
@@ -7,9 +8,8 @@ use google_material_symbols::GoogleMaterialSymbols;
 use tiger_parse::TigerReadable;
 use tiger_pkg::{TagHash, package::UEntryHeader, package_manager};
 
-use crate::ui::util::UiExt;
-
 use super::TabResult;
+use crate::ui::util::UiExt;
 
 #[derive(Default)]
 pub struct TagLookupTab {
@@ -95,6 +95,7 @@ impl TagType {
             SBubbleParent::ID => Self::Map,
             SDynamicModel::ID => Self::DynamicModel,
             SStaticMesh::ID => Self::StaticModel,
+            SPattern::ID => Self::Pattern,
             _ => Self::Unknown(entry.reference),
         }
     }

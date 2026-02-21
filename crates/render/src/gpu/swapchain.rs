@@ -1,55 +1,92 @@
 use std::time::Duration;
 
-use d3d11::dxgi::{self, PresentFlags, SwapChainFlags, SwapChainStatus};
+use anyhow::Context;
+use d3d12::{self, DescriptorHeap, PresentFlags, SwapChainFlags, SwapChainStatus};
+use itertools::Itertools;
 
 pub struct Swapchain {
-    pub swapchain: d3d11::dxgi::SwapChain,
-    pub swapchain_target: Option<d3d11::RenderTargetView>,
+    device: d3d12::Device,
+    pub swapchain: d3d12::SwapChain,
+    // pub swapchain_target: Option<d3d12::RenderTargetView>,
     pub(crate) swapchain_resolution: (u32, u32),
     present_parameters: PresentFlags,
+
+    rtv_desc_heap: DescriptorHeap,
+    back_buffers: Vec<d3d12::Resource>,
 }
 
 impl Swapchain {
+    const NUM_BUFFERS: u32 = 2;
+
     pub fn new(
-        swapchain: d3d11::dxgi::SwapChain,
-        device: &d3d11::Device,
+        swapchain: d3d12::SwapChain,
+        device: &d3d12::Device,
         size: (u32, u32),
-    ) -> Self {
-        let mut s = Self {
+    ) -> anyhow::Result<Self> {
+        let rtv_desc_heap = device
+            .create_descriptor_heap(d3d12::DescriptorHeapType::Rtv, Self::NUM_BUFFERS, false, 0)
+            .context("creating descriptor heap")?;
+
+        let back_buffers = (0..Self::NUM_BUFFERS)
+            .map(|i| {
+                let res = swapchain.get_buffer(i).unwrap();
+                device.create_render_target_view(
+                    Some(&res),
+                    None,
+                    rtv_desc_heap.cpu_descriptor_handle_for_heap_start().offset(
+                        i as usize,
+                        device.descriptor_handle_increment_size(d3d12::DescriptorHeapType::Rtv),
+                    ),
+                );
+
+                res
+            })
+            .collect_vec();
+
+        Ok(Self {
+            device: device.clone(),
             swapchain,
-            swapchain_target: None,
+            // swapchain_target: None,
             swapchain_resolution: size,
             present_parameters: PresentFlags::empty(),
-        };
-
-        s.resize(device, size);
-
-        s
+            rtv_desc_heap,
+            back_buffers,
+        })
     }
 
-    pub fn get_buffer(&self) -> d3d11::Texture2D {
-        self.swapchain.get_buffer(0).unwrap()
+    pub fn get_back_buffer_handle(&self, index: usize) -> d3d12::CpuDescriptorHandle {
+        self.rtv_desc_heap
+            .cpu_descriptor_handle_for_heap_start()
+            .offset(
+                index % Self::NUM_BUFFERS as usize,
+                self.device
+                    .descriptor_handle_increment_size(d3d12::DescriptorHeapType::Rtv),
+            )
     }
+
+    // pub fn get_buffer(&self) -> d3d12::Texture2D {
+    //     self.swapchain.get_buffer(0).unwrap()
+    // }
 
     // ⚠ The calling function MUST ensure that the RTV is not held/in use.
-    pub fn resize(&mut self, device: &d3d11::Device, new_size: (u32, u32)) {
-        drop(self.swapchain_target.take());
+    pub fn resize(&mut self, new_size: (u32, u32)) {
+        // drop(self.swapchain_target.take());
 
         self.swapchain
             .resize_buffers(
-                2,
+                Self::NUM_BUFFERS,
                 new_size.0,
                 new_size.1,
-                dxgi::Format::B8g8r8a8Unorm,
+                d3d12::Format::B8g8r8a8Unorm,
                 SwapChainFlags::empty(),
             )
             .unwrap();
 
-        let bb: d3d11::Texture2D = self.swapchain.get_buffer(0).unwrap();
+        // let bb: d3d12::Texture2D = self.swapchain.get_buffer(0).unwrap();
 
-        let new_rtv = device.create_render_target_view(&bb, None).unwrap();
+        // let new_rtv = device.create_render_target_view(&bb, None).unwrap();
 
-        self.swapchain_target = Some(new_rtv);
+        // self.swapchain_target = Some(new_rtv);
         self.swapchain_resolution = new_size;
     }
 
