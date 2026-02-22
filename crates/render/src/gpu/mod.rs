@@ -10,11 +10,12 @@ pub mod command_list;
 pub mod frame;
 pub mod swapchain;
 
-use std::{rc::Rc, sync::atomic::AtomicUsize};
+use std::{rc::Rc, sync::atomic::AtomicUsize, time::Instant};
 
 use anyhow::Context;
 use d3d12::{
-    CommandQueueDesc, D3D12GetDebugInterface, DxgiUsage, ID3D12Debug, SwapChainDesc, SwapEffect,
+    ext::GpuFence, CommandQueueDesc, D3D12GetDebugInterface, DxgiUsage, ID3D12Debug, SwapChainDesc,
+    SwapEffect,
 };
 use gpu_allocator::{d3d12::ID3D12DeviceVersion, AllocationSizes, AllocatorDebugSettings};
 use parking_lot::Mutex;
@@ -170,6 +171,13 @@ impl Gpu {
 
     pub fn swapchain_resolution(&self) -> (u32, u32) {
         self.swapchain.lock().swapchain_resolution
+    }
+
+    pub fn shutdown(&self) {
+        // Wait for the GPU to finish processing
+        let fence = GpuFence::new(&self.device).unwrap();
+        fence.signal(&self.queue);
+        _ = fence.wait();
     }
 
     // #[profiling::function]

@@ -100,6 +100,9 @@ fn main() -> anyhow::Result<()> {
         };
     }
 
+    println!("Application exiting...");
+    app.gpu.shutdown();
+
     tiger_pkg::finalize_package_manager();
 
     Ok(())

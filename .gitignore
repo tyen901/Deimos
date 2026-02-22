@@ -24,6 +24,8 @@ reversing/
 flamegraph.svg
 *.tracy
 vkd3d-proton.cache
+vkd3d-proton.cache.write
+
 
 *.deps.json
 *.runtimeconfig.json
