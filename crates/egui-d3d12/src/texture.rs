@@ -1,9 +1,8 @@
 use std::{mem::size_of, slice::from_raw_parts_mut, sync::Arc};
 
 use d3d12::{
-    ext::GpuFence, ComponentMapping, CpuDescriptorHandle, DescriptorHeapType, Format,
-    GpuDescriptorHandle, GraphicsCommandList, ResourceFlags, ShaderResourceViewDesc,
-    TextureCopyLocation,
+    ext::GpuFence, CpuDescriptorHandle, DescriptorHeapType, Format, GpuDescriptorHandle,
+    ShaderResourceViewDesc, TextureCopyLocation,
 };
 use deimos_render::gpu::{command_list::CommandList, Gpu};
 use egui::{epaint::ahash::HashMap, Color32, ColorImage, ImageData, TextureId, TexturesDelta};

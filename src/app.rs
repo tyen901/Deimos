@@ -12,6 +12,7 @@ use std::{
 
 use ahash::HashMap;
 use anyhow::Context;
+use d3d12::{ResourceBarrier, ResourceStates};
 use deimos_core::job::SCHEDULER;
 use deimos_data::{
     strings::{StringContainer, StringContainerShared},
@@ -123,16 +124,27 @@ impl App {
         let cmd = &frame.command_list;
 
         cmd.scope(|cmd| {
-            let back_buffer_handle = self
-                .gpu
-                .swapchain
-                .lock()
-                .get_back_buffer_handle(frame_index);
+            let (back_buffer_handle, back_buffer) =
+                self.gpu.swapchain.lock().get_back_buffer(frame_index);
+
+            cmd.resource_barriers(&[ResourceBarrier::transition(
+                &back_buffer,
+                0,
+                ResourceStates::PRESENT,
+                ResourceStates::RENDER_TARGET,
+            )]);
 
             cmd.clear_render_target_view(back_buffer_handle, &[0.0, 0.0, 0.0, 1.0]);
             cmd.output_merger_set_render_targets(&[back_buffer_handle], false, None);
 
             self.gui.draw(&self.gpu, cmd, &self.shared_state);
+
+            cmd.resource_barriers(&[ResourceBarrier::transition(
+                &back_buffer,
+                0,
+                ResourceStates::RENDER_TARGET,
+                ResourceStates::PRESENT,
+            )]);
 
             Ok(())
         })?;

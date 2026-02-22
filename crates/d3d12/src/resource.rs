@@ -1,6 +1,6 @@
 use std::{
     marker::PhantomData,
-    mem::{transmute, transmute_copy},
+    mem::{transmute, transmute_copy, ManuallyDrop},
 };
 
 use bitflags::bitflags;
@@ -150,3 +150,103 @@ impl<'a> TextureCopyLocation<'a> {
 //     SubresourceIndex(u32) = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX.0,
 //     PlacedFootprint(PlacedSubresourceFootprint) = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT.0,
 // }
+
+#[repr(transparent)]
+#[derive(Clone)]
+pub struct ResourceBarrier<'a>(pub(crate) D3D12_RESOURCE_BARRIER, PhantomData<&'a ()>);
+
+impl<'a> ResourceBarrier<'a> {
+    pub fn transition(
+        resource: &'a Resource,
+        subresource: u32,
+        state_before: ResourceStates,
+        state_after: ResourceStates,
+    ) -> Self {
+        Self(
+            D3D12_RESOURCE_BARRIER {
+                Type: D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+                Flags: D3D12_RESOURCE_BARRIER_FLAGS(0),
+
+                Anonymous: D3D12_RESOURCE_BARRIER_0 {
+                    Transition: ManuallyDrop::new(D3D12_RESOURCE_TRANSITION_BARRIER {
+                        pResource: unsafe { transmute_copy(&resource.0) },
+                        Subresource: subresource,
+                        StateBefore: D3D12_RESOURCE_STATES(state_before.bits()),
+                        StateAfter: D3D12_RESOURCE_STATES(state_after.bits()),
+                    }),
+                },
+            },
+            PhantomData,
+        )
+    }
+
+    pub fn aliasing(resource_before: &'a Resource, resource_after: &'a Resource) -> Self {
+        Self(
+            D3D12_RESOURCE_BARRIER {
+                Type: D3D12_RESOURCE_BARRIER_TYPE_ALIASING,
+                Flags: D3D12_RESOURCE_BARRIER_FLAGS(0),
+
+                Anonymous: D3D12_RESOURCE_BARRIER_0 {
+                    Aliasing: ManuallyDrop::new(D3D12_RESOURCE_ALIASING_BARRIER {
+                        pResourceBefore: unsafe { transmute_copy(&resource_before.0) },
+                        pResourceAfter: unsafe { transmute_copy(&resource_after.0) },
+                    }),
+                },
+            },
+            PhantomData,
+        )
+    }
+
+    pub fn uav(resource: &'a Resource) -> Self {
+        Self(
+            D3D12_RESOURCE_BARRIER {
+                Type: D3D12_RESOURCE_BARRIER_TYPE_UAV,
+                Flags: D3D12_RESOURCE_BARRIER_FLAGS(0),
+
+                Anonymous: D3D12_RESOURCE_BARRIER_0 {
+                    UAV: ManuallyDrop::new(D3D12_RESOURCE_UAV_BARRIER {
+                        pResource: unsafe { transmute_copy(&resource.0) },
+                    }),
+                },
+            },
+            PhantomData,
+        )
+    }
+}
+
+bitflags! {
+    pub struct ResourceStates : i32 {
+        const COMMON = D3D12_RESOURCE_STATE_COMMON.0;
+        const VERTEX_AND_CONSTANT_BUFFER = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER.0;
+        const INDEX_BUFFER = D3D12_RESOURCE_STATE_INDEX_BUFFER.0;
+        const RENDER_TARGET = D3D12_RESOURCE_STATE_RENDER_TARGET.0;
+        const UNORDERED_ACCESS = D3D12_RESOURCE_STATE_UNORDERED_ACCESS.0;
+        const DEPTH_WRITE = D3D12_RESOURCE_STATE_DEPTH_WRITE.0;
+        const DEPTH_READ = D3D12_RESOURCE_STATE_DEPTH_READ.0;
+        const NON_PIXEL_SHADER_RESOURCE = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE.0;
+        const PIXEL_SHADER_RESOURCE = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE.0;
+        const STREAM_OUT = D3D12_RESOURCE_STATE_STREAM_OUT.0;
+        const INDIRECT_ARGUMENT = D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT.0;
+        const COPY_DEST = D3D12_RESOURCE_STATE_COPY_DEST.0;
+        const COPY_SOURCE = D3D12_RESOURCE_STATE_COPY_SOURCE.0;
+        const RESOLVE_DEST = D3D12_RESOURCE_STATE_RESOLVE_DEST.0;
+        const RESOLVE_SOURCE = D3D12_RESOURCE_STATE_RESOLVE_SOURCE.0;
+        const RAYTRACING_ACCELERATION_STRUCTURE = D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE.0;
+        const SHADING_RATE_SOURCE = D3D12_RESOURCE_STATE_SHADING_RATE_SOURCE.0;
+        const RESERVED_INTERNAL_8000 = D3D12_RESOURCE_STATE_RESERVED_INTERNAL_8000.0;
+        const RESERVED_INTERNAL_4000 = D3D12_RESOURCE_STATE_RESERVED_INTERNAL_4000.0;
+        const RESERVED_INTERNAL_100000 = D3D12_RESOURCE_STATE_RESERVED_INTERNAL_100000.0;
+        const RESERVED_INTERNAL_40000000 = D3D12_RESOURCE_STATE_RESERVED_INTERNAL_40000000.0;
+        const RESERVED_INTERNAL_80000000 = D3D12_RESOURCE_STATE_RESERVED_INTERNAL_80000000.0;
+        const GENERIC_READ = D3D12_RESOURCE_STATE_GENERIC_READ.0;
+        const ALL_SHADER_RESOURCE = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE.0;
+        const PRESENT = D3D12_RESOURCE_STATE_PRESENT.0;
+        const PREDICATION = D3D12_RESOURCE_STATE_PREDICATION.0;
+        const VIDEO_DECODE_READ = D3D12_RESOURCE_STATE_VIDEO_DECODE_READ.0;
+        const VIDEO_DECODE_WRITE = D3D12_RESOURCE_STATE_VIDEO_DECODE_WRITE.0;
+        const VIDEO_PROCESS_READ = D3D12_RESOURCE_STATE_VIDEO_PROCESS_READ.0;
+        const VIDEO_PROCESS_WRITE = D3D12_RESOURCE_STATE_VIDEO_PROCESS_WRITE.0;
+        const VIDEO_ENCODE_READ = D3D12_RESOURCE_STATE_VIDEO_ENCODE_READ.0;
+        const VIDEO_ENCODE_WRITE = D3D12_RESOURCE_STATE_VIDEO_ENCODE_WRITE.0;
+    }
+}

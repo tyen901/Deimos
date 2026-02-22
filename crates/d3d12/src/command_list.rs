@@ -7,7 +7,7 @@ use windows::Win32::Graphics::Direct3D12::*;
 
 use crate::{
     verify_ffi_struct, CpuDescriptorHandle, DescriptorHeap, Format, GpuDescriptorHandle,
-    GpuVirtualAddress, PipelineState, PrimitiveTopology, Result, RootSignature,
+    GpuVirtualAddress, PipelineState, PrimitiveTopology, ResourceBarrier, Result, RootSignature,
     TextureCopyLocation,
 };
 
@@ -34,6 +34,14 @@ impl GraphicsCommandList {
         }
 
         Ok(())
+    }
+
+    pub fn resource_barriers(&self, barriers: &[ResourceBarrier]) {
+        unsafe {
+            self.0.ResourceBarrier(
+                transmute::<&[ResourceBarrier<'_>], &[D3D12_RESOURCE_BARRIER]>(barriers),
+            );
+        }
     }
 
     pub fn copy_texture_region(

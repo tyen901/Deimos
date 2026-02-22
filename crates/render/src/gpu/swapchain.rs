@@ -54,14 +54,17 @@ impl Swapchain {
         })
     }
 
-    pub fn get_back_buffer_handle(&self, index: usize) -> d3d12::CpuDescriptorHandle {
-        self.rtv_desc_heap
+    pub fn get_back_buffer(&self, index: usize) -> (d3d12::CpuDescriptorHandle, d3d12::Resource) {
+        let handle = self
+            .rtv_desc_heap
             .cpu_descriptor_handle_for_heap_start()
             .offset(
                 index % Self::NUM_BUFFERS as usize,
                 self.device
                     .descriptor_handle_increment_size(d3d12::DescriptorHeapType::Rtv),
-            )
+            );
+        let resource = &self.back_buffers[index % Self::NUM_BUFFERS as usize];
+        (handle, resource.clone())
     }
 
     // pub fn get_buffer(&self) -> d3d12::Texture2D {
