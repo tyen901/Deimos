@@ -85,8 +85,8 @@ impl<'a> DButton<'a> {
                 .min_size(vec2(120.0, 60.0))
                 .corner_radius(8),
             text_color: Color32::WHITE,
-            stroke: Stroke::new(1.0, Color32::WHITE),
-            fill_color: Color32::from_white_alpha(196),
+            stroke: Stroke::new(2.0, Color32::WHITE),
+            fill_color: Color32::BLACK,
         }
     }
 
@@ -100,8 +100,13 @@ impl<'a> DButton<'a> {
                 .on_hover_cursor(CursorIcon::PointingHand);
 
             if r.hovered() {
-                ui.painter()
-                    .rect_filled(r.rect, 8, Color32::from_black_alpha(96));
+                ui.painter().rect(
+                    r.rect,
+                    8,
+                    Color32::from_black_alpha(96),
+                    self.stroke,
+                    StrokeKind::Middle,
+                );
             }
 
             r

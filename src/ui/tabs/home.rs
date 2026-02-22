@@ -5,7 +5,10 @@ use google_material_symbols::GoogleMaterialSymbols;
 
 use crate::{
     app::SharedState,
-    ui::{tabs::TabResult, util::UiExt},
+    ui::{
+        tabs::{Tab, TabResult, activity_list::ActivityListTab, map_list::MapListTab},
+        util::UiExt,
+    },
 };
 
 // use super::{Tab, TabResult, entity_list::EntityListTab, map_list::MapListTab};
@@ -44,13 +47,13 @@ impl HomeTab {
                 ))
                 .clicked()
             {
-                // result = TabResult::Open(Tab::ActivityList(ActivityListTab::new(shared_state)));
+                result = TabResult::Open(Tab::ActivityList(ActivityListTab::new(shared_state)));
             }
             if uis[0]
                 .d_button(format!("{} MAPS", GoogleMaterialSymbols::Map))
                 .clicked()
             {
-                // result = TabResult::Open(Tab::MapList(MapListTab::new(shared_state)));
+                result = TabResult::Open(Tab::MapList(MapListTab::new(shared_state)));
             }
             if uis[0]
                 .d_button(format!("{} ENTITIES", GoogleMaterialSymbols::ChessPawn))

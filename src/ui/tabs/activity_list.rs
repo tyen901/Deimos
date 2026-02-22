@@ -1,7 +1,7 @@
 use std::{cell::RefCell, sync::Arc};
 
 use ahash::HashMap;
-use alkahest_data::activity::SActivity;
+use deimos_data::activity::SActivity;
 use egui::{AtomExt, Atoms, Color32, ImageSource, IntoAtoms, Vec2, vec2};
 use google_material_symbols::GoogleMaterialSymbols;
 use itertools::Itertools;
@@ -11,8 +11,7 @@ use tiger_pkg::{TagHash, package_manager};
 use crate::{
     app::SharedState,
     ui::{
-        icons,
-        tabs::{Tab, TabResult, activity::ActivityTab},
+        tabs::{Tab, TabResult},
         util::DButton,
     },
 };
@@ -30,13 +29,7 @@ pub struct ActivityListTab {
 
 impl ActivityListTab {
     pub fn new(shared_state: &Arc<SharedState>) -> Self {
-        let mut crucible_nodes = HashMap::<String, Vec<ActivityTreeNode>>::default();
-        let mut gambit_nodes = vec![];
         let mut destination_nodes = HashMap::<String, Vec<ActivityTreeNode>>::default();
-        let mut dungeon_nodes = vec![];
-        let mut raid_nodes = vec![];
-        let mut strike_nodes = vec![];
-        let mut patrol_nodes = vec![];
 
         let mut all_nodes = HashMap::default();
 
@@ -59,58 +52,16 @@ impl ActivityListTab {
                 continue;
             }
 
-            if destination.starts_with("crucible_") {
-                crucible_nodes
-                    .entry(destination.to_string())
-                    .or_default()
-                    .push(ActivityTreeNode::Leaf {
-                        title: activity.to_string(),
-                        tag,
-                    });
-            } else if destination.starts_with("gambit_") {
-                gambit_nodes.push(ActivityTreeNode::Leaf {
-                    title: destination.to_string(),
-                    tag,
-                });
-            } else {
-                let leaf = ActivityTreeNode::Leaf {
-                    title: activity.to_string(),
-                    tag,
-                };
-                let kind = leaf.kind();
-                destination_nodes
-                    .entry(destination.to_string())
-                    .or_default()
-                    .push(leaf.clone());
-
-                match kind {
-                    Some(ActivityKind::Dungeon) => {
-                        dungeon_nodes.push(leaf);
-                    }
-                    Some(ActivityKind::Raid) => {
-                        raid_nodes.push(leaf.clone());
-                    }
-                    Some(ActivityKind::Strike) => {
-                        strike_nodes.push(leaf.clone());
-                    }
-                    Some(ActivityKind::Patrol) => {
-                        patrol_nodes.push(leaf.clone());
-                    }
-                    _ => {}
-                }
-            }
+            let leaf = ActivityTreeNode::Leaf {
+                title: activity.to_string(),
+                tag,
+            };
+            let kind = leaf.kind();
+            destination_nodes
+                .entry(destination.to_string())
+                .or_default()
+                .push(leaf.clone());
         }
-
-        let mut crucible_nodes = crucible_nodes
-            .into_iter()
-            .map(|(destination, mut activities)| {
-                activities.sort_by_key(|activity| activity.title().to_string());
-                ActivityTreeNode::Branch {
-                    title: destination,
-                    children: activities,
-                }
-            })
-            .collect_vec();
 
         let mut destination_nodes = destination_nodes
             .into_iter()
@@ -122,14 +73,6 @@ impl ActivityListTab {
                 }
             })
             .collect_vec();
-
-        crucible_nodes.sort_by_key(|node| node.title().to_string());
-        destination_nodes.sort_by_key(|node| node.title().to_string());
-        gambit_nodes.sort_by_key(|node| node.title().to_string());
-        raid_nodes.sort_by_key(|node| node.title().to_string());
-        strike_nodes.sort_by_key(|node| node.title().to_string());
-        destination_nodes.sort_by_key(|node| node.title().to_string());
-        patrol_nodes.sort_by_key(|node| node.title().to_string());
 
         let mut all_nodes = all_nodes.into_values().collect_vec();
         all_nodes.sort_by_key(|node| node.title().to_string());
@@ -143,35 +86,35 @@ impl ActivityListTab {
                         title: format!("{} Packages", GoogleMaterialSymbols::Package2),
                         children: destination_nodes,
                     },
-                    ActivityTreeNode::Branch {
-                        title: "Crucible".to_string(),
-                        children: crucible_nodes,
-                    },
-                    ActivityTreeNode::Branch {
-                        title: "Gambit".to_string(),
-                        children: gambit_nodes,
-                    },
-                    ActivityTreeNode::Branch {
-                        title: "Raids".to_string(),
-                        children: raid_nodes,
-                    },
-                    ActivityTreeNode::Branch {
-                        title: "Dungeons".to_string(),
-                        children: dungeon_nodes,
-                    },
-                    ActivityTreeNode::Branch {
-                        title: "Strikes".to_string(),
-                        children: strike_nodes,
-                    },
-                    ActivityTreeNode::Branch {
-                        title: "Patrol".to_string(),
-                        children: patrol_nodes,
-                    },
+                    // ActivityTreeNode::Branch {
+                    //     title: "Crucible".to_string(),
+                    //     children: crucible_nodes,
+                    // },
+                    // ActivityTreeNode::Branch {
+                    //     title: "Gambit".to_string(),
+                    //     children: gambit_nodes,
+                    // },
+                    // ActivityTreeNode::Branch {
+                    //     title: "Raids".to_string(),
+                    //     children: raid_nodes,
+                    // },
+                    // ActivityTreeNode::Branch {
+                    //     title: "Dungeons".to_string(),
+                    //     children: dungeon_nodes,
+                    // },
+                    // ActivityTreeNode::Branch {
+                    //     title: "Strikes".to_string(),
+                    //     children: strike_nodes,
+                    // },
+                    // ActivityTreeNode::Branch {
+                    //     title: "Patrol".to_string(),
+                    //     children: patrol_nodes,
+                    // },
                 ],
             },
             all_nodes,
             search_query: String::new().into(),
-            current_node: vec![].into(),
+            current_node: vec![0].into(),
         }
     }
 
@@ -217,26 +160,26 @@ impl ActivityListTab {
                         {
                             #[allow(clippy::collapsible_if)]
                             if let ActivityTreeNode::Leaf { title, tag } = child {
-                                if DButton::new(child.atoms())
+                                if DButton::new_black(child.atoms())
                                     .min_size(vec2(768.0, 32.0))
                                     .stroke(1.0, child.stroke_color())
-                                    .fill(child.bg_color())
+                                    // .fill(child.bg_color())
                                     .ui(ui)
                                     .clicked()
                                 {
-                                    match ActivityTab::new(
-                                        &self.shared_state,
-                                        *tag,
-                                        title.to_string(),
-                                    ) {
-                                        Ok(tab) => {
-                                            *result = TabResult::Open(Tab::Activity(tab));
-                                        }
-                                        Err(err) => {
-                                            // TODO(cohae): Error popup
-                                            error!("Failed to open activity tab: {}", err);
-                                        }
-                                    }
+                                    // match ActivityTab::new(
+                                    //     &self.shared_state,
+                                    //     *tag,
+                                    //     title.to_string(),
+                                    // ) {
+                                    //     Ok(tab) => {
+                                    //         *result = TabResult::Open(Tab::Activity(tab));
+                                    //     }
+                                    //     Err(err) => {
+                                    //         // TODO(cohae): Error popup
+                                    //         error!("Failed to open activity tab: {}", err);
+                                    //     }
+                                    // }
                                 }
                             }
                         }
@@ -251,9 +194,9 @@ impl ActivityListTab {
                             match child {
                                 ActivityTreeNode::Branch { .. } => {
                                     let btn = if Some(i) == current_selected {
-                                        DButton::new_white(child.atoms())
+                                        DButton::new_black(child.atoms())
                                     } else {
-                                        DButton::new(child.atoms()).fill(child.bg_color())
+                                        DButton::new(child.atoms()) //.fill(child.bg_color())
                                     }
                                     .stroke(1.0, child.stroke_color())
                                     .min_size(vec2(512.0, 32.0))
@@ -268,23 +211,23 @@ impl ActivityListTab {
                                     if DButton::new((child.atoms(), format!("({tag})")))
                                         .min_size(vec2(512.0, 32.0))
                                         .stroke(1.0, child.stroke_color())
-                                        .fill(child.bg_color())
+                                        // .fill(child.bg_color())
                                         .ui(ui)
                                         .clicked()
                                     {
-                                        match ActivityTab::new(
-                                            &self.shared_state,
-                                            *tag,
-                                            title.to_string(),
-                                        ) {
-                                            Ok(tab) => {
-                                                *result = TabResult::Open(Tab::Activity(tab));
-                                            }
-                                            Err(err) => {
-                                                // TODO(cohae): Error popup
-                                                error!("Failed to open activity tab: {}", err);
-                                            }
-                                        }
+                                        // match ActivityTab::new(
+                                        //     &self.shared_state,
+                                        //     *tag,
+                                        //     title.to_string(),
+                                        // ) {
+                                        //     Ok(tab) => {
+                                        //         *result = TabResult::Open(Tab::Activity(tab));
+                                        //     }
+                                        //     Err(err) => {
+                                        //         // TODO(cohae): Error popup
+                                        //         error!("Failed to open activity tab: {}", err);
+                                        //     }
+                                        // }
                                     }
                                 }
                             }
@@ -350,7 +293,7 @@ impl ActivityTreeNode {
 
         if let Some(kind) = self.kind() {
             (
-                kind.icon().atom_size(Vec2::splat(32.0)),
+                // kind.icon().atom_size(Vec2::splat(32.0)),
                 "",
                 title.to_string(),
             )
@@ -394,22 +337,22 @@ enum ActivityKind {
 }
 
 impl ActivityKind {
-    fn icon(&self) -> ImageSource<'static> {
-        match self {
-            ActivityKind::Crucible => icons::CRUCIBLE,
-            ActivityKind::Raid => icons::RAID,
-            ActivityKind::IronBanner => icons::IRON_BANNER,
-            ActivityKind::Trials => icons::OSIRIS,
-            ActivityKind::Gambit => icons::GAMBIT,
-            ActivityKind::Dungeon => icons::DUNGEON,
-            ActivityKind::Patrol => icons::PATROL,
-            ActivityKind::LostSector => icons::LOST_SECTOR,
-            ActivityKind::Strike => icons::STRIKE,
-            ActivityKind::Exotic => icons::ENGRAM,
-            ActivityKind::Quest => icons::QUEST,
-            ActivityKind::Mission => icons::QUEST,
-        }
-    }
+    // fn icon(&self) -> ImageSource<'static> {
+    //     match self {
+    //         ActivityKind::Crucible => icons::CRUCIBLE,
+    //         ActivityKind::Raid => icons::RAID,
+    //         ActivityKind::IronBanner => icons::IRON_BANNER,
+    //         ActivityKind::Trials => icons::OSIRIS,
+    //         ActivityKind::Gambit => icons::GAMBIT,
+    //         ActivityKind::Dungeon => icons::DUNGEON,
+    //         ActivityKind::Patrol => icons::PATROL,
+    //         ActivityKind::LostSector => icons::LOST_SECTOR,
+    //         ActivityKind::Strike => icons::STRIKE,
+    //         ActivityKind::Exotic => icons::ENGRAM,
+    //         ActivityKind::Quest => icons::QUEST,
+    //         ActivityKind::Mission => icons::QUEST,
+    //     }
+    // }
 
     fn color(&self) -> Color32 {
         match self {

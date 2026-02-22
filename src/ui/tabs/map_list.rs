@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use alkahest_data::map::{SBubbleParent, SBubbleParentShallow};
+use deimos_data::map::{SBubbleParent, SBubbleParentShallow};
 use egui::{Margin, Ui, ahash::HashMap, vec2};
 use tiger_parse::{PackageManagerExt, TigerReadable};
 use tiger_pkg::{TagHash, package_manager};
 
-use super::{Tab, TabResult, map::MapTab};
+use super::{Tab, TabResult};
 use crate::{app::SharedState, ui::util::DButton};
 
 pub struct MapListTab {
@@ -82,7 +82,7 @@ impl MapListTab {
                                     self.map_tags_by_package.iter().enumerate()
                                 {
                                     if if self.current_package_index == Some(i) {
-                                        DButton::new_white(package_name)
+                                        DButton::new_black(package_name)
                                     } else {
                                         DButton::new(package_name)
                                     }
@@ -120,14 +120,14 @@ impl MapListTab {
                                         .ui(ui)
                                         .clicked()
                                     {
-                                        match MapTab::new(*tag, name.clone()) {
-                                            Ok(map) => {
-                                                result = TabResult::Open(Tab::Map(map));
-                                            }
-                                            Err(e) => {
-                                                error!("Failed to open map tab: {e}");
-                                            }
-                                        }
+                                        // match MapTab::new(*tag, name.clone()) {
+                                        //     Ok(map) => {
+                                        //         result = TabResult::Open(Tab::Map(map));
+                                        //     }
+                                        //     Err(e) => {
+                                        //         error!("Failed to open map tab: {e}");
+                                        //     }
+                                        // }
                                     }
                                 }
                             });

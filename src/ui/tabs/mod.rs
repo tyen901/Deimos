@@ -1,9 +1,9 @@
 // pub mod activity;
-// pub mod activity_list;
+pub mod activity_list;
 // pub mod entity_list;
 pub mod home;
 // pub mod map;
-// pub mod map_list;
+pub mod map_list;
 // pub mod model_list;
 pub mod settings;
 // pub mod static_list;
@@ -17,16 +17,18 @@ use egui_dock::{DockState, NodeIndex, SurfaceIndex, TabIndex};
 use google_material_symbols::GoogleMaterialSymbols;
 use home::HomeTab;
 
-use crate::ui::tabs::settings::SettingsTab;
+use crate::ui::tabs::{
+    activity_list::ActivityListTab, map_list::MapListTab, settings::SettingsTab,
+};
 
 pub enum Tab {
     Home,
     Settings,
     // EntityList(Box<EntityListTab>),
     // StaticList(Box<StaticListTab>),
-    // MapList(MapListTab),
+    MapList(MapListTab),
     // Map(MapTab),
-    // ActivityList(ActivityListTab),
+    ActivityList(ActivityListTab),
     // Activity(ActivityTab),
     // TestScene(TestSceneTab),
     // TagLookup(TagLookupTab),
@@ -44,9 +46,9 @@ impl Tab {
             Tab::Settings => 0,
             // Tab::EntityList(_) => 0,
             // Tab::StaticList(_) => 0,
-            // Tab::MapList(_) => 0,
+            Tab::MapList(_) => 0,
             // Tab::Map(tab) => tab.tag.0 as u64,
-            // Tab::ActivityList(_) => 0,
+            Tab::ActivityList(_) => 0,
             // Tab::Activity(tab) => tab.tag.0 as u64,
             // Tab::TestScene(_) => 0,
             // Tab::TagLookup(_) => 0,
@@ -61,14 +63,13 @@ impl Display for Tab {
             Tab::Home => format!("{} Home", GoogleMaterialSymbols::Home),
             // Tab::EntityList(_) => format!("{} Entities", GoogleMaterialSymbols::ChessPawn),
             // Tab::StaticList(_) => format!("{} Statics", GoogleMaterialSymbols::Landscape),
-            // Tab::MapList(_) => format!("{} Maps", GoogleMaterialSymbols::Map),
+            Tab::MapList(_) => format!("{} Maps", GoogleMaterialSymbols::Map),
             // Tab::Map(tab) => format!("{} ({})", tab.name, tab.tag),
-            // Tab::ActivityList(_) => {
-            //     format!("{} Activities", GoogleMaterialSymbols::StadiaController)
-            // }
-            // Tab::Activity(tab) => format!("{} ({})", tab.name, tab.tag),
-            // Tab::TestScene(_) => format!("{} Test Scene", GoogleMaterialSymbols::Experiment),
-            // Tab::TagLookup(_) => format!("{} Tag Lookup", GoogleMaterialSymbols::Search),
+            Tab::ActivityList(_) => {
+                format!("{} Activities", GoogleMaterialSymbols::StadiaController)
+            } // Tab::Activity(tab) => format!("{} ({})", tab.name, tab.tag),
+              // Tab::TestScene(_) => format!("{} Test Scene", GoogleMaterialSymbols::Experiment),
+              // Tab::TagLookup(_) => format!("{} Tag Lookup", GoogleMaterialSymbols::Search),
         };
 
         f.write_str(&s)
@@ -103,24 +104,23 @@ impl<'a> egui_dock::TabViewer for TabViewer<'a> {
                     Tab::Settings => {
                         SettingsTab::ui(ui, self.shared_state);
                     } // Tab::EntityList(tab) => {
-                      //     let res = tab.ui(ui, self.egui_d3d11);
-                      //     self.process_result(res);
-                      // }
-                      // Tab::StaticList(tab) => {
-                      //     let res = tab.ui(ui, self.egui_d3d11);
-                      //     self.process_result(res);
-                      // }
-                      // Tab::MapList(tab) => {
-                      //     self.process_result(tab.ui(ui));
-                      // }
-                      // Tab::Map(tab) => {
-                      //     tab.ui(ui, self.egui_d3d11);
-                      // }
-                      // Tab::ActivityList(tab) => {
-                      //     let res = tab.ui(ui);
-                      //     self.process_result(res);
-                      // }
-                      // Tab::Activity(tab) => {
+                    //     let res = tab.ui(ui, self.egui_d3d11);
+                    //     self.process_result(res);
+                    // }
+                    // Tab::StaticList(tab) => {
+                    //     let res = tab.ui(ui, self.egui_d3d11);
+                    //     self.process_result(res);
+                    // }
+                    Tab::MapList(tab) => {
+                        self.process_result(tab.ui(ui));
+                    }
+                    // Tab::Map(tab) => {
+                    //     tab.ui(ui, self.egui_d3d11);
+                    // }
+                    Tab::ActivityList(tab) => {
+                        let res = tab.ui(ui);
+                        self.process_result(res);
+                    } // Tab::Activity(tab) => {
                       //     tab.ui(ui, self.egui_d3d11);
                       // }
                       // Tab::TestScene(tab) => {

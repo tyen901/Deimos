@@ -16,6 +16,19 @@ use crate::{
 
 #[derive(Debug, AssertOffsets)]
 #[tiger_type(id = 0x8080AD32, size = 0x50)]
+pub struct SBubbleParentShallow {
+    pub file_size: u64,
+
+    #[offset(0x8)]
+    pub definition: TagHash,
+    pub unkc: Padding<4>,
+
+    pub unk10: u64,
+    pub map_name: FnvHash,
+}
+
+#[derive(Debug, AssertOffsets)]
+#[tiger_type(id = 0x8080AD32, size = 0x50)]
 pub struct SBubbleParent {
     pub file_size: u64,
 
