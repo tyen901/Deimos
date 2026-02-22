@@ -19,15 +19,13 @@ vs_out vs_main(vs_in input) {
   return output;
 }
 
-// sampler sampler0;
-// Texture2D texture0;
+sampler sampler0;
+Texture2D texture0;
 
 float4 ps_main(vs_out input) : SV_TARGET {
-  return input.color;
-  //   float4 t = texture0.Sample(sampler0, input.uv);
-  // #ifdef CLEAR_ALPHA
-  //     t.a = 1.0;
-  // #endif
-  //   return float4(pow(input.color.rgb, 1.0 / 1.9) * t.rgb, input.color.a *
-  //   t.a);
+  float4 t = texture0.Sample(sampler0, input.uv);
+#ifdef CLEAR_ALPHA
+  t.a = 1.0;
+#endif
+  return float4(pow(input.color.rgb, 1.0 / 1.9) * t.rgb, input.color.a * t.a);
 }

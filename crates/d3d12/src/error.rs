@@ -20,20 +20,20 @@ pub enum Error {
     Other(String),
 }
 
-// validate_input!(condition, error_format, ...)
-macro_rules! validate_input {
-    ($condition:expr, $error_format:literal $(, $arg:expr)*) => {
-        if !$condition {
-            return Err($crate::error::Error::InvalidInput(format!($error_format, $($arg),*)));
-        }
-    };
-}
+// // validate_input!(condition, error_format, ...)
+// macro_rules! validate_input {
+//     ($condition:expr, $error_format:literal $(, $arg:expr)*) => {
+//         if !$condition {
+//             return Err($crate::error::Error::InvalidInput(format!($error_format, $($arg),*)));
+//         }
+//     };
+// }
 
-macro_rules! bail {
-    ($format:literal $(, $arg:expr)*) => {
-        return Err($crate::error::Error::InvalidInput(format!($format, $($arg),*)));
-    };
-}
+// macro_rules! bail {
+//     ($format:literal $(, $arg:expr)*) => {
+//         return Err($crate::error::Error::InvalidInput(format!($format, $($arg),*)));
+//     };
+// }
 
-pub(crate) use bail;
-pub(crate) use validate_input;
+// pub(crate) use bail;
+// pub(crate) use validate_input;

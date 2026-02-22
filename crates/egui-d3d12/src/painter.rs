@@ -1,8 +1,8 @@
 use std::{mem::size_of, sync::Arc, time::Instant};
 
 use d3d12::{
-    ElementOffset, Format, GraphicsPipelineStateDesc, RootSignatureBuilder, RootSignatureFlags,
-    VertexBufferView,
+    DescriptorRange, ElementOffset, Format, GraphicsPipelineStateDesc, RootSignatureBuilder,
+    RootSignatureFlags, VertexBufferView,
 };
 use deimos_render::gpu::{buffer::Buffer, Gpu};
 use egui::{epaint::Primitive, Context};
@@ -30,43 +30,12 @@ pub struct D3D12Renderer {
     // blend_state: d3d12::BlendState,
     // raster_state: d3d12::RasterizerState,
     buffers: [Vec<(Buffer, Buffer)>; Gpu::FRAMES_IN_FLIGHT],
+    root_signature: d3d12::RootSignature,
 }
-
-// impl D3D12Renderer {
-//     const INPUT_ELEMENTS_DESC: [d3d12::InputElementDesc; 3] = [
-//         d3d12::InputElementDesc::builder()
-//             .semantic_name("POSITION")
-//             .semantic_index(0)
-//             .format(Format::R32g32Float)
-//             .input_slot(0)
-//             .aligned_byte_offset(ElementOffset::Absolute(0))
-//             .input_slot_class(d3d12::InputClassification::PerVertexData)
-//             .instance_data_step_rate(0)
-//             .build(),
-//         d3d12::InputElementDesc::builder()
-//             .semantic_name("TEXCOORD")
-//             .semantic_index(0)
-//             .format(Format::R32g32Float)
-//             .input_slot(0)
-//             .aligned_byte_offset(ElementOffset::Append)
-//             .input_slot_class(d3d12::InputClassification::PerVertexData)
-//             .instance_data_step_rate(0)
-//             .build(),
-//         d3d12::InputElementDesc::builder()
-//             .semantic_name("COLOR")
-//             .semantic_index(0)
-//             .format(Format::R32g32b32a32Float)
-//             .input_slot(0)
-//             .aligned_byte_offset(ElementOffset::Append)
-//             .input_slot_class(d3d12::InputClassification::PerVertexData)
-//             .instance_data_step_rate(0)
-//             .build(),
-//     ];
-// }
 
 impl D3D12Renderer {
     /// Create a new directx11 renderer from a swapchain
-    pub fn new(gpu: &Gpu) -> Result<Self, RenderError> {
+    pub fn new(gpu: &Arc<Gpu>) -> Result<Self, RenderError> {
         let input_layout = [
             d3d12::InputElementDesc::builder()
                 .semantic_name("POSITION")
@@ -96,6 +65,17 @@ impl D3D12Renderer {
 
         let root_signature_raw = RootSignatureBuilder::default()
             .flags(RootSignatureFlags::ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT)
+            .add_sampler(d3d12::StaticSamplerDesc::builder(0, 0).build())
+            .add_param(
+                d3d12::RootParameter::DescriptorTable(&[DescriptorRange {
+                    base_shader_register: 0,
+                    register_space: 0,
+                    num_descriptors: 1,
+                    range_type: d3d12::DescriptorRangeType::Srv,
+                    offset_in_descriptors_from_table_start: 0,
+                }]),
+                d3d12::ShaderVisibility::Pixel,
+            )
             .serialize()?;
 
         let root_signature = gpu.create_root_signature(&root_signature_raw)?;
@@ -154,8 +134,9 @@ impl D3D12Renderer {
         // let raster_state = gpu.create_rasterizer_state(&raster_desc)?;
 
         Ok(Self {
-            tex_alloc: TextureAllocator::default(),
+            tex_alloc: TextureAllocator::new(gpu)?,
             pipeline,
+            root_signature,
             // // backup: BackupState::default(),
             // input_layout,
             // render_view: Some(render_view),
@@ -186,10 +167,9 @@ impl D3D12Renderer {
         // self.backup.save(ctx);
         // let screen = cmd.gpu().swapchain_resolution();
 
-        // if !output.textures_delta.is_empty() {
-        //     self.tex_alloc
-        //         .process_deltas(gpu, cmd, &output.textures_delta)?;
-        // }
+        if !output.textures_delta.is_empty() {
+            self.tex_alloc.process_deltas(gpu, &output.textures_delta)?;
+        }
 
         // if output.shapes.is_empty() {
         //     // self.backup.restore(ctx);
@@ -225,10 +205,13 @@ impl D3D12Renderer {
         // cmd.input_assembler_set_input_layout(&self.input_layout);
         // #[allow(deprecated)]
         // cmd.input_assembler_set_primitive_topology(d3d12::PrimitiveTopology::TriangleList);
+        cmd.set_root_signature(&self.root_signature);
         cmd.set_pipeline_state(&self.pipeline);
+        cmd.set_descriptor_heaps(std::slice::from_ref(
+            &self.tex_alloc.descriptor_heap_alloc.descriptor_heap,
+        ));
 
-        let buffers = &mut self.buffers[gpu.frame_index() % Gpu::FRAMES_IN_FLIGHT];
-        buffers.clear();
+        self.buffers[gpu.frame_index() % Gpu::FRAMES_IN_FLIGHT].clear();
 
         cmd.input_assembler_set_primitive_topology(d3d12::PrimitiveTopology::TriangleList);
         for mesh in primitives {
@@ -248,7 +231,7 @@ impl D3D12Renderer {
                 idx.size() as u32,
                 Format::R32Uint,
             );
-            buffers.push((vtx, idx));
+            self.buffers[gpu.frame_index() % Gpu::FRAMES_IN_FLIGHT].push((vtx, idx));
 
             //     let texture = self.tex_alloc.get_by_id(mesh.texture_id);
 
@@ -279,6 +262,14 @@ impl D3D12Renderer {
             //     } else {
             //         &self.shaders.pixel_no_alpha
             //     });
+
+            let texture = self.tex_alloc.get_by_id(mesh.texture_id);
+            if let Some((texture, texture_filter, texture_uses_alpha)) = &texture {
+                self.set_sampler_state(cmd, texture_filter.unwrap_or(egui::TextureFilter::Linear))?;
+                // use_alpha = *texture_uses_alpha;
+                // cmd.pixel_set_shader_resources(0, &[Some(texture)]);
+                cmd.set_graphics_root_descriptor_table(0, *texture);
+            }
 
             cmd.draw_indexed_instanced(0..mesh.indices.len() as _, 0..1, 0);
 

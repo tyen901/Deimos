@@ -117,7 +117,6 @@ impl<'a> RootSignatureBuilder<'a> {
             NumStaticSamplers: self.static_samplers.len() as u32,
             pStaticSamplers: self.static_samplers.as_ptr(),
             Flags: D3D12_ROOT_SIGNATURE_FLAGS(self.flags.bits()),
-            ..Default::default()
         };
 
         let res = unsafe {
@@ -238,13 +237,13 @@ pub enum DescriptorRangeType {
 #[repr(i32)]
 pub enum ShaderVisibility {
     All = D3D12_SHADER_VISIBILITY_ALL.0,
-    Vertex = D3D12_SHADER_VISIBILITY_AMPLIFICATION.0,
-    Hull = D3D12_SHADER_VISIBILITY_DOMAIN.0,
-    Domain = D3D12_SHADER_VISIBILITY_GEOMETRY.0,
-    Geometry = D3D12_SHADER_VISIBILITY_HULL.0,
-    Pixel = D3D12_SHADER_VISIBILITY_MESH.0,
-    Amplification = D3D12_SHADER_VISIBILITY_PIXEL.0,
-    Mesh = D3D12_SHADER_VISIBILITY_VERTEX.0,
+    Amplification = D3D12_SHADER_VISIBILITY_AMPLIFICATION.0,
+    Domain = D3D12_SHADER_VISIBILITY_DOMAIN.0,
+    Geometry = D3D12_SHADER_VISIBILITY_GEOMETRY.0,
+    Hull = D3D12_SHADER_VISIBILITY_HULL.0,
+    Mesh = D3D12_SHADER_VISIBILITY_MESH.0,
+    Pixel = D3D12_SHADER_VISIBILITY_PIXEL.0,
+    Vertex = D3D12_SHADER_VISIBILITY_VERTEX.0,
 }
 
 impl From<ShaderVisibility> for D3D12_SHADER_VISIBILITY {

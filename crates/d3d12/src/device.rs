@@ -5,9 +5,10 @@ use windows::{
 
 use crate::{
     error::Result, util::to_pcstr, CommandAllocator, CommandListType, CommandQueue,
-    CommandQueueDesc, CpuDescriptorHandle, DescriptorHeap, DescriptorHeapType, ElementOffset,
-    Fence, FenceFlags, GraphicsCommandList, GraphicsPipelineStateDesc, PipelineState,
-    RenderTargetViewDesc, Resource, RootSignature,
+    CommandQueueDesc, CopyableFootprints, CpuDescriptorHandle, DescriptorHeap, DescriptorHeapType,
+    ElementOffset, Fence, FenceFlags, GraphicsCommandList, GraphicsPipelineStateDesc,
+    PipelineState, RenderTargetViewDesc, Resource, ResourceDesc, RootSignature,
+    ShaderResourceViewDesc,
 };
 
 #[repr(transparent)]
@@ -133,6 +134,49 @@ impl Device {
                 dest_descriptor.into(),
             );
         }
+    }
+
+    pub fn create_shader_resource_view(
+        &self,
+        resource: Option<&Resource>,
+        desc: Option<&ShaderResourceViewDesc>,
+        dest_descriptor: CpuDescriptorHandle,
+    ) {
+        unsafe {
+            self.0.CreateShaderResourceView(
+                resource.map(|r| &r.0),
+                desc.map(|d| &raw const d.0),
+                dest_descriptor.into(),
+            );
+        }
+    }
+
+    pub fn get_copyable_footprints(
+        &self,
+        resource: &ResourceDesc,
+        first_subresource: u32,
+        num_subresources: u32,
+        base_offset: u64,
+    ) -> Result<CopyableFootprints> {
+        let mut f = CopyableFootprints {
+            layouts: vec![unsafe { std::mem::zeroed() }; num_subresources as usize],
+            num_rows: 0,
+            row_size_in_bytes: 0,
+            total_bytes: 0,
+        };
+        unsafe {
+            self.0.GetCopyableFootprints(
+                resource.as_ffi(),
+                first_subresource,
+                num_subresources,
+                base_offset,
+                Some(f.layouts.as_mut_ptr().cast()),
+                Some(&mut f.num_rows),
+                Some(&mut f.row_size_in_bytes),
+                Some(&mut f.total_bytes),
+            );
+        }
+        Ok(f)
     }
 
     pub fn create_descriptor_heap(

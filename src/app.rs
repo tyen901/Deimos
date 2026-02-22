@@ -117,17 +117,12 @@ impl App {
         let frame = self.gpu.current_frame();
         let frame_index = self.gpu.frame_index();
         frame
-            .wait_for_fence()
+            .wait_for_completion()
             .context("error waiting for frame fence")?;
 
-        frame
-            .command_allocator
-            .reset()
-            .context("error resetting command allocator")?;
         let cmd = &frame.command_list;
-        cmd.reset(&frame.command_allocator, None)?;
 
-        {
+        cmd.scope(|cmd| {
             let back_buffer_handle = self
                 .gpu
                 .swapchain
@@ -138,14 +133,15 @@ impl App {
             cmd.output_merger_set_render_targets(&[back_buffer_handle], false, None);
 
             self.gui.draw(&self.gpu, cmd, &self.shared_state);
-        }
 
-        cmd.close()?;
+            Ok(())
+        })?;
+
         self.gpu
             .queue
             .execute_command_lists(std::slice::from_ref(cmd));
 
-        frame.signal();
+        frame.signal(&self.gpu.queue);
         self.gpu.increment_frame();
         self.gpu.present(true);
 

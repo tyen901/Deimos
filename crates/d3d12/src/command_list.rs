@@ -6,8 +6,9 @@ use static_assertions::assert_eq_size;
 use windows::Win32::Graphics::Direct3D12::*;
 
 use crate::{
-    CpuDescriptorHandle, DescriptorHeap, Format, GpuDescriptorHandle, GpuVirtualAddress,
-    PipelineState, PrimitiveTopology, Result,
+    verify_ffi_struct, CpuDescriptorHandle, DescriptorHeap, Format, GpuDescriptorHandle,
+    GpuVirtualAddress, PipelineState, PrimitiveTopology, Result, RootSignature,
+    TextureCopyLocation,
 };
 
 #[repr(transparent)]
@@ -35,9 +36,34 @@ impl GraphicsCommandList {
         Ok(())
     }
 
+    pub fn copy_texture_region(
+        &self,
+        src: &TextureCopyLocation,
+        src_box: Option<Box>,
+        dst: &TextureCopyLocation,
+        (dstx, dsty, dstz): (u32, u32, u32),
+    ) {
+        unsafe {
+            self.0.CopyTextureRegion(
+                &dst.0,
+                dstx,
+                dsty,
+                dstz,
+                &src.0,
+                src_box.as_ref().map(|b| b.as_ffi()),
+            );
+        }
+    }
+
     pub fn set_pipeline_state(&self, pipeline_state: &PipelineState) {
         unsafe {
             self.0.SetPipelineState(&pipeline_state.0);
+        }
+    }
+
+    pub fn set_root_signature(&self, root_signature: &RootSignature) {
+        unsafe {
+            self.0.SetGraphicsRootSignature(&root_signature.0);
         }
     }
 
@@ -231,7 +257,19 @@ pub struct Rect {
     pub right: i32,
     pub bottom: i32,
 }
-assert_eq_size!(Rect, windows::Win32::Foundation::RECT);
+verify_ffi_struct!(Rect, windows::Win32::Foundation::RECT);
+
+#[repr(C)]
+#[derive(Clone, Debug, Builder)]
+pub struct Box {
+    pub left: u32,
+    pub top: u32,
+    pub front: u32,
+    pub right: u32,
+    pub bottom: u32,
+    pub back: u32,
+}
+verify_ffi_struct!(Box, D3D12_BOX);
 
 #[repr(transparent)]
 #[derive(Clone)]

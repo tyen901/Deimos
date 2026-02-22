@@ -947,6 +947,7 @@ dependencies = [
  "d3d12",
  "deimos-render",
  "egui",
+ "gpu-allocator",
  "thiserror 2.0.18",
 ]
 

@@ -5,7 +5,7 @@ use bon::Builder;
 use static_assertions::assert_eq_size;
 use windows::Win32::Graphics::Direct3D12::*;
 
-use crate::GraphicsCommandList;
+use crate::{Fence, GraphicsCommandList, Result};
 
 #[repr(transparent)]
 #[derive(Clone)]
@@ -19,6 +19,20 @@ impl CommandQueue {
                 &[Option<ID3D12CommandList>],
             >(command_lists));
         }
+    }
+
+    pub fn signal(&self, fence: &Fence, value: u64) -> Result<()> {
+        unsafe {
+            self.0.Signal(&fence.0, value)?;
+        }
+        Ok(())
+    }
+
+    pub fn wait(&self, fence: &Fence, value: u64) -> Result<()> {
+        unsafe {
+            self.0.Wait(&fence.0, value)?;
+        }
+        Ok(())
     }
 }
 

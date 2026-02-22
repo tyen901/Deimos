@@ -6,6 +6,7 @@
 // pub mod spinner;
 // pub mod state;
 pub mod buffer;
+pub mod command_list;
 pub mod frame;
 pub mod swapchain;
 

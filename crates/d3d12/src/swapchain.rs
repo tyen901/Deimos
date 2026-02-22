@@ -11,16 +11,13 @@ use windows::{
             DXGI_STATUS_UNOCCLUDED, HWND,
         },
         Graphics::{
-            Direct3D12::{
-                ID3D12CommandQueue, ID3D12Resource, D3D12_COMMAND_LIST_TYPE_DIRECT,
-                D3D12_COMMAND_QUEUE_DESC,
-            },
+            Direct3D12::ID3D12Resource,
             Dxgi::{Common::*, *},
         },
     },
 };
 
-use crate::{verify_ffi_struct, CommandQueue, Device, Format, Resource};
+use crate::{verify_ffi_struct, CommandQueue, Format, Resource};
 
 #[repr(transparent)]
 pub struct SwapChain(pub(crate) IDXGISwapChain1);
