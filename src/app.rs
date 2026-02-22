@@ -155,16 +155,7 @@ impl App {
 
         frame.signal(&self.gpu.queue);
         self.gpu.increment_frame();
-        self.gpu.present(true);
-
-        // self.renderer.begin_frame();
-
-        // let gpu = &self.renderer.gpu;
-        // let mut cmd = CommandList::from_device_context(gpu, gpu.context().clone());
-        // self.gui.draw(&mut cmd, &self.shared_state);
-
-        // self.renderer
-        //     .present_frame(self.shared_state.config.read().vsync);
+        self.gpu.present(self.shared_state.config.read().vsync);
 
         profiling::finish_frame!();
 
