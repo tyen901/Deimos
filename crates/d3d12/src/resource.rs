@@ -17,6 +17,10 @@ impl Resource {
     pub fn gpu_virtual_address(&self) -> GpuVirtualAddress {
         GpuVirtualAddress(unsafe { self.0.GetGPUVirtualAddress() })
     }
+
+    pub fn desc(&self) -> ResourceDesc {
+        unsafe { transmute(self.0.GetDesc()) }
+    }
 }
 
 impl AsRef<Resource> for ID3D12Resource {
@@ -136,7 +140,11 @@ impl<'a> TextureCopyLocation<'a> {
                 pResource: unsafe { transmute_copy(&resource.0) },
                 Type: D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
                 Anonymous: D3D12_TEXTURE_COPY_LOCATION_0 {
-                    PlacedFootprint: unsafe { transmute(footprint) },
+                    PlacedFootprint: unsafe {
+                        transmute::<PlacedSubresourceFootprint, D3D12_PLACED_SUBRESOURCE_FOOTPRINT>(
+                            footprint,
+                        )
+                    },
                 },
             },
             PhantomData,

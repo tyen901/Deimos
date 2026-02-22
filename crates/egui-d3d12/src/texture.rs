@@ -2,10 +2,13 @@ use std::{mem::size_of, slice::from_raw_parts_mut, sync::Arc};
 
 use d3d12::{
     ext::GpuFence, CpuDescriptorHandle, DescriptorHeapType, Format, GpuDescriptorHandle,
-    ShaderResourceViewDesc, TextureCopyLocation,
+    ResourceBarrier, ResourceStates, ShaderResourceViewDesc, TextureCopyLocation,
 };
 use deimos_render::gpu::{command_list::CommandList, Gpu};
-use egui::{epaint::ahash::HashMap, Color32, ColorImage, ImageData, TextureId, TexturesDelta};
+use egui::{
+    epaint::{ahash::HashMap, text},
+    Color32, ColorImage, ImageData, TextureId, TexturesDelta,
+};
 use gpu_allocator::{
     d3d12::{ResourceCategory, ResourceCreateDesc, ResourceStateOrBarrierLayout},
     MemoryLocation,
@@ -70,7 +73,6 @@ impl TextureAllocator {
         self.upload_command_list
             .begin()
             .expect("begin upload_command_list");
-        println!("Processing texture deltas");
         for (tid, delta) in &delta.set {
             if delta.is_whole() {
                 self.allocate_new(gpu, *tid, &delta.image)?;
@@ -83,7 +85,6 @@ impl TextureAllocator {
         for tid in &delta.free {
             self.free(*tid);
         }
-        println!("Finished processing texture deltas");
         self.upload_command_list
             .end()
             .expect("end upload_command_list");
@@ -207,35 +208,39 @@ impl TextureAllocator {
         image: &ImageData,
         [nx, ny]: [usize; 2],
     ) -> Result<bool, RenderError> {
-        Ok(false)
+        // Ok(false)
         // todo!()
-        // if let Some(old) = self.allocated.get_mut(&tid) {
-        //     let subr = ctx.map(&old.texture, 0, d3d12::MapType::WriteDiscard, false)?;
+        if let Some(mut tex) = self.allocated.remove(&tid) {
+            //     let subr = ctx.map(&old.texture, 0, d3d12::MapType::WriteDiscard, false)?;
 
-        //     match image {
-        //         ImageData::Color(f) => unsafe {
-        //             let data: &mut [Color32] =
-        //                 from_raw_parts_mut(subr.data as *mut Color32, old.pixels.len());
-        //             data.as_mut_ptr()
-        //                 .copy_from_nonoverlapping(old.pixels.as_ptr(), old.pixels.len());
+            match image {
+                ImageData::Color(f) => {
+                    // let data: &mut [Color32] =
+                    //     from_raw_parts_mut(subr.data as *mut Color32, old.pixels.len());
+                    // data.as_mut_ptr()
+                    //     .copy_from_nonoverlapping(old.pixels.as_ptr(), old.pixels.len());
 
-        //             let new: Vec<Color32> = f.pixels.to_vec();
+                    let new: Vec<Color32> = f.pixels.to_vec();
 
-        //             for y in 0..f.height() {
-        //                 for x in 0..f.width() {
-        //                     let whole = (ny + y) * old.width + nx + x;
-        //                     let frac = y * f.width() + x;
-        //                     old.pixels[whole] = new[frac];
-        //                     data[whole] = new[frac];
-        //                 }
-        //             }
-        //         },
-        //     }
+                    for y in 0..f.height() {
+                        for x in 0..f.width() {
+                            let whole = (ny + y) * tex.width + nx + x;
+                            let frac = y * f.width() + x;
+                            tex.pixels[whole] = new[frac];
+                            // data[whole] = new[frac];
+                        }
+                    }
+                }
+            }
 
-        //     Ok(true)
-        // } else {
-        //     Ok(false)
-        // }
+            self.upload_texture(gpu, &tex)?;
+
+            self.allocated.insert(tid, tex);
+
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 
     fn allocate_texture(
@@ -248,29 +253,6 @@ impl TextureAllocator {
         let Some((cpu_handle, gpu_handle)) = self.descriptor_heap_alloc.allocate() else {
             return Err(RenderError::General("Texture descriptor heap out of slots"));
         };
-
-        // let pixels = match image {
-        //     ImageData::Color(c) => c.pixels.clone(),
-        // };
-
-        // let data = d3d12_SUBRESOURCE_DATA {
-        //     pSysMem: pixels.as_ptr() as _,
-        //     SysMemPitch: (image.width() * size_of::<Color32>()) as u32,
-        //     SysMemSlicePitch: 0,
-        // };
-
-        // let texture = dev.create_texture2d(&desc, Some(&[data]))?;
-
-        // let resource = dev.create_shader_resource_view(
-        //     &texture,
-        //     &d3d12::ShaderResourceViewDesc::builder()
-        //         .format(dxgi::Format::R8g8b8a8Unorm)
-        //         .view_dimension(d3d12::SrvDimension::Texture2D {
-        //             most_detailed_mip: 0,
-        //             mip_levels: desc.mip_levels,
-        //         })
-        //         .build(),
-        // )?;
 
         let tex_desc = d3d12::ResourceDesc::builder(d3d12::ResourceDimension::Texture2D)
             .alignment(0)
@@ -291,18 +273,49 @@ impl TextureAllocator {
                 castable_formats: &[],
                 clear_value: None,
                 initial_state_or_layout: ResourceStateOrBarrierLayout::ResourceState(
-                    d3d12::D3D12_RESOURCE_STATE_COPY_DEST,
+                    d3d12::D3D12_RESOURCE_STATE_COMMON,
                 ),
                 resource_type: &gpu_allocator::d3d12::ResourceType::Placed,
             })
             .expect("Failed to create texture resource");
-        let d = unsafe { tex.resource().GetDesc() };
-        println!(
-            "Created: Dim={:?} W={} H={} DepthOrArraySize={} Mips={} Format={:?} SampleCount={} Layout={:?} Flags={:?}",
-            d.Dimension, d.Width, d.Height, d.DepthOrArraySize, d.MipLevels, d.Format, d.SampleDesc.Count, d.Layout, d.Flags
+
+        gpu.create_shader_resource_view(
+            Some(tex.resource().as_ref()),
+            Some(&ShaderResourceViewDesc::texture_2d(
+                Format::R8g8b8a8Unorm,
+                0,
+                1,
+                0.0,
+                0,
+            )),
+            cpu_handle,
         );
 
-        let footprint = gpu.get_copyable_footprints(&tex_desc, 0, 1, 0)?;
+        let tex = ManagedTexture {
+            resource: tex,
+            width: image.width(),
+            pixels,
+            cpu_handle,
+            gpu_handle,
+        };
+
+        self.upload_texture(gpu, &tex)?;
+
+        Ok(tex)
+    }
+
+    /// Upload the texture data for an allocated texture
+    fn upload_texture(&mut self, gpu: &Gpu, texture: &ManagedTexture) -> Result<(), RenderError> {
+        self.upload_command_list
+            .resource_barriers(&[ResourceBarrier::transition(
+                texture.resource.resource().as_ref(),
+                0,
+                ResourceStates::COMMON,
+                ResourceStates::COPY_DEST,
+            )]);
+
+        let footprint =
+            gpu.get_copyable_footprints(&texture.resource.resource().as_ref().desc(), 0, 1, 0)?;
 
         let upload_desc = d3d12::ResourceDesc::builder(d3d12::ResourceDimension::Buffer)
             .width(footprint.total_bytes)
@@ -335,7 +348,7 @@ impl TextureAllocator {
                 .Map(0, None, Some(&mut mapped_ptr))
                 .expect("Failed to map upload buffer");
         }
-        let data = bytemuck::cast_slice::<Color32, u8>(&pixels);
+        let data = bytemuck::cast_slice::<Color32, u8>(&texture.pixels);
         unsafe {
             std::ptr::copy_nonoverlapping(data.as_ptr(), mapped_ptr as *mut u8, data.len());
         }
@@ -348,38 +361,22 @@ impl TextureAllocator {
             footprint.layouts[0],
         );
 
-        let dst = TextureCopyLocation::subresource(tex.resource().as_ref(), 0);
+        let dst = TextureCopyLocation::subresource(texture.resource.resource().as_ref(), 0);
 
         self.upload_command_list
             .copy_texture_region(&src, None, &dst, (0, 0, 0));
 
+        self.upload_command_list
+            .resource_barriers(&[ResourceBarrier::transition(
+                texture.resource.resource().as_ref(),
+                0,
+                ResourceStates::COPY_DEST,
+                ResourceStates::COMMON,
+            )]);
+
         self.pending_uploads.push(upload_buffer);
 
-        gpu.create_shader_resource_view(
-            Some(tex.resource().as_ref()),
-            Some(&ShaderResourceViewDesc::texture_2d(
-                Format::R8g8b8a8Unorm,
-                0,
-                1,
-                0.0,
-                0,
-            )),
-            cpu_handle,
-        );
-
-        println!(
-            "Created SRV for {}x{} texture",
-            image.width(),
-            image.height()
-        );
-
-        Ok(ManagedTexture {
-            resource: tex,
-            width: image.width(),
-            pixels,
-            cpu_handle,
-            gpu_handle,
-        })
+        Ok(())
     }
 }
 

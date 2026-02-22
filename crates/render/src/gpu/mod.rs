@@ -10,7 +10,7 @@ pub mod command_list;
 pub mod frame;
 pub mod swapchain;
 
-use std::rc::Rc;
+use std::{rc::Rc, sync::atomic::AtomicUsize};
 
 use anyhow::Context;
 use d3d12::{
@@ -42,7 +42,7 @@ pub struct Gpu {
     pub queue: d3d12::CommandQueue,
 
     pub(crate) frames: [FrameContext; Self::FRAMES_IN_FLIGHT],
-    pub(crate) frame_index: std::sync::atomic::AtomicUsize,
+    pub(crate) frame_index: AtomicUsize,
 }
 
 unsafe impl Sync for Gpu {}
@@ -133,7 +133,7 @@ impl Gpu {
             }),
             device,
             allocator: Mutex::new(allocator),
-            frame_index: std::sync::atomic::AtomicUsize::new(0),
+            frame_index: AtomicUsize::new(0),
         })
     }
 }
