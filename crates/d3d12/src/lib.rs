@@ -8,6 +8,9 @@ pub use format::Format;
 mod swapchain;
 pub use swapchain::*;
 
+mod blend;
+pub use blend::*;
+
 mod command_list;
 pub use command_list::*;
 

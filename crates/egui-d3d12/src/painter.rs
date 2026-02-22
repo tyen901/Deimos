@@ -13,22 +13,9 @@ use crate::{
     RenderError,
 };
 
-/// Heart and soul of this integration.
-/// Main methods you are going to use are:
-/// * [`Self::present`] - Should be called inside of hook or before present.
-/// * [`Self::resize_buffers`] - Should be called **INSTEAD** of swapchain's `ResizeBuffers`.
-/// * [`Self::wnd_proc`] - Should be called on each `WndProc`.
 pub struct D3D12Renderer {
-    // render_view: Option<d3d12::RenderTargetView>,
     tex_alloc: TextureAllocator,
     pipeline: d3d12::PipelineState,
-    // input_layout: d3d12::InputLayout,
-    // shaders: CompiledShaders,
-    // // backup: BackupState,
-    // // hwnd: HWND,
-    // samplers: [d3d12::SamplerState; 2],
-    // blend_state: d3d12::BlendState,
-    // raster_state: d3d12::RasterizerState,
     buffers: [Vec<(Buffer, Buffer)>; Gpu::FRAMES_IN_FLIGHT],
     root_signature: d3d12::RootSignature,
 }
@@ -78,73 +65,35 @@ impl D3D12Renderer {
             )
             .serialize()?;
 
+        let blend_desc = d3d12::BlendDesc::from_single_target(
+            d3d12::RenderTargetBlendDesc::builder()
+                .blend_enable(true)
+                .src_blend(d3d12::Blend::SrcAlpha)
+                .dest_blend(d3d12::Blend::InvSrcAlpha)
+                .blend_op(d3d12::BlendOp::Add)
+                .src_blend_alpha(d3d12::Blend::One)
+                .dest_blend_alpha(d3d12::Blend::InvSrcAlpha)
+                .blend_op_alpha(d3d12::BlendOp::Add)
+                .render_target_write_mask(15)
+                .logic_op(d3d12::LogicOp::Noop)
+                .logic_op_enable(false)
+                .build(),
+        );
+
         let root_signature = gpu.create_root_signature(&root_signature_raw)?;
         let pipeline = gpu.create_graphics_pipeline_state(
             &GraphicsPipelineStateDesc::new(&root_signature)
-                .vs_bytecode(include_bytes!("shader/vertex.dxil"))
-                .ps_bytecode(include_bytes!("shader/pixel.dxil"))
-                .rtv_formats(&[Format::R8g8b8a8Unorm])
-                .input_layout(&input_layout),
+                .with_vs(include_bytes!("shader/vertex.dxil"))
+                .with_ps(include_bytes!("shader/pixel.dxil"))
+                .with_rtv_formats(&[Format::R8g8b8a8Unorm])
+                .with_input_layout(&input_layout)
+                .with_blend_state(blend_desc),
         )?;
-
-        // let samplers = {
-        //     let desc = d3d12::SamplerDesc::builder()
-        //         .filter(d3d12::Filter::MinMagMipLinear)
-        //         .address_u(d3d12::TextureAddress::Border)
-        //         .address_v(d3d12::TextureAddress::Border)
-        //         .address_w(d3d12::TextureAddress::Border)
-        //         .border_color([1., 1., 1., 1.])
-        //         .build();
-
-        //     let sampler_linear = gpu.create_sampler_state(&desc)?;
-        //     let sampler_point = gpu.create_sampler_state(&d3d12::SamplerDesc {
-        //         filter: d3d12::Filter::MinMagMipPoint,
-        //         ..desc
-        //     })?;
-
-        //     [sampler_linear, sampler_point]
-        // };
-
-        // let blend_desc = d3d12::BlendDesc::from_single_target(
-        //     d3d12::RenderTargetBlendDesc::builder()
-        //         .blend_enable(true)
-        //         .src_blend(d3d12::Blend::SrcAlpha)
-        //         .dest_blend(d3d12::Blend::InvSrcAlpha)
-        //         .blend_op(d3d12::BlendOp::Add)
-        //         .src_blend_alpha(d3d12::Blend::One)
-        //         .dest_blend_alpha(d3d12::Blend::InvSrcAlpha)
-        //         .blend_op_alpha(d3d12::BlendOp::Add)
-        //         .render_target_write_mask(15)
-        //         .build(),
-        // );
-        // let raster_desc = d3d12::RasterizerDesc::builder()
-        //     .fill_mode(d3d12::FillMode::Solid)
-        //     .cull_mode(d3d12::CullMode::None)
-        //     .front_counter_clockwise(false)
-        //     .depth_bias(0)
-        //     .depth_bias_clamp(0.)
-        //     .slope_scaled_depth_bias(0.)
-        //     .depth_clip_enable(false)
-        //     .scissor_enable(true)
-        //     .multisample_enable(false)
-        //     .antialiased_line_enable(false)
-        //     .build();
-
-        // let blend_state = gpu.create_blend_state(&blend_desc)?;
-        // let raster_state = gpu.create_rasterizer_state(&raster_desc)?;
 
         Ok(Self {
             tex_alloc: TextureAllocator::new(gpu)?,
             pipeline,
             root_signature,
-            // // backup: BackupState::default(),
-            // input_layout,
-            // render_view: Some(render_view),
-            // shaders,
-            // // hwnd,
-            // samplers,
-            // blend_state,
-            // raster_state,
             buffers: [const { Vec::new() }; Gpu::FRAMES_IN_FLIGHT],
         })
     }
@@ -283,22 +232,6 @@ impl D3D12Renderer {
 
         Ok(output)
     }
-
-    // /// Call when resizing buffers.
-    // /// Do not call the original function before it, instead call it inside of the `original` closure.
-    // /// # Behavior
-    // /// In `origin` closure make sure to call the original `ResizeBuffers`.
-    // pub fn resize_buffers(
-    //     &mut self,
-    //     gpu: &Gpu,
-    //     original: impl FnOnce() -> d3d12::Result<()>,
-    // ) -> Result<(), RenderError> {
-    //     drop(self.render_view.take());
-    //     let result = original();
-    //     let backbuffer: d3d12::Texture2D = gpu.swapchain.lock().get_buffer();
-    //     self.render_view = Some(gpu.create_render_target_view(&backbuffer, None)?);
-    //     Ok(result?)
-    // }
 
     pub fn textures(&self) -> &TextureAllocator {
         &self.tex_alloc

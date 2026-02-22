@@ -1,8 +1,11 @@
-use std::{marker::PhantomData, mem::transmute_copy};
+use std::{
+    marker::PhantomData,
+    mem::{transmute, transmute_copy},
+};
 
 use windows::Win32::Graphics::{Direct3D12::*, Dxgi::Common::DXGI_SAMPLE_DESC};
 
-use crate::{Format, InputElementDesc, RootSignature};
+use crate::{BlendDesc, Format, InputElementDesc, RootSignature};
 
 #[repr(transparent)]
 #[derive(Clone)]
@@ -60,7 +63,7 @@ impl<'a> GraphicsPipelineStateDesc<'a> {
         }
     }
 
-    pub fn vs_bytecode(mut self, bytecode: &'a [u8]) -> Self {
+    pub fn with_vs(mut self, bytecode: &'a [u8]) -> Self {
         self.inner.VS = D3D12_SHADER_BYTECODE {
             pShaderBytecode: bytecode.as_ptr() as *const _,
             BytecodeLength: bytecode.len(),
@@ -68,7 +71,7 @@ impl<'a> GraphicsPipelineStateDesc<'a> {
         self
     }
 
-    pub fn ps_bytecode(mut self, bytecode: &'a [u8]) -> Self {
+    pub fn with_ps(mut self, bytecode: &'a [u8]) -> Self {
         self.inner.PS = D3D12_SHADER_BYTECODE {
             pShaderBytecode: bytecode.as_ptr() as *const _,
             BytecodeLength: bytecode.len(),
@@ -76,7 +79,7 @@ impl<'a> GraphicsPipelineStateDesc<'a> {
         self
     }
 
-    pub fn ds_bytecode(mut self, bytecode: &'a [u8]) -> Self {
+    pub fn with_ds(mut self, bytecode: &'a [u8]) -> Self {
         self.inner.DS = D3D12_SHADER_BYTECODE {
             pShaderBytecode: bytecode.as_ptr() as *const _,
             BytecodeLength: bytecode.len(),
@@ -84,7 +87,7 @@ impl<'a> GraphicsPipelineStateDesc<'a> {
         self
     }
 
-    pub fn hs_bytecode(mut self, bytecode: &'a [u8]) -> Self {
+    pub fn with_hs(mut self, bytecode: &'a [u8]) -> Self {
         self.inner.HS = D3D12_SHADER_BYTECODE {
             pShaderBytecode: bytecode.as_ptr() as *const _,
             BytecodeLength: bytecode.len(),
@@ -92,7 +95,7 @@ impl<'a> GraphicsPipelineStateDesc<'a> {
         self
     }
 
-    pub fn gs_bytecode(mut self, bytecode: &'a [u8]) -> Self {
+    pub fn with_gs(mut self, bytecode: &'a [u8]) -> Self {
         self.inner.GS = D3D12_SHADER_BYTECODE {
             pShaderBytecode: bytecode.as_ptr() as *const _,
             BytecodeLength: bytecode.len(),
@@ -100,13 +103,13 @@ impl<'a> GraphicsPipelineStateDesc<'a> {
         self
     }
 
-    pub fn input_layout(mut self, layout: &[InputElementDesc]) -> Self {
+    pub fn with_input_layout(mut self, layout: &[InputElementDesc]) -> Self {
         self.input_layout_elements = layout.to_vec();
 
         self
     }
 
-    pub fn primitive_topology(mut self, topology: PrimitiveTopology2) -> Self {
+    pub fn with_primitive_topology(mut self, topology: PrimitiveTopology2) -> Self {
         self.inner.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE(topology as i32);
         self
     }
@@ -114,7 +117,7 @@ impl<'a> GraphicsPipelineStateDesc<'a> {
     /// Sets the render target view formats (up to 8).
     ///
     /// Only the first 8 formats are used, and any additional formats are ignored.
-    pub fn rtv_formats(mut self, formats: &[Format]) -> Self {
+    pub fn with_rtv_formats(mut self, formats: &[Format]) -> Self {
         self.inner.RTVFormats =
             std::array::from_fn(|i| formats.get(i).copied().unwrap_or_default().into());
         self.inner.NumRenderTargets = formats.len().min(8) as u32;
@@ -122,8 +125,13 @@ impl<'a> GraphicsPipelineStateDesc<'a> {
         self
     }
 
-    pub fn dsv_format(mut self, format: Format) -> Self {
+    pub fn with_dsv_format(mut self, format: Format) -> Self {
         self.inner.DSVFormat = format.into();
+        self
+    }
+
+    pub fn with_blend_state(mut self, desc: BlendDesc) -> Self {
+        self.inner.BlendState = unsafe { desc.as_ffi().read() };
         self
     }
 }
