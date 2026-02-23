@@ -44,6 +44,7 @@ pub struct Gpu {
 
     pub(crate) frames: [FrameContext; Self::FRAMES_IN_FLIGHT],
     pub(crate) frame_index: AtomicUsize,
+    pub(crate) frame_fence: GpuFence,
 }
 
 unsafe impl Sync for Gpu {}
@@ -132,6 +133,7 @@ impl Gpu {
             frames: std::array::from_fn(|_| {
                 FrameContext::new(&device).expect("Failed to create frame context")
             }),
+            frame_fence: GpuFence::new(&device)?,
             device,
             allocator: Mutex::new(allocator),
             frame_index: AtomicUsize::new(0),
@@ -141,16 +143,22 @@ impl Gpu {
 
 // Frame management
 impl Gpu {
-    pub fn current_frame(&self) -> &FrameContext {
+    pub fn begin_frame(&self) -> &FrameContext {
         let frame_index = self.frame_index.load(std::sync::atomic::Ordering::Relaxed);
-        &self.frames[frame_index % Self::FRAMES_IN_FLIGHT]
+        let frame = &self.frames[frame_index % Self::FRAMES_IN_FLIGHT];
+        frame.signal(&self.frame_fence, &self.queue);
+        frame
     }
 
     pub fn frame_index(&self) -> usize {
         self.frame_index.load(std::sync::atomic::Ordering::Relaxed)
     }
 
-    pub fn increment_frame(&self) {
+    pub fn end_frame(&self) {
+        let frame_index = self.frame_index.load(std::sync::atomic::Ordering::Relaxed);
+        let frame = &self.frames[frame_index % Self::FRAMES_IN_FLIGHT];
+        _ = frame.wait_for_completion(&self.frame_fence);
+
         self.frame_index
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     }
@@ -176,8 +184,8 @@ impl Gpu {
     pub fn shutdown(&self) {
         // Wait for the GPU to finish processing
         let fence = GpuFence::new(&self.device).unwrap();
-        fence.signal(&self.queue);
-        _ = fence.wait();
+        let fence_value = fence.signal(&self.queue);
+        _ = fence.wait(fence_value);
     }
 
     // #[profiling::function]

@@ -115,11 +115,8 @@ impl App {
 
         self.frametime_histogram.push(delta_time);
 
-        let frame = self.gpu.current_frame();
+        let frame = self.gpu.begin_frame();
         let frame_index = self.gpu.frame_index();
-        frame
-            .wait_for_completion()
-            .context("error waiting for frame fence")?;
 
         let cmd = &frame.command_list;
 
@@ -153,8 +150,7 @@ impl App {
             .queue
             .execute_command_lists(std::slice::from_ref(cmd));
 
-        frame.signal(&self.gpu.queue);
-        self.gpu.increment_frame();
+        self.gpu.end_frame();
         self.gpu.present(self.shared_state.config.read().vsync);
 
         profiling::finish_frame!();

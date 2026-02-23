@@ -1,8 +1,9 @@
 use std::{mem::size_of, slice::from_raw_parts_mut, sync::Arc};
 
 use d3d12::{
-    ext::GpuFence, CpuDescriptorHandle, DescriptorHeapType, Format, GpuDescriptorHandle,
-    ResourceBarrier, ResourceStates, ShaderResourceViewDesc, TextureCopyLocation,
+    ext::{GpuFence, GpuFenceWaiter},
+    CpuDescriptorHandle, DescriptorHeapType, Format, GpuDescriptorHandle, ResourceBarrier,
+    ResourceStates, ShaderResourceViewDesc, TextureCopyLocation,
 };
 use deimos_render::gpu::{command_list::CommandList, Gpu};
 use egui::{
@@ -32,7 +33,7 @@ pub struct TextureAllocator {
     pub(crate) descriptor_heap_alloc: DescriptorHeapAllocator,
 
     upload_command_list: CommandList,
-    upload_fence: GpuFence,
+    upload_fence: GpuFenceWaiter,
     pending_uploads: Vec<gpu_allocator::d3d12::Resource>,
 
     // allocated_unmanaged: HashMap<TextureId, (TextureView, Option<egui::TextureFilter>, bool)>,
@@ -51,7 +52,7 @@ impl TextureAllocator {
         Ok(TextureAllocator {
             allocated: HashMap::default(),
             upload_command_list: CommandList::new(gpu).unwrap(),
-            upload_fence: GpuFence::new(gpu)?,
+            upload_fence: GpuFenceWaiter::new(gpu)?,
             pending_uploads: Vec::new(),
 
             descriptor_heap_alloc: descriptor_heap,

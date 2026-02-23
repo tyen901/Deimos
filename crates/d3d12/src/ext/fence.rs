@@ -7,7 +7,6 @@ pub struct GpuFence {
     fence: Fence,
     event: Event,
 
-    value: AtomicU64,
     next_value: AtomicU64,
 }
 
@@ -20,14 +19,12 @@ impl GpuFence {
             fence,
             event,
 
-            value: AtomicU64::new(0),
             next_value: AtomicU64::new(1),
         })
     }
 
     /// Waits for the GPU to reach the previously set fence value
-    pub fn wait(&self) -> Result<()> {
-        let value = self.value.load(Ordering::Relaxed);
+    pub fn wait(&self, value: u64) -> Result<()> {
         if self.fence.get_completed_value() >= value {
             return Ok(());
         }
@@ -36,10 +33,34 @@ impl GpuFence {
         Ok(())
     }
 
-    /// Queues a signal for the fence. Calling await will block until the signal has been reached.
-    pub fn signal(&self, queue: &CommandQueue) {
+    /// Queues a signal for the fence and returns the key. Calling await will block until the given signal key has been reached.
+    pub fn signal(&self, queue: &CommandQueue) -> u64 {
         let value = self.next_value.fetch_add(1, Ordering::Relaxed);
         _ = queue.signal(&self.fence, value);
-        self.value.store(value, Ordering::Relaxed);
+        value
+    }
+}
+
+/// An even simpler GPU fence that tracks the last signal value and waits for it to be reached.
+pub struct GpuFenceWaiter {
+    fence: GpuFence,
+    value: AtomicU64,
+}
+
+impl GpuFenceWaiter {
+    pub fn new(device: &Device) -> Result<Self> {
+        Ok(Self {
+            fence: GpuFence::new(device)?,
+            value: AtomicU64::new(0),
+        })
+    }
+
+    pub fn wait(&self) -> Result<()> {
+        self.fence.wait(self.value.load(Ordering::Relaxed))
+    }
+
+    pub fn signal(&self, queue: &CommandQueue) {
+        let fence_value = self.fence.signal(queue);
+        self.value.store(fence_value, Ordering::Relaxed);
     }
 }
