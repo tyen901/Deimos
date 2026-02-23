@@ -426,6 +426,7 @@ pub enum ExternIndex {
     PatternBlending,
     UiHdrTransform,
     PlayerCenteredCascadedGrid,
+    // TODO(cohae): Everything after this is unknown
     SoftDeform,
     RaymarchedAtmosphereVolume,
     Gtao,
@@ -440,8 +441,11 @@ pub enum ExternIndex {
     OcclusionCullingReprojectDepth,
     OcclusionCullingVisibilityTesting,
     VariableRateShading,
+    Unknown114,
+    Unknown115,
+    Unknown116,
 }
 
 impl ExternIndex {
-    pub const COUNT: usize = Self::VariableRateShading as usize + 1;
+    pub const COUNT: usize = Self::Unknown116 as usize + 1;
 }
