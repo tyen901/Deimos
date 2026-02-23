@@ -14,12 +14,6 @@ mod task;
 mod ui;
 // mod world;
 
-#[unsafe(no_mangle)]
-pub static D3D12SDKVersion: u32 = 618;
-
-#[unsafe(no_mangle)]
-pub static D3D12SDKPath: &CStr = c".\\D3D12\\";
-
 #[macro_use]
 extern crate tracing;
 
