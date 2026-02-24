@@ -5,34 +5,43 @@
 // pub mod profiler;
 // pub mod spinner;
 // pub mod state;
+pub mod alloc;
 pub mod buffer;
 pub mod command_list;
 pub mod frame;
 pub mod swapchain;
 
-use std::{rc::Rc, sync::atomic::AtomicUsize, time::Instant};
+use std::{
+    rc::Rc,
+    sync::{Arc, atomic::AtomicUsize},
+};
 
 use anyhow::Context;
 use d3d12::{
-    ext::GpuFence, CommandQueueDesc, D3D12GetDebugInterface, DxgiUsage, ID3D12Debug, SwapChainDesc,
-    SwapEffect,
+    CommandQueueDesc, D3D12GetDebugInterface, DxgiUsage, ID3D12Debug, SwapChainDesc, SwapEffect,
+    ext::GpuFence,
 };
-use gpu_allocator::{d3d12::ID3D12DeviceVersion, AllocationSizes, AllocatorDebugSettings};
+use gpu_allocator::{
+    AllocationSizes, AllocatorDebugSettings,
+    d3d12::{ID3D12DeviceVersion, ResourceStateOrBarrierLayout},
+};
 use parking_lot::Mutex;
 use swapchain::Swapchain;
 use windows::{
-    core::Interface,
     Win32::{
         Foundation::HWND,
         Graphics::Dxgi::{
-            CreateDXGIFactory2, IDXGIAdapter3, IDXGIFactory4, DXGI_CREATE_FACTORY_DEBUG,
-            DXGI_CREATE_FACTORY_FLAGS, DXGI_MEMORY_SEGMENT_GROUP_LOCAL,
-            DXGI_QUERY_VIDEO_MEMORY_INFO,
+            CreateDXGIFactory2, DXGI_CREATE_FACTORY_DEBUG, DXGI_CREATE_FACTORY_FLAGS,
+            DXGI_MEMORY_SEGMENT_GROUP_LOCAL, DXGI_QUERY_VIDEO_MEMORY_INFO, IDXGIAdapter3,
+            IDXGIFactory4,
         },
     },
+    core::Interface,
 };
 
-use crate::gpu::frame::FrameContext;
+use crate::gpu::{
+    alloc::resource::OwnedResource, command_list::CommandListPool, frame::FrameContext,
+};
 
 pub struct Gpu {
     adapter: IDXGIAdapter3,
@@ -45,6 +54,8 @@ pub struct Gpu {
     pub(crate) frames: [FrameContext; Self::FRAMES_IN_FLIGHT],
     pub(crate) frame_index: AtomicUsize,
     pub(crate) frame_fence: GpuFence,
+
+    pub immediate_pool: CommandListPool,
 }
 
 unsafe impl Sync for Gpu {}
@@ -126,6 +137,7 @@ impl Gpu {
 
         let window_size = window.size();
         Ok(Self {
+            immediate_pool: CommandListPool::new(device.clone(), queue.clone())?,
             queue,
             adapter: adapter3,
             swapchain: Mutex::new(Swapchain::new(swap_chain, &device, window_size)?),
@@ -137,6 +149,38 @@ impl Gpu {
             device,
             allocator: Mutex::new(allocator),
             frame_index: AtomicUsize::new(0),
+        })
+    }
+
+    pub fn allocate_resource(
+        self: &Arc<Self>,
+        desc: &gpu_allocator::d3d12::ResourceCreateDesc,
+    ) -> anyhow::Result<OwnedResource> {
+        let res = self.allocator.lock().create_resource(desc)?;
+
+        let current_state =
+            if let ResourceStateOrBarrierLayout::ResourceState(s) = desc.initial_state_or_layout {
+                d3d12::ResourceStates::from_bits_truncate(s.0)
+            } else {
+                error!("Gpu::allocate_resource used with BarrierLayout, expected ResourceState");
+                d3d12::ResourceStates::COMMON
+            };
+
+        Ok(OwnedResource::new(self.clone(), res, current_state))
+    }
+
+    pub fn allocate_upload_buffer(self: &Arc<Self>, size: u64) -> anyhow::Result<OwnedResource> {
+        self.allocate_resource(&gpu_allocator::d3d12::ResourceCreateDesc {
+            name: "generic_upload_buffer",
+            memory_location: gpu_allocator::MemoryLocation::CpuToGpu,
+            resource_category: gpu_allocator::d3d12::ResourceCategory::Buffer,
+            resource_desc: unsafe { &*d3d12::ResourceDesc::buffer(size).as_ffi() },
+            castable_formats: &[],
+            clear_value: None,
+            initial_state_or_layout: ResourceStateOrBarrierLayout::ResourceState(
+                d3d12::D3D12_RESOURCE_STATE_COPY_DEST,
+            ),
+            resource_type: &gpu_allocator::d3d12::ResourceType::Placed,
         })
     }
 }

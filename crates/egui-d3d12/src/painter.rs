@@ -162,12 +162,12 @@ impl D3D12Renderer {
 
         self.buffers[gpu.frame_index() % Gpu::FRAMES_IN_FLIGHT].clear();
 
-        cmd.input_assembler_set_primitive_topology(d3d12::PrimitiveTopology::TriangleList);
+        cmd.ia_set_primitive_topology(d3d12::PrimitiveTopology::TriangleList);
         for mesh in primitives {
             let vtx = create_vertex_buffer(gpu, &mesh)?;
             let idx = create_index_buffer(gpu, &mesh)?;
 
-            cmd.input_assembler_set_vertex_buffers(
+            cmd.ia_set_vertex_buffers(
                 0,
                 &[VertexBufferView {
                     buffer_location: vtx.gpu_virtual_address(),
@@ -175,7 +175,7 @@ impl D3D12Renderer {
                     stride_in_bytes: size_of::<GpuVertex>() as u32,
                 }],
             );
-            cmd.input_assembler_set_index_buffer(
+            cmd.ia_set_index_buffer(
                 idx.gpu_virtual_address(),
                 idx.size() as u32,
                 Format::R32Uint,

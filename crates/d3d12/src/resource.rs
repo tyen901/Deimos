@@ -1,13 +1,14 @@
 use std::{
     marker::PhantomData,
     mem::{transmute, transmute_copy, ManuallyDrop},
+    ptr::NonNull,
 };
 
 use bitflags::bitflags;
 use bon::Builder;
 use windows::Win32::Graphics::Direct3D12::*;
 
-use crate::{verify_ffi_struct, Format, GpuVirtualAddress, SampleDesc};
+use crate::{verify_ffi_struct, Error, Format, GpuVirtualAddress, Result, SampleDesc};
 
 #[repr(transparent)]
 #[derive(Clone)]
@@ -20,6 +21,20 @@ impl Resource {
 
     pub fn desc(&self) -> ResourceDesc {
         unsafe { transmute(self.0.GetDesc()) }
+    }
+
+    pub fn map(&self, subresource: u32) -> Result<*mut u8> {
+        let mut data = std::ptr::null_mut();
+
+        unsafe { self.0.Map(subresource, None, Some(&mut data)) }?;
+
+        assert!(!data.is_null());
+
+        Ok(data.cast())
+    }
+
+    pub fn unmap(&self, subresource: u32) {
+        unsafe { self.0.Unmap(subresource, None) };
     }
 }
 
@@ -51,6 +66,17 @@ pub struct ResourceDesc {
     pub flags: ResourceFlags,
 }
 verify_ffi_struct!(ResourceDesc, D3D12_RESOURCE_DESC);
+
+impl ResourceDesc {
+    pub fn buffer(size: u64) -> Self {
+        Self::builder(ResourceDimension::Buffer)
+            .width(size)
+            .height(1)
+            .format(Format::Unknown)
+            .layout(TextureLayout::RowMajor)
+            .build()
+    }
+}
 
 #[repr(i32)]
 #[derive(Default, Debug, Clone, Copy)]
@@ -223,6 +249,7 @@ impl<'a> ResourceBarrier<'a> {
 }
 
 bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct ResourceStates : i32 {
         const COMMON = D3D12_RESOURCE_STATE_COMMON.0;
         const VERTEX_AND_CONSTANT_BUFFER = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER.0;

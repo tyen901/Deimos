@@ -18,7 +18,12 @@ use deimos_data::{
     strings::{StringContainer, StringContainerShared},
     tag::WideHash,
 };
-use deimos_render::{gpu::Gpu, util::fps_histogram::FrametimeHistogram};
+use deimos_render::{
+    asset::{index_buffer::IndexBuffer, vertex_buffer::VertexBuffer},
+    gpu::Gpu,
+    renderer::Renderer,
+    util::fps_histogram::FrametimeHistogram,
+};
 use parking_lot::RwLock;
 use sdl3::video::Window;
 use tiger_parse::TigerReadable;
@@ -30,7 +35,7 @@ pub struct App {
     pub sdl: Rc<sdl3::Sdl>,
     pub _window: Rc<Window>,
     pub gpu: Arc<Gpu>,
-    // pub renderer: Arc<Renderer>,
+    pub renderer: Renderer,
     pub gui: Gui,
     pub running: bool,
 
@@ -44,7 +49,7 @@ pub struct App {
 impl App {
     pub fn new(sdl: Rc<sdl3::Sdl>, window: Rc<Window>, args: AppArgs) -> anyhow::Result<Self> {
         let gpu = Arc::new(Gpu::create(&window).context("Failed to create GPU")?);
-        // let renderer = Arc::new(Renderer::new(gpu.clone()).context("Failed to create renderer")?);
+        let renderer = Renderer::new(gpu.clone());
         // Renderer::set_instance(renderer.clone());
 
         let mut gui = Gui::new(&gpu, sdl.clone(), window.clone())?;
@@ -59,10 +64,16 @@ impl App {
         //         }
         //     };
         // }
+        renderer
+            .asset_manager
+            .load::<VertexBuffer>(TagHash(0x80A6FF1F));
+        renderer
+            .asset_manager
+            .load::<IndexBuffer>(TagHash(0x80A6FF1E));
 
         Ok(Self {
             // _spinner: FullscreenSpinner::create(&renderer.gpu)?,
-            // renderer,
+            renderer,
             gui,
             sdl,
             _window: window,
@@ -132,7 +143,7 @@ impl App {
             )]);
 
             cmd.clear_render_target_view(back_buffer_handle, &[0.0, 0.0, 0.0, 1.0]);
-            cmd.output_merger_set_render_targets(&[back_buffer_handle], false, None);
+            cmd.om_set_render_targets(&[back_buffer_handle], false, None);
 
             self.gui.draw(&self.gpu, cmd, &self.shared_state);
 

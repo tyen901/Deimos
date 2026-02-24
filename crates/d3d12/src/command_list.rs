@@ -7,8 +7,8 @@ use windows::Win32::Graphics::Direct3D12::*;
 
 use crate::{
     verify_ffi_struct, CpuDescriptorHandle, DescriptorHeap, Format, GpuDescriptorHandle,
-    GpuVirtualAddress, PipelineState, PrimitiveTopology, ResourceBarrier, Result, RootSignature,
-    TextureCopyLocation,
+    GpuVirtualAddress, PipelineState, PrimitiveTopology, Resource, ResourceBarrier, Result,
+    RootSignature, TextureCopyLocation,
 };
 
 #[repr(transparent)]
@@ -60,6 +60,12 @@ impl GraphicsCommandList {
                 &src.0,
                 src_box.as_ref().map(|b| b.as_ffi()),
             );
+        }
+    }
+
+    pub fn copy_resource(&self, src: &Resource, dst: &Resource) {
+        unsafe {
+            self.0.CopyResource(&dst.0, &src.0);
         }
     }
 
@@ -139,13 +145,13 @@ impl GraphicsCommandList {
         }
     }
 
-    pub fn input_assembler_set_primitive_topology(&self, topology: PrimitiveTopology) {
+    pub fn ia_set_primitive_topology(&self, topology: PrimitiveTopology) {
         unsafe {
             self.0.IASetPrimitiveTopology(topology.into());
         }
     }
 
-    pub fn input_assembler_set_index_buffer(
+    pub fn ia_set_index_buffer(
         &self,
         buffer_location: GpuVirtualAddress,
         size_in_bytes: u32,
@@ -160,7 +166,7 @@ impl GraphicsCommandList {
         }
     }
 
-    pub fn input_assembler_set_vertex_buffers(&self, start_slot: u32, views: &[VertexBufferView]) {
+    pub fn ia_set_vertex_buffers(&self, start_slot: u32, views: &[VertexBufferView]) {
         unsafe {
             self.0.IASetVertexBuffers(
                 start_slot,
@@ -169,7 +175,7 @@ impl GraphicsCommandList {
         }
     }
 
-    pub fn output_merger_set_render_targets(
+    pub fn om_set_render_targets(
         &self,
         render_target_descriptors: &[CpuDescriptorHandle],
         rts_single_handle_to_descriptor_range: bool,
@@ -297,10 +303,24 @@ bitflags! {
 }
 
 #[repr(C)]
-#[derive(Clone, Debug, Builder)]
+#[derive(Clone, Debug)]
 pub struct VertexBufferView {
     pub buffer_location: GpuVirtualAddress,
     pub size_in_bytes: u32,
     pub stride_in_bytes: u32,
 }
 assert_eq_size!(VertexBufferView, D3D12_VERTEX_BUFFER_VIEW);
+
+impl VertexBufferView {
+    pub fn new(
+        buffer_location: GpuVirtualAddress,
+        size_in_bytes: u32,
+        stride_in_bytes: u32,
+    ) -> Self {
+        Self {
+            buffer_location,
+            size_in_bytes,
+            stride_in_bytes,
+        }
+    }
+}
