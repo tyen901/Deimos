@@ -196,7 +196,8 @@ impl Gpu {
     pub fn begin_frame(&self) -> &FrameContext {
         let frame_index = self.frame_index.load(std::sync::atomic::Ordering::Relaxed);
         let frame = &self.frames[frame_index % Self::FRAMES_IN_FLIGHT];
-        frame.signal(&self.frame_fence, &self.queue);
+        frame.begin_frame();
+        _ = frame.wait_for_completion(&self.frame_fence);
         frame
     }
 
@@ -204,10 +205,17 @@ impl Gpu {
         self.frame_index.load(std::sync::atomic::Ordering::Relaxed)
     }
 
+    pub fn frame(&self) -> &FrameContext {
+        &self.frames[self.frame_index() % Self::FRAMES_IN_FLIGHT]
+    }
+
+    /// Signal the frame fence and increments the frame index
+    ///
+    /// Should be called after submitting the current frame's commandlist
     pub fn end_frame(&self) {
         let frame_index = self.frame_index.load(std::sync::atomic::Ordering::Relaxed);
         let frame = &self.frames[frame_index % Self::FRAMES_IN_FLIGHT];
-        _ = frame.wait_for_completion(&self.frame_fence);
+        frame.signal(&self.frame_fence, &self.queue);
 
         self.frame_index
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);

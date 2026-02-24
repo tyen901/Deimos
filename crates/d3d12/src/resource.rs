@@ -50,25 +50,7 @@ impl AsRef<Resource> for ID3D12Resource {
 #[repr(transparent)]
 #[derive(Debug, Clone)]
 pub struct ResourceDesc(pub(crate) D3D12_RESOURCE_DESC);
-// #[builder(start_fn)]
-// pub dimension: ResourceDimension,
-// #[builder(default = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT as u64)]
-// pub alignment: u64,
-// pub width: u64,
-// pub height: u32,
-// #[builder(default = 1)]
-// pub depth_or_array_size: u16,
-// #[builder(default = 1)]
-// pub mip_levels: u16,
-// pub format: Format,
-// #[builder(default)]
-// pub sample_desc: SampleDesc,
-// #[builder(default)]
-// pub layout: TextureLayout,
-// #[builder(default)]
-// pub flags: ResourceFlags,
-// }
-// verify_ffi_struct!(ResourceDesc, D3D12_RESOURCE_DESC);
+verify_ffi_type!(ResourceDesc, D3D12_RESOURCE_DESC);
 
 impl ResourceDesc {
     pub fn new(dimension: ResourceDimension) -> Self {
@@ -348,3 +330,4 @@ bitflags! {
         const VIDEO_ENCODE_WRITE = D3D12_RESOURCE_STATE_VIDEO_ENCODE_WRITE.0;
     }
 }
+verify_ffi_type!(ResourceStates, D3D12_RESOURCE_STATES);

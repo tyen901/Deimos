@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
+use anyhow::Context;
 use d3d12::Format;
 use deimos_data::tfx::{STechnique, TechniqueBindMode};
+use tiger_parse::PackageManagerExt;
+use tiger_pkg::{TagHash, package_manager};
 
 use crate::gpu::{Gpu, command_list::CommandList, pipeline_cache::PipelineKey};
 
@@ -13,6 +16,17 @@ pub struct Technique {
 }
 
 impl Technique {
+    pub fn new(gpu: &Arc<Gpu>, hash: TagHash) -> anyhow::Result<Self> {
+        let data: STechnique = package_manager()
+            .read_tag_struct(hash)
+            .context("Failed to read technique data")?;
+
+        println!("Compatible Scopes: {:?}", data.compatible_scopes);
+        println!("Used Scopes: {:?}", data.used_scopes);
+
+        anyhow::bail!("TODO")
+    }
+
     pub fn bind(&self, cmd: &mut CommandList) {
         if self.data.bind_mode != TechniqueBindMode::VertexPixel {
             error!("{:?} bind mode not implemented", self.data.bind_mode);

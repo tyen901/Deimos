@@ -123,17 +123,7 @@ impl CommandList {
     }
 
     pub fn set_depth_stencil_state(&mut self, index: usize) {
-        // if self.current_depth_state != index {
-        //     let states = &self.global_states().depth_stencil_states[index];
-        //     self.output_merger_set_depth_stencil_state(
-        //         match self.depth_mode {
-        //             DepthMode::Reverse => &states.0,
-        //             DepthMode::Forward => &states.1,
-        //         },
-        //         self.current_stencil_ref,
-        //     );
         self.current_depth_state = index;
-        // }
     }
 
     pub fn set_stencil_ref(&mut self, ref_value: u32) {
@@ -146,27 +136,11 @@ impl CommandList {
     }
 
     pub fn set_rasterizer_state(&mut self, index: usize) {
-        // if self.current_rasterizer_state != index {
-        //     let depth_bias = self.current_depth_bias;
-        //     if index < 9 && depth_bias < 9 {
-        //         self.rasterizer_set_state(
-        //             &self.global_states().rasterizer_states[depth_bias][index],
-        //         );
-        //     }
         self.current_rasterizer_state = index;
-        // }
     }
 
     pub fn set_depth_bias(&mut self, index: usize) {
-        // if self.current_depth_bias != index {
-        //     let rasterizer_state = self.current_rasterizer_state;
-        //     if index < 9 && rasterizer_state < 9 {
-        //         self.rasterizer_set_state(
-        //             &self.global_states().rasterizer_states[index][rasterizer_state],
-        //         );
-        //     }
         self.current_depth_bias = index;
-        // }
     }
 
     /// Returns true if the given technique is already bound
@@ -180,15 +154,7 @@ impl CommandList {
     }
 
     pub fn set_input_layout(&mut self, index: usize) {
-        // if self.current_input_layout != index {
-        //     if let Some(input_layout) = self.global_states().input_layouts.get(index) {
-        //         self.context
-        //             .input_assembler_set_input_layout(input_layout.as_ref());
-        //     } else {
-        //         error!("Input layout #{index} does not exist!");
-        //     }
         self.current_input_layout = index;
-        // }
     }
 
     pub fn get_input_layout(&self) -> usize {

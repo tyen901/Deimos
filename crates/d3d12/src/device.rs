@@ -6,9 +6,9 @@ use windows::{
 use crate::{
     error::Result, util::to_pcstr, CommandAllocator, CommandListType, CommandQueue,
     CommandQueueDesc, CopyableFootprints, CpuDescriptorHandle, DescriptorHeap, DescriptorHeapType,
-    ElementOffset, Fence, FenceFlags, GraphicsCommandList, GraphicsPipelineStateDesc,
-    PipelineState, RenderTargetViewDesc, Resource, ResourceDesc, RootSignature,
-    ShaderResourceViewDesc,
+    ElementOffset, Fence, FenceFlags, GraphicsCommandList, GraphicsPipelineStateDesc, HeapFlags,
+    HeapProperties, PipelineState, RenderTargetViewDesc, Resource, ResourceDesc, ResourceStates,
+    RootSignature, ShaderResourceViewDesc,
 };
 
 #[repr(transparent)]
@@ -106,6 +106,28 @@ impl Device {
         };
 
         Ok(GraphicsCommandList(command_list))
+    }
+
+    pub fn create_committed_resource(
+        &self,
+        properties: &HeapProperties,
+        flags: HeapFlags,
+        desc: &ResourceDesc,
+        initial_state: ResourceStates,
+    ) -> Result<Resource> {
+        let mut resource = None;
+        unsafe {
+            self.0.CreateCommittedResource(
+                properties.as_ffi(),
+                flags.into(),
+                desc.as_ffi(),
+                initial_state.into(),
+                None,
+                &mut resource,
+            )?;
+        }
+
+        Ok(Resource(resource.unwrap()))
     }
 
     pub fn create_fence(&self, initial_value: u64) -> Result<Fence> {

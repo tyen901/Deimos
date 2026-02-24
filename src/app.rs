@@ -22,6 +22,7 @@ use deimos_render::{
     asset::{index_buffer::IndexBuffer, texture::Texture, vertex_buffer::VertexBuffer},
     gpu::Gpu,
     renderer::Renderer,
+    tfx::technique::Technique,
     util::fps_histogram::FrametimeHistogram,
 };
 use parking_lot::RwLock;
@@ -64,13 +65,10 @@ impl App {
         //         }
         //     };
         // }
-        renderer
-            .asset_manager
-            .load::<VertexBuffer>(TagHash(0x80A6FF1F));
-        renderer
-            .asset_manager
-            .load::<IndexBuffer>(TagHash(0x80A6FF1E));
-        renderer.asset_manager.load::<Texture>(TagHash(0x80AC5F41));
+
+        if let Err(e) = Technique::new(&gpu, TagHash(0x80AB0C4B)) {
+            error!("Failed to create technique: {:?}", e);
+        }
 
         Ok(Self {
             // _spinner: FullscreenSpinner::create(&renderer.gpu)?,
