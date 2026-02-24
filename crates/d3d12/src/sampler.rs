@@ -18,7 +18,7 @@ pub enum ComparisonFunc {
 }
 
 #[repr(C)]
-#[derive(Builder)]
+#[derive(Debug, Clone, Builder)]
 pub struct SamplerDesc {
     #[builder(default = Filter::MinMagMipLinear)]
     pub filter: Filter,
@@ -51,6 +51,7 @@ impl Default for SamplerDesc {
 
 #[repr(i32)]
 #[rustfmt::skip]
+#[derive(Debug, Clone)]
 pub enum Filter {
     Anisotropic = D3D12_FILTER_ANISOTROPIC.0,
     ComparisonAnisotropic = D3D12_FILTER_COMPARISON_ANISOTROPIC.0,
@@ -96,6 +97,7 @@ pub enum Filter {
 
 #[repr(i32)]
 #[rustfmt::skip]
+#[derive(Debug, Clone)]
 pub enum TextureAddress {
     Border = D3D12_TEXTURE_ADDRESS_MODE_BORDER.0,
     Clamp = D3D12_TEXTURE_ADDRESS_MODE_CLAMP.0,

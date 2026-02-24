@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use deimos_data::tfx::{ExternIndex, SDynamicConstants, STechnique, scope::SScope};
+use deimos_data::tfx::{ExternIndex, SDynamicCore, STechnique, scope::SScope};
 use deimos_render::tfx::expression_vm::opcodes::{Opcode, OpcodeIterator, pascal_to_snake};
 use itertools::Itertools;
 use tiger_parse::{PackageManagerExt, TigerReadable};
@@ -21,7 +21,7 @@ fn main() -> anyhow::Result<()> {
 
     let mut fields: HashSet<(ExternIndex, ExternFieldType, usize)> = Default::default();
 
-    let mut process_constants = |dc: &SDynamicConstants| {
+    let mut process_constants = |dc: &SDynamicCore| {
         for op in OpcodeIterator::new(&dc.bytecode) {
             let (op, args) = match op {
                 Ok(o) => o,
@@ -94,7 +94,7 @@ fn main() -> anyhow::Result<()> {
             continue;
         };
         for (_, s) in technique.all_shaders() {
-            process_constants(&s.constants);
+            process_constants(&s.core);
         }
     }
 

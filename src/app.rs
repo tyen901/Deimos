@@ -66,6 +66,10 @@ impl App {
         //     };
         // }
 
+        if let Err(e) = Technique::load(&gpu, TagHash(0x80AB0C4B)) {
+            error!("Failed to create technique: {:?}", e);
+        }
+
         Ok(Self {
             // _spinner: FullscreenSpinner::create(&renderer.gpu)?,
             renderer,

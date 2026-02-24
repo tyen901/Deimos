@@ -2,16 +2,21 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use d3d12::Format;
-use deimos_data::tfx::{STechnique, TechniqueBindMode};
+use deimos_data::tfx::{STechnique, STechniqueStage, TechniqueBindMode};
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::{TagHash, package_manager};
 
-use crate::gpu::{Gpu, command_list::CommandList, pipeline_cache::PipelineKey};
+use crate::{
+    gpu::{Gpu, command_list::CommandList, pipeline_cache::PipelineKey},
+    tfx::dynamic_core::DynamicCore,
+};
 
 pub struct Technique {
     gpu: Arc<Gpu>,
     data: STechnique,
     // root_signature: d3d12::RootSignature,
+    stage_vertex: TechniqueStage,
+    stage_pixel: TechniqueStage,
 }
 
 impl Technique {
@@ -20,11 +25,12 @@ impl Technique {
             .read_tag_struct(hash)
             .context("Failed to read technique data")?;
 
-        println!("Compatible Scopes: {:?}", data.compatible_scopes);
-        println!("Used Scopes: {:?}", data.used_scopes);
-
         Ok(Self {
             gpu: gpu.clone(),
+            stage_vertex: TechniqueStage::new(data.shader_vertex.clone())
+                .context("while loading vertex stage")?,
+            stage_pixel: TechniqueStage::new(data.shader_pixel.clone())
+                .context("while loading pixel stage")?,
             data,
         })
     }
@@ -66,5 +72,16 @@ impl Technique {
                 error!("Failed to create pipeline: {}", err);
             }
         }
+    }
+}
+
+struct TechniqueStage {
+    core: DynamicCore,
+}
+
+impl TechniqueStage {
+    pub fn new(stage: STechniqueStage) -> anyhow::Result<Self> {
+        let core = DynamicCore::new(stage.core)?;
+        Ok(Self { core })
     }
 }

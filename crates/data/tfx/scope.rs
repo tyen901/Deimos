@@ -1,6 +1,6 @@
 use tiger_parse::{tiger_type, NullString, Pointer};
 
-use super::{SDynamicConstants, ShaderStage};
+use super::{SDynamicCore, ShaderStage};
 
 #[derive(Clone)]
 #[tiger_type(id = 0x808085C9, size = 0x3b8)]
@@ -34,5 +34,5 @@ impl SScope {
 #[derive(Clone)]
 #[tiger_type(id = 0xffffffff, size = 0x80)]
 pub struct SScopeStage {
-    pub constants: SDynamicConstants,
+    pub constants: SDynamicCore,
 }

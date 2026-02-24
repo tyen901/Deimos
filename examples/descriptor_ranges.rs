@@ -63,11 +63,11 @@ fn main() -> anyhow::Result<()> {
         // println!("=== Technique {hash} ===");
 
         for (stage, shader) in technique.all_valid_shaders() {
-            if shader.constants.bytecode.is_empty() {
+            if shader.core.bytecode.is_empty() {
                 continue;
             }
 
-            let mut op_iter = OpcodeIterator::new(&shader.constants.bytecode);
+            let mut op_iter = OpcodeIterator::new(&shader.core.bytecode);
             while let Some(Ok((op, ptr))) = op_iter.next() {
                 match op {
                     expression_vm::opcodes::Opcode::PopTextureView => {
@@ -80,7 +80,7 @@ fn main() -> anyhow::Result<()> {
                 }
             }
 
-            for tex in &shader.constants.textures {
+            for tex in &shader.core.textures {
                 if tex.slot == 30 {
                     println!("Big boy? {}", hash);
                 }

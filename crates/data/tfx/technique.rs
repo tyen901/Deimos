@@ -28,16 +28,16 @@ pub struct STechnique {
     pub unk34: [u32; 9],
 
     // 0x58
-    pub shader_vertex: STechniqueShader,
-    pub shader_hull: STechniqueShader,
-    pub shader_domain: STechniqueShader,
-    pub shader_geometry: STechniqueShader,
-    pub shader_pixel: STechniqueShader,
-    pub shader_compute: STechniqueShader,
+    pub shader_vertex: STechniqueStage,
+    pub shader_hull: STechniqueStage,
+    pub shader_domain: STechniqueStage,
+    pub shader_geometry: STechniqueStage,
+    pub shader_pixel: STechniqueStage,
+    pub shader_compute: STechniqueStage,
 }
 
 impl STechnique {
-    pub fn all_shaders(&self) -> Vec<(ShaderStage, &STechniqueShader)> {
+    pub fn all_shaders(&self) -> Vec<(ShaderStage, &STechniqueStage)> {
         vec![
             (ShaderStage::Vertex, &self.shader_vertex),
             (ShaderStage::Geometry, &self.shader_geometry),
@@ -48,7 +48,7 @@ impl STechnique {
         ]
     }
 
-    pub fn all_valid_shaders(&self) -> Vec<(ShaderStage, &STechniqueShader)> {
+    pub fn all_valid_shaders(&self) -> Vec<(ShaderStage, &STechniqueStage)> {
         self.all_shaders()
             .into_iter()
             .filter(|(_, s)| s.shader.is_some())
@@ -88,10 +88,10 @@ impl TigerReadable for TechniqueBindMode {
 
 #[derive(Clone)]
 #[tiger_type(size = 0x88)]
-pub struct STechniqueShader {
+pub struct STechniqueStage {
     pub shader: TagHash,
     pub unk4: u32,
-    pub constants: SDynamicConstants,
+    pub core: SDynamicCore,
 }
 
 #[derive(Debug, Clone)]
@@ -105,7 +105,7 @@ pub struct SMaterialTextureAssignment {
 
 #[derive(Clone)]
 #[tiger_type(size = 0x80)]
-pub struct SDynamicConstants {
+pub struct SDynamicCore {
     pub textures: Vec<SMaterialTextureAssignment>,
     pub unk10: u64,
     pub bytecode: Vec<u8>,                // 0x18

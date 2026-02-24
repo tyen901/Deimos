@@ -25,7 +25,7 @@ fn main() -> anyhow::Result<()> {
     for (stage, shader) in tech.all_valid_shaders() {
         println!("// Stage: {stage:?}");
         println!("\t// Disassembly:");
-        match expression_vm::disassemble(&shader.constants.bytecode) {
+        match expression_vm::disassemble(&shader.core.bytecode) {
             Ok(lines) => {
                 for line in lines {
                     println!("\t{line}");
@@ -38,9 +38,9 @@ fn main() -> anyhow::Result<()> {
         }
 
         println!("\t// Decompiled assignments:");
-        match DecompilerState::new(&shader.constants.bytecode)
+        match DecompilerState::new(&shader.core.bytecode)
             .with_ansi(true)
-            .evaluate(&shader.constants.bytecode_constants)
+            .evaluate(&shader.core.bytecode_constants)
         {
             Ok(o) => {
                 println!("\t{}", o.pretty_print().split("\n").join("\n\t"));
