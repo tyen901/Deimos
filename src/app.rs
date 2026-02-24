@@ -19,7 +19,7 @@ use deimos_data::{
     tag::WideHash,
 };
 use deimos_render::{
-    asset::{index_buffer::IndexBuffer, vertex_buffer::VertexBuffer},
+    asset::{index_buffer::IndexBuffer, texture::Texture, vertex_buffer::VertexBuffer},
     gpu::Gpu,
     renderer::Renderer,
     util::fps_histogram::FrametimeHistogram,
@@ -70,6 +70,7 @@ impl App {
         renderer
             .asset_manager
             .load::<IndexBuffer>(TagHash(0x80A6FF1E));
+        renderer.asset_manager.load::<Texture>(TagHash(0x80AC5F41));
 
         Ok(Self {
             // _spinner: FullscreenSpinner::create(&renderer.gpu)?,

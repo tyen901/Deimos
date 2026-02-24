@@ -17,7 +17,7 @@ use super::{
     handle::{Handle, UntypedHandle},
 };
 use crate::{
-    asset::{index_buffer::IndexBuffer, vertex_buffer::VertexBuffer},
+    asset::{index_buffer::IndexBuffer, texture::Texture, vertex_buffer::VertexBuffer},
     gpu::Gpu,
 };
 
@@ -137,17 +137,17 @@ struct LoadRequest {
 
 fn load_asset(request: LoadRequest, gpu: &Arc<Gpu>, num_loaded: &Arc<AtomicUsize>) {
     match request.type_id {
-        // Texture::ASSET_TYPE => {
-        //     match Texture::load(&gpu.device, request.tag) {
-        //         Ok(o) => {
-        //             request.handle.update(o.into());
-        //         }
-        //         Err(e) => {
-        //             // TODO(cohae): Some more transparent error handling would perhaps be nice? Right now this just leaves the handle without data.
-        //             error!("Failed to load texture: {:?}", e);
-        //         }
-        //     }
-        // }
+        Texture::ASSET_TYPE => {
+            match Texture::load(gpu, request.tag) {
+                Ok(o) => {
+                    request.handle.update(o.into());
+                }
+                Err(e) => {
+                    // TODO(cohae): Some more transparent error handling would perhaps be nice? Right now this just leaves the handle without data.
+                    error!("Failed to load texture: {:?}", e);
+                }
+            }
+        }
         VertexBuffer::ASSET_TYPE => match VertexBuffer::load(gpu, request.tag) {
             Ok(o) => {
                 request.handle.update(o.into());

@@ -153,7 +153,7 @@ impl Device {
 
     pub fn get_copyable_footprints(
         &self,
-        resource: &ResourceDesc,
+        resource_desc: &ResourceDesc,
         first_subresource: u32,
         num_subresources: u32,
         base_offset: u64,
@@ -166,7 +166,7 @@ impl Device {
         };
         unsafe {
             self.0.GetCopyableFootprints(
-                &resource.0,
+                &resource_desc.0,
                 first_subresource,
                 num_subresources,
                 base_offset,

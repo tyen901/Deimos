@@ -4,7 +4,10 @@ use d3d12::{
     CpuDescriptorHandle, DescriptorHeapType, Format, GpuDescriptorHandle, ResourceBarrier,
     ResourceStates, ShaderResourceViewDesc, TextureCopyLocation,
 };
-use deimos_render::gpu::{alloc::resource::OwnedResource, Gpu};
+use deimos_render::{
+    asset::texture::Texture,
+    gpu::{alloc::resource::OwnedResource, Gpu},
+};
 use egui::{epaint::ahash::HashMap, Color32, ImageData, TextureId, TexturesDelta};
 use gpu_allocator::{
     d3d12::{ResourceCategory, ResourceCreateDesc, ResourceStateOrBarrierLayout},

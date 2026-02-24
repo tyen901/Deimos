@@ -56,3 +56,13 @@ pub use srv::*;
 mod util;
 
 pub mod ext;
+
+pub const fn calc_subresource(
+    mip_slice: u32,
+    array_slice: u32,
+    plane_slice: u32,
+    mip_levels: u32,
+    array_size: u32,
+) -> u32 {
+    mip_slice + array_slice * mip_levels + plane_slice * mip_levels * array_size
+}

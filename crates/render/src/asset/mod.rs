@@ -3,7 +3,7 @@ use uuid::{Uuid, uuid};
 pub mod handle;
 pub mod index_buffer;
 pub mod manager;
-// pub mod texture;
+pub mod texture;
 pub mod vertex_buffer;
 
 pub use handle::Handle;
@@ -13,9 +13,9 @@ pub trait Asset {
     const ASSET_TYPE: Uuid;
 }
 
-// impl Asset for texture::Texture {
-//     const ASSET_TYPE: Uuid = uuid!("a6877fe1-99c2-4015-afd4-b5f8dc5be81d");
-// }
+impl Asset for texture::Texture {
+    const ASSET_TYPE: Uuid = uuid!("a6877fe1-99c2-4015-afd4-b5f8dc5be81d");
+}
 
 impl Asset for vertex_buffer::VertexBuffer {
     const ASSET_TYPE: Uuid = uuid!("ca341c44-3706-4a19-8c76-1a756e491485");
