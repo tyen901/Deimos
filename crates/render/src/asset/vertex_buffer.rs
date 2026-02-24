@@ -1,6 +1,7 @@
 use std::{sync::Arc, time::Instant};
 
 use anyhow::Context;
+use d3d12::DeviceChild;
 use deimos_data::tfx::buffers::VertexBufferHeader;
 use gpu_allocator::d3d12::{ResourceCreateDesc, ResourceType};
 use tiger_parse::PackageManagerExt;
@@ -30,7 +31,9 @@ impl VertexBuffer {
             .context("Failed to read buffer data")?;
 
         let vb = VertexBuffer::load_data(gpu, &data, header.stride as _)?;
-        // vb.buffer.set_debug_name(format!("VertexBuffer {hash}"));
+        vb.resource
+            .resource()
+            .set_debug_name(format!("vertex_buffer {hash}"));
         Ok(vb)
     }
 

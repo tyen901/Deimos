@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use d3d12::Format;
+use d3d12::{DeviceChild, Format};
 use deimos_data::tfx::buffers::IndexBufferHeader;
 use gpu_allocator::d3d12::{ResourceCreateDesc, ResourceType};
 use tiger_parse::PackageManagerExt;
@@ -64,6 +64,10 @@ impl IndexBuffer {
 
             Ok(())
         })?;
+
+        resource
+            .resource()
+            .set_debug_name(format!("index_bufer {hash}"));
 
         Ok(IndexBuffer {
             resource,

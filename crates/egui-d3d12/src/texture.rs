@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use d3d12::{
-    CpuDescriptorHandle, DescriptorHeapType, Format, GpuDescriptorHandle, ResourceBarrier,
-    ResourceStates, ShaderResourceViewDesc, TextureCopyLocation,
+    CpuDescriptorHandle, DescriptorHeapType, DeviceChild, Format, GpuDescriptorHandle,
+    ResourceBarrier, ResourceStates, ShaderResourceViewDesc, TextureCopyLocation,
 };
 use deimos_render::{
     asset::texture::Texture,
@@ -183,6 +183,9 @@ impl TextureAllocator {
         image: &ImageData,
     ) -> Result<(), RenderError> {
         let tex = self.allocate_texture(cmd, image)?;
+        tex.resource
+            .resource()
+            .set_debug_name(format!("egui {tid:?}"));
         self.allocated.insert(tid, tex);
         Ok(())
     }

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use d3d12::{Format, ResourceBarrier, ResourceStates, TextureCopyLocation};
+use d3d12::{DeviceChild, Format, ResourceBarrier, ResourceStates, TextureCopyLocation};
 use deimos_data::{tag::WideHash, tfx::texture::STextureHeader};
 use gpu_allocator::{MemoryLocation, d3d12::ResourceCreateDesc};
 use tiger_parse::PackageManagerExt;
@@ -114,6 +114,10 @@ impl Texture {
 
             Ok(())
         })?;
+
+        resource
+            .resource()
+            .set_debug_name(format!("texture {hash}"));
 
         Ok(Self { resource })
     }

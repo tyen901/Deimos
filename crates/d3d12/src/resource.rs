@@ -8,11 +8,14 @@ use bitflags::bitflags;
 use bon::Builder;
 use windows::Win32::Graphics::Direct3D12::*;
 
-use crate::{verify_ffi_type, Error, Format, GpuVirtualAddress, Result, SampleDesc};
+use crate::{
+    impl_device_child, verify_ffi_type, Error, Format, GpuVirtualAddress, Result, SampleDesc,
+};
 
 #[repr(transparent)]
 #[derive(Clone)]
 pub struct Resource(pub(crate) ID3D12Resource);
+impl_device_child!(Resource);
 
 impl Resource {
     pub fn gpu_virtual_address(&self) -> GpuVirtualAddress {
