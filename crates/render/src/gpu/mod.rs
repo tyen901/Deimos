@@ -2,6 +2,7 @@
 // pub mod command_list;
 // pub mod debug_text;
 mod global_state;
+pub mod pipeline_cache;
 // pub mod profiler;
 // pub mod spinner;
 // pub mod state;
@@ -9,6 +10,7 @@ pub mod alloc;
 pub mod buffer;
 pub mod command_list;
 pub mod frame;
+pub mod native_command_list;
 pub mod swapchain;
 
 use std::{
@@ -40,7 +42,8 @@ use windows::{
 };
 
 use crate::gpu::{
-    alloc::resource::OwnedResource, command_list::CommandListPool, frame::FrameContext,
+    alloc::resource::OwnedResource, frame::FrameContext,
+    native_command_list::NativeCommandListPool, pipeline_cache::PipelineCache,
 };
 
 pub struct Gpu {
@@ -51,11 +54,13 @@ pub struct Gpu {
     pub allocator: Mutex<gpu_allocator::d3d12::Allocator>,
     pub queue: d3d12::CommandQueue,
 
+    pub pipeline_cache: Mutex<PipelineCache>,
+
     pub(crate) frames: [FrameContext; Self::FRAMES_IN_FLIGHT],
     pub(crate) frame_index: AtomicUsize,
     pub(crate) frame_fence: GpuFence,
 
-    pub immediate_pool: CommandListPool,
+    pub immediate_pool: NativeCommandListPool,
 }
 
 unsafe impl Sync for Gpu {}
@@ -137,7 +142,8 @@ impl Gpu {
 
         let window_size = window.size();
         Ok(Self {
-            immediate_pool: CommandListPool::new(device.clone(), queue.clone())?,
+            pipeline_cache: Mutex::new(PipelineCache::new(device.clone())),
+            immediate_pool: NativeCommandListPool::new(device.clone(), queue.clone())?,
             queue,
             adapter: adapter3,
             swapchain: Mutex::new(Swapchain::new(swap_chain, &device, window_size)?),

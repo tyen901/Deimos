@@ -7,7 +7,7 @@ use gpu_allocator::d3d12::{ResourceCreateDesc, ResourceType};
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::{TagHash, package_manager};
 
-use crate::gpu::{Gpu, alloc::resource::OwnedResource, command_list::CommandList};
+use crate::gpu::{Gpu, alloc::resource::OwnedResource, native_command_list::NativeCommandList};
 
 pub struct VertexBuffer {
     resource: OwnedResource,

@@ -707,6 +707,7 @@ version = "0.0.0"
 dependencies = [
  "bitflags 2.11.0",
  "bon",
+ "int-enum",
  "static_assertions",
  "thiserror 2.0.18",
  "windows 0.62.2",

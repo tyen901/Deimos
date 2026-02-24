@@ -24,7 +24,7 @@ pub struct STechnique {
     pub used_scopes: TfxScopeBits,
     pub compatible_scopes: TfxScopeBits,
 
-    pub states: PipelineState,
+    pub states: FixedFunctionState,
     pub unk34: [u32; 9],
 
     // 0x58
@@ -178,15 +178,15 @@ impl TigerReadable for TfxScopeBits {
 
 /// Current indices for blend, rasterizer, depth bias and depth stencil states
 #[tiger_type(size = 4)]
-#[derive(Clone, Copy, Default)]
-pub struct PipelineState {
+#[derive(Clone, Copy, Default, Hash, PartialEq, Eq)]
+pub struct FixedFunctionState {
     blend_state: u8,
     depth_stencil_state: u8,
     rasterizer_state: u8,
     depth_bias_state: u8,
 }
 
-impl PipelineState {
+impl FixedFunctionState {
     pub fn new(
         blend_state: Option<usize>,
         depth_stencil_state: Option<usize>,
@@ -220,12 +220,12 @@ impl PipelineState {
     }
 
     /// Creates a new selection, filling unset states in `other` with the default state in `self`
-    pub fn select(&self, other: &PipelineState) -> PipelineState {
+    pub fn select(&self, other: &FixedFunctionState) -> FixedFunctionState {
         let current = self.raw();
         let other = other.raw();
         let new_states = ((other >> 7 & 0x1010101) * 0xff) & (current ^ other) ^ current;
 
-        PipelineState::from_raw(new_states)
+        FixedFunctionState::from_raw(new_states)
 
         // PipelineState::new(
         //     other.blend_state().or_else(|| self.blend_state()),
@@ -277,7 +277,7 @@ impl PipelineState {
     }
 }
 
-impl Debug for PipelineState {
+impl Debug for FixedFunctionState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("StateSelection")
             .field("blend_state", &self.blend_state())

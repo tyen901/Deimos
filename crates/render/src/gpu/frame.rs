@@ -2,18 +2,18 @@ use std::sync::atomic::AtomicU64;
 
 use d3d12::ext::GpuFence;
 
-use crate::gpu::command_list::CommandList;
+use crate::gpu::native_command_list::NativeCommandList;
 
 /// Represents a frame in flight.
 pub struct FrameContext {
-    pub command_list: CommandList,
+    pub command_list: NativeCommandList,
     fence_value: AtomicU64,
 }
 
 impl FrameContext {
     pub fn new(device: &d3d12::Device) -> anyhow::Result<Self> {
         Ok(FrameContext {
-            command_list: CommandList::new(device)?,
+            command_list: NativeCommandList::new(device)?,
             fence_value: AtomicU64::new(0),
         })
     }

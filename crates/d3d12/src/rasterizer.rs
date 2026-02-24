@@ -1,7 +1,8 @@
+use int_enum::IntEnum;
 use windows::Win32::Graphics::Direct3D::*;
 
 #[repr(i32)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, IntEnum)]
 pub enum PrimitiveTopology {
     PointList = D3D_PRIMITIVE_TOPOLOGY_POINTLIST.0,
     LineList = D3D_PRIMITIVE_TOPOLOGY_LINELIST.0,
