@@ -1,7 +1,7 @@
 use bon::Builder;
 use windows::{core::BOOL, Win32::Graphics::Direct3D12::*};
 
-use crate::verify_ffi_struct;
+use crate::verify_ffi_type;
 
 #[repr(C)]
 #[derive(Builder, Clone, Default, Debug)]
@@ -12,7 +12,7 @@ pub struct BlendDesc {
     pub independent_blend_enable: BOOL,
     pub render_target: [RenderTargetBlendDesc; 8],
 }
-verify_ffi_struct!(BlendDesc, D3D12_BLEND_DESC);
+verify_ffi_type!(BlendDesc, D3D12_BLEND_DESC);
 
 impl BlendDesc {
     pub const DISABLED: Self = Self {
@@ -46,7 +46,7 @@ pub struct RenderTargetBlendDesc {
     pub logic_op: LogicOp,
     pub render_target_write_mask: u8, // TODO: Bitflags
 }
-verify_ffi_struct!(RenderTargetBlendDesc, D3D12_RENDER_TARGET_BLEND_DESC);
+verify_ffi_type!(RenderTargetBlendDesc, D3D12_RENDER_TARGET_BLEND_DESC);
 
 impl RenderTargetBlendDesc {
     pub const DISABLED: Self = Self {

@@ -46,7 +46,7 @@ impl VertexBuffer {
             name: "vertex_buffer",
             memory_location: gpu_allocator::MemoryLocation::GpuOnly,
             resource_category: gpu_allocator::d3d12::ResourceCategory::Buffer,
-            resource_desc: unsafe { &*desc.as_ffi() },
+            resource_desc: desc.as_ref(),
             castable_formats: &[],
             clear_value: None,
             initial_state_or_layout:

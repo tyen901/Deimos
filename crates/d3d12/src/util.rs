@@ -7,7 +7,7 @@ use windows::{
 
 /// Verifies that the given struct has the same size as the corresponding FFI struct, and generates an `as_ffi` method that returns a pointer to the FFI struct.
 #[macro_export]
-macro_rules! verify_ffi_struct {
+macro_rules! verify_ffi_type {
     ($struct:ty, $ffi:ty) => {
         static_assertions::assert_eq_size!($struct, $ffi);
 
@@ -15,6 +15,12 @@ macro_rules! verify_ffi_struct {
             #[allow(dead_code)]
             pub fn as_ffi(&self) -> *const $ffi {
                 self as *const _ as _
+            }
+        }
+
+        impl From<$struct> for $ffi {
+            fn from(value: $struct) -> Self {
+                unsafe { std::mem::transmute_copy(&value) }
             }
         }
     };

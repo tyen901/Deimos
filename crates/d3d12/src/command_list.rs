@@ -6,7 +6,7 @@ use static_assertions::assert_eq_size;
 use windows::Win32::Graphics::Direct3D12::*;
 
 use crate::{
-    verify_ffi_struct, CpuDescriptorHandle, DescriptorHeap, Format, GpuDescriptorHandle,
+    verify_ffi_type, CpuDescriptorHandle, DescriptorHeap, Format, GpuDescriptorHandle,
     GpuVirtualAddress, PipelineState, PrimitiveTopology, Resource, ResourceBarrier, Result,
     RootSignature, TextureCopyLocation,
 };
@@ -271,7 +271,7 @@ pub struct Rect {
     pub right: i32,
     pub bottom: i32,
 }
-verify_ffi_struct!(Rect, windows::Win32::Foundation::RECT);
+verify_ffi_type!(Rect, windows::Win32::Foundation::RECT);
 
 #[repr(C)]
 #[derive(Clone, Debug, Builder)]
@@ -283,7 +283,7 @@ pub struct Box {
     pub bottom: u32,
     pub back: u32,
 }
-verify_ffi_struct!(Box, D3D12_BOX);
+verify_ffi_type!(Box, D3D12_BOX);
 
 #[repr(transparent)]
 #[derive(Clone)]

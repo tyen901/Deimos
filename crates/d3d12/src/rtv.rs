@@ -1,7 +1,7 @@
 use bon::Builder;
 use windows::Win32::Graphics::Direct3D12::*;
 
-use crate::{verify_ffi_struct, Format};
+use crate::{verify_ffi_type, Format};
 
 #[repr(C)]
 #[derive(Builder, Clone)]
@@ -9,7 +9,7 @@ pub struct RenderTargetViewDesc {
     pub format: Format,
     pub view_dimension: RtvDimension,
 }
-verify_ffi_struct!(RenderTargetViewDesc, D3D12_RENDER_TARGET_VIEW_DESC);
+verify_ffi_type!(RenderTargetViewDesc, D3D12_RENDER_TARGET_VIEW_DESC);
 
 #[repr(i32)]
 #[derive(Clone)]

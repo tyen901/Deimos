@@ -1,7 +1,7 @@
 use bon::Builder;
 use windows::Win32::Graphics::Direct3D12::*;
 
-use crate::verify_ffi_struct;
+use crate::verify_ffi_type;
 
 #[repr(i32)]
 #[derive(Clone, Debug)]
@@ -41,7 +41,7 @@ pub struct SamplerDesc {
     #[builder(default = f32::MAX)]
     pub max_lod: f32,
 }
-verify_ffi_struct!(SamplerDesc, D3D12_SAMPLER_DESC);
+verify_ffi_type!(SamplerDesc, D3D12_SAMPLER_DESC);
 
 impl Default for SamplerDesc {
     fn default() -> Self {

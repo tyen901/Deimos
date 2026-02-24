@@ -17,7 +17,7 @@ use windows::{
     },
 };
 
-use crate::{verify_ffi_struct, CommandQueue, Format, Resource};
+use crate::{verify_ffi_type, CommandQueue, Format, Resource};
 
 #[repr(transparent)]
 pub struct SwapChain(pub(crate) IDXGISwapChain1);
@@ -120,7 +120,7 @@ pub struct SwapChainDesc {
     #[builder(default = SwapChainFlags::empty())]
     pub flags: SwapChainFlags,
 }
-verify_ffi_struct!(SwapChainDesc, DXGI_SWAP_CHAIN_DESC1);
+verify_ffi_type!(SwapChainDesc, DXGI_SWAP_CHAIN_DESC1);
 
 #[repr(C)]
 #[derive(Clone, Debug, Builder)]
@@ -137,7 +137,7 @@ pub struct ModeDesc {
     #[builder(default)]
     pub scaling: ScalingMode,
 }
-verify_ffi_struct!(ModeDesc, DXGI_MODE_DESC);
+verify_ffi_type!(ModeDesc, DXGI_MODE_DESC);
 
 #[repr(C)]
 #[derive(Clone, Debug, Default)]
@@ -155,7 +155,7 @@ impl Rational {
     }
 }
 
-verify_ffi_struct!(Rational, DXGI_RATIONAL);
+verify_ffi_type!(Rational, DXGI_RATIONAL);
 
 #[repr(i32)]
 #[derive(Clone, Debug, Default)]
@@ -252,7 +252,7 @@ pub struct SampleDesc {
     pub count: u32,
     pub quality: u32,
 }
-verify_ffi_struct!(SampleDesc, DXGI_SAMPLE_DESC);
+verify_ffi_type!(SampleDesc, DXGI_SAMPLE_DESC);
 
 impl Default for SampleDesc {
     fn default() -> Self {

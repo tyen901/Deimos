@@ -255,13 +255,12 @@ impl TextureAllocator {
             return Err(RenderError::General("Texture descriptor heap out of slots"));
         };
 
-        let tex_desc = d3d12::ResourceDesc::builder(d3d12::ResourceDimension::Texture2D)
+        let tex_desc = d3d12::ResourceDesc::new(d3d12::ResourceDimension::Texture2D)
             .alignment(0)
             .width(image.width() as _)
             .height(image.height() as _)
             .mip_levels(1)
-            .format(Format::R8g8b8a8Unorm)
-            .build();
+            .format(Format::R8g8b8a8Unorm);
 
         let tex = gpu
             .allocator
@@ -270,7 +269,7 @@ impl TextureAllocator {
                 name: "egui texture",
                 memory_location: MemoryLocation::GpuOnly,
                 resource_category: ResourceCategory::OtherTexture,
-                resource_desc: unsafe { &*tex_desc.as_ffi() },
+                resource_desc: tex_desc.as_ref(),
                 castable_formats: &[],
                 clear_value: None,
                 initial_state_or_layout: ResourceStateOrBarrierLayout::ResourceState(
@@ -318,12 +317,7 @@ impl TextureAllocator {
         let footprint =
             gpu.get_copyable_footprints(&texture.resource.resource().as_ref().desc(), 0, 1, 0)?;
 
-        let upload_desc = d3d12::ResourceDesc::builder(d3d12::ResourceDimension::Buffer)
-            .width(footprint.total_bytes)
-            .height(1)
-            .format(Format::Unknown)
-            .layout(d3d12::TextureLayout::RowMajor)
-            .build();
+        let upload_desc = d3d12::ResourceDesc::buffer(footprint.total_bytes);
 
         let upload_buffer = gpu
             .allocator
@@ -332,7 +326,7 @@ impl TextureAllocator {
                 name: "egui texture upload buffer",
                 memory_location: MemoryLocation::CpuToGpu,
                 resource_category: ResourceCategory::Buffer,
-                resource_desc: unsafe { &*upload_desc.as_ffi() },
+                resource_desc: upload_desc.as_ref(),
                 castable_formats: &[],
                 clear_value: None,
                 initial_state_or_layout: ResourceStateOrBarrierLayout::ResourceState(

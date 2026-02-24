@@ -174,7 +174,7 @@ impl Gpu {
             name: "generic_upload_buffer",
             memory_location: gpu_allocator::MemoryLocation::CpuToGpu,
             resource_category: gpu_allocator::d3d12::ResourceCategory::Buffer,
-            resource_desc: unsafe { &*d3d12::ResourceDesc::buffer(size).as_ffi() },
+            resource_desc: d3d12::ResourceDesc::buffer(size).as_ref(),
             castable_formats: &[],
             clear_value: None,
             initial_state_or_layout: ResourceStateOrBarrierLayout::ResourceState(

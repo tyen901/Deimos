@@ -166,7 +166,7 @@ impl Device {
         };
         unsafe {
             self.0.GetCopyableFootprints(
-                resource.as_ffi(),
+                &resource.0,
                 first_subresource,
                 num_subresources,
                 base_offset,

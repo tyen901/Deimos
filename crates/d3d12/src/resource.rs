@@ -8,7 +8,7 @@ use bitflags::bitflags;
 use bon::Builder;
 use windows::Win32::Graphics::Direct3D12::*;
 
-use crate::{verify_ffi_struct, Error, Format, GpuVirtualAddress, Result, SampleDesc};
+use crate::{verify_ffi_type, Error, Format, GpuVirtualAddress, Result, SampleDesc};
 
 #[repr(transparent)]
 #[derive(Clone)]
@@ -44,37 +44,94 @@ impl AsRef<Resource> for ID3D12Resource {
     }
 }
 
-#[repr(C)]
-#[derive(Debug, Clone, Builder)]
-pub struct ResourceDesc {
-    #[builder(start_fn)]
-    pub dimension: ResourceDimension,
-    #[builder(default = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT as u64)]
-    pub alignment: u64,
-    pub width: u64,
-    pub height: u32,
-    #[builder(default = 1)]
-    pub depth_or_array_size: u16,
-    #[builder(default = 1)]
-    pub mip_levels: u16,
-    pub format: Format,
-    #[builder(default)]
-    pub sample_desc: SampleDesc,
-    #[builder(default)]
-    pub layout: TextureLayout,
-    #[builder(default)]
-    pub flags: ResourceFlags,
+#[repr(transparent)]
+#[derive(Debug, Clone)]
+pub struct ResourceDesc(pub(crate) D3D12_RESOURCE_DESC);
+// #[builder(start_fn)]
+// pub dimension: ResourceDimension,
+// #[builder(default = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT as u64)]
+// pub alignment: u64,
+// pub width: u64,
+// pub height: u32,
+// #[builder(default = 1)]
+// pub depth_or_array_size: u16,
+// #[builder(default = 1)]
+// pub mip_levels: u16,
+// pub format: Format,
+// #[builder(default)]
+// pub sample_desc: SampleDesc,
+// #[builder(default)]
+// pub layout: TextureLayout,
+// #[builder(default)]
+// pub flags: ResourceFlags,
+// }
+// verify_ffi_struct!(ResourceDesc, D3D12_RESOURCE_DESC);
+
+impl ResourceDesc {
+    pub fn new(dimension: ResourceDimension) -> Self {
+        Self(D3D12_RESOURCE_DESC {
+            Dimension: dimension.into(),
+            Alignment: D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT as u64,
+            Width: 1,
+            Height: 1,
+            DepthOrArraySize: 1,
+            MipLevels: 1,
+            Format: Format::Unknown.into(),
+            SampleDesc: SampleDesc::default().into(),
+            Layout: TextureLayout::default().into(),
+            Flags: ResourceFlags::default().into(),
+        })
+    }
+
+    pub fn alignment(mut self, alignment: u64) -> Self {
+        self.0.Alignment = alignment;
+        self
+    }
+
+    pub fn width(mut self, width: u64) -> Self {
+        self.0.Width = width;
+        self
+    }
+
+    pub fn height(mut self, height: u32) -> Self {
+        self.0.Height = height;
+        self
+    }
+
+    pub fn depth_or_array_size(mut self, depth_or_array_size: u16) -> Self {
+        self.0.DepthOrArraySize = depth_or_array_size;
+        self
+    }
+
+    pub fn mip_levels(mut self, mip_levels: u16) -> Self {
+        self.0.MipLevels = mip_levels;
+        self
+    }
+
+    pub fn format(mut self, format: Format) -> Self {
+        self.0.Format = format.into();
+        self
+    }
+
+    pub fn layout(mut self, layout: TextureLayout) -> Self {
+        self.0.Layout = layout.into();
+        self
+    }
 }
-verify_ffi_struct!(ResourceDesc, D3D12_RESOURCE_DESC);
 
 impl ResourceDesc {
     pub fn buffer(size: u64) -> Self {
-        Self::builder(ResourceDimension::Buffer)
+        Self::new(ResourceDimension::Buffer)
             .width(size)
             .height(1)
             .format(Format::Unknown)
             .layout(TextureLayout::RowMajor)
-            .build()
+    }
+}
+
+impl AsRef<D3D12_RESOURCE_DESC> for ResourceDesc {
+    fn as_ref(&self) -> &D3D12_RESOURCE_DESC {
+        &self.0
     }
 }
 
@@ -87,6 +144,7 @@ pub enum TextureLayout {
     _64KbUndefinedSwizzle = D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE.0,
     _64KbStandardSwizzle = D3D12_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE.0,
 }
+verify_ffi_type!(TextureLayout, D3D12_TEXTURE_LAYOUT);
 
 bitflags! {
     #[derive(Default, Debug, Clone, Copy)]
@@ -102,6 +160,7 @@ bitflags! {
         const RAYTRACING_ACCELERATION_STRUCTURE = D3D12_RESOURCE_FLAG_RAYTRACING_ACCELERATION_STRUCTURE.0;
     }
 }
+verify_ffi_type!(ResourceFlags, D3D12_RESOURCE_FLAGS);
 
 #[repr(i32)]
 #[derive(Debug, Clone, Copy)]
@@ -111,6 +170,7 @@ pub enum ResourceDimension {
     Texture2D = D3D12_RESOURCE_DIMENSION_TEXTURE2D.0,
     Texture3D = D3D12_RESOURCE_DIMENSION_TEXTURE3D.0,
 }
+verify_ffi_type!(ResourceDimension, D3D12_RESOURCE_DIMENSION);
 
 #[derive(Debug, Clone)]
 pub struct CopyableFootprints {
@@ -126,7 +186,7 @@ pub struct PlacedSubresourceFootprint {
     pub offset: u64,
     pub footprint: SubresourceFootprint,
 }
-verify_ffi_struct!(
+verify_ffi_type!(
     PlacedSubresourceFootprint,
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT
 );
@@ -140,7 +200,7 @@ pub struct SubresourceFootprint {
     pub depth: u32,
     pub row_pitch: u32,
 }
-verify_ffi_struct!(SubresourceFootprint, D3D12_SUBRESOURCE_FOOTPRINT);
+verify_ffi_type!(SubresourceFootprint, D3D12_SUBRESOURCE_FOOTPRINT);
 
 #[repr(transparent)]
 #[derive(Clone)]

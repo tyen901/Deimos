@@ -136,11 +136,6 @@ struct LoadRequest {
 }
 
 fn load_asset(request: LoadRequest, gpu: &Arc<Gpu>, num_loaded: &Arc<AtomicUsize>) {
-    info!(
-        "Loading asset {} with type {}",
-        request.tag, request.type_id
-    );
-    let start = Instant::now();
     match request.type_id {
         // Texture::ASSET_TYPE => {
         //     match Texture::load(&gpu.device, request.tag) {
@@ -184,7 +179,6 @@ fn load_asset(request: LoadRequest, gpu: &Arc<Gpu>, num_loaded: &Arc<AtomicUsize
             );
         }
     }
-    info!("Loaded asset {} in {:?}", request.tag, start.elapsed());
 
     num_loaded.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
 }

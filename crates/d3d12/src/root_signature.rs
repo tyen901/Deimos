@@ -7,7 +7,7 @@ use windows::Win32::Graphics::Direct3D12::*;
 use crate::{
     root_signature::static_sampler_desc_builder::{SetRegisterSpace, SetShaderRegister},
     util::blob_to_vec,
-    verify_ffi_struct, ComparisonFunc, Filter, Result, TextureAddress,
+    verify_ffi_type, ComparisonFunc, Filter, Result, TextureAddress,
 };
 
 #[repr(transparent)]
@@ -182,7 +182,7 @@ pub struct StaticSamplerDesc {
     #[builder(default = ShaderVisibility::All)]
     pub shader_visibility: ShaderVisibility,
 }
-verify_ffi_struct!(StaticSamplerDesc, D3D12_STATIC_SAMPLER_DESC);
+verify_ffi_type!(StaticSamplerDesc, D3D12_STATIC_SAMPLER_DESC);
 
 impl StaticSamplerDesc {
     pub fn builder(
@@ -224,7 +224,7 @@ pub struct DescriptorRange {
     pub register_space: u32,
     pub offset_in_descriptors_from_table_start: u32,
 }
-verify_ffi_struct!(DescriptorRange, D3D12_DESCRIPTOR_RANGE);
+verify_ffi_type!(DescriptorRange, D3D12_DESCRIPTOR_RANGE);
 
 #[repr(i32)]
 pub enum DescriptorRangeType {
