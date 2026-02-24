@@ -11,12 +11,11 @@ use crate::gpu::{Gpu, command_list::CommandList, pipeline_cache::PipelineKey};
 pub struct Technique {
     gpu: Arc<Gpu>,
     data: STechnique,
-
-    root_signature: d3d12::RootSignature,
+    // root_signature: d3d12::RootSignature,
 }
 
 impl Technique {
-    pub fn new(gpu: &Arc<Gpu>, hash: TagHash) -> anyhow::Result<Self> {
+    pub fn load(gpu: &Arc<Gpu>, hash: TagHash) -> anyhow::Result<Self> {
         let data: STechnique = package_manager()
             .read_tag_struct(hash)
             .context("Failed to read technique data")?;
@@ -24,7 +23,10 @@ impl Technique {
         println!("Compatible Scopes: {:?}", data.compatible_scopes);
         println!("Used Scopes: {:?}", data.used_scopes);
 
-        anyhow::bail!("TODO")
+        Ok(Self {
+            gpu: gpu.clone(),
+            data,
+        })
     }
 
     pub fn bind(&self, cmd: &mut CommandList) {
@@ -47,7 +49,8 @@ impl Technique {
 
         match self.gpu.pipeline_cache.lock().get_or_create(
             pipeline_key,
-            &self.root_signature,
+            todo!(),
+            // &self.root_signature,
             &[
                 Format::R8g8b8a8Unorm,
                 Format::R11g11b10Float,

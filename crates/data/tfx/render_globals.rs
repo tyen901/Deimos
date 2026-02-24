@@ -30,8 +30,23 @@ pub struct SRenderGlobalsData {
     pub unk30: Tag<SRenderGlobalLookupTextures>,
     pub global_channels: Tag<SRenderGlobalsGlobalChannels>,
     pub unk38: TagHash,
-    pub unk3c: TagHash,
+    pub unk3c: Tag<SWaterDisplacementGlobals>,
     pub unk40: TagHash,
+}
+
+#[tiger_type(id = 0x80807FB3)]
+pub struct SWaterDisplacementGlobals {
+    pub file_size: u64,
+    pub water_displacement_unk00: TagHash,
+    pub water_displacement_unk08: TagHash,
+    pub unk10: TagHash,
+    pub unk14: f32,
+    pub unk18: f32,
+    pub unk1c: f32,
+    pub unk20: f32,
+    pub unk24: f32,
+    pub unk28: f32,
+    pub unk2c: f32,
 }
 
 #[derive(Debug)]
