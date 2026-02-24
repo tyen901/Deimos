@@ -1,5 +1,6 @@
 use std::ops::Deref;
 
+use d3d12::ext::{GpuFence, GpuFenceWaiter};
 use parking_lot::Mutex;
 
 pub struct CommandList {
@@ -53,10 +54,11 @@ impl Deref for CommandList {
     }
 }
 
+// TODO(cohae): We should probably make the pool per-frame
 pub struct CommandListPool {
     device: d3d12::Device,
     queue: d3d12::CommandQueue,
-    command_lists: Mutex<Vec<CommandList>>,
+    command_lists: Mutex<Vec<(CommandList, GpuFence)>>,
 }
 
 impl CommandListPool {
@@ -70,14 +72,19 @@ impl CommandListPool {
     }
 
     /// Acquires a command list from the pool, executes the given function, executes the command list on the queue, and returns it to the pool.
+    ///
+    /// This wait for the fence to signal before returning.
     pub fn scope_immediate<F>(&self, f: F) -> anyhow::Result<()>
     where
         F: FnOnce(&d3d12::GraphicsCommandList) -> anyhow::Result<()>,
     {
-        let cmd = if let Some(command_list) = self.command_lists.lock().pop() {
-            command_list
+        let (cmd, fence) = if let Some(g) = self.command_lists.lock().pop() {
+            g
         } else {
-            CommandList::new(&self.device)?
+            (
+                CommandList::new(&self.device)?,
+                GpuFence::new(&self.device)?,
+            )
         };
 
         cmd.begin()?;
@@ -85,8 +92,10 @@ impl CommandListPool {
         cmd.end()?;
         self.queue
             .execute_command_lists(std::slice::from_ref(&cmd.command_list));
+        let fence_value = fence.signal(&self.queue);
+        fence.wait(fence_value)?;
 
-        self.command_lists.lock().push(cmd);
+        self.command_lists.lock().push((cmd, fence));
         Ok(())
     }
 }

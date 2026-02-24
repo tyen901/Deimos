@@ -1,15 +1,11 @@
-use std::{mem::size_of, slice::from_raw_parts_mut, sync::Arc};
+use std::sync::Arc;
 
 use d3d12::{
-    ext::{GpuFence, GpuFenceWaiter},
     CpuDescriptorHandle, DescriptorHeapType, Format, GpuDescriptorHandle, ResourceBarrier,
     ResourceStates, ShaderResourceViewDesc, TextureCopyLocation,
 };
-use deimos_render::gpu::{command_list::CommandList, Gpu};
-use egui::{
-    epaint::{ahash::HashMap, text},
-    Color32, ColorImage, ImageData, TextureId, TexturesDelta,
-};
+use deimos_render::gpu::{alloc::resource::OwnedResource, Gpu};
+use egui::{epaint::ahash::HashMap, Color32, ImageData, TextureId, TexturesDelta};
 use gpu_allocator::{
     d3d12::{ResourceCategory, ResourceCreateDesc, ResourceStateOrBarrierLayout},
     MemoryLocation,
@@ -25,22 +21,21 @@ struct ManagedTexture {
     // texture: d3d12::Texture2D,
     pixels: Vec<Color32>,
     width: usize,
-    resource: gpu_allocator::d3d12::Resource,
+    resource: OwnedResource,
 }
 
 pub struct TextureAllocator {
     allocated: HashMap<TextureId, ManagedTexture>,
     pub(crate) descriptor_heap_alloc: DescriptorHeapAllocator,
 
-    upload_command_list: CommandList,
-    upload_fence: GpuFenceWaiter,
-    pending_uploads: Vec<gpu_allocator::d3d12::Resource>,
+    // upload_command_list: CommandList,
+    // upload_fence: GpuFenceWaiter,
+    pending_uploads: Vec<OwnedResource>,
 
     // allocated_unmanaged: HashMap<TextureId, (TextureView, Option<egui::TextureFilter>, bool)>,
-    unmanaged_free_handles: Vec<TextureId>,
-    unmanaged_index: u64,
-    unmanaged_temporary_index: u64,
-
+    // unmanaged_free_handles: Vec<TextureId>,
+    // unmanaged_index: u64,
+    // unmanaged_temporary_index: u64,
     gpu: Arc<Gpu>,
 }
 
@@ -51,15 +46,13 @@ impl TextureAllocator {
 
         Ok(TextureAllocator {
             allocated: HashMap::default(),
-            upload_command_list: CommandList::new(gpu).unwrap(),
-            upload_fence: GpuFenceWaiter::new(gpu)?,
+            // upload_command_list: CommandList::new(gpu).unwrap(),
+            // upload_fence: GpuFenceWaiter::new(gpu)?,
             pending_uploads: Vec::new(),
-
             descriptor_heap_alloc: descriptor_heap,
-            unmanaged_free_handles: Vec::new(),
-            unmanaged_index: 0,
-            unmanaged_temporary_index: 0,
-
+            // unmanaged_free_handles: Vec::new(),
+            // unmanaged_index: 0,
+            // unmanaged_temporary_index: 0,
             gpu: gpu.clone(),
         })
     }
@@ -69,36 +62,26 @@ impl TextureAllocator {
         gpu: &Arc<Gpu>,
         delta: &TexturesDelta,
     ) -> Result<(), RenderError> {
-        self.upload_fence.wait()?;
+        gpu.immediate_pool
+            .scope_immediate(|cmd| {
+                for (tid, delta) in &delta.set {
+                    if delta.is_whole() {
+                        self.allocate_new(cmd, *tid, &delta.image)?;
+                    } else {
+                        let _did_update =
+                            self.update_partial(cmd, *tid, &delta.image, delta.pos.unwrap())?;
+                    }
+                }
 
-        self.upload_command_list
-            .begin()
-            .expect("begin upload_command_list");
-        for (tid, delta) in &delta.set {
-            if delta.is_whole() {
-                self.allocate_new(gpu, *tid, &delta.image)?;
-            } else {
-                let _did_update =
-                    self.update_partial(gpu, *tid, &delta.image, delta.pos.unwrap())?;
-            }
-        }
+                Ok(())
+            })
+            .expect("process_deltas scope_immediate");
+
+        // Deallocate pending upload buffers
+        self.pending_uploads.clear();
 
         for tid in &delta.free {
             self.free(*tid);
-        }
-        self.upload_command_list
-            .end()
-            .expect("end upload_command_list");
-
-        gpu.queue
-            .execute_command_lists(std::slice::from_ref(&self.upload_command_list));
-        self.upload_fence.signal(&gpu.queue);
-
-        for upload_buffer in self.pending_uploads.drain(..) {
-            gpu.allocator
-                .lock()
-                .free_resource(upload_buffer)
-                .expect("Failed to free upload buffer");
         }
 
         Ok(())
@@ -173,7 +156,6 @@ impl TextureAllocator {
         // })
         {
             self.descriptor_heap_alloc.free(removed.cpu_handle);
-            self.gpu.allocator.lock().free_resource(removed.resource);
             true
         } else {
             false
@@ -193,18 +175,18 @@ impl Drop for TextureAllocator {
 impl TextureAllocator {
     fn allocate_new(
         &mut self,
-        gpu: &Gpu,
+        cmd: &d3d12::GraphicsCommandList,
         tid: TextureId,
         image: &ImageData,
     ) -> Result<(), RenderError> {
-        let tex = self.allocate_texture(gpu, image)?;
+        let tex = self.allocate_texture(cmd, image)?;
         self.allocated.insert(tid, tex);
         Ok(())
     }
 
     fn update_partial(
         &mut self,
-        gpu: &Arc<Gpu>,
+        cmd: &d3d12::GraphicsCommandList,
         tid: TextureId,
         image: &ImageData,
         [nx, ny]: [usize; 2],
@@ -234,7 +216,7 @@ impl TextureAllocator {
                 }
             }
 
-            self.upload_texture(gpu, &tex)?;
+            self.upload_texture(cmd, &tex)?;
 
             self.allocated.insert(tid, tex);
 
@@ -246,7 +228,7 @@ impl TextureAllocator {
 
     fn allocate_texture(
         &mut self,
-        gpu: &Gpu,
+        cmd: &d3d12::GraphicsCommandList,
         image: &ImageData,
     ) -> Result<ManagedTexture, RenderError> {
         let ImageData::Color(image) = image;
@@ -262,10 +244,9 @@ impl TextureAllocator {
             .mip_levels(1)
             .format(Format::R8g8b8a8Unorm);
 
-        let tex = gpu
-            .allocator
-            .lock()
-            .create_resource(&ResourceCreateDesc {
+        let tex = self
+            .gpu
+            .allocate_resource(&ResourceCreateDesc {
                 name: "egui texture",
                 memory_location: MemoryLocation::GpuOnly,
                 resource_category: ResourceCategory::OtherTexture,
@@ -279,8 +260,8 @@ impl TextureAllocator {
             })
             .expect("Failed to create texture resource");
 
-        gpu.create_shader_resource_view(
-            Some(tex.resource().as_ref()),
+        self.gpu.create_shader_resource_view(
+            Some(tex.resource()),
             Some(&ShaderResourceViewDesc::texture_2d(
                 Format::R8g8b8a8Unorm,
                 0,
@@ -299,76 +280,56 @@ impl TextureAllocator {
             gpu_handle,
         };
 
-        self.upload_texture(gpu, &tex)?;
+        self.upload_texture(cmd, &tex)?;
 
         Ok(tex)
     }
 
     /// Upload the texture data for an allocated texture
-    fn upload_texture(&mut self, gpu: &Gpu, texture: &ManagedTexture) -> Result<(), RenderError> {
-        self.upload_command_list
-            .resource_barriers(&[ResourceBarrier::transition(
-                texture.resource.resource().as_ref(),
-                0,
-                ResourceStates::COMMON,
-                ResourceStates::COPY_DEST,
-            )]);
+    fn upload_texture(
+        &mut self,
+        cmd: &d3d12::GraphicsCommandList,
+        texture: &ManagedTexture,
+    ) -> Result<(), RenderError> {
+        cmd.resource_barriers(&[ResourceBarrier::transition(
+            texture.resource.resource(),
+            0,
+            ResourceStates::COMMON,
+            ResourceStates::COPY_DEST,
+        )]);
 
         let footprint =
-            gpu.get_copyable_footprints(&texture.resource.resource().as_ref().desc(), 0, 1, 0)?;
+            self.gpu
+                .get_copyable_footprints(&texture.resource.resource().desc(), 0, 1, 0)?;
 
-        let upload_desc = d3d12::ResourceDesc::buffer(footprint.total_bytes);
+        let upload_buffer = self
+            .gpu
+            .allocate_upload_buffer(footprint.total_bytes)
+            .expect("Failed to allocate upload buffer");
 
-        let upload_buffer = gpu
-            .allocator
-            .lock()
-            .create_resource(&ResourceCreateDesc {
-                name: "egui texture upload buffer",
-                memory_location: MemoryLocation::CpuToGpu,
-                resource_category: ResourceCategory::Buffer,
-                resource_desc: upload_desc.as_ref(),
-                castable_formats: &[],
-                clear_value: None,
-                initial_state_or_layout: ResourceStateOrBarrierLayout::ResourceState(
-                    d3d12::D3D12_RESOURCE_STATE_GENERIC_READ,
-                ),
-                resource_type: &gpu_allocator::d3d12::ResourceType::Placed,
-            })
-            .expect("Failed to create texture upload buffer");
-
-        let mut mapped_ptr = std::ptr::null_mut();
-        unsafe {
-            upload_buffer
-                .resource()
-                .Map(0, None, Some(&mut mapped_ptr))
-                .expect("Failed to map upload buffer");
-        }
+        let mapped_ptr = upload_buffer
+            .resource()
+            .map(0)
+            .expect("Failed to map upload buffer");
         let data = bytemuck::cast_slice::<Color32, u8>(&texture.pixels);
         unsafe {
-            std::ptr::copy_nonoverlapping(data.as_ptr(), mapped_ptr as *mut u8, data.len());
+            mapped_ptr.copy_from_nonoverlapping(data.as_ptr(), data.len());
         }
-        unsafe {
-            upload_buffer.resource().Unmap(0, None);
-        }
+        upload_buffer.resource().unmap(0);
 
-        let src = TextureCopyLocation::placed_footprint(
-            upload_buffer.resource().as_ref(),
-            footprint.layouts[0],
-        );
+        let src =
+            TextureCopyLocation::placed_footprint(upload_buffer.resource(), footprint.layouts[0]);
 
-        let dst = TextureCopyLocation::subresource(texture.resource.resource().as_ref(), 0);
+        let dst = TextureCopyLocation::subresource(texture.resource.resource(), 0);
 
-        self.upload_command_list
-            .copy_texture_region(&src, None, &dst, (0, 0, 0));
+        cmd.copy_texture_region(&src, None, &dst, (0, 0, 0));
 
-        self.upload_command_list
-            .resource_barriers(&[ResourceBarrier::transition(
-                texture.resource.resource().as_ref(),
-                0,
-                ResourceStates::COPY_DEST,
-                ResourceStates::COMMON,
-            )]);
-
+        cmd.resource_barriers(&[ResourceBarrier::transition(
+            texture.resource.resource(),
+            0,
+            ResourceStates::COPY_DEST,
+            ResourceStates::COMMON,
+        )]);
         self.pending_uploads.push(upload_buffer);
 
         Ok(())
@@ -377,8 +338,6 @@ impl TextureAllocator {
 
 pub struct DescriptorHeapAllocator {
     pub descriptor_heap: d3d12::DescriptorHeap,
-    heap_type: DescriptorHeapType,
-    size: usize,
     free_list: Vec<usize>,
 
     increment_size: u32,
@@ -399,8 +358,6 @@ impl DescriptorHeapAllocator {
             gpu_handle_base: descriptor_heap.gpu_descriptor_handle_for_heap_start(),
             increment_size: device.descriptor_handle_increment_size(heap_type),
             descriptor_heap,
-            heap_type,
-            size,
             free_list: (0..size).collect(),
         })
     }
