@@ -232,7 +232,7 @@ impl DxgiFormat {
         )
     }
 
-    pub fn calculate_pitch(&self, width: u32, height: u32) -> (u32, u32) {
+    pub fn calculate_pitch(&self, width: u32, height: u32) -> (usize, usize) {
         match self.0 {
             d3d12::Format::Bc1Typeless
             | d3d12::Format::Bc1Unorm
@@ -240,8 +240,8 @@ impl DxgiFormat {
             | d3d12::Format::Bc4Typeless
             | d3d12::Format::Bc4Unorm
             | d3d12::Format::Bc4Snorm => {
-                let nbw = ((width as i64 + 3) / 4).clamp(1, i64::MAX) as u32;
-                let nbh = ((height as i64 + 3) / 4).clamp(1, i64::MAX) as u32;
+                let nbw = ((width as i64 + 3) / 4).clamp(1, i64::MAX) as usize;
+                let nbh = ((height as i64 + 3) / 4).clamp(1, i64::MAX) as usize;
 
                 let pitch = nbw * 8;
                 (pitch, pitch * nbh)
@@ -261,15 +261,15 @@ impl DxgiFormat {
             | d3d12::Format::Bc7Typeless
             | d3d12::Format::Bc7Unorm
             | d3d12::Format::Bc7UnormSrgb => {
-                let nbw = ((width as i64 + 3) / 4).clamp(1, i64::MAX) as u32;
-                let nbh = ((height as i64 + 3) / 4).clamp(1, i64::MAX) as u32;
+                let nbw = ((width as i64 + 3) / 4).clamp(1, i64::MAX) as usize;
+                let nbh = ((height as i64 + 3) / 4).clamp(1, i64::MAX) as usize;
 
                 let pitch = nbw * 16;
                 (pitch, pitch * nbh)
             }
             _ => {
-                let pitch = (width * self.bpp()).div_ceil(8);
-                (pitch, height * pitch)
+                let pitch = (width * self.bpp()).div_ceil(8) as usize;
+                (pitch, height as usize * pitch)
             }
         }
     }

@@ -84,9 +84,47 @@ impl Texture {
 
         let upload_buffer = gpu.allocate_upload_buffer(footprint.total_bytes)?;
         unsafe {
-            let data = upload_buffer.resource().map(0)?;
+            let dst_base = upload_buffer.resource().map(0)?;
 
-            data.copy_from_nonoverlapping(texture_data.as_ptr(), texture_data.len());
+            let mut src_offset: usize = 0;
+
+            for (subresource_idx, layout) in footprint.layouts.iter().enumerate() {
+                let mip = subresource_idx as u32 % texture.mip_count as u32;
+
+                let mip_width = (texture.width >> mip).max(1) as u32;
+                let mip_height = (texture.height >> mip).max(1) as u32;
+                let mip_depth = (texture.depth >> mip).max(1) as u32;
+
+                let (src_row_pitch, _) = texture.format.calculate_pitch(mip_width, mip_height);
+
+                let block_height: u32 = if texture.format.is_compressed() {
+                    mip_height.div_ceil(4)
+                } else {
+                    mip_height
+                };
+
+                let dst_slice_pitch = layout.footprint.row_pitch as usize * block_height as usize;
+
+                for depth_slice in 0..mip_depth as usize {
+                    for row in 0..block_height as usize {
+                        let src_ptr = texture_data.as_ptr().add(
+                            src_offset
+                                + depth_slice * src_row_pitch * block_height as usize
+                                + row * src_row_pitch,
+                        );
+
+                        let dst_ptr = dst_base.add(
+                            layout.offset as usize
+                                + depth_slice * dst_slice_pitch
+                                + row * layout.footprint.row_pitch as usize,
+                        );
+
+                        std::ptr::copy_nonoverlapping(src_ptr, dst_ptr, src_row_pitch);
+                    }
+                }
+
+                src_offset += src_row_pitch * block_height as usize * mip_depth as usize;
+            }
 
             upload_buffer.resource().unmap(0);
         }
