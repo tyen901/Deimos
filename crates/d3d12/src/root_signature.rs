@@ -24,7 +24,13 @@ pub struct RootSignatureBuilder<'a> {
 }
 
 impl<'a> RootSignatureBuilder<'a> {
-    pub fn add_param(mut self, param: RootParameter<'a>, visibility: ShaderVisibility) -> Self {
+    pub fn with_param(mut self, param: RootParameter<'a>, visibility: ShaderVisibility) -> Self {
+        self.add_param(param, visibility);
+        self
+    }
+
+    pub fn add_param(&mut self, param: RootParameter<'a>, visibility: ShaderVisibility) -> usize {
+        let index = self.parameters.len();
         let param_ffi = match param {
             RootParameter::DescriptorTable(descriptor_ranges) => D3D12_ROOT_PARAMETER {
                 ParameterType: D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
@@ -93,13 +99,17 @@ impl<'a> RootSignatureBuilder<'a> {
         };
 
         self.parameters.push(param_ffi);
+        index
+    }
+
+    pub fn with_sampler(mut self, desc: StaticSamplerDesc) -> Self {
+        self.add_sampler(desc);
         self
     }
 
-    pub fn add_sampler(mut self, desc: StaticSamplerDesc) -> Self {
+    pub fn add_sampler(&mut self, desc: StaticSamplerDesc) {
         self.static_samplers
             .push(unsafe { transmute::<StaticSamplerDesc, D3D12_STATIC_SAMPLER_DESC>(desc) });
-        self
     }
 
     pub fn flags(mut self, flags: RootSignatureFlags) -> Self {
@@ -152,7 +162,7 @@ impl TryInto<Vec<u8>> for RootSignatureBuilder<'_> {
 }
 
 #[repr(C)]
-#[derive(Builder)]
+#[derive(Builder, Clone)]
 #[builder(start_fn = "_builder_internal")]
 pub struct StaticSamplerDesc {
     #[builder(default = Filter::MinMagMipLinear)]
@@ -227,6 +237,7 @@ pub struct DescriptorRange {
 verify_ffi_type!(DescriptorRange, D3D12_DESCRIPTOR_RANGE);
 
 #[repr(i32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DescriptorRangeType {
     Srv = D3D12_DESCRIPTOR_RANGE_TYPE_SRV.0,
     Uav = D3D12_DESCRIPTOR_RANGE_TYPE_UAV.0,
@@ -235,6 +246,7 @@ pub enum DescriptorRangeType {
 }
 
 #[repr(i32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ShaderVisibility {
     All = D3D12_SHADER_VISIBILITY_ALL.0,
     Amplification = D3D12_SHADER_VISIBILITY_AMPLIFICATION.0,

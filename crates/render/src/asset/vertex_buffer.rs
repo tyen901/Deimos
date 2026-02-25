@@ -99,6 +99,10 @@ impl VertexBuffer {
         );
     }
 
+    pub fn virtual_address(&self) -> d3d12::GpuVirtualAddress {
+        self.resource.resource().gpu_virtual_address()
+    }
+
     // /// # Safety
     // ///
     // /// The caller must ensure that the data fits within the buffer.

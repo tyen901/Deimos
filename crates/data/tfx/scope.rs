@@ -34,5 +34,5 @@ impl SScope {
 #[derive(Clone)]
 #[tiger_type(id = 0xffffffff, size = 0x80)]
 pub struct SScopeStage {
-    pub constants: SDynamicCore,
+    pub core: SDynamicCore,
 }

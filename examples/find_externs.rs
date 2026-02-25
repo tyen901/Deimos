@@ -81,7 +81,7 @@ fn main() -> anyhow::Result<()> {
             continue;
         };
         for (s, _) in scope.iter_stages() {
-            process_constants(&s.constants);
+            process_constants(&s.core);
         }
     }
 

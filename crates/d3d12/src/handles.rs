@@ -8,6 +8,12 @@ use windows::Win32::Graphics::Direct3D12::{
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct GpuVirtualAddress(pub(crate) u64);
 
+impl GpuVirtualAddress {
+    pub fn offset(&self, offset_in_bytes: usize) -> Self {
+        Self(self.0 + offset_in_bytes as u64)
+    }
+}
+
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CpuDescriptorHandle(usize);

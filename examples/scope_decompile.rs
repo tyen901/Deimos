@@ -29,7 +29,7 @@ fn main() -> anyhow::Result<()> {
     for (scope, stage) in scope.iter_stages() {
         println!("// Stage: {stage:?}");
         println!("\t// Disassembly:");
-        match expression_vm::disassemble(&scope.constants.bytecode) {
+        match expression_vm::disassemble(&scope.core.bytecode) {
             Ok(lines) => {
                 for line in lines {
                     println!("\t{line}");
@@ -42,9 +42,9 @@ fn main() -> anyhow::Result<()> {
         }
 
         println!("\t// Decompiled assignments:");
-        match DecompilerState::new(&scope.constants.bytecode)
+        match DecompilerState::new(&scope.core.bytecode)
             .with_ansi(true)
-            .evaluate(&scope.constants.bytecode_constants)
+            .evaluate(&scope.core.bytecode_constants)
         {
             Ok(o) => {
                 println!("\t{}", o.pretty_print().split("\n").join("\n\t"));

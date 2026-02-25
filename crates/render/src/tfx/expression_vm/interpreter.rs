@@ -1,17 +1,13 @@
 use core::f32;
 use std::arch::x86_64::{__m128, _mm_fmadd_ps};
-use std::mem::transmute;
 use std::ops::{Add, Mul, Sub};
 
-use anyhow::{ensure, Context};
-use d3d11::SamplerState;
-use deimos_data::tfx::{ExternIndex, ShaderStage};
+use anyhow::{Context, ensure};
+use deimos_data::tfx::ExternIndex;
 use glam::{Mat4, Vec4, Vec4Swizzles};
 
-use crate::gpu::command_list::ContextExt;
-use crate::tfx::externs::{ExternAccessor, ExternAccessorExt, TextureView, Uav};
+use crate::tfx::externs::{ExternAccessor, ExternAccessorExt};
 use crate::util::math::Vec4Ext;
-use crate::Renderer;
 
 use super::opcodes::Opcode;
 
@@ -24,7 +20,6 @@ pub struct InterpreterState<'a> {
     data: &'a [u8],
     pub ip: usize,
     object_channels: Option<&'a TempObjectChannels>,
-    context: Option<&'a d3d11::DeviceContext>,
     externs: Option<&'a dyn ExternAccessor>,
 
     stack: [Vec4; 32],
@@ -40,7 +35,6 @@ impl<'a> InterpreterState<'a> {
             ip: 0,
             data,
             object_channels: None,
-            context: None,
             externs: None,
             stack: [Vec4::ZERO; 32],
             stack_pointer: 0,
@@ -61,11 +55,6 @@ impl<'a> InterpreterState<'a> {
 
     pub fn with_externs(mut self, externs: &'a dyn ExternAccessor) -> Self {
         self.externs = Some(externs);
-        self
-    }
-
-    pub fn with_d3d11_context(mut self, context: &'a d3d11::DeviceContext) -> Self {
-        self.context = Some(context);
         self
     }
 
@@ -137,12 +126,7 @@ impl<'a> InterpreterState<'a> {
     // }
 
     #[profiling::function]
-    pub fn evaluate(
-        &mut self,
-        constants: &[Vec4],
-        samplers: &[Option<SamplerState>],
-        out: &mut [Vec4],
-    ) -> anyhow::Result<()> {
+    pub fn evaluate(&mut self, constants: &[Vec4], out: &mut [Vec4]) -> anyhow::Result<()> {
         let mut cached_top = Vec4::ZERO;
 
         macro_rules! set_top {
@@ -465,115 +449,22 @@ impl<'a> InterpreterState<'a> {
                     cached_top = self.pop_top();
                 }
                 Opcode::PopTextureView => {
-                    let Some(context) = self.context else {
-                        anyhow::bail!("No D3D11 context set");
-                    };
-                    let Some(externs) = self.externs else {
-                        anyhow::bail!("No externs set");
-                    };
-
-                    let shader_stage = ShaderStage::from_index(ptr[1] >> 5)
-                        .context("Invalid shader stage value")?;
-                    let slot = ptr[1] & 0x1F;
-                    let bits = cached_top.x.to_bits();
-
-                    let index = ExternIndex::try_from((bits >> 24) as u8)
-                        .ok()
-                        .context("Invalid extern index on pop texture view")?;
-                    let offset = bits & 0xFFFFFF;
-
-                    externs
-                        .get_extern_value::<TextureView>(index, offset as usize)
-                        .and_then(|o| {
-                            let mut r = None;
-                            o.get_srv(|srv| {
-                                r = Some(());
-                                context.set_shader_resource(shader_stage, slot as u32, srv);
-                            });
-                            r
-                        })
-                        .unwrap_or_else(|| {
-                            Renderer::instance().get_extern_placeholder_texture(
-                                index,
-                                offset as usize,
-                                |tex, _| {
-                                    context.set_shader_resource(
-                                        shader_stage,
-                                        slot as u32,
-                                        &tex.view,
-                                    );
-                                },
-                            )
-                        });
+                    anyhow::bail!(
+                        "PopTextureView is not supported (DynamicCore should have stripped it)"
+                    );
                 }
                 Opcode::PopSamplerState => {
-                    let Some(context) = self.context else {
-                        anyhow::bail!("No D3D11 context set");
-                    };
-
-                    let shader_stage = ShaderStage::from_index(ptr[1] >> 5)
-                        .context("Invalid shader stage value")?;
-                    let slot = ptr[1] & 0x1F;
-                    let index = cached_top.x.to_bits();
-                    cached_top = self.pop_top();
-                    anyhow::ensure!(index < samplers.len() as u32, "Invalid sampler index");
-                    let sampler = &samplers[index as usize];
-                    context.set_sampler(shader_stage, slot as u32, sampler.as_ref());
+                    anyhow::bail!(
+                        "PopSamplerState is not supported (DynamicCore should have stripped it)"
+                    );
                 }
                 Opcode::PopUav => {
-                    let Some(context) = self.context else {
-                        anyhow::bail!("No D3D11 context set");
-                    };
-                    let Some(externs) = self.externs else {
-                        anyhow::bail!("No externs set");
-                    };
-
-                    let shader_stage = ShaderStage::from_index(ptr[1] >> 5)
-                        .context("Invalid shader stage value")?;
-                    if shader_stage != ShaderStage::Compute {
-                        anyhow::bail!("Invalid shader stage for binding a UAV");
-                    }
-                    let slot = ptr[1] & 0x1F;
-                    let bits = cached_top.x.to_bits();
-
-                    let index = ExternIndex::try_from((bits >> 24) as u8)
-                        .ok()
-                        .context("Invalid extern index on pop texture view")?;
-                    let offset = bits & 0xFFFFFF;
-
-                    externs
-                        .get_extern_value::<Uav>(index, offset as usize)
-                        .and_then(|o| {
-                            let mut r = None;
-                            o.get_uav(|uav| {
-                                r = Some(());
-                                context.compute_set_unordered_access_views(
-                                    slot as u32,
-                                    &[Some(uav)],
-                                    None,
-                                );
-                            });
-                            r
-                        })
-                        .unwrap_or_else(|| {
-                            Renderer::instance().get_extern_placeholder_texture(
-                                index,
-                                offset as usize,
-                                |_, uav| {
-                                    context.compute_set_unordered_access_views(
-                                        slot as u32,
-                                        &[Some(uav)],
-                                        None,
-                                    );
-                                },
-                            )
-                        });
+                    anyhow::bail!("PopUav is not supported (DynamicCore should have stripped it)");
                 }
                 Opcode::PushSamplerState => {
-                    let index = ptr[1];
-                    anyhow::ensure!(index < samplers.len() as u8, "Invalid sampler index");
-                    cached_top =
-                        self.push(Vec4::new(f32::from_bits(index as u32), 0.0, 0.0, 0.0))?;
+                    anyhow::bail!(
+                        "PushSamplerState is not supported (DynamicCore should have stripped it)"
+                    );
                 }
                 Opcode::PushExternInputFloat => {
                     let Some(externs) = self.externs else {
@@ -707,14 +598,16 @@ impl<'a> InterpreterState<'a> {
                 // }
                 Opcode::Unknown0x5e | Opcode::PushGlobalChannelVector => {
                     let channel = ptr[1];
+
                     // Direct indexing is safe here, as globals is 256 elements long
-                    let val = Renderer::instance().externs.globals[channel as usize];
-                    // let val = match channel {
-                    //     124 => Vec4::X * 0.1,  // 138 in tfs
-                    //     125 => Vec4::X * 1.0,  // 139 in tfs
-                    //     128 => Vec4::X * 10.0, // ????
-                    //     _ => Vec4::ONE,
-                    // };
+                    // let val = Renderer::instance().externs.globals[channel as usize];
+                    warn!("TODO: global channels");
+                    let val = match channel {
+                        124 => Vec4::X * 0.1,  // 138 in tfs
+                        125 => Vec4::X * 1.0,  // 139 in tfs
+                        128 => Vec4::X * 10.0, // ????
+                        _ => Vec4::ONE,
+                    };
                     cached_top = self.push(val)?;
                 }
                 Opcode::PushObjectChannelVector => {

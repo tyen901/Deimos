@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use glam::Vec4;
 use int_enum::IntEnum;
 use tiger_parse::{tiger_type, TigerReadable};
@@ -59,6 +61,12 @@ pub struct STerrainMeshPart {
     pub index_count: u16,
     pub group_index: u8,
     pub detail_level: TerrainDetailLevel,
+}
+
+impl STerrainMeshPart {
+    pub fn index_range(&self) -> Range<u32> {
+        self.index_start..self.index_start + self.index_count as u32
+    }
 }
 
 #[repr(u8)]

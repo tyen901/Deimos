@@ -16,10 +16,11 @@ use d3d12::{ResourceBarrier, ResourceStates};
 use deimos_core::job::SCHEDULER;
 use deimos_data::{
     strings::{StringContainer, StringContainerShared},
-    tag::WideHash,
+    tag::{Tag, WideHash},
 };
 use deimos_render::{
     asset::{index_buffer::IndexBuffer, texture::Texture, vertex_buffer::VertexBuffer},
+    features::terrain_patches::TerrainPatchesRenderer,
     gpu::Gpu,
     renderer::Renderer,
     tfx::technique::Technique,
@@ -66,9 +67,12 @@ impl App {
         //     };
         // }
 
-        if let Err(e) = Technique::load(&gpu, TagHash(0x80AB0C4B)) {
-            error!("Failed to create technique: {:?}", e);
-        }
+        renderer.asset_manager.load::<Texture>(TagHash(0x80A37371));
+        // let terrain = TerrainPatchesRenderer::load(&renderer, TagHash(0x80B34AD6), 0)?;
+
+        // if let Err(e) = Technique::load(&gpu, TagHash(0x80AB0C4B)) {
+        //     error!("Failed to create technique: {:?}", e);
+        // }
 
         Ok(Self {
             // _spinner: FullscreenSpinner::create(&renderer.gpu)?,

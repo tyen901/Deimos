@@ -1,15 +1,17 @@
 use std::any::Any;
 
-use deimos_data::tfx::features::dynamic::RenderStageSubscription;
+pub mod terrain_patches;
 
-use crate::renderer::Renderer;
+use deimos_data::tfx::{RenderStage, features::dynamic::RenderStageSubscription};
+
+use crate::{gpu::command_list::CommandList, renderer::Renderer};
 
 pub trait FeatureRenderer {
     fn extract(&mut self, renderer: &Renderer, data: &dyn Any);
 
     fn prepare(&mut self, renderer: &Renderer);
 
-    // fn submit(&self, cmd: &mut CommandList, view_index: usize, stage: RenderStage);
+    fn submit(&self, cmd: &mut CommandList, stage: RenderStage);
 
     // fn submit_parallel(
     //     &self,

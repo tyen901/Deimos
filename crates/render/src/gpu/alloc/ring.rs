@@ -51,6 +51,7 @@ impl UploadRing {
                 ptr: unsafe { self.mapped_ptr.add(start) },
                 len: size,
                 capacity: size_aligned,
+                gpu_va: self.gpu_base.offset(start),
             })
         }
     }
@@ -60,6 +61,8 @@ pub struct RingSlice {
     ptr: *const u8,
     len: usize,
     capacity: usize,
+
+    gpu_va: d3d12::GpuVirtualAddress,
 }
 
 impl RingSlice {
@@ -85,5 +88,13 @@ impl RingSlice {
 
     pub fn as_slice(&self) -> &[u8] {
         unsafe { std::slice::from_raw_parts(self.ptr, self.len) }
+    }
+
+    pub fn as_mut_slice(&mut self) -> &mut [u8] {
+        unsafe { std::slice::from_raw_parts_mut(self.ptr as *mut u8, self.len) }
+    }
+
+    pub fn virtual_address(&self) -> d3d12::GpuVirtualAddress {
+        self.gpu_va
     }
 }

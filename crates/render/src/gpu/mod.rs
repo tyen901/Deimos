@@ -42,8 +42,10 @@ use windows::{
 };
 
 use crate::gpu::{
-    alloc::resource::OwnedResource, frame::FrameContext,
-    native_command_list::NativeCommandListPool, pipeline_cache::PipelineCache,
+    alloc::{descriptors::DescriptorHeapAllocator, resource::OwnedResource},
+    frame::FrameContext,
+    native_command_list::NativeCommandListPool,
+    pipeline_cache::PipelineCache,
 };
 
 pub struct Gpu {
@@ -61,6 +63,7 @@ pub struct Gpu {
     pub(crate) frame_fence: GpuFence,
 
     pub immediate_pool: NativeCommandListPool,
+    pub view_heap: Mutex<DescriptorHeapAllocator>,
 }
 
 unsafe impl Sync for Gpu {}
@@ -142,6 +145,12 @@ impl Gpu {
 
         let window_size = window.size();
         Ok(Self {
+            view_heap: Mutex::new(DescriptorHeapAllocator::new(
+                &device,
+                d3d12::DescriptorHeapType::CbvSrvUav,
+                1_000_000,
+                false,
+            )?),
             pipeline_cache: Mutex::new(PipelineCache::new(device.clone())),
             immediate_pool: NativeCommandListPool::new(device.clone(), queue.clone())?,
             queue,

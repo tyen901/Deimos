@@ -23,7 +23,7 @@ fn main() -> anyhow::Result<()> {
         println!("=== Scope {} ===", scope.name.0);
 
         for (scope, stage) in scope.iter_stages() {
-            if scope.constants.bytecode.is_empty() {
+            if scope.core.bytecode.is_empty() {
                 continue;
             }
 
@@ -42,9 +42,9 @@ fn main() -> anyhow::Result<()> {
             // }
 
             println!("\t// Decompiled assignments:");
-            match DecompilerState::new(&scope.constants.bytecode)
+            match DecompilerState::new(&scope.core.bytecode)
                 .with_ansi(true)
-                .evaluate(&scope.constants.bytecode_constants)
+                .evaluate(&scope.core.bytecode_constants)
             {
                 Ok(o) => {
                     println!("\t{}", o.pretty_print().split("\n").join("\n\t"));

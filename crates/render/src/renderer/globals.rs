@@ -8,12 +8,15 @@ use deimos_data::tfx::{
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::{TagHash, package_manager};
 
-use crate::{asset::texture::Texture, gpu::Gpu, tfx::technique::Technique};
+use crate::{
+    asset::texture::Texture,
+    gpu::Gpu,
+    tfx::{scope::Scope, technique::Technique},
+};
 
 pub struct RenderGlobals {
     // pub scopes: GlobalScopes,
-    pub pipelines: GlobalPipelines,
-
+    // pub pipelines: GlobalPipelines,
     pub textures: GlobalTextures,
     pub channels: SRenderGlobalsGlobalChannels,
     // pub unk34: SUnk8080822d,
@@ -26,7 +29,7 @@ impl RenderGlobals {
 
         Ok(Self {
             // scopes: GlobalScopes::load(gpu, globs),
-            pipelines: GlobalPipelines::load(gpu, globs),
+            // pipelines: GlobalPipelines::load(gpu, globs),
             textures: GlobalTextures::load(gpu, globs)?,
             channels: globs.global_channels.0.clone(),
             // unk34: globs.unk34.0.clone(),
@@ -58,42 +61,41 @@ impl GlobalTextures {
     }
 }
 
-// macro_rules! tfx_global_scopes {
-//     ($($name:ident),*) => {
-//         pub struct GlobalScopes {
-//             $(
-//                 pub $name: Box<Scope>,
-//             )*
-//         }
+macro_rules! tfx_global_scopes {
+    ($($name:ident),*) => {
+        pub struct GlobalScopes {
+            $(
+                pub $name: Box<Scope>,
+            )*
+        }
 
-//         impl GlobalScopes {
-//             pub fn load(gpu: &Arc<Gpu>, globals: &SRenderGlobalsData) -> Self {
-//                 let scopes: HashMap<String, TagHash> = globals.scopes.iter().map(|p| (p.name.to_string(), p.scope)).collect();
+        impl GlobalScopes {
+            pub fn load(_gpu: &Arc<Gpu>, globals: &SRenderGlobalsData) -> Self {
+                let scopes: HashMap<String, TagHash> = globals.scopes.iter().map(|p| (p.name.to_string(), p.scope)).collect();
 
-//                 Self {
-//                     $(
-//                         $name: Box::new(Scope::load(
-//                             gpu,
-//                             *scopes.get(stringify!($name))
-//                                 .expect(&format!("Scope {} does not exist", stringify!($name))),
-//                         )
-//                         .expect("Failed to load scope")),
-//                     )*
-//                 }
-//             }
-//         }
-//     };
-// }
+                Self {
+                    $(
+                        $name: Box::new(Scope::load(
+                            *scopes.get(stringify!($name))
+                                .expect(&format!("Scope {} does not exist", stringify!($name))),
+                        )
+                        .expect("Failed to load scope")),
+                    )*
+                }
+            }
+        }
+    };
+}
 
-// tfx_global_scopes! {
-//     frame, view, rigid_model, editor_mesh, editor_terrain,
-//     cui_view, cui_object, skinning, speedtree, chunk_model,
-//     decal, instances, speedtree_lod_drawcall_data, transparent,
-//     transparent_advanced, sdsm_bias_and_scale_textures, terrain,
-//     postprocess, cui_bitmap, cui_standard, ui_font, cui_hud,
-//     particle_transforms, particle_location_metadata, cubemap_volume,
-//     gear_plated_textures, generic_array
-// }
+tfx_global_scopes! {
+    frame, view, rigid_model, editor_mesh, editor_terrain,
+    cui_view, cui_object, skinning, speedtree, chunk_model,
+    decal, instances, speedtree_lod_drawcall_data, transparent,
+    transparent_advanced, sdsm_bias_and_scale_textures, terrain,
+    postprocess, cui_bitmap, cui_standard, ui_font, cui_hud,
+    particle_transforms, particle_location_metadata, cubemap_volume,
+    gear_plated_textures, generic_array
+}
 
 macro_rules! tfx_global_pipelines {
     ($($name:ident),*) => {

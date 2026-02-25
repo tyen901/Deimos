@@ -52,8 +52,8 @@ impl D3D12Renderer {
 
         let root_signature_raw = RootSignatureBuilder::default()
             .flags(RootSignatureFlags::ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT)
-            .add_sampler(d3d12::StaticSamplerDesc::builder(0, 0).build())
-            .add_param(
+            .with_sampler(d3d12::StaticSamplerDesc::builder(0, 0).build())
+            .with_param(
                 d3d12::RootParameter::DescriptorTable(&[DescriptorRange {
                     base_shader_register: 0,
                     register_space: 0,
