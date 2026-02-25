@@ -1,11 +1,11 @@
 use std::ops::Deref;
 
-use d3d12::ext::{GpuFence, GpuFenceWaiter};
+use d3d12::ext::GpuFence;
 use parking_lot::Mutex;
 
 pub struct NativeCommandList {
     command_allocator: d3d12::CommandAllocator,
-    command_list: d3d12::GraphicsCommandList,
+    pub command_list: d3d12::GraphicsCommandList,
 }
 
 impl NativeCommandList {

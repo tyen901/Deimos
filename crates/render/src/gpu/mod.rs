@@ -63,7 +63,7 @@ pub struct Gpu {
     pub(crate) frame_fence: GpuFence,
 
     pub immediate_pool: NativeCommandListPool,
-    pub view_heap: Mutex<DescriptorHeapAllocator>,
+    pub resource_heap: Mutex<DescriptorHeapAllocator>,
 }
 
 unsafe impl Sync for Gpu {}
@@ -145,7 +145,7 @@ impl Gpu {
 
         let window_size = window.size();
         Ok(Self {
-            view_heap: Mutex::new(DescriptorHeapAllocator::new(
+            resource_heap: Mutex::new(DescriptorHeapAllocator::new(
                 &device,
                 d3d12::DescriptorHeapType::CbvSrvUav,
                 1_000_000,
@@ -234,15 +234,6 @@ impl Gpu {
     pub fn present(&self, vsync: bool) {
         self.swapchain.lock().present(vsync);
     }
-
-    // pub fn acquire_rtv(&self) -> d3d12::RenderTargetView {
-    //     self.swapchain
-    //         .lock()
-    //         .swapchain_target
-    //         .as_ref()
-    //         .unwrap()
-    //         .clone()
-    // }
 
     pub fn swapchain_resolution(&self) -> (u32, u32) {
         self.swapchain.lock().swapchain_resolution

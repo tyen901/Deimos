@@ -81,6 +81,12 @@ impl Scope {
     pub fn all_stages(&self) -> [&ScopeStage; 2] {
         [&self.stage_vertex, &self.stage_pixel]
     }
+
+    pub fn stage_by_visibility(&self, visibility: d3d12::ShaderVisibility) -> Option<&ScopeStage> {
+        self.all_stages()
+            .into_iter()
+            .find(|stage| stage.visibility == visibility)
+    }
 }
 
 pub struct ScopeStage {
@@ -99,9 +105,4 @@ impl ScopeStage {
             visibility: shader_visibility,
         })
     }
-}
-
-/// Information necessary to build root signatures for scopes
-pub struct ScopeSignature {
-    pub texture_slots: Vec<u32>,
 }

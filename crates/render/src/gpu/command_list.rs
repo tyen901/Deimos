@@ -1,5 +1,6 @@
 use std::{ops::Deref, sync::Arc};
 
+use d3d12::GraphicsCommandList;
 use deimos_data::tfx::{FixedFunctionState, PrimitiveType};
 use tiger_pkg::TagHash;
 
@@ -9,7 +10,7 @@ use super::{Gpu, global_state};
 
 pub struct CommandList {
     parent: Arc<Gpu>,
-    pub(crate) cmd: NativeCommandList,
+    pub(crate) cmd: GraphicsCommandList,
 
     pub state: FixedFunctionState,
     pub state_override: FixedFunctionState,
@@ -33,14 +34,14 @@ impl Deref for CommandList {
 }
 
 impl CommandList {
-    pub fn new(gpu: &Arc<Gpu>) -> Self {
-        Self::from_native_command_list(
-            gpu,
-            NativeCommandList::new(&gpu.device).expect("Failed to create command list"),
-        )
-    }
+    // pub fn new(gpu: &Arc<Gpu>) -> Self {
+    //     Self::from_native_command_list(
+    //         gpu,
+    //         NativeCommandList::new(&gpu.device).expect("Failed to create command list"),
+    //     )
+    // }
 
-    pub fn from_native_command_list(gpu: &Arc<Gpu>, cmd: NativeCommandList) -> Self {
+    pub fn from_native_command_list(gpu: &Arc<Gpu>, cmd: GraphicsCommandList) -> Self {
         Self {
             parent: gpu.clone(),
             cmd,

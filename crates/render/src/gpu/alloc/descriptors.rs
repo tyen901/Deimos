@@ -55,9 +55,9 @@ impl DescriptorHeapAllocator {
         handle.index(self.cpu_handle_base, self.increment_size)
     }
 
-    pub fn allocate(&mut self) -> Option<d3d12::CpuDescriptorHandle> {
+    pub fn allocate(&mut self) -> d3d12::CpuDescriptorHandle {
         if let Some(index) = self.free_list.pop() {
-            Some(self.handle_for_index(index))
+            self.handle_for_index(index)
         } else {
             let index = self.head;
             self.head += 1;
@@ -65,7 +65,7 @@ impl DescriptorHeapAllocator {
                 panic!("Descriptor heap out of slots! ({} total)", self.size);
             }
 
-            Some(self.handle_for_index(index))
+            self.handle_for_index(index)
         }
     }
 

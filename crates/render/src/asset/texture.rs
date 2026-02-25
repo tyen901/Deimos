@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use d3d12::{DeviceChild, Format, ResourceBarrier, ResourceStates, TextureCopyLocation};
+use d3d12::{
+    DeviceChild, Format, ResourceBarrier, ResourceStates, ShaderResourceViewDesc,
+    TextureCopyLocation,
+};
 use deimos_data::{tag::WideHash, tfx::texture::STextureHeader};
 use gpu_allocator::{MemoryLocation, d3d12::ResourceCreateDesc};
 use tiger_parse::PackageManagerExt;
@@ -12,6 +15,7 @@ use crate::gpu::{Gpu, alloc::resource::OwnedResource};
 
 pub struct Texture {
     pub resource: OwnedResource,
+    pub srv: d3d12::CpuDescriptorHandle,
 }
 impl Texture {
     #[profiling::function]
@@ -51,19 +55,19 @@ impl Texture {
     pub fn load(gpu: &Arc<Gpu>, hash: tiger_pkg::TagHash) -> anyhow::Result<Self> {
         let hash = hash.into();
         let _span = debug_span!("Load texture", ?hash).entered();
-        let (texture, texture_data) = Self::load_data(hash, true)?;
+        let (header, texture_data) = Self::load_data(hash, true)?;
 
-        let dimension = if texture.depth > 1 {
+        let dimension = if header.depth > 1 {
             d3d12::ResourceDimension::Texture3D
         } else {
             d3d12::ResourceDimension::Texture2D
         };
         let resource_desc = d3d12::ResourceDesc::new(dimension)
-            .width(texture.width as u64)
-            .height(texture.height as u32)
-            .depth_or_array_size(texture.depth.max(texture.array_size))
-            .format(texture.format.into())
-            .mip_levels(texture.mip_count as u16);
+            .width(header.width as u64)
+            .height(header.height as u32)
+            .depth_or_array_size(header.depth.max(header.array_size))
+            .format(header.format.into())
+            .mip_levels(header.mip_count as u16);
 
         let resource = gpu.allocate_resource(&ResourceCreateDesc {
             name: "texture",
@@ -79,7 +83,7 @@ impl Texture {
             resource_type: &gpu_allocator::d3d12::ResourceType::Placed,
         })?;
 
-        let num_subresources = texture.mip_count as u32 * texture.array_size as u32;
+        let num_subresources = header.mip_count as u32 * header.array_size as u32;
         let footprint = gpu.get_copyable_footprints(&resource_desc, 0, num_subresources, 0)?;
 
         let upload_buffer = gpu.allocate_upload_buffer(footprint.total_bytes)?;
@@ -89,15 +93,15 @@ impl Texture {
             let mut src_offset: usize = 0;
 
             for (subresource_idx, layout) in footprint.layouts.iter().enumerate() {
-                let mip = subresource_idx as u32 % texture.mip_count as u32;
+                let mip = subresource_idx as u32 % header.mip_count as u32;
 
-                let mip_width = (texture.width >> mip).max(1) as u32;
-                let mip_height = (texture.height >> mip).max(1) as u32;
-                let mip_depth = (texture.depth >> mip).max(1) as u32;
+                let mip_width = (header.width >> mip).max(1) as u32;
+                let mip_height = (header.height >> mip).max(1) as u32;
+                let mip_depth = (header.depth >> mip).max(1) as u32;
 
-                let (src_row_pitch, _) = texture.format.calculate_pitch(mip_width, mip_height);
+                let (src_row_pitch, _) = header.format.calculate_pitch(mip_width, mip_height);
 
-                let block_height: u32 = if texture.format.is_compressed() {
+                let block_height: u32 = if header.format.is_compressed() {
                     mip_height.div_ceil(4)
                 } else {
                     mip_height
@@ -157,6 +161,19 @@ impl Texture {
             .resource()
             .set_debug_name(format!("texture {hash}"));
 
-        Ok(Self { resource })
+        let srv = gpu.resource_heap.lock().allocate();
+        gpu.create_shader_resource_view(
+            Some(resource.resource()),
+            Some(&ShaderResourceViewDesc::texture_2d(
+                header.format.into(),
+                0,
+                header.mip_count as u32,
+                0.0,
+                0,
+            )),
+            srv,
+        );
+
+        Ok(Self { resource, srv })
     }
 }

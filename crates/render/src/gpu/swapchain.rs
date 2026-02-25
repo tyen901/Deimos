@@ -64,7 +64,7 @@ impl Swapchain {
     pub fn resize(&mut self, new_size: (u32, u32)) {
         // drop(self.swapchain_target.take());
 
-        println!("Resizing swapchain to {:?}", new_size);
+        debug!("Resizing swapchain to {:?}", new_size);
         self.back_buffers.clear();
         self.swapchain
             .resize_buffers(

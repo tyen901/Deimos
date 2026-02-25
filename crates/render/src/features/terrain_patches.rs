@@ -68,10 +68,9 @@ impl TerrainPatchesRenderer {
             .collect::<anyhow::Result<Vec<_>>>()
             .context("Failed to load technique")?;
 
-        // let group_cbuffers = (0..terrain.mesh_groups.len())
-        //     .map(|_| ConstantBuffer::create(gpu, None))
-        //     .collect::<Result<Vec<_>, _>>()
-        //     .context("Failed to create group constant buffers")?;
+        let group_cbuffers = (0..terrain.mesh_groups.len())
+            .map(|_| TerrainPatchGroupConstants::default())
+            .collect::<Vec<_>>();
 
         Ok(Box::new(Self {
             vertex0_buffer: assets.load(terrain.vertex0_buffer),
@@ -82,7 +81,7 @@ impl TerrainPatchesRenderer {
             terrain,
             techniques,
             dyemaps,
-            group_cbuffers: vec![],
+            group_cbuffers,
             hash,
             identifier,
         }))
@@ -93,7 +92,7 @@ impl TerrainPatchesRenderer {
         // gpu_event!(renderer.gpu, format!("terrain_patch {}", self.hash));
         // gpu_span!();
 
-        // Layout 22(tfs/mara)/60(sk)
+        // Layout 22(tfs/goliath)/60(sk)
         //  - int4 v0 : POSITION0, // Format DXGI_FORMAT_R16G16B16A16_SINT size 8
         //  - float4 v1 : NORMAL0, // Format DXGI_FORMAT_R16G16B16A16_SNORM size 8
         //  - float2 v2 : TEXCOORD1, // Format DXGI_FORMAT_R16G16_FLOAT size 4
@@ -106,21 +105,7 @@ impl TerrainPatchesRenderer {
             self.index_buffer.get(),
         ) {
             index.bind(cmd);
-            cmd.ia_set_vertex_buffers(
-                0,
-                &[
-                    d3d12::VertexBufferView::new(
-                        vertex0.virtual_address(),
-                        vertex0.length,
-                        vertex0.stride,
-                    ),
-                    d3d12::VertexBufferView::new(
-                        vertex1.virtual_address(),
-                        vertex1.length,
-                        vertex1.stride,
-                    ),
-                ],
-            );
+            cmd.ia_set_vertex_buffers(0, &[vertex0.view(), vertex1.view()]);
         } else {
             return;
         }

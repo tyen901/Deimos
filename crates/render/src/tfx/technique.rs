@@ -8,6 +8,7 @@ use tiger_pkg::{TagHash, package_manager};
 
 use crate::{
     gpu::{Gpu, command_list::CommandList, pipeline_cache::PipelineKey},
+    renderer::globals::get_scope,
     tfx::dynamic_core::DynamicCore,
 };
 
@@ -36,11 +37,28 @@ impl Technique {
         let mut rsb = RootSignatureBuilder::default()
             .flags(RootSignatureFlags::ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
+        rsb.add_param(
+            d3d12::RootParameter::CbvDescriptor {
+                shader_register: 12,
+                register_space: 0,
+            },
+            d3d12::ShaderVisibility::All,
+        );
         let mut descriptor_ranges = Vec::new();
         let mut descriptor_offset = 0;
         for stage in [&mut stage_vertex, &mut stage_pixel] {
             for scopes in data.used_scopes.iter() {
                 let index = scopes.bits().ilog2();
+                let scope = get_scope(index);
+                if let Some(scope_stage) = scope.stage_by_visibility(stage.visibility) {
+                    rsb.add_param(
+                        d3d12::RootParameter::CbvDescriptor {
+                            shader_register: scope_stage.core.cbuffer_slot() as u32,
+                            register_space: 0,
+                        },
+                        stage.visibility,
+                    );
+                }
             }
 
             for sampler in &stage.core.samplers {

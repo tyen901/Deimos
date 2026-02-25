@@ -2,7 +2,7 @@ use std::{collections::hash_map::Entry, sync::Arc};
 
 use ahash::HashMap;
 use anyhow::Context;
-use d3d12::{GraphicsPipelineStateDesc, PrimitiveTopology};
+use d3d12::GraphicsPipelineStateDesc;
 use deimos_data::tfx::FixedFunctionState;
 use tiger_pkg::{TagHash, package_manager};
 

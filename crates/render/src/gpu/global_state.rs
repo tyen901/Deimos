@@ -1,5 +1,3 @@
-use std::fmt::Write;
-
 use anyhow::Context;
 use d3d12::{D3D12_DEPTH_WRITE_MASK, D3D12_RASTERIZER_DESC, D3D12_STENCIL_OP};
 use deimos_data::tfx::render_globals::SRenderGlobals;

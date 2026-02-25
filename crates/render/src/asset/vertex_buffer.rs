@@ -103,6 +103,10 @@ impl VertexBuffer {
         self.resource.resource().gpu_virtual_address()
     }
 
+    pub fn view(&self) -> d3d12::VertexBufferView {
+        d3d12::VertexBufferView::new(self.virtual_address(), self.size, self.stride)
+    }
+
     // /// # Safety
     // ///
     // /// The caller must ensure that the data fits within the buffer.

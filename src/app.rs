@@ -16,14 +16,13 @@ use d3d12::{ResourceBarrier, ResourceStates};
 use deimos_core::job::SCHEDULER;
 use deimos_data::{
     strings::{StringContainer, StringContainerShared},
-    tag::{Tag, WideHash},
+    tag::WideHash,
 };
 use deimos_render::{
-    asset::{index_buffer::IndexBuffer, texture::Texture, vertex_buffer::VertexBuffer},
+    asset::texture::Texture,
     features::terrain_patches::TerrainPatchesRenderer,
-    gpu::Gpu,
+    gpu::{Gpu, command_list::CommandList},
     renderer::Renderer,
-    tfx::technique::Technique,
     util::fps_histogram::FrametimeHistogram,
 };
 use parking_lot::RwLock;
@@ -46,6 +45,7 @@ pub struct App {
     // _spinner: FullscreenSpinner,
     last_frame_time: Instant,
     frametime_histogram: FrametimeHistogram,
+    terrain_temp: Box<TerrainPatchesRenderer>,
 }
 
 impl App {
@@ -68,13 +68,14 @@ impl App {
         // }
 
         renderer.asset_manager.load::<Texture>(TagHash(0x80A37371));
-        // let terrain = TerrainPatchesRenderer::load(&renderer, TagHash(0x80B34AD6), 0)?;
+        let terrain_temp = TerrainPatchesRenderer::load(&renderer, TagHash(0x80B34AD6), 0)?;
 
         // if let Err(e) = Technique::load(&gpu, TagHash(0x80AB0C4B)) {
         //     error!("Failed to create technique: {:?}", e);
         // }
 
         Ok(Self {
+            terrain_temp,
             // _spinner: FullscreenSpinner::create(&renderer.gpu)?,
             renderer,
             gui,
@@ -138,6 +139,8 @@ impl App {
         let frame = self.gpu.begin_frame();
 
         let cmd = &frame.command_list;
+        let mut cmd_tfx =
+            CommandList::from_native_command_list(&self.gpu, cmd.command_list.clone());
 
         cmd.scope(|cmd| {
             let (back_buffer_handle, back_buffer) = self.gpu.swapchain.lock().get_back_buffer();
@@ -153,6 +156,9 @@ impl App {
             cmd.om_set_render_targets(&[back_buffer_handle], false, None);
 
             self.gui.draw(&self.gpu, cmd, &self.shared_state);
+
+            self.terrain_temp
+                .render(&mut cmd_tfx, deimos_data::tfx::RenderStage::GenerateGbuffer);
 
             cmd.resource_barriers(&[ResourceBarrier::transition(
                 &back_buffer,

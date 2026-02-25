@@ -5,6 +5,7 @@ use deimos_data::tfx::{
     features::cubemap::CubemapShape,
     render_globals::{SRenderGlobals, SRenderGlobalsData, SRenderGlobalsGlobalChannels},
 };
+use lazy_static::lazy_static;
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::{TagHash, package_manager};
 
@@ -13,6 +14,39 @@ use crate::{
     gpu::Gpu,
     tfx::{scope::Scope, technique::Technique},
 };
+
+lazy_static! {
+    static ref GLOBAL_SCOPES: Vec<Scope> = {
+        // TODO(cohae): Feels a bit weird to load globals again here, but right now it's the most convenient way to access them for building root signatures
+        let data: SRenderGlobals = package_manager()
+            .read_named_tag_struct("render_globals")
+            .expect("no render_globals tag");
+        let globs = &data.unk8.first().expect("No render globals found").unk8.0;
+
+        let mut scopes = Vec::new();
+        for scope_tag in &globs.scopes {
+            let scope = Scope::load(scope_tag.scope).unwrap_or_else(|_| {
+                panic!(
+                    "failed to load scope {} ({})",
+                    scope_tag.name.0, scope_tag.scope
+                )
+            });
+            scopes.push(scope);
+        }
+
+        scopes
+    };
+}
+
+pub fn try_get_scope(index: u32) -> Option<&'static Scope> {
+    GLOBAL_SCOPES.get(index as usize)
+}
+
+pub fn get_scope(index: u32) -> &'static Scope {
+    GLOBAL_SCOPES
+        .get(index as usize)
+        .unwrap_or_else(|| panic!("Scope {index} does not exist"))
+}
 
 pub struct RenderGlobals {
     pub scopes: GlobalScopes,
@@ -28,7 +62,7 @@ impl RenderGlobals {
         let globs = &data.unk8.first().context("No render globals found")?.unk8.0;
 
         Ok(Self {
-            scopes: GlobalScopes::load(gpu, globs),
+            scopes: GlobalScopes::load(globs),
             pipelines: GlobalPipelines::load(gpu, globs),
             textures: GlobalTextures::load(gpu, globs)?,
             channels: globs.global_channels.0.clone(),
@@ -70,7 +104,7 @@ macro_rules! tfx_global_scopes {
         }
 
         impl GlobalScopes {
-            pub fn load(_gpu: &Arc<Gpu>, globals: &SRenderGlobalsData) -> Self {
+            pub fn load(globals: &SRenderGlobalsData) -> Self {
                 let scopes: HashMap<String, TagHash> = globals.scopes.iter().map(|p| (p.name.to_string(), p.scope)).collect();
 
                 Self {
