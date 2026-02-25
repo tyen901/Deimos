@@ -15,8 +15,8 @@ use crate::{
 };
 
 pub struct RenderGlobals {
-    // pub scopes: GlobalScopes,
-    // pub pipelines: GlobalPipelines,
+    pub scopes: GlobalScopes,
+    pub pipelines: GlobalPipelines,
     pub textures: GlobalTextures,
     pub channels: SRenderGlobalsGlobalChannels,
     // pub unk34: SUnk8080822d,
@@ -28,8 +28,8 @@ impl RenderGlobals {
         let globs = &data.unk8.first().context("No render globals found")?.unk8.0;
 
         Ok(Self {
-            // scopes: GlobalScopes::load(gpu, globs),
-            // pipelines: GlobalPipelines::load(gpu, globs),
+            scopes: GlobalScopes::load(gpu, globs),
+            pipelines: GlobalPipelines::load(gpu, globs),
             textures: GlobalTextures::load(gpu, globs)?,
             channels: globs.global_channels.0.clone(),
             // unk34: globs.unk34.0.clone(),

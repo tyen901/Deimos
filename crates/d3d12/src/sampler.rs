@@ -4,7 +4,7 @@ use windows::Win32::Graphics::Direct3D12::*;
 use crate::verify_ffi_type;
 
 #[repr(i32)]
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum ComparisonFunc {
     Always = D3D12_COMPARISON_FUNC_ALWAYS.0,
     Equal = D3D12_COMPARISON_FUNC_EQUAL.0,
@@ -51,7 +51,7 @@ impl Default for SamplerDesc {
 
 #[repr(i32)]
 #[rustfmt::skip]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum Filter {
     Anisotropic = D3D12_FILTER_ANISOTROPIC.0,
     ComparisonAnisotropic = D3D12_FILTER_COMPARISON_ANISOTROPIC.0,
@@ -97,7 +97,7 @@ pub enum Filter {
 
 #[repr(i32)]
 #[rustfmt::skip]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum TextureAddress {
     Border = D3D12_TEXTURE_ADDRESS_MODE_BORDER.0,
     Clamp = D3D12_TEXTURE_ADDRESS_MODE_CLAMP.0,
