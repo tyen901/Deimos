@@ -22,12 +22,12 @@ pub enum ComparisonFunc {
 pub struct SamplerDesc {
     #[builder(default = Filter::MinMagMipLinear)]
     pub filter: Filter,
-    #[builder(default = TextureAddress::Clamp)]
-    pub address_u: TextureAddress,
-    #[builder(default = TextureAddress::Clamp)]
-    pub address_v: TextureAddress,
-    #[builder(default = TextureAddress::Clamp)]
-    pub address_w: TextureAddress,
+    #[builder(default = TextureAddressMode::Clamp)]
+    pub address_u: TextureAddressMode,
+    #[builder(default = TextureAddressMode::Clamp)]
+    pub address_v: TextureAddressMode,
+    #[builder(default = TextureAddressMode::Clamp)]
+    pub address_w: TextureAddressMode,
     #[builder(default = 0.0)]
     pub mip_lod_bias: f32,
     #[builder(default = 1)]
@@ -98,7 +98,8 @@ pub enum Filter {
 #[repr(i32)]
 #[rustfmt::skip]
 #[derive(Debug, Clone, Copy)]
-pub enum TextureAddress {
+pub enum TextureAddressMode {
+    Invalid = 0,
     Border = D3D12_TEXTURE_ADDRESS_MODE_BORDER.0,
     Clamp = D3D12_TEXTURE_ADDRESS_MODE_CLAMP.0,
     Mirror = D3D12_TEXTURE_ADDRESS_MODE_MIRROR.0,

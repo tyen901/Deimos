@@ -7,7 +7,7 @@ use windows::Win32::Graphics::Direct3D12::*;
 use crate::{
     root_signature::static_sampler_desc_builder::{SetRegisterSpace, SetShaderRegister},
     util::blob_to_vec,
-    verify_ffi_type, ComparisonFunc, Filter, Result, TextureAddress,
+    verify_ffi_type, ComparisonFunc, Filter, Result, TextureAddressMode,
 };
 
 #[repr(transparent)]
@@ -162,17 +162,17 @@ impl TryInto<Vec<u8>> for RootSignatureBuilder<'_> {
 }
 
 #[repr(C)]
-#[derive(Builder, Clone)]
+#[derive(Debug, Builder, Clone)]
 #[builder(start_fn = "_builder_internal")]
 pub struct StaticSamplerDesc {
     #[builder(default = Filter::MinMagMipLinear)]
     pub filter: Filter,
-    #[builder(default = TextureAddress::Clamp)]
-    pub address_u: TextureAddress,
-    #[builder(default = TextureAddress::Clamp)]
-    pub address_v: TextureAddress,
-    #[builder(default = TextureAddress::Clamp)]
-    pub address_w: TextureAddress,
+    #[builder(default = TextureAddressMode::Clamp)]
+    pub address_u: TextureAddressMode,
+    #[builder(default = TextureAddressMode::Clamp)]
+    pub address_v: TextureAddressMode,
+    #[builder(default = TextureAddressMode::Clamp)]
+    pub address_w: TextureAddressMode,
     #[builder(default = 0.0)]
     pub mip_lod_bias: f32,
     #[builder(default = 1)]

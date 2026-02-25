@@ -57,7 +57,12 @@ impl DynamicCore {
         )?;
 
         for (slot, tag) in sampler_tags {
-            let data = package_manager().read_tag(tag).context("reading sampler")?;
+            let sampler_entry = package_manager()
+                .get_entry(tag)
+                .context("missing entry for sampler")?;
+            let data = package_manager()
+                .read_tag(sampler_entry.reference)
+                .context("reading sampler")?;
             let sampler: d3d12::SamplerDesc =
                 unsafe { data.as_ptr().cast::<d3d12::SamplerDesc>().read() };
             core.samplers.push(d3d12::StaticSamplerDesc {
