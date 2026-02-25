@@ -9,6 +9,8 @@ pub struct DescriptorHeapAllocator {
 
     size: usize,
     head: usize,
+
+    pub null_texture2d: d3d12::CpuDescriptorHandle,
 }
 
 impl DescriptorHeapAllocator {
@@ -20,15 +22,28 @@ impl DescriptorHeapAllocator {
     ) -> d3d12::Result<Self> {
         let descriptor_heap =
             device.create_descriptor_heap(heap_type, size as u32, shader_visible, 0)?;
+        let null_texture2d = descriptor_heap.cpu_descriptor_handle_for_heap_start();
+        device.create_shader_resource_view(
+            None,
+            Some(&d3d12::ShaderResourceViewDesc::texture_2d(
+                d3d12::Format::R8g8b8a8Unorm,
+                0,
+                1,
+                0.0,
+                0,
+            )),
+            null_texture2d,
+        );
 
         Ok(DescriptorHeapAllocator {
             cpu_handle_base: descriptor_heap.cpu_descriptor_handle_for_heap_start(),
             increment_size: device.descriptor_handle_increment_size(heap_type),
+            null_texture2d,
             descriptor_heap,
             free_list: Vec::with_capacity(1024),
 
             size,
-            head: 0,
+            head: 1,
         })
     }
 

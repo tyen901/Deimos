@@ -100,6 +100,12 @@ impl App {
             }
             sdl3::event::Event::Window { win_event, .. } => match win_event {
                 &sdl3::event::WindowEvent::Resized(new_width, new_height) => {
+                    self.gpu.wait_for_idle();
+                    self.gpu
+                        .swapchain
+                        .lock()
+                        .resize((new_width as u32, new_height as u32));
+
                     // self.gui
                     //     .egui_d3d11
                     //     .resize_buffers(&self.renderer.gpu, || {
@@ -130,13 +136,11 @@ impl App {
         self.frametime_histogram.push(delta_time);
 
         let frame = self.gpu.begin_frame();
-        let frame_index = self.gpu.frame_index();
 
         let cmd = &frame.command_list;
 
         cmd.scope(|cmd| {
-            let (back_buffer_handle, back_buffer) =
-                self.gpu.swapchain.lock().get_back_buffer(frame_index);
+            let (back_buffer_handle, back_buffer) = self.gpu.swapchain.lock().get_back_buffer();
 
             cmd.resource_barriers(&[ResourceBarrier::transition(
                 &back_buffer,

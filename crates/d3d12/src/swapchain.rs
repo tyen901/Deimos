@@ -1,7 +1,7 @@
 use bitflags::bitflags;
 use bon::Builder;
 use windows::{
-    core::BOOL,
+    core::{Interface, BOOL},
     Win32::{
         Foundation::{
             DXGI_STATUS_CLIPPED, DXGI_STATUS_DDA_WAS_STILL_DRAWING,
@@ -20,7 +20,7 @@ use windows::{
 use crate::{verify_ffi_type, CommandQueue, Format, Resource};
 
 #[repr(transparent)]
-pub struct SwapChain(pub(crate) IDXGISwapChain1);
+pub struct SwapChain(pub(crate) IDXGISwapChain3);
 
 impl SwapChain {
     pub fn create(
@@ -50,7 +50,7 @@ impl SwapChain {
             }
         }?;
 
-        Ok(Self(swap_chain))
+        Ok(Self(swap_chain.cast()?))
     }
 
     pub fn present(&self, sync_interval: u32, flags: PresentFlags) -> Option<SwapChainStatus> {
@@ -95,6 +95,10 @@ impl SwapChain {
                 DXGI_SWAP_CHAIN_FLAG(swapchainflags.bits()),
             )?)
         }
+    }
+
+    pub fn get_current_back_buffer_index(&self) -> u32 {
+        unsafe { self.0.GetCurrentBackBufferIndex() }
     }
 }
 

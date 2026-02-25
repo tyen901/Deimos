@@ -248,11 +248,14 @@ impl Gpu {
         self.swapchain.lock().swapchain_resolution
     }
 
-    pub fn shutdown(&self) {
-        // Wait for the GPU to finish processing
+    pub fn wait_for_idle(&self) {
         let fence = GpuFence::new(&self.device).unwrap();
         let fence_value = fence.signal(&self.queue);
         _ = fence.wait(fence_value);
+    }
+
+    pub fn shutdown(&self) {
+        self.wait_for_idle();
     }
 
     // #[profiling::function]

@@ -27,34 +27,23 @@ impl Swapchain {
             .create_descriptor_heap(d3d12::DescriptorHeapType::Rtv, Self::NUM_BUFFERS, false, 0)
             .context("creating descriptor heap")?;
 
-        let back_buffers = (0..Self::NUM_BUFFERS)
-            .map(|i| {
-                let res = swapchain.get_buffer(i).unwrap();
-                device.create_render_target_view(
-                    Some(&res),
-                    None,
-                    rtv_desc_heap.cpu_descriptor_handle_for_heap_start().offset(
-                        i as usize,
-                        device.descriptor_handle_increment_size(d3d12::DescriptorHeapType::Rtv),
-                    ),
-                );
-
-                res
-            })
-            .collect_vec();
-
-        Ok(Self {
+        let mut swapchain = Self {
             device: device.clone(),
             swapchain,
             // swapchain_target: None,
             swapchain_resolution: size,
             present_parameters: PresentFlags::empty(),
             rtv_desc_heap,
-            back_buffers,
-        })
+            back_buffers: Vec::new(),
+        };
+
+        swapchain.create_rtvs();
+
+        Ok(swapchain)
     }
 
-    pub fn get_back_buffer(&self, index: usize) -> (d3d12::CpuDescriptorHandle, d3d12::Resource) {
+    pub fn get_back_buffer(&self) -> (d3d12::CpuDescriptorHandle, d3d12::Resource) {
+        let index = self.swapchain.get_current_back_buffer_index() as usize;
         let handle = self
             .rtv_desc_heap
             .cpu_descriptor_handle_for_heap_start()
@@ -75,22 +64,41 @@ impl Swapchain {
     pub fn resize(&mut self, new_size: (u32, u32)) {
         // drop(self.swapchain_target.take());
 
+        println!("Resizing swapchain to {:?}", new_size);
+        self.back_buffers.clear();
         self.swapchain
             .resize_buffers(
                 Self::NUM_BUFFERS,
                 new_size.0,
                 new_size.1,
-                d3d12::Format::B8g8r8a8Unorm,
+                d3d12::Format::R8g8b8a8Unorm,
                 SwapChainFlags::empty(),
             )
             .unwrap();
+        self.create_rtvs();
 
-        // let bb: d3d12::Texture2D = self.swapchain.get_buffer(0).unwrap();
-
-        // let new_rtv = device.create_render_target_view(&bb, None).unwrap();
-
-        // self.swapchain_target = Some(new_rtv);
         self.swapchain_resolution = new_size;
+    }
+
+    fn create_rtvs(&mut self) {
+        self.back_buffers = (0..Self::NUM_BUFFERS)
+            .map(|i| {
+                let res = self.swapchain.get_buffer(i).unwrap();
+                self.device.create_render_target_view(
+                    Some(&res),
+                    None,
+                    self.rtv_desc_heap
+                        .cpu_descriptor_handle_for_heap_start()
+                        .offset(
+                            i as usize,
+                            self.device
+                                .descriptor_handle_increment_size(d3d12::DescriptorHeapType::Rtv),
+                        ),
+                );
+
+                res
+            })
+            .collect_vec();
     }
 
     pub(crate) fn present(&mut self, vsync: bool) {
