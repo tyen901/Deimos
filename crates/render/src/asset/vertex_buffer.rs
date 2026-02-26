@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Instant};
+use std::sync::Arc;
 
 use anyhow::Context;
 use d3d12::DeviceChild;
@@ -7,7 +7,7 @@ use gpu_allocator::d3d12::{ResourceCreateDesc, ResourceType};
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::{TagHash, package_manager};
 
-use crate::gpu::{Gpu, alloc::resource::OwnedResource, native_command_list::NativeCommandList};
+use crate::gpu::{Gpu, alloc::resource::OwnedResource};
 
 pub struct VertexBuffer {
     resource: OwnedResource,

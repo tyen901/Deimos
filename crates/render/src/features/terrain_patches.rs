@@ -23,7 +23,7 @@ use crate::{
 use super::FeatureRenderer;
 
 #[repr(C)]
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct TerrainPatchGroupConstants {
     offset: Vec4,
     texcoord_transform: Vec4,
@@ -117,7 +117,18 @@ impl TerrainPatchesRenderer {
             .enumerate()
             .filter(|(_, u)| u.detail_level == self.detail_level)
         {
-            let cb11 = &self.group_cbuffers[part.group_index as usize];
+            let constants = &self.group_cbuffers[part.group_index as usize];
+            let cb11 = cmd
+                .upload_ring()
+                .alloc::<TerrainPatchGroupConstants>()
+                .expect("Failed to allocate terrain group constants");
+            cb11.write(constants);
+
+            cmd.set_shader_constant_buffer_view(
+                ShaderStage::Vertex,
+                11,
+                Some(cb11.virtual_address()),
+            );
 
             // cb11.bind(cmd, ShaderStage::Vertex, 11);
             // if let Some(dyemap) = self.dyemaps[part.group_index as usize].get() {
@@ -131,44 +142,43 @@ impl TerrainPatchesRenderer {
         }
     }
 
-    // #[profiling::function]
-    // pub fn update_constants(
-    //     &self,
-    //     ctx: &d3d11::DeviceContext,
-    //     // ao: Option<&SStaticAmbientOcclusion>,
-    // ) {
-    //     // if ao
-    //     //     .and_then(|ao| ao.get_offset_by_identifier(self.identifier))
-    //     //     .is_none()
-    //     // {
-    //     //     warn!("No AO for terrain 0x{:016X}", self.identifier);
-    //     // }
+    #[profiling::function]
+    pub fn update_constants(
+        &mut self,
+        // ao: Option<&SStaticAmbientOcclusion>,
+    ) {
+        // if ao
+        //     .and_then(|ao| ao.get_offset_by_identifier(self.identifier))
+        //     .is_none()
+        // {
+        //     warn!("No AO for terrain 0x{:016X}", self.identifier);
+        // }
 
-    //     for (i, group) in self.terrain.mesh_groups.iter().enumerate() {
-    //         let offset = Vec4::new(
-    //             self.terrain.unk30.x,
-    //             self.terrain.unk30.y,
-    //             self.terrain.unk30.z,
-    //             self.terrain.unk30.w,
-    //         );
+        for (i, group) in self.terrain.mesh_groups.iter().enumerate() {
+            let offset = Vec4::new(
+                self.terrain.unk30.x,
+                self.terrain.unk30.y,
+                self.terrain.unk30.z,
+                self.terrain.unk30.w,
+            );
 
-    //         let texcoord_transform =
-    //             Vec4::new(group.unk20.x, group.unk20.y, group.unk20.z, group.unk20.w);
+            let texcoord_transform =
+                Vec4::new(group.unk20.x, group.unk20.y, group.unk20.z, group.unk20.w);
 
-    //         // let scope_terrain = Mat4::from_cols(offset, texcoord_transform, Vec4::ZERO, Vec4::ZERO);
-    //         let scope_terrain = TerrainPatchGroupConstants {
-    //             offset,
-    //             texcoord_transform,
-    //             ao_offset: 0x02000000,
-    //             // ao_offset: ao
-    //             //     .and_then(|ao| ao.get_offset_by_identifier(self.identifier))
-    //             //     .unwrap_or(0x02000000),
-    //             ..Default::default()
-    //         };
+            // let scope_terrain = Mat4::from_cols(offset, texcoord_transform, Vec4::ZERO, Vec4::ZERO);
+            let scope_terrain = TerrainPatchGroupConstants {
+                offset,
+                texcoord_transform,
+                ao_offset: 0x02000000,
+                // ao_offset: ao
+                //     .and_then(|ao| ao.get_offset_by_identifier(self.identifier))
+                //     .unwrap_or(0x02000000),
+                ..Default::default()
+            };
 
-    //         self.group_cbuffers[i].write(ctx, &scope_terrain).ok();
-    //     }
-    // }
+            self.group_cbuffers[i] = scope_terrain;
+        }
+    }
 }
 
 impl FeatureRenderer for TerrainPatchesRenderer {
@@ -189,7 +199,7 @@ impl FeatureRenderer for TerrainPatchesRenderer {
 
     fn extract(&mut self, renderer: &Renderer, data: &dyn std::any::Any) {
         if self.constants_dirty {
-            // self.update_constants(&renderer.gpu.context() /*renderer.ao.read().as_ref()*/);
+            self.update_constants();
             self.constants_dirty = false;
         }
     }

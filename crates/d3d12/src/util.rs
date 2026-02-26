@@ -1,9 +1,6 @@
 use std::ffi::CString;
 
-use windows::{
-    core::{Result, PCSTR},
-    Win32::Graphics::Direct3D::ID3DBlob,
-};
+use windows::{core::PCSTR, Win32::Graphics::Direct3D::ID3DBlob};
 
 /// Verifies that the given struct has the same size as the corresponding FFI struct, and generates an `as_ffi` method that returns a pointer to the FFI struct.
 #[macro_export]
@@ -44,26 +41,26 @@ where
 //     (wstr, PCWSTR::from_raw(pwstr))
 // }
 
-pub trait OptionalParam: Sized {
-    type Output;
+// pub trait OptionalParam: Sized {
+//     type Output;
 
-    fn as_option(&self) -> Option<&Self::Output>;
-}
+//     fn as_option(&self) -> Option<&Self::Output>;
+// }
 
-impl<T> OptionalParam for &T {
-    type Output = T;
+// impl<T> OptionalParam for &T {
+//     type Output = T;
 
-    fn as_option(&self) -> Option<&Self::Output> {
-        Some(self)
-    }
-}
+//     fn as_option(&self) -> Option<&Self::Output> {
+//         Some(self)
+//     }
+// }
 
-impl<T> OptionalParam for Option<&T> {
-    type Output = T;
-    fn as_option(&self) -> Option<&Self::Output> {
-        *self
-    }
-}
+// impl<T> OptionalParam for Option<&T> {
+//     type Output = T;
+//     fn as_option(&self) -> Option<&Self::Output> {
+//         *self
+//     }
+// }
 
 /// Helper macro to cast a slice of Option<&Resource> to a SmallVec of Option<NonNull<c_void>>
 /// for use in D3D11 methods that take raw resource pointers.

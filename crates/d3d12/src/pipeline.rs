@@ -1,7 +1,4 @@
-use std::{
-    marker::PhantomData,
-    mem::{transmute, transmute_copy},
-};
+use std::{marker::PhantomData, mem::transmute_copy};
 
 use windows::Win32::Graphics::{Direct3D12::*, Dxgi::Common::DXGI_SAMPLE_DESC};
 

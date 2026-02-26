@@ -1,9 +1,8 @@
 use std::ops::Range;
 
-use bon::Builder;
 use windows::Win32::Graphics::Direct3D12::*;
 
-use crate::{verify_ffi_type, Format, GpuVirtualAddress};
+use crate::{Format, GpuVirtualAddress};
 
 #[derive(Clone, Copy)]
 #[repr(transparent)]

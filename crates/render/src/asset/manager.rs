@@ -127,6 +127,10 @@ impl AssetManager {
     pub fn is_idle(&self) -> bool {
         self.count_loading() == 0 && self.time_since_last_load() > Duration::from_millis(500)
     }
+
+    pub fn shutdown(&self) {
+        self.assets.lock().clear();
+    }
 }
 
 struct LoadRequest {

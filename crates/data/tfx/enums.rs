@@ -248,6 +248,17 @@ impl ShaderStage {
             ShaderStage::Domain => "DS",
         }
     }
+
+    pub fn shader_visibility(&self) -> d3d12::ShaderVisibility {
+        match self {
+            ShaderStage::Pixel => d3d12::ShaderVisibility::Pixel,
+            ShaderStage::Vertex => d3d12::ShaderVisibility::Vertex,
+            ShaderStage::Geometry => d3d12::ShaderVisibility::Geometry,
+            ShaderStage::Hull => d3d12::ShaderVisibility::Hull,
+            ShaderStage::Compute => d3d12::ShaderVisibility::All,
+            ShaderStage::Domain => d3d12::ShaderVisibility::Domain,
+        }
+    }
 }
 
 impl TigerReadable for ShaderStage {

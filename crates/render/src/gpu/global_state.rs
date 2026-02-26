@@ -390,7 +390,7 @@ struct TigerInputLayout {
     pub elements: &'static [TigerInputLayoutElement],
 }
 
-pub fn tiger_input_layout_to_d3d12(
+fn tiger_input_layout_to_d3d12(
     elements: &[TigerInputLayoutElement],
 ) -> Vec<d3d12::InputElementDesc> {
     elements

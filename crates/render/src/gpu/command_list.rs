@@ -1,12 +1,12 @@
 use std::{ops::Deref, sync::Arc};
 
 use d3d12::GraphicsCommandList;
-use deimos_data::tfx::{FixedFunctionState, PrimitiveType};
+use deimos_data::tfx::{FixedFunctionState, PrimitiveType, ShaderStage};
 use tiger_pkg::TagHash;
 
-use crate::gpu::native_command_list::NativeCommandList;
+use crate::gpu::alloc::{descriptors::ResourceView, ring::UploadRing};
 
-use super::{Gpu, global_state};
+use super::Gpu;
 
 pub struct CommandList {
     parent: Arc<Gpu>,
@@ -24,6 +24,12 @@ pub struct CommandList {
     pub(super) depth_mode: DepthMode,
     pub(super) bound_technique: TagHash,
     // pub externs: LocalExterns,
+    pub(crate) resources_vs: StageResources,
+    pub(crate) resources_ps: StageResources,
+    pub(crate) resources_cs: StageResources,
+    pub(crate) resources_ds: StageResources,
+    pub(crate) resources_hs: StageResources,
+    pub(crate) resources_gs: StageResources,
 }
 
 impl Deref for CommandList {
@@ -58,6 +64,12 @@ impl CommandList {
             depth_mode: DepthMode::Reverse,
             bound_technique: TagHash::NONE,
             // externs: LocalExterns::default(),
+            resources_vs: StageResources::default(),
+            resources_ps: StageResources::default(),
+            resources_cs: StageResources::default(),
+            resources_ds: StageResources::default(),
+            resources_hs: StageResources::default(),
+            resources_gs: StageResources::default(),
         }
     }
 
@@ -78,6 +90,10 @@ impl CommandList {
 
     pub fn gpu(&self) -> &Gpu {
         &self.parent
+    }
+
+    pub fn upload_ring(&self) -> &UploadRing {
+        &self.parent.frame().upload
     }
 }
 
@@ -217,6 +233,63 @@ impl CommandList {
     //         self.input_assembler_set_input_layout(&layout);
     //     }
     // }
+
+    pub fn resources(&mut self, stage: ShaderStage) -> &mut StageResources {
+        match stage {
+            ShaderStage::Vertex => &mut self.resources_vs,
+            ShaderStage::Pixel => &mut self.resources_ps,
+            ShaderStage::Compute => &mut self.resources_cs,
+            ShaderStage::Domain => &mut self.resources_ds,
+            ShaderStage::Hull => &mut self.resources_hs,
+            ShaderStage::Geometry => &mut self.resources_gs,
+        }
+    }
+
+    pub fn get_shader_resource_view(
+        &mut self,
+        stage: ShaderStage,
+        slot: u32,
+    ) -> Option<ResourceView> {
+        self.resources(stage)
+            .srvs
+            .get(slot as usize)
+            .cloned()
+            .flatten()
+    }
+
+    pub fn get_shader_constant_buffer_view(
+        &mut self,
+        stage: ShaderStage,
+        slot: u32,
+    ) -> Option<d3d12::GpuVirtualAddress> {
+        self.resources(stage)
+            .cbvs
+            .get(slot as usize)
+            .cloned()
+            .flatten()
+    }
+
+    pub fn set_shader_resource_view(
+        &mut self,
+        stage: ShaderStage,
+        slot: u32,
+        resource: Option<ResourceView>,
+    ) {
+        if let Some(slot_mut) = self.resources(stage).srvs.get_mut(slot as usize) {
+            *slot_mut = resource;
+        }
+    }
+
+    pub fn set_shader_constant_buffer_view(
+        &mut self,
+        stage: ShaderStage,
+        slot: u32,
+        buffer_address: Option<d3d12::GpuVirtualAddress>,
+    ) {
+        if let Some(slot_mut) = self.resources(stage).cbvs.get_mut(slot as usize) {
+            *slot_mut = buffer_address;
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -225,6 +298,12 @@ pub enum DepthMode {
     Forward,
     /// Used by default
     Reverse,
+}
+
+#[derive(Default)]
+pub struct StageResources {
+    pub srvs: [Option<ResourceView>; 32],
+    pub cbvs: [Option<d3d12::GpuVirtualAddress>; 16],
 }
 
 #[macro_export]

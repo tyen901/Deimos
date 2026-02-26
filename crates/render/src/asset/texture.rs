@@ -2,21 +2,24 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use d3d12::{
-    DeviceChild, Format, ResourceBarrier, ResourceStates, ShaderResourceViewDesc,
-    TextureCopyLocation,
+    DeviceChild, ResourceBarrier, ResourceStates, ShaderResourceViewDesc, TextureCopyLocation,
 };
 use deimos_data::{tag::WideHash, tfx::texture::STextureHeader};
 use gpu_allocator::{MemoryLocation, d3d12::ResourceCreateDesc};
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::package_manager;
-use windows::Win32::Graphics::Dxgi::Common::DXGI_FORMAT;
 
-use crate::gpu::{Gpu, alloc::resource::OwnedResource};
+use crate::gpu::{
+    Gpu,
+    alloc::{descriptors::ResourceView, resource::OwnedResource},
+};
 
 pub struct Texture {
     pub resource: OwnedResource,
-    pub srv: d3d12::CpuDescriptorHandle,
+    pub srv: ResourceView,
+    gpu: Arc<Gpu>,
 }
+
 impl Texture {
     #[profiling::function]
     pub fn load_data(
@@ -161,19 +164,48 @@ impl Texture {
             .resource()
             .set_debug_name(format!("texture {hash}"));
 
-        let srv = gpu.resource_heap.lock().allocate();
-        gpu.create_shader_resource_view(
-            Some(resource.resource()),
-            Some(&ShaderResourceViewDesc::texture_2d(
+        let srv_desc = if header.depth > 1 {
+            ShaderResourceViewDesc::texture_3d(
+                header.format.into(),
+                0,
+                header.mip_count as u32,
+                0.0,
+            )
+        } else if header.array_size > 1 {
+            ShaderResourceViewDesc::texture_2d_array(
                 header.format.into(),
                 0,
                 header.mip_count as u32,
                 0.0,
                 0,
-            )),
-            srv,
+                0..header.array_size as u32,
+            )
+        } else {
+            ShaderResourceViewDesc::texture_2d(
+                header.format.into(),
+                0,
+                header.mip_count as u32,
+                0.0,
+                0,
+            )
+        };
+
+        let srv = gpu.resource_heap.lock().allocate_srv(
+            format!("texture_srv {}", hash),
+            resource.resource(),
+            &srv_desc,
         );
 
-        Ok(Self { resource, srv })
+        Ok(Self {
+            gpu: gpu.clone(),
+            resource,
+            srv,
+        })
+    }
+}
+
+impl Drop for Texture {
+    fn drop(&mut self) {
+        self.gpu.resource_heap.lock().free_srv(self.srv);
     }
 }

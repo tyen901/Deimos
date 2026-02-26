@@ -17,18 +17,19 @@ use deimos_core::job::SCHEDULER;
 use deimos_data::{
     strings::{StringContainer, StringContainerShared},
     tag::WideHash,
+    tfx::features::terrain::STerrain,
 };
 use deimos_render::{
     asset::texture::Texture,
-    features::terrain_patches::TerrainPatchesRenderer,
+    features::{FeatureRenderer, terrain_patches::TerrainPatchesRenderer},
     gpu::{Gpu, command_list::CommandList},
-    renderer::Renderer,
+    renderer::{Renderer, globals::get_scope},
     util::fps_histogram::FrametimeHistogram,
 };
 use parking_lot::RwLock;
 use sdl3::video::Window;
 use tiger_parse::TigerReadable;
-use tiger_pkg::{TagHash, package_manager};
+use tiger_pkg::{TagHash, package, package_manager};
 
 use crate::{cli::AppArgs, config::AppConfig, ui::Gui};
 
@@ -45,7 +46,7 @@ pub struct App {
     // _spinner: FullscreenSpinner,
     last_frame_time: Instant,
     frametime_histogram: FrametimeHistogram,
-    terrain_temp: Box<TerrainPatchesRenderer>,
+    terrain_temp: Vec<Box<TerrainPatchesRenderer>>,
 }
 
 impl App {
@@ -67,8 +68,10 @@ impl App {
         //     };
         // }
 
-        renderer.asset_manager.load::<Texture>(TagHash(0x80A37371));
-        let terrain_temp = TerrainPatchesRenderer::load(&renderer, TagHash(0x80B34AD6), 0)?;
+        let mut terrain_temp = vec![];
+        for (tag, _) in package_manager().get_all_by_reference(STerrain::ID.unwrap()) {
+            terrain_temp.push(TerrainPatchesRenderer::load(&renderer, tag, 0)?);
+        }
 
         // if let Err(e) = Technique::load(&gpu, TagHash(0x80AB0C4B)) {
         //     error!("Failed to create technique: {:?}", e);
@@ -157,8 +160,11 @@ impl App {
 
             self.gui.draw(&self.gpu, cmd, &self.shared_state);
 
-            self.terrain_temp
-                .render(&mut cmd_tfx, deimos_data::tfx::RenderStage::GenerateGbuffer);
+            get_scope(1).bind(&mut cmd_tfx);
+            for terrain in self.terrain_temp.iter_mut() {
+                terrain.extract(&self.renderer, &());
+                terrain.render(&mut cmd_tfx, deimos_data::tfx::RenderStage::GenerateGbuffer);
+            }
 
             cmd.resource_barriers(&[ResourceBarrier::transition(
                 &back_buffer,

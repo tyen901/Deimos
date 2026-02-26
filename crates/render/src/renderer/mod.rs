@@ -3,6 +3,7 @@ pub mod object;
 
 use std::sync::Arc;
 
+use parking_lot::RwLock;
 use slotmap::SlotMap;
 
 use crate::{
@@ -16,7 +17,7 @@ use crate::{
 
 pub struct Renderer {
     pub gpu: Arc<Gpu>,
-    pub objects: SlotMap<RenderObjectHandle, RenderObject>,
+    pub objects: RwLock<SlotMap<RenderObjectHandle, RenderObject>>,
     pub asset_manager: AssetManager,
     pub globals: RenderGlobals,
 }
@@ -27,7 +28,13 @@ impl Renderer {
             globals: RenderGlobals::load(&gpu).expect("Failed to load render globals"),
             asset_manager: AssetManager::new(&gpu),
             gpu,
-            objects: SlotMap::with_key(),
+            objects: RwLock::new(SlotMap::with_key()),
         }
+    }
+
+    pub fn shutdown(&self) {
+        self.objects.write().clear();
+        self.asset_manager.shutdown();
+        self.gpu.shutdown();
     }
 }

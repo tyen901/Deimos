@@ -36,6 +36,16 @@ lazy_static! {
 
         scopes
     };
+
+    pub static ref GLOBAL_CHANNELS: SRenderGlobalsGlobalChannels = {
+        // TODO(cohae): Feels a bit weird to load globals again here, but right now it's the most convenient way to access them for building root signatures
+        let data: SRenderGlobals = package_manager()
+            .read_named_tag_struct("render_globals")
+            .expect("no render_globals tag");
+        let globs = &data.unk8.first().expect("No render globals found").unk8.0;
+
+        globs.global_channels.0.clone()
+    };
 }
 
 pub fn try_get_scope(index: u32) -> Option<&'static Scope> {
@@ -50,7 +60,7 @@ pub fn get_scope(index: u32) -> &'static Scope {
 
 pub struct RenderGlobals {
     pub scopes: GlobalScopes,
-    pub pipelines: GlobalPipelines,
+    // pub pipelines: GlobalPipelines,
     pub textures: GlobalTextures,
     pub channels: SRenderGlobalsGlobalChannels,
     // pub unk34: SUnk8080822d,
@@ -63,7 +73,7 @@ impl RenderGlobals {
 
         Ok(Self {
             scopes: GlobalScopes::load(globs),
-            pipelines: GlobalPipelines::load(gpu, globs),
+            // pipelines: GlobalPipelines::load(gpu, globs),
             textures: GlobalTextures::load(gpu, globs)?,
             channels: globs.global_channels.0.clone(),
             // unk34: globs.unk34.0.clone(),

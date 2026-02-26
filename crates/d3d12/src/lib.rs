@@ -53,6 +53,9 @@ pub use fence::*;
 mod resource;
 pub use resource::*;
 
+mod reflection;
+pub use reflection::*;
+
 mod rtv;
 pub use rtv::*;
 

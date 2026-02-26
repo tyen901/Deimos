@@ -47,10 +47,11 @@ macro_rules! extern_container {
             }
         }
 
-        impl Externs {
-            pub fn new(globs: &RenderGlobals) -> Self {
+        impl Default for Externs {
+            fn default() -> Self {
+                let global_channels = &crate::renderer::globals::GLOBAL_CHANNELS;
                 let mut globals = [Vec4::ONE; 256];
-                globals[..globs.channels.default_values.len()].copy_from_slice(&globs.channels.default_values);
+                globals[..global_channels.default_values.len()].copy_from_slice(&global_channels.default_values);
                 // globals[102] = Vec4::splat(0.1); // Affects exposure(?) of some sky objects
                 // // Sky/cubemap light related
                 // globals[124] = Vec4::splat(0.1);
@@ -73,7 +74,7 @@ macro_rules! extern_container {
                         $name: Default::default(),
                     )*
                     globals,
-                    global_ids: globs.channels.channel_ids.clone(),
+                    global_ids: global_channels.channel_ids.clone(),
                 };
 
                 // for hash in [743670141, 743670142, 743670143, 743670136, 743670137, 743670138, 743670139, 743670132, 743670133] {

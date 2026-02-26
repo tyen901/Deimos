@@ -1,18 +1,21 @@
 use anyhow::Context;
 use deimos_data::{
     tag::WideHash,
-    tfx::{ExternIndex, SDynamicCore, SSamplerReference},
+    tfx::{ExternIndex, SDynamicCore, SSamplerReference, ShaderStage},
 };
-use glam::Vec4;
+use glam::{Mat4, Vec3, Vec4};
 use itertools::Itertools;
 use tiger_pkg::{TagHash, package_manager};
 
 use crate::{
     gpu::command_list::CommandList,
-    tfx::expression_vm::{
-        self,
-        interpreter::InterpreterState,
-        opcodes::{Opcode, OpcodeIterator},
+    tfx::{
+        expression_vm::{
+            self,
+            interpreter::InterpreterState,
+            opcodes::{Opcode, OpcodeIterator},
+        },
+        externs::Externs,
     },
 };
 
@@ -22,7 +25,7 @@ use crate::{
 /// - Samplers are extracted and filtered from bytecode, and used as static samplers in the pipeline state object.
 /// - Dynamic textures are also extracted, and joined together with static textures in the `textures` array.
 pub struct DynamicCore {
-    shader_visibility: d3d12::ShaderVisibility,
+    pub stage: ShaderStage,
 
     data: SDynamicCore,
 
@@ -34,18 +37,22 @@ pub struct DynamicCore {
 }
 
 impl DynamicCore {
-    pub fn new(
-        data: SDynamicCore,
-        shader_visibility: d3d12::ShaderVisibility,
-    ) -> anyhow::Result<Self> {
+    pub fn new(data: SDynamicCore, stage: ShaderStage) -> anyhow::Result<Self> {
         let mut core = Self {
-            shader_visibility,
+            stage,
             data,
             samplers: Vec::new(),
             textures: Vec::new(),
             initial_constants: Vec::new(),
             cbuffer_size: 0,
         };
+
+        core.textures.extend(
+            core.data
+                .textures
+                .iter()
+                .map(|t| (t.slot, TextureSource::Static(t.texture))),
+        );
 
         let mut sampler_tags = Vec::new();
 
@@ -78,7 +85,7 @@ impl DynamicCore {
                 max_lod: sampler.max_lod,
                 shader_register: slot,
                 register_space: 0,
-                shader_visibility,
+                shader_visibility: core.stage.shader_visibility(),
             });
         }
 
@@ -101,7 +108,7 @@ impl DynamicCore {
                 vec4s.to_vec()
             }
         };
-        core.cbuffer_size = core.initial_constants.len();
+        core.cbuffer_size = core.initial_constants.len() * size_of::<Vec4>();
 
         Ok(core)
     }
@@ -110,21 +117,24 @@ impl DynamicCore {
         self.data.constant_buffer_slot
     }
 
-    pub fn prepare(
-        &self,
-        cmd: &mut CommandList,
-    ) -> anyhow::Result<Option<d3d12::GpuVirtualAddress>> {
-        if self.data.constant_buffer.is_some() {
+    pub fn prepare(&self, cmd: &mut CommandList) -> anyhow::Result<()> {
+        let mut externs = Externs::default();
+        externs.view.world_to_camera = Mat4::look_at_rh(Vec3::Z * 100.0, Vec3::ZERO, Vec3::Y);
+        externs.view.camera_to_projective =
+            Mat4::perspective_rh(90f32.to_radians(), 16.0 / 9.0, 0.1, 5000.0);
+        externs.view.derive_matrices((1920, 1080));
+
+        if self.data.constant_buffer_slot >= 0 {
             let mut buffer = cmd
                 .gpu()
                 .frame()
                 .upload
-                .alloc(self.cbuffer_size)
+                .alloc_slice(self.cbuffer_size)
                 .context("allocating cbuffer")?;
 
             let out = bytemuck::cast_slice_mut(buffer.as_mut_slice());
             out.copy_from_slice(&self.initial_constants);
-            let mut interpreter = InterpreterState::new(&self.data.bytecode);
+            let mut interpreter = InterpreterState::new(&self.data.bytecode).with_externs(&externs);
 
             if let Err(e) = interpreter.evaluate(&self.data.bytecode_constants, out) {
                 error!("Failed to evaluate expression bytecode: {:?}", e);
@@ -150,10 +160,14 @@ impl DynamicCore {
                 }
             }
 
-            Ok(Some(buffer.virtual_address()))
-        } else {
-            Ok(None)
+            cmd.set_shader_constant_buffer_view(
+                self.stage,
+                self.data.constant_buffer_slot as u32,
+                Some(buffer.virtual_address()),
+            );
         }
+
+        Ok(())
     }
 }
 

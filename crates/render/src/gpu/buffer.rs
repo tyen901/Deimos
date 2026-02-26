@@ -2,13 +2,13 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use d3d12::{
-    GpuVirtualAddress, ID3D12Resource, Resource, D3D12_RESOURCE_DESC,
-    D3D12_RESOURCE_DIMENSION_BUFFER, D3D12_RESOURCE_STATE_COMMON,
-    D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
+    D3D12_RESOURCE_DESC, D3D12_RESOURCE_DIMENSION_BUFFER, D3D12_RESOURCE_STATE_COMMON,
+    D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_TEXTURE_LAYOUT_ROW_MAJOR, GpuVirtualAddress,
+    ID3D12Resource, Resource,
 };
 use gpu_allocator::{
-    d3d12::{ResourceCategory, ResourceCreateDesc, ResourceStateOrBarrierLayout, ResourceType},
     MemoryLocation,
+    d3d12::{ResourceCategory, ResourceCreateDesc, ResourceStateOrBarrierLayout, ResourceType},
 };
 
 use crate::gpu::Gpu;
@@ -136,10 +136,10 @@ impl Drop for Buffer {
             self.mapped_ptr = None;
         }
         // Return the resource + allocation to the allocator
-        if let Some(resource) = self.resource.take() {
-            if let Err(e) = self.gpu.allocator.lock().free_resource(resource) {
-                error!("Failed to free buffer: {:?}", e);
-            }
+        if let Some(resource) = self.resource.take()
+            && let Err(e) = self.gpu.allocator.lock().free_resource(resource)
+        {
+            error!("Failed to free buffer: {:?}", e);
         }
     }
 }

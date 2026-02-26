@@ -9,6 +9,8 @@ use windows::Win32::Graphics::Direct3D12::{
 pub struct GpuVirtualAddress(pub(crate) u64);
 
 impl GpuVirtualAddress {
+    pub const NULL: Self = Self(0);
+
     pub fn offset(&self, offset_in_bytes: usize) -> Self {
         Self(self.0 + offset_in_bytes as u64)
     }
@@ -24,7 +26,7 @@ impl CpuDescriptorHandle {
     }
 
     pub fn index(&self, base: CpuDescriptorHandle, increment_size: u32) -> usize {
-        self.0 - base.0 / increment_size as usize
+        (self.0 - base.0) / increment_size as usize
     }
 }
 

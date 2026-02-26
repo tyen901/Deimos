@@ -92,6 +92,17 @@ impl GraphicsCommandList {
         }
     }
 
+    pub fn set_graphics_root_constant_buffer_view(
+        &self,
+        root_parameter_index: u32,
+        buffer_location: GpuVirtualAddress,
+    ) {
+        unsafe {
+            self.0
+                .SetGraphicsRootConstantBufferView(root_parameter_index, buffer_location.0);
+        }
+    }
+
     pub fn set_descriptor_heaps(&self, heaps: &[DescriptorHeap]) {
         unsafe {
             self.0.SetDescriptorHeaps(transmute::<

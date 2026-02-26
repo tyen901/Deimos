@@ -4,7 +4,7 @@ use d3d12::{HeapFlags, HeapProperties};
 
 /// Lock-free thread-safe ring buffer for uploading data to the GPU.
 pub struct UploadRing {
-    heap_resource: d3d12::Resource,
+    _heap_resource: d3d12::Resource,
     mapped_ptr: *mut u8,
 
     gpu_base: d3d12::GpuVirtualAddress,
@@ -13,6 +13,8 @@ pub struct UploadRing {
 }
 
 impl UploadRing {
+    const BLOCK_ALIGNMENT: usize = 0x100;
+
     pub fn new(device: &d3d12::Device, capacity: u64) -> anyhow::Result<Self> {
         let heap_resource = device.create_committed_resource(
             &HeapProperties::new(d3d12::HeapType::Upload),
@@ -23,27 +25,35 @@ impl UploadRing {
 
         let gpu_base = heap_resource.gpu_virtual_address();
         let mapped_ptr = heap_resource.map(0)?;
+        unsafe {
+            mapped_ptr.write_bytes(0xCC, Self::BLOCK_ALIGNMENT);
+        }
 
         Ok(Self {
-            heap_resource,
+            _heap_resource: heap_resource,
             mapped_ptr,
             gpu_base,
-            head: AtomicUsize::new(0),
+            // First block is reserved for null pointer
+            head: AtomicUsize::new(Self::BLOCK_ALIGNMENT),
             capacity: capacity as usize,
         })
     }
 
     pub fn reset(&self) {
-        self.head.store(0, std::sync::atomic::Ordering::Relaxed);
+        self.head
+            .store(Self::BLOCK_ALIGNMENT, std::sync::atomic::Ordering::Relaxed);
     }
 
-    pub fn alloc(&self, size: usize) -> anyhow::Result<RingSlice> {
-        let size_aligned = size.next_multiple_of(256);
+    pub fn alloc_slice(&self, size: usize) -> anyhow::Result<RingSlice> {
+        let size_aligned = size.next_multiple_of(Self::BLOCK_ALIGNMENT);
         let start = self
             .head
             .fetch_add(size_aligned, std::sync::atomic::Ordering::Relaxed);
 
-        debug_assert!(start.is_multiple_of(256), "Misaligned ring buffer");
+        debug_assert!(
+            start.is_multiple_of(Self::BLOCK_ALIGNMENT),
+            "Misaligned ring buffer"
+        );
         if start + size_aligned > self.capacity {
             Err(anyhow::anyhow!("Out of memory"))
         } else {
@@ -55,10 +65,22 @@ impl UploadRing {
             })
         }
     }
+
+    pub fn alloc<T: Sized>(&self) -> anyhow::Result<TypedRingAllocation<T>> {
+        let slice = self.alloc_slice(std::mem::size_of::<T>())?;
+        Ok(TypedRingAllocation {
+            ptr: slice.ptr as *mut T,
+            gpu_va: slice.gpu_va,
+        })
+    }
+
+    pub fn null(&self) -> d3d12::GpuVirtualAddress {
+        self.gpu_base
+    }
 }
 
 pub struct RingSlice {
-    ptr: *const u8,
+    ptr: *mut u8,
     len: usize,
     capacity: usize,
 
@@ -66,7 +88,7 @@ pub struct RingSlice {
 }
 
 impl RingSlice {
-    pub fn ptr(&self) -> *const u8 {
+    pub fn ptr(&self) -> *mut u8 {
         self.ptr
     }
 
@@ -91,7 +113,28 @@ impl RingSlice {
     }
 
     pub fn as_mut_slice(&mut self) -> &mut [u8] {
-        unsafe { std::slice::from_raw_parts_mut(self.ptr as *mut u8, self.len) }
+        unsafe { std::slice::from_raw_parts_mut(self.ptr, self.len) }
+    }
+
+    pub fn virtual_address(&self) -> d3d12::GpuVirtualAddress {
+        self.gpu_va
+    }
+}
+
+pub struct TypedRingAllocation<T: Sized> {
+    ptr: *mut T,
+    gpu_va: d3d12::GpuVirtualAddress,
+}
+
+impl<T: Sized> TypedRingAllocation<T> {
+    pub fn ptr(&self) -> *mut T {
+        self.ptr
+    }
+
+    pub fn write(&self, data: &T) {
+        unsafe {
+            self.ptr().copy_from(data as *const T, 1);
+        }
     }
 
     pub fn virtual_address(&self) -> d3d12::GpuVirtualAddress {

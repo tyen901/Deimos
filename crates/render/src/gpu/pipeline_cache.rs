@@ -84,7 +84,7 @@ impl PipelineCache {
         Ok(self.storage.get(&key).expect("unreachable: just inserted"))
     }
 
-    fn get_or_load_bytecode(&mut self, hash: TagHash) -> anyhow::Result<Arc<[u8]>> {
+    pub fn get_or_load_bytecode(&mut self, hash: TagHash) -> anyhow::Result<Arc<[u8]>> {
         match self.bytecode_cache.entry(hash) {
             Entry::Occupied(entry) => Ok(entry.into_mut().clone()),
             Entry::Vacant(entry) => {
