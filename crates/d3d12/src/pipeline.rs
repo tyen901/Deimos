@@ -52,6 +52,7 @@ impl<'a> GraphicsPipelineStateDesc<'a> {
                     }; 8],
                     ..Default::default()
                 },
+                IBStripCutValue: D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_0xFFFF,
                 PrimitiveTopologyType: D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
                 ..Default::default()
             },
