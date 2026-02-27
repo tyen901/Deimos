@@ -20,7 +20,7 @@ use deimos_data::{
     tfx::RenderStage,
 };
 use deimos_render::{
-    gpu::{Gpu, command_list::CommandList},
+    gpu::{Gpu, command_list::CommandList, render_target::DepthBuffer},
     renderer::Renderer,
     util::fps_histogram::FrametimeHistogram,
 };
@@ -53,6 +53,8 @@ pub struct App {
     // _spinner: FullscreenSpinner,
     last_frame_time: Instant,
     frametime_histogram: FrametimeHistogram,
+
+    depth_buffer: DepthBuffer,
 }
 
 impl App {
@@ -79,6 +81,7 @@ impl App {
             shared_state: SharedState::new(renderer.clone())
                 .context("Failed to create shared state")?
                 .into(),
+            depth_buffer: DepthBuffer::new(&gpu, (1920, 1080))?,
             renderer,
             gui,
             sdl,
@@ -138,6 +141,8 @@ impl App {
 
         let cmd = &frame.command_list;
 
+        self.depth_buffer.resize(self._window.size())?;
+
         cmd.scope(|cmd| {
             let (back_buffer_handle, back_buffer) = self.gpu.swapchain.lock().get_back_buffer();
 
@@ -148,8 +153,10 @@ impl App {
                 ResourceStates::RENDER_TARGET,
             )]);
 
+            let dsv_handle = self.depth_buffer.cpu_handle();
             cmd.clear_render_target_view(back_buffer_handle, &[0.0, 0.0, 0.0, 1.0]);
-            cmd.om_set_render_targets(&[back_buffer_handle], false, None);
+            cmd.clear_depth_stencil_view(dsv_handle, d3d12::ClearFlags::DEPTH, 0.0, 0);
+            cmd.om_set_render_targets(&[back_buffer_handle], false, Some(dsv_handle));
             cmd.set_viewports(&[d3d12::Viewport::builder()
                 .width(self._window.size_in_pixels().0 as f32)
                 .height(self._window.size_in_pixels().1 as f32)

@@ -5,10 +5,10 @@ use windows::{
 
 use crate::{
     error::Result, util::to_pcstr, CommandAllocator, CommandListType, CommandQueue,
-    CommandQueueDesc, CopyableFootprints, CpuDescriptorHandle, DescriptorHeap, DescriptorHeapType,
-    ElementOffset, Fence, FenceFlags, GraphicsCommandList, GraphicsPipelineStateDesc, HeapFlags,
-    HeapProperties, PipelineState, RenderTargetViewDesc, Resource, ResourceDesc, ResourceStates,
-    RootSignature, ShaderResourceViewDesc,
+    CommandQueueDesc, CopyableFootprints, CpuDescriptorHandle, DepthStencilViewDesc,
+    DescriptorHeap, DescriptorHeapType, ElementOffset, Fence, FenceFlags, GraphicsCommandList,
+    GraphicsPipelineStateDesc, HeapFlags, HeapProperties, PipelineState, RenderTargetViewDesc,
+    Resource, ResourceDesc, ResourceStates, RootSignature, ShaderResourceViewDesc,
 };
 
 #[repr(transparent)]
@@ -151,6 +151,21 @@ impl Device {
     ) {
         unsafe {
             self.0.CreateRenderTargetView(
+                resource.map(|r| &r.0),
+                desc.map(|d| d.as_ffi()),
+                dest_descriptor.into(),
+            );
+        }
+    }
+
+    pub fn create_depth_stencil_view(
+        &self,
+        resource: Option<&Resource>,
+        desc: Option<&DepthStencilViewDesc>,
+        dest_descriptor: CpuDescriptorHandle,
+    ) {
+        unsafe {
+            self.0.CreateDepthStencilView(
                 resource.map(|r| &r.0),
                 desc.map(|d| d.as_ffi()),
                 dest_descriptor.into(),

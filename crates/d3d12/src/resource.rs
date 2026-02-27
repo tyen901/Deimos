@@ -98,6 +98,11 @@ impl ResourceDesc {
         self.0.Layout = layout.into();
         self
     }
+
+    pub fn flags(mut self, flags: ResourceFlags) -> Self {
+        self.0.Flags = flags.into();
+        self
+    }
 }
 
 impl ResourceDesc {

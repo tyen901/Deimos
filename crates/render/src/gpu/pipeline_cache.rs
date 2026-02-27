@@ -2,7 +2,7 @@ use std::{collections::hash_map::Entry, sync::Arc};
 
 use ahash::HashMap;
 use anyhow::Context;
-use d3d12::GraphicsPipelineStateDesc;
+use d3d12::{D3D12_DEPTH_STENCIL_DESC, GraphicsPipelineStateDesc};
 use deimos_data::tfx::FixedFunctionState;
 use tiger_pkg::{TagHash, package_manager};
 
@@ -65,6 +65,14 @@ impl PipelineCache {
             .get(blend_state_index)
             .context("invalid blend state")?;
 
+        let depth_state = D3D12_DEPTH_STENCIL_DESC {
+            DepthEnable: true.into(),
+            DepthWriteMask: d3d12::D3D12_DEPTH_WRITE_MASK_ALL,
+            DepthFunc: d3d12::D3D12_COMPARISON_FUNC_GREATER_EQUAL,
+            StencilEnable: false.into(),
+            ..Default::default()
+        };
+
         let pipeline = self
             .device
             .create_graphics_pipeline_state(
@@ -75,7 +83,8 @@ impl PipelineCache {
                     .with_primitive_topology(d3d12::PrimitiveTopology2::Triangle)
                     .with_blend_state(blend_state.clone())
                     .with_rtv_formats(rtv_formats)
-                    .with_dsv_format(dsv_format.unwrap_or_default()),
+                    .with_dsv_format(dsv_format.unwrap_or_default())
+                    .with_depth_stencil_state(depth_state),
             )
             .context("create_graphics_pipeline_state")?;
 

@@ -26,6 +26,9 @@ pub use device::*;
 mod device_child;
 pub use device_child::*;
 
+mod dsv;
+pub use dsv::*;
+
 mod heap;
 pub use heap::*;
 

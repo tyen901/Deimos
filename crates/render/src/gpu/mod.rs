@@ -11,9 +11,11 @@ pub mod buffer;
 pub mod command_list;
 pub mod frame;
 pub mod native_command_list;
+pub mod render_target;
 pub mod swapchain;
 
 use std::{
+    any::Any,
     rc::Rc,
     sync::{Arc, atomic::AtomicUsize},
 };
@@ -64,6 +66,9 @@ pub struct Gpu {
 
     pub immediate_pool: NativeCommandListPool,
     pub resource_heap: Mutex<DescriptorHeapAllocator>,
+
+    /// List of resources to be destroyed after the frame is finished.
+    bin: Mutex<[Vec<Box<dyn Any>>; Self::FRAMES_IN_FLIGHT]>,
 }
 
 unsafe impl Sync for Gpu {}
@@ -164,6 +169,7 @@ impl Gpu {
             device,
             allocator: Mutex::new(allocator),
             frame_index: AtomicUsize::new(0),
+            bin: Mutex::new(std::array::from_fn(|_| Vec::new())),
         })
     }
 
@@ -207,6 +213,9 @@ impl Gpu {
         let frame = &self.frames[frame_index % Self::FRAMES_IN_FLIGHT];
         frame.begin_frame();
         _ = frame.wait_for_completion(&self.frame_fence);
+
+        self.bin.lock()[frame_index % Self::FRAMES_IN_FLIGHT].clear();
+
         frame
     }
 
@@ -247,6 +256,12 @@ impl Gpu {
 
     pub fn shutdown(&self) {
         self.wait_for_idle();
+    }
+
+    pub fn bin_resource<T: 'static>(&self, resource: T) {
+        self.bin.lock()
+            [self.frame_index.load(std::sync::atomic::Ordering::Relaxed) % Self::FRAMES_IN_FLIGHT]
+            .push(Box::new(resource));
     }
 
     // #[profiling::function]

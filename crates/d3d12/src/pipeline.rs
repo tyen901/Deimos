@@ -123,6 +123,11 @@ impl<'a> GraphicsPipelineStateDesc<'a> {
         self
     }
 
+    pub fn with_depth_stencil_state(mut self, desc: D3D12_DEPTH_STENCIL_DESC) -> Self {
+        self.inner.DepthStencilState = desc;
+        self
+    }
+
     pub fn with_dsv_format(mut self, format: Format) -> Self {
         self.inner.DSVFormat = format.into();
         self
