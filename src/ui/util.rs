@@ -52,7 +52,7 @@ pub fn spinner_image() -> &'static ImageSource<'static> {
     const IMG3: ImageSource = include_image!("../../assets/ui/load3.png");
     const IMG4: ImageSource = include_image!("../../assets/ui/load4.png");
 
-    &[IMG0, IMG0, IMG1, IMG2, IMG3, IMG4, IMG4, IMG3, IMG2, IMG1][(time * 5.0) as usize % 10]
+    &[IMG0, IMG0, IMG1, IMG2, IMG3, IMG4, IMG4, IMG3, IMG2, IMG1][(time * 8.0) as usize % 10]
 }
 
 /// Extension trait for adding widgets for external data types.

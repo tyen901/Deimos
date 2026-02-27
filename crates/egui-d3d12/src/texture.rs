@@ -21,6 +21,7 @@ struct ManagedTexture {
     // texture: d3d12::Texture2D,
     pixels: Vec<Color32>,
     width: usize,
+    height: usize,
     resource: OwnedResource,
 }
 
@@ -278,6 +279,7 @@ impl TextureAllocator {
         let tex = ManagedTexture {
             resource: tex,
             width: image.width(),
+            height: image.height(),
             pixels,
             cpu_handle,
             gpu_handle,
@@ -304,6 +306,7 @@ impl TextureAllocator {
         let footprint =
             self.gpu
                 .get_copyable_footprints(&texture.resource.resource().desc(), 0, 1, 0)?;
+        let layout = &footprint.layouts[0];
 
         let upload_buffer = self
             .gpu
@@ -316,7 +319,11 @@ impl TextureAllocator {
             .expect("Failed to map upload buffer");
         let data = bytemuck::cast_slice::<Color32, u8>(&texture.pixels);
         unsafe {
-            mapped_ptr.copy_from_nonoverlapping(data.as_ptr(), data.len());
+            for row in 0..texture.height {
+                let src = data.as_ptr().add(row * texture.width * 4);
+                let dst = mapped_ptr.add(row * layout.footprint.row_pitch as usize);
+                dst.copy_from_nonoverlapping(src, layout.footprint.row_pitch as usize);
+            }
         }
         upload_buffer.resource().unmap(0);
 
