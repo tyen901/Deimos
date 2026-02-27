@@ -13,7 +13,7 @@ use crate::{
 };
 
 pub mod colors;
-// mod scene;
+mod scene;
 mod style;
 pub mod tabs;
 pub mod util;

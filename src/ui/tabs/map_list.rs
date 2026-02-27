@@ -6,7 +6,13 @@ use tiger_parse::{PackageManagerExt, TigerReadable};
 use tiger_pkg::{TagHash, package_manager};
 
 use super::TabResult;
-use crate::{app::SharedState, ui::util::DButton};
+use crate::{
+    app::SharedState,
+    ui::{
+        tabs::{Tab, map::MapTab},
+        util::DButton,
+    },
+};
 
 pub struct MapListTab {
     map_tags_by_package: Vec<(String, Vec<(TagHash, String)>)>,
@@ -62,7 +68,7 @@ impl MapListTab {
     }
 
     pub fn ui(&mut self, ui: &mut Ui) -> TabResult {
-        let result = TabResult::Continue;
+        let mut result = TabResult::Continue;
         egui::Frame::new()
             .outer_margin(Margin {
                 top: 16,
@@ -120,14 +126,15 @@ impl MapListTab {
                                         .ui(ui)
                                         .clicked()
                                     {
-                                        // match MapTab::new(*tag, name.clone()) {
-                                        //     Ok(map) => {
-                                        //         result = TabResult::Open(Tab::Map(map));
-                                        //     }
-                                        //     Err(e) => {
-                                        //         error!("Failed to open map tab: {e}");
-                                        //     }
-                                        // }
+                                        match MapTab::new(&self.state.renderer, *tag, name.clone())
+                                        {
+                                            Ok(map) => {
+                                                result = TabResult::Open(Tab::Map(map));
+                                            }
+                                            Err(e) => {
+                                                error!("Failed to open map tab: {e}");
+                                            }
+                                        }
                                     }
                                 }
                             });

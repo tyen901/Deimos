@@ -10,6 +10,7 @@ pub static D3D12SDKVersion: u32 = 618;
 pub static D3D12SDKPath: &CStr = c".\\D3D12\\";
 
 pub mod asset;
+pub mod camera;
 pub mod features;
 pub mod gpu;
 pub mod renderer;

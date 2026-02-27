@@ -2,7 +2,7 @@
 pub mod activity_list;
 // pub mod entity_list;
 pub mod home;
-// pub mod map;
+pub mod map;
 pub mod map_list;
 // pub mod model_list;
 pub mod settings;
@@ -18,7 +18,7 @@ use google_material_symbols::GoogleMaterialSymbols;
 use home::HomeTab;
 
 use crate::ui::tabs::{
-    activity_list::ActivityListTab, map_list::MapListTab, settings::SettingsTab,
+    activity_list::ActivityListTab, map::MapTab, map_list::MapListTab, settings::SettingsTab,
 };
 
 pub enum Tab {
@@ -27,7 +27,7 @@ pub enum Tab {
     // EntityList(Box<EntityListTab>),
     // StaticList(Box<StaticListTab>),
     MapList(MapListTab),
-    // Map(MapTab),
+    Map(MapTab),
     ActivityList(ActivityListTab),
     // Activity(ActivityTab),
     // TestScene(TestSceneTab),
@@ -47,7 +47,7 @@ impl Tab {
             // Tab::EntityList(_) => 0,
             // Tab::StaticList(_) => 0,
             Tab::MapList(_) => 0,
-            // Tab::Map(tab) => tab.tag.0 as u64,
+            Tab::Map(tab) => tab.tag.0 as u64,
             Tab::ActivityList(_) => 0,
             // Tab::Activity(tab) => tab.tag.0 as u64,
             // Tab::TestScene(_) => 0,
@@ -64,7 +64,7 @@ impl Display for Tab {
             // Tab::EntityList(_) => format!("{} Entities", GoogleMaterialSymbols::ChessPawn),
             // Tab::StaticList(_) => format!("{} Statics", GoogleMaterialSymbols::Landscape),
             Tab::MapList(_) => format!("{} Maps", GoogleMaterialSymbols::Map),
-            // Tab::Map(tab) => format!("{} ({})", tab.name, tab.tag),
+            Tab::Map(tab) => format!("{} ({})", tab.name, tab.tag),
             Tab::ActivityList(_) => {
                 format!("{} Activities", GoogleMaterialSymbols::StadiaController)
             } // Tab::Activity(tab) => format!("{} ({})", tab.name, tab.tag),
@@ -114,9 +114,9 @@ impl<'a> egui_dock::TabViewer for TabViewer<'a> {
                     Tab::MapList(tab) => {
                         self.process_result(tab.ui(ui));
                     }
-                    // Tab::Map(tab) => {
-                    //     tab.ui(ui, self.egui_d3d11);
-                    // }
+                    Tab::Map(tab) => {
+                        tab.ui(ui);
+                    }
                     Tab::ActivityList(tab) => {
                         let res = tab.ui(ui);
                         self.process_result(res);

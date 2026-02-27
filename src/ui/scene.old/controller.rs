@@ -1,4 +1,4 @@
-use deimos_render::camera::Camera;
+use alkahest_render::{Renderer, camera::Camera};
 use egui::{Response, Ui};
 use glam::{Quat, Vec2, Vec3};
 
@@ -59,12 +59,12 @@ impl CameraController {
                     *target += camera.up() * delta_adjusted.y;
                 }
 
-                // if response.dragged() {
-                //     Renderer::instance()
-                //         .immediate
-                //         .lock()
-                //         .cross(*target, 0.15, 0xffffff);
-                // }
+                if response.dragged() {
+                    Renderer::instance()
+                        .immediate
+                        .lock()
+                        .cross(*target, 0.15, 0xffffff);
+                }
 
                 camera.position = *target - camera.forward() * real_distance;
             }

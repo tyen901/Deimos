@@ -5,6 +5,7 @@
 use std::{
     io::{Cursor, Seek},
     rc::Rc,
+    str::FromStr,
     sync::Arc,
     time::Instant,
 };
@@ -19,7 +20,6 @@ use deimos_data::{
     tfx::RenderStage,
 };
 use deimos_render::{
-    features::FeatureRenderer,
     gpu::{Gpu, command_list::CommandList},
     renderer::Renderer,
     util::fps_histogram::FrametimeHistogram,
@@ -30,7 +30,15 @@ use sdl3::video::Window;
 use tiger_parse::TigerReadable;
 use tiger_pkg::{TagHash, package_manager};
 
-use crate::{cli::AppArgs, config::AppConfig, ui::Gui, world::map::load_map_into_world};
+use crate::{
+    cli::AppArgs,
+    config::AppConfig,
+    ui::{
+        Gui,
+        tabs::{Tab, map::MapTab},
+    },
+    world::map::load_map_into_world,
+};
 
 pub struct App {
     pub sdl: Rc<sdl3::Sdl>,
@@ -45,58 +53,38 @@ pub struct App {
     // _spinner: FullscreenSpinner,
     last_frame_time: Instant,
     frametime_histogram: FrametimeHistogram,
-    map: World,
 }
 
 impl App {
-    pub fn new(sdl: Rc<sdl3::Sdl>, window: Rc<Window>, _args: AppArgs) -> anyhow::Result<Self> {
+    pub fn new(sdl: Rc<sdl3::Sdl>, window: Rc<Window>, args: AppArgs) -> anyhow::Result<Self> {
         let gpu = Arc::new(Gpu::create(&window).context("Failed to create GPU")?);
         let renderer = Arc::new(Renderer::new(gpu.clone()));
         // Renderer::set_instance(renderer.clone());
 
-        let gui = Gui::new(&gpu, sdl.clone(), window.clone())?;
-        // if let Some(map_hash) = args.open_map.as_ref() {
-        //     match TagHash::from_str(map_hash) {
-        //         Ok(tag) => match MapTab::new(tag, String::new()) {
-        //             Ok(tab) => gui.add_tab(Tab::Map(tab)),
-        //             Err(e) => error!("Failed to open map tab for {}: {:?}", map_hash, e),
-        //         },
-        //         Err(e) => {
-        //             error!("Failed to parse map hash {}: {:?}", map_hash, e);
-        //         }
-        //     };
-        // }
-
-        // let mut terrain_temp = vec![];
-        // for (tag, _) in package_manager()
-        //     .get_all_by_reference(STerrain::ID.unwrap())
-        //     .into_iter()
-        //     .filter(|(tag, _)| tag.pkg_id() == 0x19a)
-        // {
-        //     terrain_temp.push(TerrainPatchesRenderer::load(&renderer, tag, 0)?);
-        // }
-
-        let mut map = World::new();
-        let tag = TagHash(0x80b10471);
-        load_map_into_world(&renderer, tag, &mut map).context("Failed to load map")?;
-
-        // if let Err(e) = Technique::load(&gpu, TagHash(0x80AB0C4B)) {
-        //     error!("Failed to create technique: {:?}", e);
-        // }
+        let mut gui = Gui::new(&gpu, sdl.clone(), window.clone())?;
+        if let Some(map_hash) = args.open_map.as_ref() {
+            match TagHash::from_str(map_hash) {
+                Ok(tag) => match MapTab::new(&renderer, tag, String::new()) {
+                    Ok(tab) => gui.add_tab(Tab::Map(tab)),
+                    Err(e) => error!("Failed to open map tab for {}: {:?}", map_hash, e),
+                },
+                Err(e) => {
+                    error!("Failed to parse map hash {}: {:?}", map_hash, e);
+                }
+            };
+        }
 
         Ok(Self {
-            map,
             // _spinner: FullscreenSpinner::create(&renderer.gpu)?,
+            shared_state: SharedState::new(renderer.clone())
+                .context("Failed to create shared state")?
+                .into(),
             renderer,
             gui,
             sdl,
             _window: window,
             gpu,
             running: true,
-
-            shared_state: SharedState::new()
-                .context("Failed to create shared state")?
-                .into(),
 
             last_frame_time: Instant::now(),
             frametime_histogram: FrametimeHistogram::new(10),
@@ -169,12 +157,12 @@ impl App {
 
             self.gui.render(&self.gpu, cmd);
 
-            self.renderer.globals.scopes.view.bind(&mut cmd_tfx);
-            for obj in self.renderer.objects.write().values_mut() {
-                obj.renderer.extract(&self.renderer, &());
-                obj.renderer
-                    .submit(&mut cmd_tfx, RenderStage::GenerateGbuffer);
-            }
+            // self.renderer.globals.scopes.view.bind(&mut cmd_tfx);
+            // for obj in self.renderer.objects.write().values_mut() {
+            //     obj.renderer.extract(&self.renderer, &());
+            //     obj.renderer
+            //         .submit(&mut cmd_tfx, RenderStage::GenerateGbuffer);
+            // }
 
             cmd.resource_barriers(&[ResourceBarrier::transition(
                 &back_buffer,
@@ -210,10 +198,11 @@ pub struct SharedState {
     pub strings: StringContainerShared,
     pub strings_by_package: HashMap<String, StringContainer>,
     pub config: RwLock<AppConfig>,
+    pub renderer: Arc<Renderer>,
 }
 
 impl SharedState {
-    pub fn new() -> anyhow::Result<Self> {
+    pub fn new(renderer: Arc<Renderer>) -> anyhow::Result<Self> {
         let mut strings_by_package = HashMap::default();
         for (name, tag) in package_manager().get_named_tags_by_class(0x80808E8B) {
             let Ok(data) = package_manager().read_tag(tag) else {
@@ -232,6 +221,7 @@ impl SharedState {
             strings: StringContainer::load_all_global().into(),
             strings_by_package,
             config: RwLock::new(AppConfig::default()),
+            renderer,
         };
         if let Err(e) = s.load_config() {
             warn!("Failed to load config: {:?}", e);
