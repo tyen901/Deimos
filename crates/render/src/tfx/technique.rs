@@ -121,15 +121,13 @@ impl Technique {
                 descriptor_ranges.push((local_ranges, stage.visibility));
             }
         }
-        let descriptor_table_parameters = descriptor_ranges
-            .iter()
-            .map(|(ranges, _)| ranges.len() as u32)
-            .collect::<SmallVec<[u32; 3]>>();
+        let mut descriptor_table_parameters = SmallVec::new();
         for (ranges, visibility) in descriptor_ranges.iter() {
-            rsb.add_param(
+            let index = rsb.add_param(
                 d3d12::RootParameter::DescriptorTable(ranges.as_slice()),
                 *visibility,
             );
+            descriptor_table_parameters.push(index as u32);
         }
 
         let descriptors = FixedDescriptorHeap::new(
