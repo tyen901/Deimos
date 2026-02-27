@@ -1,6 +1,9 @@
 use tiger_parse::{tiger_type, ResourcePointer, ResourcePointerWithClass, VariantPointer};
 
-use crate::{map::ComponentData, tag::Tag};
+use crate::{
+    map::{ComponentData, SComponentDataListPtr},
+    tag::Tag,
+};
 
 #[tiger_type(id = 0x8080BD3F)]
 pub struct SPattern {
@@ -18,7 +21,8 @@ pub struct SComponentRef {
 #[tiger_type(id = 0x8080BD73, size = 0x88)]
 pub struct SComponent {
     pub file_size: u64,
-    pub dynamic_data: VariantPointer<ComponentData>,
+    // cohae: This field isn't a list, but it uses the same layout as ComponentDataListPtr
+    pub dynamic_data: SComponentDataListPtr,
     pub unk10: ResourcePointer,
     pub unk18: ResourcePointer,
 

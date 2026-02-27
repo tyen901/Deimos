@@ -17,7 +17,7 @@ use deimos_core::job::SCHEDULER;
 use deimos_data::{
     strings::{StringContainer, StringContainerShared},
     tag::WideHash,
-    tfx::features::terrain::STerrain,
+    tfx::{RenderStage, features::terrain::STerrain},
 };
 use deimos_render::{
     asset::texture::Texture,
@@ -26,18 +26,19 @@ use deimos_render::{
     renderer::{Renderer, globals::get_scope_samplers},
     util::fps_histogram::FrametimeHistogram,
 };
+use hecs::World;
 use parking_lot::RwLock;
 use sdl3::video::Window;
 use tiger_parse::TigerReadable;
-use tiger_pkg::package_manager;
+use tiger_pkg::{TagHash, package_manager};
 
-use crate::{cli::AppArgs, config::AppConfig, ui::Gui};
+use crate::{cli::AppArgs, config::AppConfig, ui::Gui, world::map::load_map_into_world};
 
 pub struct App {
     pub sdl: Rc<sdl3::Sdl>,
     pub _window: Rc<Window>,
     pub gpu: Arc<Gpu>,
-    pub renderer: Renderer,
+    pub renderer: Arc<Renderer>,
     pub gui: Gui,
     pub running: bool,
 
@@ -46,13 +47,13 @@ pub struct App {
     // _spinner: FullscreenSpinner,
     last_frame_time: Instant,
     frametime_histogram: FrametimeHistogram,
-    terrain_temp: Vec<Box<TerrainPatchesRenderer>>,
+    map: World,
 }
 
 impl App {
     pub fn new(sdl: Rc<sdl3::Sdl>, window: Rc<Window>, args: AppArgs) -> anyhow::Result<Self> {
         let gpu = Arc::new(Gpu::create(&window).context("Failed to create GPU")?);
-        let renderer = Renderer::new(gpu.clone());
+        let renderer = Arc::new(Renderer::new(gpu.clone()));
         // Renderer::set_instance(renderer.clone());
 
         let mut gui = Gui::new(&gpu, sdl.clone(), window.clone())?;
@@ -68,21 +69,25 @@ impl App {
         //     };
         // }
 
-        let mut terrain_temp = vec![];
-        for (tag, _) in package_manager()
-            .get_all_by_reference(STerrain::ID.unwrap())
-            .into_iter()
-            .filter(|(tag, _)| tag.pkg_id() == 0x19a)
-        {
-            terrain_temp.push(TerrainPatchesRenderer::load(&renderer, tag, 0)?);
-        }
+        // let mut terrain_temp = vec![];
+        // for (tag, _) in package_manager()
+        //     .get_all_by_reference(STerrain::ID.unwrap())
+        //     .into_iter()
+        //     .filter(|(tag, _)| tag.pkg_id() == 0x19a)
+        // {
+        //     terrain_temp.push(TerrainPatchesRenderer::load(&renderer, tag, 0)?);
+        // }
+
+        let mut map = World::new();
+        let tag = TagHash(0x80b10471);
+        load_map_into_world(&renderer, tag, &mut map).context("Failed to load map")?;
 
         // if let Err(e) = Technique::load(&gpu, TagHash(0x80AB0C4B)) {
         //     error!("Failed to create technique: {:?}", e);
         // }
 
         Ok(Self {
-            terrain_temp,
+            map,
             // _spinner: FullscreenSpinner::create(&renderer.gpu)?,
             renderer,
             gui,
@@ -165,10 +170,15 @@ impl App {
             self.gui.draw(&self.gpu, cmd, &self.shared_state);
 
             self.renderer.globals.scopes.view.bind(&mut cmd_tfx);
-            for terrain in self.terrain_temp.iter_mut() {
-                terrain.extract(&self.renderer, &());
-                terrain.render(&mut cmd_tfx, deimos_data::tfx::RenderStage::GenerateGbuffer);
+            for obj in self.renderer.objects.write().values_mut() {
+                obj.renderer.extract(&self.renderer, &());
+                obj.renderer
+                    .submit(&mut cmd_tfx, RenderStage::GenerateGbuffer);
             }
+            // for terrain in self.terrain_temp.iter_mut() {
+            //     terrain.extract(&self.renderer, &());
+            //     terrain.render(&mut cmd_tfx, deimos_data::tfx::RenderStage::GenerateGbuffer);
+            // }
 
             cmd.resource_barriers(&[ResourceBarrier::transition(
                 &back_buffer,

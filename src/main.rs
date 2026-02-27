@@ -12,7 +12,7 @@ mod config;
 mod panic_hook;
 mod task;
 mod ui;
-// mod world;
+mod world;
 
 #[macro_use]
 extern crate tracing;

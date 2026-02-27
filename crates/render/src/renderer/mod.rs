@@ -3,6 +3,7 @@ pub mod object;
 
 use std::sync::Arc;
 
+use deimos_data::tfx::TfxFeatureRenderer;
 use parking_lot::RwLock;
 use slotmap::SlotMap;
 
@@ -38,5 +39,15 @@ impl Renderer {
         self.objects.write().clear();
         self.asset_manager.shutdown();
         self.gpu.shutdown();
+    }
+}
+
+impl Renderer {
+    pub fn add_object(&self, object: RenderObject) -> RenderObjectHandle {
+        self.objects.write().insert(object)
+    }
+
+    pub fn remove_object(&self, handle: RenderObjectHandle) {
+        self.objects.write().remove(handle);
     }
 }
