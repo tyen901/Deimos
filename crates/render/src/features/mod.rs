@@ -1,5 +1,7 @@
 use std::any::Any;
 
+mod shared;
+pub mod static_geometry;
 pub mod terrain_patches;
 
 use deimos_data::tfx::{RenderStage, features::dynamic::RenderStageSubscription};

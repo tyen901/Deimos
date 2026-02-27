@@ -56,7 +56,7 @@ impl PipelineCache {
             .render_states
             .input_layouts
             .get(key.input_layout as usize)
-            .context("invalid input layout")?;
+            .with_context(|| format!("invalid input layout {}", key.input_layout))?;
 
         let blend_state_index = key.fixed_function_state.blend_state().unwrap_or(0);
         let blend_state = self

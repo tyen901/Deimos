@@ -10,10 +10,10 @@ use anyhow::Context;
 use deimos_data::{
     map::{ComponentData, SComponentDataListPtr},
     pattern::SPattern,
-    tfx::TfxFeatureRenderer,
+    tfx::{TfxFeatureRenderer, features::statics::SUnk808082D5},
 };
 use deimos_render::{
-    features::terrain_patches::TerrainPatchesRenderer,
+    features::{static_geometry::StaticInstancesRenderer, terrain_patches::TerrainPatchesRenderer},
     renderer::{Renderer, object::RenderObject},
 };
 use itertools::Itertools;
@@ -183,20 +183,23 @@ pub fn spawn_pattern_from_header(
                     ),
                 )?;
             }
-            // 0x80806CC8 => {
-            //     let data = get_component_data!(SStaticInstancesCollectionComponent);
-            //     let instances: SUnk808082D5 = package_manager().read_tag_struct(data.instances)?;
-            //     world.insert_one(
-            //         entity,
-            //         StaticRenderObject::new(renderer.add_object(RenderObject::new(
-            //             TfxFeatureRenderer::ChunkedInstanceObjects,
-            //             Box::new(StaticInstancesRenderer::load(
-            //                 &renderer.gpu,
-            //                 instances.instances,
-            //             )?),
-            //         ))),
-            //     )?;
-            // }
+            0x808084E8 => {
+                let data = get_component_data!(SStaticInstancesCollectionComponent);
+                let instances: SUnk808082D5 = package_manager().read_tag_struct(data.instances)?;
+                world.insert_one(
+                    entity,
+                    StaticRenderObject::new(
+                        renderer,
+                        renderer.add_object(RenderObject::new(
+                            TfxFeatureRenderer::ChunkedInstanceObjects,
+                            Box::new(StaticInstancesRenderer::load(
+                                renderer,
+                                instances.instances,
+                            )?),
+                        )),
+                    ),
+                )?;
+            }
             // 0x80806957 => {
             //     let data = get_component_data!(SDecalCollectionComponent);
             //     if let Some(collection) = &*data.decals {

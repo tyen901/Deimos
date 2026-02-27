@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use tiger_parse::tiger_type;
 use tiger_pkg::TagHash;
 
@@ -51,6 +53,12 @@ pub struct SStaticMeshPart {
     pub unk9: u8,
     pub lod_category: LodCategory,
     pub primitive_type: PrimitiveType,
+}
+
+impl SStaticMeshPart {
+    pub fn index_range(&self) -> Range<u32> {
+        self.index_start..self.index_start + self.index_count
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -123,6 +131,12 @@ pub struct SStaticSpecialMesh {
     pub index_start: u32,
     pub index_count: u32,
     pub technique: TagHash,
+}
+
+impl SStaticSpecialMesh {
+    pub fn index_range(&self) -> Range<u32> {
+        self.index_start..self.index_start + self.index_count
+    }
 }
 
 #[derive(Debug)]

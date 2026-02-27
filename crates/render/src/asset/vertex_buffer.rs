@@ -88,7 +88,7 @@ impl VertexBuffer {
         })
     }
 
-    pub fn bind_single(&self, cmd: &mut d3d12::GraphicsCommandList, slot: u32) {
+    pub fn bind_single(&self, cmd: &d3d12::GraphicsCommandList, slot: u32) {
         cmd.ia_set_vertex_buffers(
             slot,
             &[d3d12::VertexBufferView::new(
