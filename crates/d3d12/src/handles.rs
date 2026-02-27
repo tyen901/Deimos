@@ -21,6 +21,8 @@ impl GpuVirtualAddress {
 pub struct CpuDescriptorHandle(usize);
 
 impl CpuDescriptorHandle {
+    pub const NULL: Self = Self(0);
+
     pub fn offset(&self, offset_in_descriptors: usize, increment_size: u32) -> Self {
         Self(self.0 + offset_in_descriptors * increment_size as usize)
     }
@@ -47,6 +49,8 @@ impl From<D3D12_CPU_DESCRIPTOR_HANDLE> for CpuDescriptorHandle {
 pub struct GpuDescriptorHandle(u64);
 
 impl GpuDescriptorHandle {
+    pub const NULL: Self = Self(0);
+
     pub fn offset(&self, offset_in_descriptors: usize, increment_size: u32) -> Self {
         Self(self.0 + offset_in_descriptors as u64 * increment_size as u64)
     }

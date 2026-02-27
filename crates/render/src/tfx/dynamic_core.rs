@@ -8,7 +8,9 @@ use itertools::Itertools;
 use tiger_pkg::{TagHash, package_manager};
 
 use crate::{
+    asset::{AssetManager, Handle, texture::Texture},
     gpu::command_list::CommandList,
+    renderer::Renderer,
     tfx::{
         expression_vm::{
             self,
@@ -18,6 +20,14 @@ use crate::{
         externs::Externs,
     },
 };
+
+pub enum ResolvedTextureSource {
+    Static(Handle<Texture>),
+    Dynamic {
+        extern_index: ExternIndex,
+        offset: u32,
+    },
+}
 
 /// Shared core for dynamic textures/samplers/constants used by scopes and techniques
 ///
@@ -30,14 +40,18 @@ pub struct DynamicCore {
     data: SDynamicCore,
 
     pub samplers: Vec<d3d12::StaticSamplerDesc>,
-    pub textures: Vec<(u32, TextureSource)>,
+    pub textures: Vec<(u32, ResolvedTextureSource)>,
 
     initial_constants: Vec<Vec4>,
     cbuffer_size: usize,
 }
 
 impl DynamicCore {
-    pub fn new(data: SDynamicCore, stage: ShaderStage) -> anyhow::Result<Self> {
+    pub fn new(
+        asset_manager: &AssetManager,
+        data: SDynamicCore,
+        stage: ShaderStage,
+    ) -> anyhow::Result<Self> {
         let mut core = Self {
             stage,
             data,
@@ -47,46 +61,29 @@ impl DynamicCore {
             cbuffer_size: 0,
         };
 
-        core.textures.extend(
-            core.data
-                .textures
-                .iter()
-                .map(|t| (t.slot, TextureSource::Static(t.texture))),
-        );
+        let mut resources = DynamicCoreResources::extract(&core.data, stage)?;
+        std::mem::swap(&mut resources.samplers, &mut core.samplers);
 
-        let mut sampler_tags = Vec::new();
-
-        extract_textures_and_samplers(
-            &core.data.bytecode,
-            &core.data.samplers,
-            &mut sampler_tags,
-            &mut core.textures,
-        )?;
-
-        for (slot, tag) in sampler_tags {
-            let sampler_entry = package_manager()
-                .get_entry(tag)
-                .context("missing entry for sampler")?;
-            let data = package_manager()
-                .read_tag(sampler_entry.reference)
-                .context("reading sampler")?;
-            let sampler: d3d12::SamplerDesc =
-                unsafe { data.as_ptr().cast::<d3d12::SamplerDesc>().read() };
-            core.samplers.push(d3d12::StaticSamplerDesc {
-                filter: sampler.filter,
-                address_u: sampler.address_u,
-                address_v: sampler.address_v,
-                address_w: sampler.address_w,
-                mip_lod_bias: sampler.mip_lod_bias,
-                max_anisotropy: sampler.max_anisotropy,
-                comparison_func: sampler.comparison_func,
-                border_color: d3d12::D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK,
-                min_lod: sampler.min_lod,
-                max_lod: sampler.max_lod,
-                shader_register: slot,
-                register_space: 0,
-                shader_visibility: core.stage.shader_visibility(),
-            });
+        for (slot, t) in resources.textures {
+            match t {
+                TextureSource::Static(tag) => {
+                    let texture = asset_manager.load(tag);
+                    core.textures
+                        .push((slot, ResolvedTextureSource::Static(texture)));
+                }
+                TextureSource::Dynamic {
+                    extern_index,
+                    offset,
+                } => {
+                    core.textures.push((
+                        slot,
+                        ResolvedTextureSource::Dynamic {
+                            extern_index,
+                            offset,
+                        },
+                    ));
+                }
+            }
         }
 
         core.data.bytecode =
@@ -119,7 +116,7 @@ impl DynamicCore {
 
     pub fn prepare(&self, cmd: &mut CommandList) -> anyhow::Result<()> {
         let mut externs = Externs::default();
-        externs.view.world_to_camera = Mat4::look_at_rh(Vec3::Z * 100.0, Vec3::ZERO, Vec3::Y);
+        externs.view.world_to_camera = Mat4::look_at_rh(Vec3::Z * 500.0, Vec3::ZERO, Vec3::Y);
         externs.view.camera_to_projective =
             Mat4::perspective_rh(90f32.to_radians(), 16.0 / 9.0, 0.1, 5000.0);
         externs.view.derive_matrices((1920, 1080));
@@ -167,6 +164,21 @@ impl DynamicCore {
             );
         }
 
+        for (slot, texture) in self.textures.iter() {
+            match texture {
+                ResolvedTextureSource::Static(handle) => {
+                    handle
+                        .get_ref(|v| cmd.set_shader_resource_view(self.stage, *slot, Some(v.srv)));
+                }
+                ResolvedTextureSource::Dynamic {
+                    extern_index,
+                    offset,
+                } => {
+                    // TODO
+                }
+            }
+        }
+
         Ok(())
     }
 }
@@ -177,6 +189,64 @@ pub enum TextureSource {
         extern_index: ExternIndex,
         offset: u32,
     },
+}
+
+/// Resources extracted from dynamic core
+pub struct DynamicCoreResources {
+    pub samplers: Vec<d3d12::StaticSamplerDesc>,
+    pub textures: Vec<(u32, TextureSource)>,
+}
+
+impl DynamicCoreResources {
+    pub fn extract(core: &SDynamicCore, stage: ShaderStage) -> anyhow::Result<Self> {
+        let mut res = Self {
+            samplers: Vec::new(),
+            textures: Vec::new(),
+        };
+
+        res.textures.extend(
+            core.textures
+                .iter()
+                .map(|t| (t.slot, TextureSource::Static(t.texture))),
+        );
+
+        let mut sampler_tags = Vec::new();
+
+        extract_textures_and_samplers(
+            &core.bytecode,
+            &core.samplers,
+            &mut sampler_tags,
+            &mut res.textures,
+        )?;
+
+        for (slot, tag) in sampler_tags {
+            let sampler_entry = package_manager()
+                .get_entry(tag)
+                .context("missing entry for sampler")?;
+            let data = package_manager()
+                .read_tag(sampler_entry.reference)
+                .context("reading sampler")?;
+            let sampler: d3d12::SamplerDesc =
+                unsafe { data.as_ptr().cast::<d3d12::SamplerDesc>().read() };
+            res.samplers.push(d3d12::StaticSamplerDesc {
+                filter: sampler.filter,
+                address_u: sampler.address_u,
+                address_v: sampler.address_v,
+                address_w: sampler.address_w,
+                mip_lod_bias: sampler.mip_lod_bias,
+                max_anisotropy: sampler.max_anisotropy,
+                comparison_func: sampler.comparison_func,
+                border_color: d3d12::D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK,
+                min_lod: sampler.min_lod,
+                max_lod: sampler.max_lod,
+                shader_register: slot,
+                register_space: 0,
+                shader_visibility: stage.shader_visibility(),
+            });
+        }
+
+        Ok(res)
+    }
 }
 
 fn extract_textures_and_samplers(

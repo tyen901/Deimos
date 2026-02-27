@@ -10,13 +10,16 @@ use tiger_parse::PackageManagerExt;
 use tiger_pkg::{TagHash, package_manager};
 
 use crate::{
-    asset::texture::Texture,
+    asset::{AssetManager, texture::Texture},
     gpu::Gpu,
-    tfx::{scope::Scope, technique::Technique},
+    tfx::{
+        scope::{Scope, ScopeSamplers},
+        technique::Technique,
+    },
 };
 
 lazy_static! {
-    static ref GLOBAL_SCOPES: Vec<Scope> = {
+    static ref GLOBAL_SCOPES: Vec<ScopeSamplers> = {
         // TODO(cohae): Feels a bit weird to load globals again here, but right now it's the most convenient way to access them for building root signatures
         let data: SRenderGlobals = package_manager()
             .read_named_tag_struct("render_globals")
@@ -25,7 +28,7 @@ lazy_static! {
 
         let mut scopes = Vec::new();
         for scope_tag in &globs.scopes {
-            let scope = Scope::load(scope_tag.scope).unwrap_or_else(|_| {
+            let scope = ScopeSamplers::load(scope_tag.scope).unwrap_or_else(|_| {
                 panic!(
                     "failed to load scope {} ({})",
                     scope_tag.name.0, scope_tag.scope
@@ -48,14 +51,12 @@ lazy_static! {
     };
 }
 
-pub fn try_get_scope(index: u32) -> Option<&'static Scope> {
+pub fn try_get_scope_samplers(index: u32) -> Option<&'static ScopeSamplers> {
     GLOBAL_SCOPES.get(index as usize)
 }
 
-pub fn get_scope(index: u32) -> &'static Scope {
-    GLOBAL_SCOPES
-        .get(index as usize)
-        .unwrap_or_else(|| panic!("Scope {index} does not exist"))
+pub fn get_scope_samplers(index: u32) -> &'static ScopeSamplers {
+    try_get_scope_samplers(index).unwrap_or_else(|| panic!("Scope {index} does not exist"))
 }
 
 pub struct RenderGlobals {
@@ -67,12 +68,12 @@ pub struct RenderGlobals {
 }
 
 impl RenderGlobals {
-    pub fn load(gpu: &Arc<Gpu>) -> anyhow::Result<Self> {
+    pub fn load(asset_manager: &AssetManager, gpu: &Arc<Gpu>) -> anyhow::Result<Self> {
         let data: SRenderGlobals = package_manager().read_named_tag_struct("render_globals")?;
         let globs = &data.unk8.first().context("No render globals found")?.unk8.0;
 
         Ok(Self {
-            scopes: GlobalScopes::load(globs),
+            scopes: GlobalScopes::load(asset_manager, globs),
             // pipelines: GlobalPipelines::load(gpu, globs),
             textures: GlobalTextures::load(gpu, globs)?,
             channels: globs.global_channels.0.clone(),
@@ -114,12 +115,13 @@ macro_rules! tfx_global_scopes {
         }
 
         impl GlobalScopes {
-            pub fn load(globals: &SRenderGlobalsData) -> Self {
+            pub fn load(asset_manager: &AssetManager, globals: &SRenderGlobalsData) -> Self {
                 let scopes: HashMap<String, TagHash> = globals.scopes.iter().map(|p| (p.name.to_string(), p.scope)).collect();
 
                 Self {
                     $(
                         $name: Box::new(Scope::load(
+                            asset_manager,
                             *scopes.get(stringify!($name))
                                 .expect(&format!("Scope {} does not exist", stringify!($name))),
                         )
@@ -152,13 +154,14 @@ macro_rules! tfx_global_pipelines {
 
 
         impl GlobalPipelines {
-            pub fn load(gpu: &Arc<Gpu>, globals: &SRenderGlobalsData) -> Self {
+            pub fn load(asset_manager: &AssetManager, gpu: &Arc<Gpu>, globals: &SRenderGlobalsData) -> Self {
                 let techniques: HashMap<String, TagHash> = globals.pipelines.iter().map(|p| (p.name.to_string(), p.technique)).collect();
 
                 Self {
                     $(
                         $name: Box::new(
                             Technique::load(
+                                asset_manager,
                                 gpu,
                                 *techniques.get(stringify!($name))
                                     .expect(&format!("Technique {} does not exist", stringify!($name)))

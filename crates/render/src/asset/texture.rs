@@ -4,7 +4,10 @@ use anyhow::Context;
 use d3d12::{
     DeviceChild, ResourceBarrier, ResourceStates, ShaderResourceViewDesc, TextureCopyLocation,
 };
-use deimos_data::{tag::WideHash, tfx::texture::STextureHeader};
+use deimos_data::{
+    tag::WideHash,
+    tfx::{ShaderStage, texture::STextureHeader},
+};
 use gpu_allocator::{MemoryLocation, d3d12::ResourceCreateDesc};
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::package_manager;
@@ -12,6 +15,7 @@ use tiger_pkg::package_manager;
 use crate::gpu::{
     Gpu,
     alloc::{descriptors::ResourceView, resource::OwnedResource},
+    command_list::CommandList,
 };
 
 pub struct Texture {
@@ -201,6 +205,10 @@ impl Texture {
             resource,
             srv,
         })
+    }
+
+    pub fn bind(&self, cmd: &mut CommandList, slot: u32, stage: ShaderStage) {
+        cmd.set_shader_resource_view(stage, slot, Some(self.srv));
     }
 }
 

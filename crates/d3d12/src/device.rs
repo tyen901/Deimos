@@ -231,6 +231,23 @@ impl Device {
         }
     }
 
+    pub fn copy_descriptors_simple(
+        &self,
+        num_descriptors: u32,
+        src_descriptor_range_start: CpuDescriptorHandle,
+        dst_descriptor_range_start: CpuDescriptorHandle,
+        heap_type: DescriptorHeapType,
+    ) {
+        unsafe {
+            self.0.CopyDescriptorsSimple(
+                num_descriptors,
+                dst_descriptor_range_start.into(),
+                src_descriptor_range_start.into(),
+                D3D12_DESCRIPTOR_HEAP_TYPE(heap_type as i32),
+            );
+        }
+    }
+
     pub fn as_windows(&self) -> &ID3D12Device {
         &self.0
     }

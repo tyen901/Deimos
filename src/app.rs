@@ -23,13 +23,13 @@ use deimos_render::{
     asset::texture::Texture,
     features::{FeatureRenderer, terrain_patches::TerrainPatchesRenderer},
     gpu::{Gpu, command_list::CommandList},
-    renderer::{Renderer, globals::get_scope},
+    renderer::{Renderer, globals::get_scope_samplers},
     util::fps_histogram::FrametimeHistogram,
 };
 use parking_lot::RwLock;
 use sdl3::video::Window;
 use tiger_parse::TigerReadable;
-use tiger_pkg::{TagHash, package, package_manager};
+use tiger_pkg::package_manager;
 
 use crate::{cli::AppArgs, config::AppConfig, ui::Gui};
 
@@ -69,7 +69,11 @@ impl App {
         // }
 
         let mut terrain_temp = vec![];
-        for (tag, _) in package_manager().get_all_by_reference(STerrain::ID.unwrap()) {
+        for (tag, _) in package_manager()
+            .get_all_by_reference(STerrain::ID.unwrap())
+            .into_iter()
+            .filter(|(tag, _)| tag.pkg_id() == 0x19a)
+        {
             terrain_temp.push(TerrainPatchesRenderer::load(&renderer, tag, 0)?);
         }
 
@@ -160,7 +164,7 @@ impl App {
 
             self.gui.draw(&self.gpu, cmd, &self.shared_state);
 
-            get_scope(1).bind(&mut cmd_tfx);
+            self.renderer.globals.scopes.view.bind(&mut cmd_tfx);
             for terrain in self.terrain_temp.iter_mut() {
                 terrain.extract(&self.renderer, &());
                 terrain.render(&mut cmd_tfx, deimos_data::tfx::RenderStage::GenerateGbuffer);

@@ -64,7 +64,7 @@ impl TerrainPatchesRenderer {
         let techniques = terrain
             .mesh_parts
             .iter()
-            .map(|part| Technique::load(&renderer.gpu, part.technique))
+            .map(|part| Technique::load(&renderer.asset_manager, &renderer.gpu, part.technique))
             .collect::<anyhow::Result<Vec<_>>>()
             .context("Failed to load technique")?;
 
@@ -130,10 +130,9 @@ impl TerrainPatchesRenderer {
                 Some(cb11.virtual_address()),
             );
 
-            // cb11.bind(cmd, ShaderStage::Vertex, 11);
-            // if let Some(dyemap) = self.dyemaps[part.group_index as usize].get() {
-            //     dyemap.bind(cmd, 14, deimos_data::tfx::ShaderStage::Pixel);
-            // }
+            if let Some(dyemap) = self.dyemaps[part.group_index as usize].get() {
+                dyemap.bind(cmd, 14, ShaderStage::Pixel);
+            }
 
             self.techniques[i].bind(cmd);
             // .expect("Failed to bind technique");

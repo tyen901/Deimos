@@ -51,7 +51,7 @@ impl DescriptorHeapAllocator {
         })
     }
 
-    pub fn descriptor(&self) -> &d3d12::DescriptorHeap {
+    pub fn heap(&self) -> &d3d12::DescriptorHeap {
         &self.descriptor_heap
     }
 

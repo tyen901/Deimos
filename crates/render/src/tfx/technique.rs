@@ -11,8 +11,12 @@ use tiger_parse::PackageManagerExt;
 use tiger_pkg::{TagHash, package_manager};
 
 use crate::{
-    gpu::{Gpu, command_list::CommandList, pipeline_cache::PipelineKey},
-    renderer::globals::get_scope,
+    asset::AssetManager,
+    gpu::{
+        Gpu, alloc::descriptors::FixedDescriptorHeap, command_list::CommandList,
+        pipeline_cache::PipelineKey,
+    },
+    renderer::globals::get_scope_samplers,
     tfx::dynamic_core::DynamicCore,
 };
 
@@ -22,21 +26,36 @@ pub struct Technique {
     root_signature: d3d12::RootSignature,
     stage_vertex: TechniqueStage,
     stage_pixel: TechniqueStage,
+
+    descriptor_table_parameters: SmallVec<[u32; 3]>,
+    descriptors: FixedDescriptorHeap,
 }
 
 impl Technique {
-    pub fn load(gpu: &Arc<Gpu>, hash: TagHash) -> anyhow::Result<Self> {
+    pub fn load(
+        asset_manager: &AssetManager,
+        gpu: &Arc<Gpu>,
+        hash: TagHash,
+    ) -> anyhow::Result<Self> {
         let data: STechnique = package_manager()
             .read_tag_struct(hash)
             .context("Failed to read technique data")?;
 
-        let mut stage_vertex =
-            TechniqueStage::new(gpu, data.shader_vertex.clone(), ShaderStage::Vertex)
-                .context("while loading vertex stage")?;
+        let mut stage_vertex = TechniqueStage::new(
+            asset_manager,
+            gpu,
+            data.shader_vertex.clone(),
+            ShaderStage::Vertex,
+        )
+        .context("while loading vertex stage")?;
 
-        let mut stage_pixel =
-            TechniqueStage::new(gpu, data.shader_pixel.clone(), ShaderStage::Pixel)
-                .context("while loading pixel stage")?;
+        let mut stage_pixel = TechniqueStage::new(
+            asset_manager,
+            gpu,
+            data.shader_pixel.clone(),
+            ShaderStage::Pixel,
+        )
+        .context("while loading pixel stage")?;
 
         let mut rsb = RootSignatureBuilder::default()
             .flags(RootSignatureFlags::ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
@@ -46,7 +65,7 @@ impl Technique {
         for stage in [&mut stage_vertex, &mut stage_pixel] {
             for scopes in data.used_scopes.iter() {
                 let index = scopes.bits().ilog2();
-                let scope = get_scope(index);
+                let scope = get_scope_samplers(index);
                 if let Some(scope_stage) = scope.stage_by_visibility(stage.visibility) {
                     for sampler in &scope_stage.core.samplers {
                         rsb.add_sampler(sampler.clone());
@@ -102,12 +121,23 @@ impl Technique {
                 descriptor_ranges.push((local_ranges, stage.visibility));
             }
         }
+        let descriptor_table_parameters = descriptor_ranges
+            .iter()
+            .map(|(ranges, _)| ranges.len() as u32)
+            .collect::<SmallVec<[u32; 3]>>();
         for (ranges, visibility) in descriptor_ranges.iter() {
             rsb.add_param(
                 d3d12::RootParameter::DescriptorTable(ranges.as_slice()),
                 *visibility,
             );
         }
+
+        let descriptors = FixedDescriptorHeap::new(
+            gpu,
+            d3d12::DescriptorHeapType::CbvSrvUav,
+            descriptor_offset as usize,
+            true,
+        )?;
 
         let root_signature_raw = rsb.serialize()?;
 
@@ -119,6 +149,8 @@ impl Technique {
             stage_vertex,
             stage_pixel,
             data,
+            descriptor_table_parameters,
+            descriptors,
         })
     }
 
@@ -154,6 +186,10 @@ impl Technique {
             Ok(pipeline) => {
                 cmd.set_pipeline_state(&pipeline.pso);
                 cmd.set_root_signature(&self.root_signature);
+                cmd.set_descriptor_heaps(std::slice::from_ref(self.descriptors.heap()));
+                for &param in self.descriptor_table_parameters.iter() {
+                    cmd.set_graphics_root_descriptor_table(param, self.descriptors.gpu_handle(0));
+                }
             }
             Err(err) => {
                 error!("Failed to create pipeline: {}", err);
@@ -162,7 +198,7 @@ impl Technique {
         }
 
         for stage in [&self.stage_vertex, &self.stage_pixel] {
-            stage.bind(cmd);
+            stage.bind(cmd, self);
         }
     }
 }
@@ -189,6 +225,7 @@ pub struct TechniqueResourceSlot {
 
 impl TechniqueStage {
     pub fn new(
+        asset_manager: &AssetManager,
         gpu: &Arc<Gpu>,
         stage: STechniqueStage,
         shader_stage: ShaderStage,
@@ -200,7 +237,7 @@ impl TechniqueStage {
             }
         }
 
-        let core = DynamicCore::new(stage.core, shader_stage)?;
+        let core = DynamicCore::new(asset_manager, stage.core, shader_stage)?;
         Ok(Self {
             core,
             visibility: shader_stage.shader_visibility(),
@@ -210,7 +247,7 @@ impl TechniqueStage {
         })
     }
 
-    pub fn bind(&self, cmd: &mut CommandList) {
+    pub fn bind(&self, cmd: &mut CommandList, technique: &Technique) {
         if let Err(e) = self.core.prepare(cmd) {
             error!("Failed to prepare technique: {}", e);
             return;
@@ -232,8 +269,27 @@ impl TechniqueStage {
                 );
             }
         }
-        // for slot in &self.root_texture_slots {
-        //     cmd.set_root_texture(slot.register, slot.descriptor_offset);
-        // }
+        for slot in &self.root_texture_slots {
+            if let Some(tex) = cmd.get_shader_resource_view(self.core.stage, slot.register as u32) {
+                cmd.gpu().copy_descriptors_simple(
+                    1,
+                    tex.handle(),
+                    technique
+                        .descriptors
+                        .cpu_handle(slot.descriptor_offset as usize),
+                    d3d12::DescriptorHeapType::CbvSrvUav,
+                );
+            } else {
+                // error!("Missing texture view for register {}", slot.register);
+                // cmd.gpu().copy_descriptors_simple(
+                //     1,
+                //     d3d12::DescriptorHandle::NULL,
+                //     technique
+                //         .descriptors
+                //         .cpu_handle(slot.descriptor_offset as usize),
+                //     d3d12::DescriptorHeapType::CbvSrvUav,
+                // );
+            }
+        }
     }
 }

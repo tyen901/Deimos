@@ -24,9 +24,11 @@ pub struct Renderer {
 
 impl Renderer {
     pub fn new(gpu: Arc<Gpu>) -> Self {
+        let asset_manager = AssetManager::new(&gpu);
         Self {
-            globals: RenderGlobals::load(&gpu).expect("Failed to load render globals"),
-            asset_manager: AssetManager::new(&gpu),
+            globals: RenderGlobals::load(&asset_manager, &gpu)
+                .expect("Failed to load render globals"),
+            asset_manager,
             gpu,
             objects: RwLock::new(SlotMap::with_key()),
         }
