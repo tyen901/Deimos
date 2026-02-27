@@ -123,7 +123,7 @@ macro_rules! local_extern_container {
                                 .get_field_ptr(offset)
                         }
                     )*
-                    _ => None, // base_externs.get_value_ptr(index, offset),
+                    _ => base_externs.get_value_ptr(index, offset),
                 }
             }
         }

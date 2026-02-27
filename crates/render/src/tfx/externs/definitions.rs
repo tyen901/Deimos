@@ -1,5 +1,5 @@
-use crate::tfx::externs::{macros::extern_struct, Extern, ExternDefault, TextureView, Uav};
-use glam::{vec4, Mat3, Mat4, Vec3, Vec4, Vec4Swizzles};
+use crate::tfx::externs::{Extern, ExternDefault, TextureView, Uav, macros::extern_struct};
+use glam::{Mat3, Mat4, Vec3, Vec4, Vec4Swizzles, vec4};
 use std::any::TypeId;
 
 extern_struct! {
@@ -25,26 +25,30 @@ extern_struct! {
         0xB8 => unkb8: TextureView,
         0xC0 => unkc0: TextureView,
         0xC8 => unkc8: TextureView,
-        0xD0 => unkd0: Vec4,
-        0x150 => unk150: Vec4,
+        0xD0 => unkd0: TextureView,
+        0xD8 => unkd8: TextureView,
+        0xE0 => unke0: Vec4,
         0x160 => unk160: Vec4,
         0x170 => unk170: Vec4,
         0x180 => unk180: Vec4,
         0x190 => unk190: Vec4,
+        0x1A0 => unk1a0: Vec4,
+
         // When not zero, causes a weird noise pattern on cutout textures
-        0x1A0 => unk1a0: Vec4 > default(Vec4::W),
-        0x1B0 => unk1b0: Vec4 > default(Vec4::Z),
-        0x1C0 => unk1c0: Vec4 > default(Vec4::ZERO),
-        0x1D0 => unk1d0: Vec4,
+        0x1B0 => unk1b0: Vec4 > default(Vec4::W),
+        0x1C0 => unk1c0: Vec4 > default(Vec4::Z),
+        0x1E0 => unk1d0: Vec4 > default(Vec4::ZERO),
+
         0x1F0 => unk1f0: Vec4,
-        0x200 => unk200: TextureView,
-        0x208 => unk208: TextureView,
-        0x210 => unk210: TextureView,
-        0x220 => unk220: Vec4,
-        0x230 => unk230: Vec4,
+        0x210 => unk210: Vec4,
+        0x220 => unk220: TextureView,
+        0x228 => unk228: TextureView,
+        0x230 => unk230: TextureView,
         0x240 => unk240: Vec4,
         0x250 => unk250: Vec4,
         0x260 => unk260: Vec4,
+        0x270 => unk270: Vec4,
+        0x280 => unk280: Vec4,
     }
 }
 
