@@ -1,7 +1,6 @@
 use d3d12::DescriptorHeapType;
 
 pub struct FixedDescriptorHeap {
-    device: d3d12::Device,
     descriptor_heap: d3d12::DescriptorHeap,
 
     increment_size: u32,
@@ -32,7 +31,6 @@ impl FixedDescriptorHeap {
         );
 
         Ok(FixedDescriptorHeap {
-            device: device.clone(),
             cpu_handle_base: descriptor_heap.cpu_descriptor_handle_for_heap_start(),
             gpu_handle_base: descriptor_heap.gpu_descriptor_handle_for_heap_start(),
             increment_size: device.descriptor_handle_increment_size(heap_type),

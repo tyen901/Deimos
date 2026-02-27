@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use deimos_render::{camera::Camera, renderer::Renderer};
-use egui::{Color32, Rect, vec2};
+use egui::{Color32, Rect, Vec2, vec2};
 use tiger_pkg::TagHash;
 
 use crate::{
@@ -54,7 +54,7 @@ impl MapTab {
             let (_, rect) = ui.allocate_space(ui.available_size());
             ui.painter()
                 .rect_filled(rect, 0, Color32::from_rgb(14, 24, 28));
-            ui.d_paint_spinner_at(Rect::from_center_size(rect.center(), vec2(64.0, 64.0)));
+            ui.d_paint_spinner_at(Rect::from_center_size(rect.center(), Vec2::splat(96.0)));
             ui.painter().text(
                 rect.center() + vec2(0.0, 42.0),
                 egui::Align2::CENTER_TOP,

@@ -1,6 +1,7 @@
 use std::{sync::Arc, time::Instant};
 
-use deimos_render::{camera::Camera, renderer::Renderer};
+use deimos_data::tfx::RenderStage;
+use deimos_render::{camera::Camera, gpu::command_list::CommandList, renderer::Renderer};
 use egui::{RichText, Sense, Ui, UiBuilder, Vec2, containers::menu::MenuConfig, vec2};
 use google_material_symbols::GoogleMaterialSymbols;
 use hecs::World;
@@ -186,6 +187,26 @@ impl Scene {
             // }
 
             // self.render(delta_time, resolution);
+
+            let cmd = &self.renderer.gpu.frame().command_list;
+            let mut cmd_tfx =
+                CommandList::from_native_command_list(&self.renderer, cmd.command_list.clone());
+
+            {
+                let ext = self.renderer.externs.get_mut();
+                self.camera.aspect_ratio = resolution.0 as f32 / resolution.1 as f32;
+                self.controller.update_rotation(&mut self.camera);
+                self.camera.update();
+                ext.view.world_to_camera = self.camera.world_to_camera;
+                ext.view.camera_to_projective = self.camera.camera_to_projective;
+                ext.view.derive_matrices(resolution);
+            }
+            self.renderer.globals.scopes.view.bind(&mut cmd_tfx);
+            for obj in self.renderer.objects.write().values_mut() {
+                obj.renderer.extract(&self.renderer, &());
+                obj.renderer
+                    .submit(&mut cmd_tfx, RenderStage::GenerateGbuffer);
+            }
         });
     }
 

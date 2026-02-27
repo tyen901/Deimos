@@ -348,14 +348,14 @@ impl StaticModelRenderer {
                         1.0,
                         1.0,
                         1.0,
-                        f32::from_bits(0x02000000),
-                        // f32::from_bits(
-                        //     ao_offsets
-                        //         .get(i)
-                        //         .copied()
-                        //         .map(|v| v.shr(2))
-                        //         .unwrap_or(0x02000000),
-                        // ),
+                        f32::from_bits(0), // Quantization block offset
+                                           // f32::from_bits(
+                                           //     ao_offsets
+                                           //         .get(i)
+                                           //         .copied()
+                                           //         .map(|v| v.shr(2))
+                                           //         .unwrap_or(0x02000000),
+                                           // ),
                     ),
                     params1: Vec4::ZERO,
                 }]))

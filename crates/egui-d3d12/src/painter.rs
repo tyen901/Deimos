@@ -206,7 +206,9 @@ impl D3D12Renderer {
             //     });
 
             let texture = self.tex_alloc.get_by_id(mesh.texture_id);
-            if let Some((texture, texture_filter, _texture_uses_alpha)) = &texture {
+            if let Some((texture, descriptor_heap, texture_filter, _texture_uses_alpha)) = &texture
+            {
+                cmd.set_descriptor_heaps(std::slice::from_ref(descriptor_heap));
                 self.set_sampler_state(cmd, texture_filter.unwrap_or(egui::TextureFilter::Linear))?;
                 // use_alpha = *texture_uses_alpha;
                 // cmd.pixel_set_shader_resources(0, &[Some(texture)]);

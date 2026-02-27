@@ -12,7 +12,7 @@ use std::{
 
 use ahash::HashMap;
 use anyhow::Context;
-use d3d12::{ResourceBarrier, ResourceStates};
+use d3d12::{CpuDescriptorHandle, ResourceBarrier, ResourceStates};
 use deimos_core::job::SCHEDULER;
 use deimos_data::{
     strings::{StringContainer, StringContainerShared},
@@ -137,10 +137,6 @@ impl App {
         let frame = self.gpu.begin_frame();
 
         let cmd = &frame.command_list;
-        let mut cmd_tfx =
-            CommandList::from_native_command_list(&self.renderer, cmd.command_list.clone());
-
-        self.gui.draw_ui(&self.shared_state);
 
         cmd.scope(|cmd| {
             let (back_buffer_handle, back_buffer) = self.gpu.swapchain.lock().get_back_buffer();
@@ -154,15 +150,20 @@ impl App {
 
             cmd.clear_render_target_view(back_buffer_handle, &[0.0, 0.0, 0.0, 1.0]);
             cmd.om_set_render_targets(&[back_buffer_handle], false, None);
+            cmd.set_viewports(&[d3d12::Viewport::builder()
+                .width(self._window.size_in_pixels().0 as f32)
+                .height(self._window.size_in_pixels().1 as f32)
+                .build()]);
+            cmd.set_scissor_rects(&[d3d12::Rect::builder()
+                .bottom(2160)
+                .right(3840)
+                .top(0)
+                .left(0)
+                .build()]);
 
+            self.gui.draw_ui(&self.shared_state);
+            cmd.om_set_render_targets(&[], false, None);
             self.gui.render(&self.gpu, cmd);
-
-            // self.renderer.globals.scopes.view.bind(&mut cmd_tfx);
-            // for obj in self.renderer.objects.write().values_mut() {
-            //     obj.renderer.extract(&self.renderer, &());
-            //     obj.renderer
-            //         .submit(&mut cmd_tfx, RenderStage::GenerateGbuffer);
-            // }
 
             cmd.resource_barriers(&[ResourceBarrier::transition(
                 &back_buffer,

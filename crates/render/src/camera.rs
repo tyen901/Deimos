@@ -14,9 +14,9 @@ pub struct Camera {
 
     pub aspect_ratio: f32,
     // pub culling_frustum: Frustum,
-    pub local_to_camera: Mat4,
+    pub world_to_camera: Mat4,
     pub camera_to_projective: Mat4,
-    pub local_to_projective: Mat4,
+    pub world_to_projective: Mat4,
 }
 
 impl Default for Camera {
@@ -32,9 +32,9 @@ impl Default for Camera {
             max_ortho_width: 2.0,
             aspect_ratio: 16. / 9.,
             // culling_frustum: Frustum::default(),
-            local_to_camera: Mat4::IDENTITY,
+            world_to_camera: Mat4::IDENTITY,
             camera_to_projective: Mat4::IDENTITY,
-            local_to_projective: Mat4::IDENTITY,
+            world_to_projective: Mat4::IDENTITY,
         }
     }
 }
@@ -51,9 +51,9 @@ impl Camera {
         // std::mem::swap(&mut real_far, &mut self.far);
         // self.fov_y -= 10.0;
 
-        self.local_to_camera = self.view_matrix();
+        self.world_to_camera = self.view_matrix();
         self.camera_to_projective = self.projection_matrix(self.aspect_ratio);
-        self.local_to_projective = self.camera_to_projective * self.local_to_camera;
+        self.world_to_projective = self.camera_to_projective * self.world_to_camera;
     }
 
     pub fn view_matrix(&self) -> glam::Mat4 {

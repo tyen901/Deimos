@@ -14,6 +14,7 @@ pub struct IndexBuffer {
     /// Amount of elements in the buffer
     pub length: usize,
     pub format: Format,
+    size: usize,
 }
 
 impl IndexBuffer {
@@ -72,6 +73,7 @@ impl IndexBuffer {
         Ok(IndexBuffer {
             resource,
             length: header.data_size as usize / if header.is_32bit { 4 } else { 2 },
+            size: header.data_size as usize,
             format: if header.is_32bit {
                 Format::R32Uint
             } else {
@@ -118,7 +120,7 @@ impl IndexBuffer {
         // cmd.input_assembler_set_index_buffer(&self.buffer, self.format, 0);
         cmd.ia_set_index_buffer(
             self.resource.resource().gpu_virtual_address(),
-            self.length as u32,
+            self.size as u32,
             self.format,
         );
     }

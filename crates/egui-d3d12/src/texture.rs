@@ -17,8 +17,6 @@ struct ManagedTexture {
     cpu_handle: CpuDescriptorHandle,
     gpu_handle: GpuDescriptorHandle,
 
-    // resource: d3d12::ShaderResourceView,
-    // texture: d3d12::Texture2D,
     pixels: Vec<Color32>,
     width: usize,
     height: usize,
@@ -29,14 +27,20 @@ pub struct TextureAllocator {
     allocated: HashMap<TextureId, ManagedTexture>,
     pub(crate) descriptor_heap_alloc: DescriptorHeapAllocator,
 
-    // upload_command_list: CommandList,
-    // upload_fence: GpuFenceWaiter,
     pending_uploads: Vec<OwnedResource>,
 
-    // allocated_unmanaged: HashMap<TextureId, (TextureView, Option<egui::TextureFilter>, bool)>,
-    // unmanaged_free_handles: Vec<TextureId>,
-    // unmanaged_index: u64,
-    // unmanaged_temporary_index: u64,
+    allocated_unmanaged: HashMap<
+        TextureId,
+        (
+            d3d12::GpuDescriptorHandle,
+            d3d12::DescriptorHeap,
+            Option<egui::TextureFilter>,
+            bool,
+        ),
+    >,
+    unmanaged_free_handles: Vec<TextureId>,
+    unmanaged_index: u64,
+    unmanaged_temporary_index: u64,
     gpu: Arc<Gpu>,
 }
 
@@ -47,13 +51,12 @@ impl TextureAllocator {
 
         Ok(TextureAllocator {
             allocated: HashMap::default(),
-            // upload_command_list: CommandList::new(gpu).unwrap(),
-            // upload_fence: GpuFenceWaiter::new(gpu)?,
+            allocated_unmanaged: HashMap::default(),
             pending_uploads: Vec::new(),
             descriptor_heap_alloc: descriptor_heap,
-            // unmanaged_free_handles: Vec::new(),
-            // unmanaged_index: 0,
-            // unmanaged_temporary_index: 0,
+            unmanaged_free_handles: Vec::new(),
+            unmanaged_index: 0,
+            unmanaged_temporary_index: 0,
             gpu: gpu.clone(),
         })
     }
@@ -93,50 +96,66 @@ impl TextureAllocator {
         tid: TextureId,
     ) -> Option<(
         d3d12::GpuDescriptorHandle,
+        &d3d12::DescriptorHeap,
         Option<egui::TextureFilter>,
         bool,
     )> {
-        self.allocated.get(&tid).map(|t| (t.gpu_handle, None, true))
-        //     .or_else(|| self.allocated_unmanaged.get(&tid).cloned())
+        self.allocated
+            .get(&tid)
+            .map(|t| {
+                (
+                    t.gpu_handle,
+                    &self.descriptor_heap_alloc.descriptor_heap,
+                    None,
+                    true,
+                )
+            })
+            .or_else(|| {
+                self.allocated_unmanaged
+                    .get(&tid)
+                    .map(|(handle, heap, filter, alpha)| (*handle, heap, *filter, *alpha))
+            })
     }
 
-    // pub fn allocate_dx(
-    //     &mut self,
-    //     srv: TextureView,
-    //     filter: Option<egui::TextureFilter>,
-    // ) -> TextureId {
-    //     todo!()
-    //     // let tid = if let Some(t) = self.unmanaged_free_handles.pop() {
-    //     //     t
-    //     // } else {
-    //     //     self.unmanaged_index += 1;
-    //     //     TextureId::User((1 << 60) + self.unmanaged_index)
-    //     // };
-    //     // self.allocated_unmanaged.insert(tid, (srv, filter, true));
-    //     // tid
-    // }
+    pub fn allocate_dx(
+        &mut self,
+        descriptor_heap: d3d12::DescriptorHeap,
+        handle: d3d12::GpuDescriptorHandle,
+        filter: Option<egui::TextureFilter>,
+    ) -> TextureId {
+        let tid = if let Some(t) = self.unmanaged_free_handles.pop() {
+            t
+        } else {
+            self.unmanaged_index += 1;
+            TextureId::User((1 << 60) + self.unmanaged_index)
+        };
+        self.allocated_unmanaged
+            .insert(tid, (handle, descriptor_heap, filter, true));
+        tid
+    }
 
-    // /// Allocate a temporary texture that will be freed after the current frame finishes painting
-    // pub fn allocate_dx_temporary(
-    //     &mut self,
-    //     srv: TextureView,
-    //     filter: Option<egui::TextureFilter>,
-    //     alpha: bool,
-    // ) -> TextureId {
-    //     todo!()
-    //     // self.unmanaged_temporary_index += 1;
-    //     // let tid = TextureId::User((1 << 63) + self.unmanaged_temporary_index);
+    /// Allocate a temporary texture that will be freed after the current frame finishes painting
+    pub fn allocate_dx_temporary(
+        &mut self,
+        descriptor_heap: d3d12::DescriptorHeap,
+        handle: d3d12::GpuDescriptorHandle,
+        filter: Option<egui::TextureFilter>,
+        alpha: bool,
+    ) -> TextureId {
+        self.unmanaged_temporary_index += 1;
+        let tid = TextureId::User((1 << 63) + self.unmanaged_temporary_index);
 
-    //     // self.allocated_unmanaged.insert(tid, (srv, filter, alpha));
-    //     // tid
-    // }
+        self.allocated_unmanaged
+            .insert(tid, (handle, descriptor_heap, filter, alpha));
+        tid
+    }
 
     pub fn clear_temporaries(&mut self) {
-        // self.unmanaged_temporary_index = 0;
-        // self.allocated_unmanaged.retain(|id, _| match id {
-        //     TextureId::Managed(_) => true,
-        //     TextureId::User(id) => *id < (1 << 63),
-        // });
+        self.unmanaged_temporary_index = 0;
+        self.allocated_unmanaged.retain(|id, _| match id {
+            TextureId::Managed(_) => true,
+            TextureId::User(id) => *id < (1 << 63),
+        });
     }
 
     pub fn set_filter(&mut self, _tid: TextureId, _filter: Option<egui::TextureFilter>) {
@@ -146,17 +165,11 @@ impl TextureAllocator {
     }
 
     pub fn free(&mut self, tid: TextureId) -> bool {
-        if let Some(removed) = self.allocated.remove(&tid)
-        // .map(|_| ())
-        // .or_else(|| {
-        //     let s = self.allocated_unmanaged.remove(&tid).map(|_| ());
-        //     if s.is_some() {
-        //         self.unmanaged_free_handles.push(tid);
-        //     }
-        //     s
-        // })
-        {
+        if let Some(removed) = self.allocated.remove(&tid) {
             self.descriptor_heap_alloc.free(removed.cpu_handle);
+            true
+        } else if self.allocated_unmanaged.remove(&tid).is_some() {
+            self.unmanaged_free_handles.push(tid);
             true
         } else {
             false
@@ -195,18 +208,9 @@ impl TextureAllocator {
         image: &ImageData,
         [nx, ny]: [usize; 2],
     ) -> Result<bool, RenderError> {
-        // Ok(false)
-        // todo!()
         if let Some(mut tex) = self.allocated.remove(&tid) {
-            //     let subr = ctx.map(&old.texture, 0, d3d12::MapType::WriteDiscard, false)?;
-
             match image {
                 ImageData::Color(f) => {
-                    // let data: &mut [Color32] =
-                    //     from_raw_parts_mut(subr.data as *mut Color32, old.pixels.len());
-                    // data.as_mut_ptr()
-                    //     .copy_from_nonoverlapping(old.pixels.as_ptr(), old.pixels.len());
-
                     let new: Vec<Color32> = f.pixels.to_vec();
 
                     for y in 0..f.height() {
@@ -214,7 +218,6 @@ impl TextureAllocator {
                             let whole = (ny + y) * tex.width + nx + x;
                             let frac = y * f.width() + x;
                             tex.pixels[whole] = new[frac];
-                            // data[whole] = new[frac];
                         }
                     }
                 }
