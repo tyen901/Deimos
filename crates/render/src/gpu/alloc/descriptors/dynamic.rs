@@ -79,7 +79,7 @@ impl DescriptorHeapAllocator {
 
     fn free_handle(&mut self, handle: d3d12::CpuDescriptorHandle) {
         let index = self.index_for_handle(handle);
-        self.descriptor_labels.insert(index, None);
+        self.descriptor_labels[index] = None;
         self.free_list.push(index);
     }
 
