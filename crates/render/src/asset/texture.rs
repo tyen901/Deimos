@@ -64,6 +64,10 @@ impl Texture {
         let _span = debug_span!("Load texture", ?hash).entered();
         let (header, texture_data) = Self::load_data(hash, true)?;
 
+        if header.array_size > 1 {
+            anyhow::bail!("TODO: texture arrays/cubemaps cause crashes on Windows(?), fix later");
+        }
+
         let dimension = if header.depth > 1 {
             d3d12::ResourceDimension::Texture3D
         } else {
@@ -91,6 +95,7 @@ impl Texture {
         })?;
 
         let num_subresources = header.mip_count as u32 * header.array_size as u32;
+        // TODO(cohae): This call crashes in a weird way for cubemap resource descs?
         let footprint = gpu.get_copyable_footprints(&resource_desc, 0, num_subresources, 0)?;
 
         let upload_buffer = gpu.allocate_upload_buffer(footprint.total_bytes)?;
