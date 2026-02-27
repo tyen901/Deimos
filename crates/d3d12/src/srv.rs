@@ -1,5 +1,6 @@
 use std::ops::Range;
 
+use bitflags::bitflags;
 use windows::Win32::Graphics::Direct3D12::*;
 
 use crate::{Format, GpuVirtualAddress};
@@ -14,7 +15,7 @@ impl ShaderResourceViewDesc {
         format: Format,
         elements: Range<u64>,
         structure_byte_stride: u32,
-        flags: u32,
+        flags: BufferSrvFlags,
     ) -> Self {
         Self(D3D12_SHADER_RESOURCE_VIEW_DESC {
             Format: format.into(),
@@ -24,7 +25,7 @@ impl ShaderResourceViewDesc {
                     FirstElement: elements.start,
                     NumElements: elements.count() as u32,
                     StructureByteStride: structure_byte_stride,
-                    Flags: D3D12_BUFFER_SRV_FLAGS(flags as i32),
+                    Flags: D3D12_BUFFER_SRV_FLAGS(flags.bits()),
                 },
             },
             Shader4ComponentMapping: D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
@@ -240,5 +241,12 @@ pub struct ComponentMapping(u32);
 impl Default for ComponentMapping {
     fn default() -> Self {
         Self(D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING)
+    }
+}
+
+bitflags! {
+    #[derive(Debug, Clone, Copy)]
+    pub struct BufferSrvFlags : i32 {
+        const RAW = D3D12_BUFFER_SRV_FLAG_RAW.0;
     }
 }

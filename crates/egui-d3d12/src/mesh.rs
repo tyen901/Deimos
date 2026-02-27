@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use bytemuck::{Pod, Zeroable};
-use deimos_render::gpu::{buffer::Buffer, Gpu};
+use deimos_render::gpu::{buffer::DynamicBuffer, Gpu};
 use egui::{epaint::Vertex, Mesh, Pos2, Rect, Rgba, TextureId};
 
 use crate::RenderError;
@@ -73,17 +73,17 @@ impl From<Vertex> for GpuVertex {
     }
 }
 
-pub fn create_vertex_buffer(gpu: &Arc<Gpu>, mesh: &GpuMesh) -> Result<Buffer, RenderError> {
+pub fn create_vertex_buffer(gpu: &Arc<Gpu>, mesh: &GpuMesh) -> Result<DynamicBuffer, RenderError> {
     let data: &[u8] = bytemuck::cast_slice(&mesh.vertices);
-    let buf = Buffer::new_upload(gpu, data.len() as u64, "egui_vertex_buffer")
+    let buf = DynamicBuffer::new_upload(gpu, data.len() as u64, "egui_vertex_buffer")
         .map_err(|_| RenderError::General("Failed to create vertex buffer"))?;
     buf.write(0, data);
     Ok(buf)
 }
 
-pub fn create_index_buffer(gpu: &Arc<Gpu>, mesh: &GpuMesh) -> Result<Buffer, RenderError> {
+pub fn create_index_buffer(gpu: &Arc<Gpu>, mesh: &GpuMesh) -> Result<DynamicBuffer, RenderError> {
     let data: &[u8] = bytemuck::cast_slice(&mesh.indices);
-    let buf = Buffer::new_upload(gpu, data.len() as u64, "egui_index_buffer")
+    let buf = DynamicBuffer::new_upload(gpu, data.len() as u64, "egui_index_buffer")
         .map_err(|_| RenderError::General("Failed to create index buffer"))?;
     buf.write(0, data);
     Ok(buf)

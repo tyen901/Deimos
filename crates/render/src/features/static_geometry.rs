@@ -9,14 +9,13 @@ use deimos_data::tfx::{
     features::{
         dynamic::RenderStageSubscription,
         statics::{
-            SStaticInstanceTransform, SStaticMesh, SStaticMeshInstanceGroup, SStaticMeshInstances,
-            SStaticSpecialMesh,
+            SStaticInstanceTransform, SStaticMesh, SStaticMeshData, SStaticMeshInstanceGroup,
+            SStaticMeshInstances, SStaticSpecialMesh,
         },
     },
 };
 use glam::{Mat4, Vec3, Vec4};
 use itertools::Itertools;
-use rayon::iter::{IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::TagHash;
 use tiger_pkg::package_manager;
@@ -24,7 +23,7 @@ use tiger_pkg::package_manager;
 use crate::{
     asset::{Handle, vertex_buffer::VertexBuffer},
     features::shared::ModelBuffers,
-    gpu::{Gpu, command_list::CommandList},
+    gpu::{Gpu, buffer::ImmutableBuffer, command_list::CommandList},
     renderer::Renderer,
     tfx::technique::Technique,
 };
@@ -122,7 +121,7 @@ impl StaticModel {
 
 pub struct StaticModelRenderer {
     // unk_cb1: ConstantBuffer<Vec4>,
-    // instance_buffer: ConstantBuffer<u8>,
+    instance_buffer: ImmutableBuffer,
     instance_id_buffer: VertexBuffer,
     model: StaticModel,
     visible_instance_ids: Vec<u32>,
@@ -148,11 +147,19 @@ impl StaticModelRenderer {
         model_hash: TagHash,
         identifier: u64,
     ) -> anyhow::Result<Self> {
+        let model = StaticModel::load(renderer, model_hash)?;
         // let cbuffer = ConstantBuffer::create_raw(
         //     gpu,
         //     size_of::<InstanceTransformBlock>() // header + padding
         //     + transforms.len() * size_of::<InstanceTransformBlock>(), // per-transform data
         // )?;
+        let transforms_tmp = transforms.iter().map(|(t, _)| t.clone()).collect_vec();
+        let instance_data = Self::generate_constants(&model.model.opaque_meshes, &transforms_tmp);
+        let instance_buffer = ImmutableBuffer::new(
+            &renderer.gpu,
+            "static_geometry::instance_buffer",
+            &instance_data,
+        )?;
 
         // Instance IDs dictate from where in the instance buffer to read the transform data. This is calculated as the ID * 0x50 (in bytes).
         // In the past, the engine would skip the 32 bytes where the quantization information was stored, but the offset must now be an exact multiple of 0x40 bytes.
@@ -168,9 +175,9 @@ impl StaticModelRenderer {
         trace!(instances = transforms.len(), model_hash=%model_hash, "Loading model");
         Ok(Self {
             // unk_cb1: ConstantBuffer::create(gpu, Some(&Vec4::ZERO))?, // Offsets instance buffer data
-            // instance_buffer: cbuffer,
+            instance_buffer,
             instance_id_buffer,
-            model: StaticModel::load(renderer, model_hash)?,
+            model,
             bounds: transforms.iter().map(|(_, b)| b.clone()).sum(),
             visible_instance_ids,
             transforms,
@@ -182,8 +189,8 @@ impl StaticModelRenderer {
     #[profiling::function]
     pub fn render_all(&self, cmd: &mut CommandList, stage: RenderStage) {
         // self.unk_cb1.bind(cmd, ShaderStage::Vertex, 1);
-        // self.instance_buffer.bind(cmd, ShaderStage::Vertex, 2);
         self.instance_id_buffer.bind_single(cmd, 2);
+        self.instance_buffer.bind(cmd, ShaderStage::Vertex, 2);
 
         let is_opaque = matches!(
             stage,
@@ -285,13 +292,12 @@ impl StaticModelRenderer {
     }
 
     #[profiling::function]
-    pub fn update_constants(
-        &self,
-        gpu: &Arc<Gpu>,
+    fn generate_constants(
+        model: &SStaticMeshData,
+        transforms: &[SStaticInstanceTransform],
         // ao: Option<&SStaticAmbientOcclusion>,
-    ) {
+    ) -> Vec<u8> {
         let mut buffer = vec![];
-        let model = &self.model.model.opaque_meshes;
 
         buffer
             .write_all(bytemuck::cast_slice(&[
@@ -316,7 +322,7 @@ impl StaticModelRenderer {
         //     [0.0, 0.0, model.mesh_scale, model.mesh_offset.z],
         //     [0.0, 0.0, 0.0, 1.0],
         // ]);
-        for (transform, _) in &self.transforms {
+        for transform in transforms {
             let instance_transform = Mat4::from_scale_rotation_translation(
                 Vec3::splat(transform.scale),
                 transform.rotation,
@@ -360,6 +366,7 @@ impl StaticModelRenderer {
         // unsafe {
         //     self.instance_buffer.write_array(ctx, &buffer).unwrap();
         // }
+        buffer
     }
 
     // fn visibility_test(&mut self, camera: &Camera) -> bool {

@@ -4,7 +4,7 @@ use d3d12::{
     DescriptorRange, ElementOffset, Format, GraphicsPipelineStateDesc, RootSignatureBuilder,
     RootSignatureFlags, VertexBufferView,
 };
-use deimos_render::gpu::{buffer::Buffer, Gpu};
+use deimos_render::gpu::{buffer::DynamicBuffer, Gpu};
 use egui::{epaint::Primitive, Context};
 
 use crate::{
@@ -16,7 +16,7 @@ use crate::{
 pub struct D3D12Renderer {
     tex_alloc: TextureAllocator,
     pipeline: d3d12::PipelineState,
-    buffers: [Vec<(Buffer, Buffer)>; Gpu::FRAMES_IN_FLIGHT],
+    buffers: [Vec<(DynamicBuffer, DynamicBuffer)>; Gpu::FRAMES_IN_FLIGHT],
     root_signature: d3d12::RootSignature,
 }
 
@@ -167,14 +167,7 @@ impl D3D12Renderer {
             let vtx = create_vertex_buffer(gpu, &mesh)?;
             let idx = create_index_buffer(gpu, &mesh)?;
 
-            cmd.ia_set_vertex_buffers(
-                0,
-                &[VertexBufferView {
-                    buffer_location: vtx.gpu_virtual_address(),
-                    size_in_bytes: vtx.size() as u32,
-                    stride_in_bytes: size_of::<GpuVertex>() as u32,
-                }],
-            );
+            cmd.ia_set_vertex_buffers(0, &[vtx.vb_view(size_of::<GpuVertex>() as u32)]);
             cmd.ia_set_index_buffer(
                 idx.gpu_virtual_address(),
                 idx.size() as u32,
