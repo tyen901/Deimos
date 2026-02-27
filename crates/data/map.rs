@@ -3,8 +3,7 @@ use std::io::SeekFrom;
 use assert_offset::AssertOffsets;
 use glam::{Quat, Vec4};
 use tiger_parse::{
-    tiger_type, tiger_variant_enum, Endian, FnvHash, OptionalVariantPointer, Padding,
-    TigerReadable, VariantEnum,
+    tiger_type, tiger_variant_enum, Endian, FnvHash, Padding, TigerReadable, VariantEnum,
 };
 use tiger_pkg::TagHash;
 

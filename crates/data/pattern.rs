@@ -1,9 +1,6 @@
-use tiger_parse::{tiger_type, ResourcePointer, ResourcePointerWithClass, VariantPointer};
+use tiger_parse::{tiger_type, ResourcePointer, ResourcePointerWithClass};
 
-use crate::{
-    map::{ComponentData, SComponentDataListPtr},
-    tag::Tag,
-};
+use crate::{map::SComponentDataListPtr, tag::Tag};
 
 #[tiger_type(id = 0x8080BD3F)]
 pub struct SPattern {

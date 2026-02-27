@@ -1,9 +1,6 @@
 use std::sync::Arc;
 
-use deimos_render::{
-    asset::{Handle, vertex_buffer::VertexBuffer},
-    renderer::{Renderer, object::RenderObjectHandle},
-};
+use deimos_render::renderer::{Renderer, object::RenderObjectHandle};
 
 pub struct StaticRenderObject {
     renderer: Arc<Renderer>,
@@ -67,7 +64,7 @@ impl Drop for DynamicRenderObject {
 //     }
 // }
 
-pub fn s_extract_render_objects(world: &hecs::World) {
+pub fn s_extract_render_objects(_world: &hecs::World) {
     // for (_entity, static_render_object) in world.query::<&StaticRenderObject>().iter() {
     //     frame_packet.push_static_render_object(static_render_object.handle);
     // }
@@ -97,7 +94,7 @@ pub fn s_extract_render_objects(world: &hecs::World) {
     // }
 }
 
-pub fn s_are_all_objects_loaded(world: &hecs::World, renderer: &Renderer) -> bool {
+pub fn s_are_all_objects_loaded(_world: &hecs::World, _renderer: &Renderer) -> bool {
     warn!("s_are_all_objects_loaded is not implemented yet");
     // for (_entity, static_render_object) in world.query::<&StaticRenderObject>().iter() {
     //     if !renderer.is_object_loaded(static_render_object.handle) {

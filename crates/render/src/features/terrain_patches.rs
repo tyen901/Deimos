@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use anyhow::Context;
 use deimos_data::tfx::{
     RenderStage, ShaderStage,
@@ -196,14 +194,14 @@ impl FeatureRenderer for TerrainPatchesRenderer {
     //         .aabb_intersecting(&self.terrain.bounds)
     // }
 
-    fn extract(&mut self, renderer: &Renderer, data: &dyn std::any::Any) {
+    fn extract(&mut self, _renderer: &Renderer, _data: &dyn std::any::Any) {
         if self.constants_dirty {
             self.update_constants();
             self.constants_dirty = false;
         }
     }
 
-    fn prepare(&mut self, renderer: &Renderer) {}
+    fn prepare(&mut self, _renderer: &Renderer) {}
 
     fn submit(&self, cmd: &mut CommandList, stage: RenderStage) {
         self.render(cmd, stage);

@@ -4,10 +4,7 @@ use d3d12::{
     CpuDescriptorHandle, DescriptorHeapType, DeviceChild, Format, GpuDescriptorHandle,
     ResourceBarrier, ResourceStates, ShaderResourceViewDesc, TextureCopyLocation,
 };
-use deimos_render::{
-    asset::texture::Texture,
-    gpu::{alloc::resource::OwnedResource, Gpu},
-};
+use deimos_render::gpu::{alloc::resource::OwnedResource, Gpu};
 use egui::{epaint::ahash::HashMap, Color32, ImageData, TextureId, TexturesDelta};
 use gpu_allocator::{
     d3d12::{ResourceCategory, ResourceCreateDesc, ResourceStateOrBarrierLayout},
@@ -141,7 +138,7 @@ impl TextureAllocator {
         // });
     }
 
-    pub fn set_filter(&mut self, tid: TextureId, filter: Option<egui::TextureFilter>) {
+    pub fn set_filter(&mut self, _tid: TextureId, _filter: Option<egui::TextureFilter>) {
         // if let Some((_, f, _)) = self.allocated_unmanaged.get_mut(&tid) {
         //     *f = filter;
         // }

@@ -3,21 +3,17 @@ use deimos_data::{
     tag::WideHash,
     tfx::{ExternIndex, SDynamicCore, SSamplerReference, ShaderStage},
 };
-use glam::{Mat4, Vec3, Vec4};
+use glam::Vec4;
 use itertools::Itertools;
 use tiger_pkg::{TagHash, package_manager};
 
 use crate::{
     asset::{AssetManager, Handle, texture::Texture},
     gpu::command_list::CommandList,
-    renderer::Renderer,
-    tfx::{
-        expression_vm::{
-            self,
-            interpreter::InterpreterState,
-            opcodes::{Opcode, OpcodeIterator},
-        },
-        externs::ExternContainer,
+    tfx::expression_vm::{
+        self,
+        interpreter::InterpreterState,
+        opcodes::{Opcode, OpcodeIterator},
     },
 };
 
@@ -166,8 +162,8 @@ impl DynamicCore {
                         .get_ref(|v| cmd.set_shader_resource_view(self.stage, *slot, Some(v.srv)));
                 }
                 ResolvedTextureSource::Dynamic {
-                    extern_index,
-                    offset,
+                    extern_index: _,
+                    offset: _,
                 } => {
                     // TODO
                 }

@@ -1,10 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use chroma_dbg::ChromaDebug;
-use d3d12::{
-    DescriptorRange, Format, RootSignatureBuilder, RootSignatureFlags, ext::PsvResourceBinding,
-};
+use d3d12::{Format, RootSignatureBuilder, RootSignatureFlags, ext::PsvResourceBinding};
 use deimos_data::tfx::{STechnique, STechniqueStage, ShaderStage, TechniqueBindMode};
 use smallvec::SmallVec;
 use tiger_parse::PackageManagerExt;
@@ -232,10 +229,10 @@ impl TechniqueStage {
         shader_stage: ShaderStage,
     ) -> anyhow::Result<Self> {
         let mut resources = Vec::new();
-        if let Ok(bytecode) = gpu.pipeline_cache.lock().get_or_load_bytecode(stage.shader) {
-            if let Some(parsed_resources) = d3d12::ext::parse_psv0_resources(&bytecode) {
-                resources = parsed_resources;
-            }
+        if let Ok(bytecode) = gpu.pipeline_cache.lock().get_or_load_bytecode(stage.shader)
+            && let Some(parsed_resources) = d3d12::ext::parse_psv0_resources(&bytecode)
+        {
+            resources = parsed_resources;
         }
 
         let core = DynamicCore::new(asset_manager, stage.core, shader_stage)?;

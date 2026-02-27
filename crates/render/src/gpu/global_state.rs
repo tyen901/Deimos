@@ -41,7 +41,7 @@ impl RenderStates {
         d3d12::ComparisonFunc::LessEqual,
     ];
 
-    pub fn new(device: &d3d12::Device) -> anyhow::Result<Self> {
+    pub fn new(_device: &d3d12::Device) -> anyhow::Result<Self> {
         let mut input_layouts = vec![vec![]; 255];
         for (i, layout) in BASE_INPUT_LAYOUTS.iter().enumerate() {
             input_layouts[i] = tiger_input_layout_to_d3d12(layout.elements);

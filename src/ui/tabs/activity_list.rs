@@ -2,7 +2,7 @@ use std::{cell::RefCell, sync::Arc};
 
 use ahash::HashMap;
 use deimos_data::activity::SActivity;
-use egui::{AtomExt, Atoms, Color32, ImageSource, IntoAtoms, Vec2, vec2};
+use egui::{Atoms, Color32, IntoAtoms, vec2};
 use google_material_symbols::GoogleMaterialSymbols;
 use itertools::Itertools;
 use tiger_parse::TigerReadable;
@@ -10,10 +10,7 @@ use tiger_pkg::{TagHash, package_manager};
 
 use crate::{
     app::SharedState,
-    ui::{
-        tabs::{Tab, TabResult},
-        util::DButton,
-    },
+    ui::{tabs::TabResult, util::DButton},
 };
 
 pub struct ActivityListTab {
@@ -56,14 +53,14 @@ impl ActivityListTab {
                 title: activity.to_string(),
                 tag,
             };
-            let kind = leaf.kind();
+            let _kind = leaf.kind();
             destination_nodes
                 .entry(destination.to_string())
                 .or_default()
                 .push(leaf.clone());
         }
 
-        let mut destination_nodes = destination_nodes
+        let destination_nodes = destination_nodes
             .into_iter()
             .map(|(destination, mut activities)| {
                 activities.sort_by_key(|activity| activity.title().to_string());
@@ -159,7 +156,7 @@ impl ActivityListTab {
                             .filter(|child| child.title().to_lowercase().contains(query))
                         {
                             #[allow(clippy::collapsible_if)]
-                            if let ActivityTreeNode::Leaf { title, tag } = child {
+                            if let ActivityTreeNode::Leaf { title: _, tag: _ } = child {
                                 if DButton::new_black(child.atoms())
                                     .min_size(vec2(768.0, 32.0))
                                     .stroke(1.0, child.stroke_color())
@@ -207,7 +204,7 @@ impl ActivityListTab {
                                         self.current_node.borrow_mut().push(i);
                                     }
                                 }
-                                ActivityTreeNode::Leaf { title, tag } => {
+                                ActivityTreeNode::Leaf { title: _, tag } => {
                                     if DButton::new((child.atoms(), format!("({tag})")))
                                         .min_size(vec2(512.0, 32.0))
                                         .stroke(1.0, child.stroke_color())
@@ -291,7 +288,7 @@ impl ActivityTreeNode {
     fn atoms<'a>(&'a self) -> Atoms<'a> {
         let title = self.title();
 
-        if let Some(kind) = self.kind() {
+        if let Some(_kind) = self.kind() {
             (
                 // kind.icon().atom_size(Vec2::splat(32.0)),
                 "",

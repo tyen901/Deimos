@@ -5,7 +5,6 @@
 use std::{
     io::{Cursor, Seek},
     rc::Rc,
-    str::FromStr,
     sync::Arc,
     time::Instant,
 };
@@ -17,13 +16,12 @@ use deimos_core::job::SCHEDULER;
 use deimos_data::{
     strings::{StringContainer, StringContainerShared},
     tag::WideHash,
-    tfx::{RenderStage, features::terrain::STerrain},
+    tfx::RenderStage,
 };
 use deimos_render::{
-    asset::texture::Texture,
-    features::{FeatureRenderer, terrain_patches::TerrainPatchesRenderer},
+    features::FeatureRenderer,
     gpu::{Gpu, command_list::CommandList},
-    renderer::{Renderer, globals::get_scope_samplers},
+    renderer::Renderer,
     util::fps_histogram::FrametimeHistogram,
 };
 use hecs::World;
@@ -51,12 +49,12 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(sdl: Rc<sdl3::Sdl>, window: Rc<Window>, args: AppArgs) -> anyhow::Result<Self> {
+    pub fn new(sdl: Rc<sdl3::Sdl>, window: Rc<Window>, _args: AppArgs) -> anyhow::Result<Self> {
         let gpu = Arc::new(Gpu::create(&window).context("Failed to create GPU")?);
         let renderer = Arc::new(Renderer::new(gpu.clone()));
         // Renderer::set_instance(renderer.clone());
 
-        let mut gui = Gui::new(&gpu, sdl.clone(), window.clone())?;
+        let gui = Gui::new(&gpu, sdl.clone(), window.clone())?;
         // if let Some(map_hash) = args.open_map.as_ref() {
         //     match TagHash::from_str(map_hash) {
         //         Ok(tag) => match MapTab::new(tag, String::new()) {

@@ -1,6 +1,5 @@
-use std::{f32, io::Write, ops::Deref, sync::Arc};
+use std::{f32, io::Write, ops::Deref};
 
-use ahash::HashMap;
 use anyhow::Context;
 use bytemuck::{Pod, Zeroable};
 use deimos_data::tfx::{
@@ -9,8 +8,8 @@ use deimos_data::tfx::{
     features::{
         dynamic::RenderStageSubscription,
         statics::{
-            SStaticInstanceTransform, SStaticMesh, SStaticMeshData, SStaticMeshInstanceGroup,
-            SStaticMeshInstances, SStaticSpecialMesh,
+            SStaticInstanceTransform, SStaticMesh, SStaticMeshData, SStaticMeshInstances,
+            SStaticSpecialMesh,
         },
     },
 };
@@ -21,9 +20,9 @@ use tiger_pkg::TagHash;
 use tiger_pkg::package_manager;
 
 use crate::{
-    asset::{Handle, vertex_buffer::VertexBuffer},
+    asset::vertex_buffer::VertexBuffer,
     features::shared::ModelBuffers,
-    gpu::{Gpu, buffer::ImmutableBuffer, command_list::CommandList},
+    gpu::{buffer::ImmutableBuffer, command_list::CommandList},
     renderer::Renderer,
     tfx::technique::Technique,
 };
@@ -483,9 +482,9 @@ impl FeatureRenderer for StaticInstancesRenderer {
     //     true
     // }
 
-    fn extract(&mut self, renderer: &Renderer, data: &dyn std::any::Any) {}
+    fn extract(&mut self, _renderer: &Renderer, _data: &dyn std::any::Any) {}
 
-    fn prepare(&mut self, renderer: &Renderer) {
+    fn prepare(&mut self, _renderer: &Renderer) {
         // let ctx = renderer.gpu.context();
         // for (model, _visible) in self.models.iter_mut().filter(|(_, visible)| *visible) {
         //     model.prepare_write_instance_ids(&ctx);

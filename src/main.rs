@@ -1,4 +1,4 @@
-use std::{ffi::CStr, rc::Rc};
+use std::rc::Rc;
 
 use app::App;
 use clap::Parser;

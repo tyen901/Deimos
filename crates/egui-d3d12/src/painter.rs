@@ -1,8 +1,8 @@
-use std::{mem::size_of, sync::Arc, time::Instant};
+use std::{mem::size_of, sync::Arc};
 
 use d3d12::{
     DescriptorRange, ElementOffset, Format, GraphicsPipelineStateDesc, RootSignatureBuilder,
-    RootSignatureFlags, VertexBufferView,
+    RootSignatureFlags,
 };
 use deimos_render::gpu::{buffer::DynamicBuffer, Gpu};
 use egui::{epaint::Primitive, Context};
@@ -206,7 +206,7 @@ impl D3D12Renderer {
             //     });
 
             let texture = self.tex_alloc.get_by_id(mesh.texture_id);
-            if let Some((texture, texture_filter, texture_uses_alpha)) = &texture {
+            if let Some((texture, texture_filter, _texture_uses_alpha)) = &texture {
                 self.set_sampler_state(cmd, texture_filter.unwrap_or(egui::TextureFilter::Linear))?;
                 // use_alpha = *texture_uses_alpha;
                 // cmd.pixel_set_shader_resources(0, &[Some(texture)]);
@@ -238,8 +238,8 @@ impl D3D12Renderer {
 impl D3D12Renderer {
     fn set_sampler_state(
         &self,
-        cmd: &d3d12::GraphicsCommandList,
-        filter: egui::TextureFilter,
+        _cmd: &d3d12::GraphicsCommandList,
+        _filter: egui::TextureFilter,
     ) -> Result<(), RenderError> {
         // cmd.pixel_set_samplers(
         //     0,

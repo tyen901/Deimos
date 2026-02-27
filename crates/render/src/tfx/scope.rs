@@ -7,14 +7,13 @@ use tiger_parse::PackageManagerExt;
 use tiger_pkg::{TagHash, package_manager};
 
 use crate::{
-    asset::{Asset, AssetManager},
+    asset::AssetManager,
     gpu::command_list::CommandList,
-    renderer::Renderer,
     tfx::dynamic_core::{DynamicCore, DynamicCoreResources},
 };
 
 pub struct Scope {
-    data: SScope,
+    _data: SScope,
     // root_signature: d3d12::RootSignature,
     stage_vertex: ScopeStage,
     stage_pixel: ScopeStage,
@@ -39,7 +38,7 @@ impl Scope {
                 ShaderStage::Pixel,
             )
             .context("while loading pixel stage")?,
-            data,
+            _data: data,
         })
     }
 

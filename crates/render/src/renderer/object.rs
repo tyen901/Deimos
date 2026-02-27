@@ -1,4 +1,4 @@
-use deimos_data::tfx::{features::dynamic::RenderStageSubscription, TfxFeatureRenderer};
+use deimos_data::tfx::{TfxFeatureRenderer, features::dynamic::RenderStageSubscription};
 
 use crate::features::FeatureRenderer;
 

@@ -5,7 +5,7 @@ use egui::{Margin, Ui, ahash::HashMap, vec2};
 use tiger_parse::{PackageManagerExt, TigerReadable};
 use tiger_pkg::{TagHash, package_manager};
 
-use super::{Tab, TabResult};
+use super::TabResult;
 use crate::{app::SharedState, ui::util::DButton};
 
 pub struct MapListTab {
@@ -62,7 +62,7 @@ impl MapListTab {
     }
 
     pub fn ui(&mut self, ui: &mut Ui) -> TabResult {
-        let mut result = TabResult::Continue;
+        let result = TabResult::Continue;
         egui::Frame::new()
             .outer_margin(Margin {
                 top: 16,
