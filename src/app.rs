@@ -152,7 +152,9 @@ impl App {
 
         let cmd = &frame.command_list;
         let mut cmd_tfx =
-            CommandList::from_native_command_list(&self.gpu, cmd.command_list.clone());
+            CommandList::from_native_command_list(&self.renderer, cmd.command_list.clone());
+
+        self.gui.draw_ui(&self.shared_state);
 
         cmd.scope(|cmd| {
             let (back_buffer_handle, back_buffer) = self.gpu.swapchain.lock().get_back_buffer();
@@ -167,7 +169,7 @@ impl App {
             cmd.clear_render_target_view(back_buffer_handle, &[0.0, 0.0, 0.0, 1.0]);
             cmd.om_set_render_targets(&[back_buffer_handle], false, None);
 
-            self.gui.draw(&self.gpu, cmd, &self.shared_state);
+            self.gui.render(&self.gpu, cmd);
 
             self.renderer.globals.scopes.view.bind(&mut cmd_tfx);
             for obj in self.renderer.objects.write().values_mut() {
@@ -175,10 +177,6 @@ impl App {
                 obj.renderer
                     .submit(&mut cmd_tfx, RenderStage::GenerateGbuffer);
             }
-            // for terrain in self.terrain_temp.iter_mut() {
-            //     terrain.extract(&self.renderer, &());
-            //     terrain.render(&mut cmd_tfx, deimos_data::tfx::RenderStage::GenerateGbuffer);
-            // }
 
             cmd.resource_barriers(&[ResourceBarrier::transition(
                 &back_buffer,

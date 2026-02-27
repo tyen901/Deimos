@@ -4,7 +4,11 @@ use d3d12::GraphicsCommandList;
 use deimos_data::tfx::{FixedFunctionState, PrimitiveType, ShaderStage};
 use tiger_pkg::TagHash;
 
-use crate::gpu::alloc::{descriptors::ResourceView, ring::UploadRing};
+use crate::{
+    gpu::alloc::{descriptors::ResourceView, ring::UploadRing},
+    renderer::Renderer,
+    tfx::externs::LocalExternContainer,
+};
 
 use super::Gpu;
 
@@ -23,13 +27,14 @@ pub struct CommandList {
     pub(super) current_stencil_ref: u32,
     pub(super) depth_mode: DepthMode,
     pub(super) bound_technique: TagHash,
-    // pub externs: LocalExterns,
     pub(crate) resources_vs: StageResources,
     pub(crate) resources_ps: StageResources,
     pub(crate) resources_cs: StageResources,
     pub(crate) resources_ds: StageResources,
     pub(crate) resources_hs: StageResources,
     pub(crate) resources_gs: StageResources,
+
+    pub externs: LocalExternContainer,
 }
 
 impl Deref for CommandList {
@@ -47,9 +52,9 @@ impl CommandList {
     //     )
     // }
 
-    pub fn from_native_command_list(gpu: &Arc<Gpu>, cmd: GraphicsCommandList) -> Self {
+    pub fn from_native_command_list(renderer: &Arc<Renderer>, cmd: GraphicsCommandList) -> Self {
         Self {
-            parent: gpu.clone(),
+            parent: renderer.gpu.clone(),
             cmd,
             state: FixedFunctionState::default(),
             state_override: FixedFunctionState::default(),
@@ -63,13 +68,14 @@ impl CommandList {
             current_stencil_ref: 0,
             depth_mode: DepthMode::Reverse,
             bound_technique: TagHash::NONE,
-            // externs: LocalExterns::default(),
             resources_vs: StageResources::default(),
             resources_ps: StageResources::default(),
             resources_cs: StageResources::default(),
             resources_ds: StageResources::default(),
             resources_hs: StageResources::default(),
             resources_gs: StageResources::default(),
+
+            externs: LocalExternContainer::new(renderer.clone()),
         }
     }
 

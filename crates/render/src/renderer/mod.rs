@@ -3,7 +3,6 @@ pub mod object;
 
 use std::sync::Arc;
 
-use deimos_data::tfx::TfxFeatureRenderer;
 use parking_lot::RwLock;
 use slotmap::SlotMap;
 
@@ -14,6 +13,8 @@ use crate::{
         globals::RenderGlobals,
         object::{RenderObject, RenderObjectHandle},
     },
+    tfx::externs::ExternContainer,
+    util::thread_cell::ThreadMutCell,
 };
 
 pub struct Renderer {
@@ -21,6 +22,7 @@ pub struct Renderer {
     pub objects: RwLock<SlotMap<RenderObjectHandle, RenderObject>>,
     pub asset_manager: AssetManager,
     pub globals: RenderGlobals,
+    pub externs: ThreadMutCell<ExternContainer>,
 }
 
 impl Renderer {
@@ -32,6 +34,7 @@ impl Renderer {
             asset_manager,
             gpu,
             objects: RwLock::new(SlotMap::with_key()),
+            externs: ThreadMutCell::new(ExternContainer::default()),
         }
     }
 

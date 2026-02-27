@@ -1,7 +1,10 @@
 macro_rules! extern_container {
-    ($($name:ident: $t:ident),*) => {
+    (   pub struct ExternContainer {
+            $($name:ident: $t:ident),*
+        }
+    ) => {
         /// Container holding all externs and global channels used in the renderer.
-        pub struct Externs {
+        pub struct ExternContainer {
             $(
             pub $name: Box<$t>,
             )*
@@ -10,7 +13,7 @@ macro_rules! extern_container {
             pub global_ids: Vec<u32>,
         }
 
-        impl Externs {
+        impl ExternContainer {
             // pub fn get_extern_value<T: Sized + Clone + 'static>(
             //     &self,
             //     index: ExternIndex,
@@ -34,7 +37,7 @@ macro_rules! extern_container {
             }
         }
 
-        impl ExternAccessor for Externs {
+        impl ExternAccessor for ExternContainer {
             fn get_value_ptr(&self, index: ExternIndex, offset: usize) -> Option<(*const (), TypeId)> {
                 match index {
                     $(
@@ -47,7 +50,7 @@ macro_rules! extern_container {
             }
         }
 
-        impl Default for Externs {
+        impl Default for ExternContainer {
             fn default() -> Self {
                 let global_channels = &crate::renderer::globals::GLOBAL_CHANNELS;
                 let mut globals = [Vec4::ONE; 256];
@@ -91,21 +94,33 @@ macro_rules! extern_container {
 macro_rules! local_extern_container {
     ($($name:ident: $t:ident),*) => {
         /// Containers holding localized externs that allows for overriding externs for individual command lists
-        #[derive(Default)]
-        pub struct LocalExterns {
+        pub struct LocalExternContainer {
+            parent: Arc<Renderer>,
             $(
             pub $name: Option<Box<$t>>,
             )*
         }
 
-        impl ExternAccessor for LocalExterns {
+        impl LocalExternContainer {
+            pub fn new(parent: Arc<Renderer>) -> Self {
+                Self {
+                    parent,
+                    $(
+                        $name: None,
+                    )*
+                }
+            }
+        }
+
+        impl ExternAccessor for LocalExternContainer {
             fn get_value_ptr(&self, index: ExternIndex, offset: usize) -> Option<(*const (), TypeId)> {
-                // let base_externs = &crate::renderer::Renderer::instance().externs;
+                let base_externs = &self.parent.externs;
                 match index {
                     $(
                         ExternIndex::$t => {
-                            self.$name.as_ref() //.unwrap_or(&base_externs.$name)
-                            .map(|externs| externs.get_field_ptr(offset))?
+                            self.$name.as_ref()
+                                .unwrap_or(&base_externs.$name)
+                                .get_field_ptr(offset)
                         }
                     )*
                     _ => None, // base_externs.get_value_ptr(index, offset),

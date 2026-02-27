@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, mem::discriminant, rc::Rc, sync::Arc};
 
 use anyhow::Context;
+use d3d12::GraphicsCommandList;
 use deimos_render::gpu::Gpu;
 use egui::{Color32, FontId, vec2};
 use egui_dock::{DockArea, DockState, TabInteractionStyle};
@@ -169,12 +170,7 @@ impl Gui {
         self.added_nodes.push(tab);
     }
 
-    pub fn draw(
-        &mut self,
-        gpu: &Arc<Gpu>,
-        cmd: &d3d12::GraphicsCommandList,
-        shared_state: &Arc<SharedState>,
-    ) {
+    pub fn draw_ui(&mut self, shared_state: &Arc<SharedState>) {
         let ctx = self
             .egui_sdl3
             .begin_frame(self.window.size(), self.window.display_scale());
@@ -272,15 +268,20 @@ impl Gui {
                 egui::Color32::from_white_alpha(127),
             );
         }
+    }
 
+    pub fn render(&mut self, gpu: &Arc<Gpu>, cmd: &GraphicsCommandList) {
         let output = self
             .egui_sdl3
             .end_frame(&mut self.sdl.video().unwrap())
             .unwrap();
-        if let Err(e) = self
-            .egui_d3d12
-            .paint(gpu, cmd, output, &ctx, self.window.size())
-        {
+        if let Err(e) = self.egui_d3d12.paint(
+            gpu,
+            cmd,
+            output,
+            self.egui_sdl3.context(),
+            self.window.size(),
+        ) {
             error!("Failed to paint gui: {}", e);
         }
     }
