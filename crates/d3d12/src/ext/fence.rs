@@ -1,6 +1,9 @@
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::{
+    sync::atomic::{AtomicU64, Ordering},
+    time::Duration,
+};
 
-use crate::{CommandQueue, Device, Event, Fence, Result};
+use crate::{CommandQueue, Device, Error, Event, Fence, Result, WaitResult};
 
 /// A fence wrapper that handles signaling and waiting
 pub struct GpuFence {
@@ -24,12 +27,15 @@ impl GpuFence {
     }
 
     /// Waits for the GPU to reach the previously set fence value
-    pub fn wait(&self, value: u64) -> Result<()> {
+    pub fn wait(&self, value: u64, timeout: Option<Duration>) -> Result<()> {
         if self.fence.get_completed_value() >= value {
             return Ok(());
         }
         self.fence.set_event_on_completion(&self.event, value)?;
-        self.event.wait(None);
+        if self.event.wait(timeout) == WaitResult::Timeout {
+            return Err(Error::Other("Timed out waiting for fence".to_string()));
+        }
+
         Ok(())
     }
 
@@ -55,8 +61,8 @@ impl GpuFenceWaiter {
         })
     }
 
-    pub fn wait(&self) -> Result<()> {
-        self.fence.wait(self.value.load(Ordering::Relaxed))
+    pub fn wait(&self, timeout: Option<Duration>) -> Result<()> {
+        self.fence.wait(self.value.load(Ordering::Relaxed), timeout)
     }
 
     pub fn signal(&self, queue: &CommandQueue) {

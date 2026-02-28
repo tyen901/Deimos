@@ -23,7 +23,7 @@ impl MapTab {
     pub fn new(renderer: &Arc<Renderer>, tag: TagHash, name: String) -> anyhow::Result<Self> {
         let renderer_clone = renderer.clone();
         Ok(Self {
-            load_task: Task::new(move || {
+            load_task: Task::new(format!("load_map({tag})"), move || {
                 let mut world = hecs::World::new();
                 crate::world::map::load_map_into_world(&renderer_clone, tag, &mut world)
                     .expect("Failed to load map into world");
@@ -43,6 +43,7 @@ impl MapTab {
             match map {
                 Ok(world) => {
                     self.scene.set_world(world);
+                    info!("Map loaded successfully");
                 }
                 Err(_e) => {
                     error!("Failed to load map: unknown error");

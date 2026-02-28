@@ -251,7 +251,7 @@ impl Gpu {
     pub fn wait_for_idle(&self) {
         let fence = GpuFence::new(&self.device).unwrap();
         let fence_value = fence.signal(&self.queue);
-        _ = fence.wait(fence_value);
+        _ = fence.wait(fence_value, None);
     }
 
     pub fn shutdown(&self) {

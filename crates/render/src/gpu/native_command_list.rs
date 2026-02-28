@@ -1,4 +1,8 @@
-use std::ops::Deref;
+use std::{
+    backtrace::Backtrace,
+    ops::Deref,
+    time::{Duration, Instant},
+};
 
 use d3d12::ext::GpuFence;
 use parking_lot::Mutex;
@@ -93,7 +97,8 @@ impl NativeCommandListPool {
         self.queue
             .execute_command_lists(std::slice::from_ref(&cmd.command_list));
         let fence_value = fence.signal(&self.queue);
-        fence.wait(fence_value)?;
+        let start = Instant::now();
+        fence.wait(fence_value, Some(Duration::from_secs(5)))?;
 
         self.command_lists.lock().push((cmd, fence));
         Ok(())

@@ -88,6 +88,7 @@ pub fn load_nodetable_into_world(
     table_hash: TagHash,
     world: &mut hecs::World,
 ) -> anyhow::Result<()> {
+    info!("Loading nodetable {table_hash}");
     let table: SMapNodeTable = package_manager().read_tag_struct(table_hash)?;
     for node in table.nodes {
         let transform = Transform::new(
@@ -124,5 +125,6 @@ pub fn load_nodetable_into_world(
         }
     }
 
+    info!("Nodetable {table_hash} loaded successfully");
     Ok(())
 }

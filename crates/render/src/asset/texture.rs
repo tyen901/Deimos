@@ -1,6 +1,7 @@
 use std::{io::Write, sync::Arc};
 
 use anyhow::Context;
+use chroma_dbg::ChromaDebug;
 use d3d12::{
     DeviceChild, ResourceBarrier, ResourceStates, ShaderResourceViewDesc, TextureCopyLocation,
 };
@@ -64,9 +65,6 @@ impl Texture {
     }
 
     pub fn load(gpu: &Arc<Gpu>, hash: tiger_pkg::TagHash) -> anyhow::Result<Self> {
-        static TEXTURE_LOCK: Mutex<()> = Mutex::new(());
-        let _lock = TEXTURE_LOCK.lock();
-
         let hash = hash.into();
         let _span = debug_span!("Load texture", ?hash).entered();
         let (header, texture_data) = Self::load_data(hash, true)?;
@@ -102,6 +100,8 @@ impl Texture {
         let upload_buffer = gpu.allocate_upload_buffer(footprint.total_bytes)?;
         unsafe {
             let dst_base = upload_buffer.resource().map(0)?;
+            // create a mutable slice covering the entire upload buffer
+            let dst = std::slice::from_raw_parts_mut(dst_base, footprint.total_bytes as usize);
 
             let mut src_offset: usize = 0;
 
@@ -124,19 +124,21 @@ impl Texture {
 
                 for depth_slice in 0..mip_depth as usize {
                     for row in 0..block_height as usize {
-                        let src_ptr = texture_data.as_ptr().add(
-                            src_offset
-                                + depth_slice * src_row_pitch * block_height as usize
-                                + row * src_row_pitch,
-                        );
+                        let src_start = src_offset
+                            + depth_slice * src_row_pitch * block_height as usize
+                            + row * src_row_pitch;
+                        let src_end = src_start + src_row_pitch;
 
-                        let dst_ptr = dst_base.add(
-                            layout.offset as usize
-                                + depth_slice * dst_slice_pitch
-                                + row * layout.footprint.row_pitch as usize,
-                        );
+                        let dst_start = layout.offset as usize
+                            + depth_slice * dst_slice_pitch
+                            + row * layout.footprint.row_pitch as usize;
+                        let dst_end = dst_start + src_row_pitch;
 
-                        std::ptr::copy_nonoverlapping(src_ptr, dst_ptr, src_row_pitch);
+                        dst[dst_start..dst_end].copy_from_slice(
+                            texture_data
+                                .get(src_start..src_end)
+                                .context("Source slice out of range")?,
+                        );
                     }
                 }
 

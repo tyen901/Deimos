@@ -1,4 +1,4 @@
-use std::sync::atomic::AtomicU64;
+use std::{sync::atomic::AtomicU64, time::Duration};
 
 use d3d12::ext::GpuFence;
 
@@ -31,7 +31,7 @@ impl FrameContext {
 
     pub fn wait_for_completion(&self, fence: &GpuFence) -> anyhow::Result<()> {
         let fence_value = self.fence_value.load(std::sync::atomic::Ordering::Acquire);
-        fence.wait(fence_value)?;
+        fence.wait(fence_value, Some(Duration::from_secs(5)))?;
         Ok(())
     }
 
