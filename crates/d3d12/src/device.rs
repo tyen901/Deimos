@@ -197,8 +197,8 @@ impl Device {
     ) -> Result<CopyableFootprints> {
         let mut f = CopyableFootprints {
             layouts: vec![unsafe { std::mem::zeroed() }; num_subresources as usize],
-            num_rows: 0,
-            row_size_in_bytes: 0,
+            num_rows: vec![0; num_subresources as usize],
+            row_size_in_bytes: vec![0; num_subresources as usize],
             total_bytes: 0,
         };
         unsafe {
@@ -208,11 +208,15 @@ impl Device {
                 num_subresources,
                 base_offset,
                 Some(f.layouts.as_mut_ptr().cast()),
-                Some(&mut f.num_rows),
-                Some(&mut f.row_size_in_bytes),
+                Some(f.num_rows.as_mut_ptr()),
+                Some(f.row_size_in_bytes.as_mut_ptr()),
                 Some(&mut f.total_bytes),
             );
         }
+        if f.total_bytes == u64::MAX {
+            return Err(crate::Error::Other("Invalid resource_desc".to_string()));
+        }
+
         Ok(f)
     }
 

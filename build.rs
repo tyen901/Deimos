@@ -4,8 +4,10 @@ fn main() {
         .manifest_required()
         .expect("Failed to compile resource file");
 
-    println!("cargo:rustc-link-arg=/EXPORT:D3D12SDKVersion");
-    println!("cargo:rustc-link-arg=/EXPORT:D3D12SDKPath");
+    if cfg!(debug_assertions) {
+        println!("cargo:rustc-link-arg=/EXPORT:D3D12SDKVersion");
+        println!("cargo:rustc-link-arg=/EXPORT:D3D12SDKPath");
+    }
 
     if std::env::var("CARGO_CFG_TARGET_OS").unwrap() == "windows" {
         // Include lib folder in the search path

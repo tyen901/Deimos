@@ -160,9 +160,12 @@ verify_ffi_type!(ResourceDimension, D3D12_RESOURCE_DIMENSION);
 
 #[derive(Debug, Clone)]
 pub struct CopyableFootprints {
+    /// One entry per subresource
     pub layouts: Vec<PlacedSubresourceFootprint>,
-    pub num_rows: u32,
-    pub row_size_in_bytes: u64,
+    /// One entry per subresource
+    pub num_rows: Vec<u32>,
+    /// One entry per subresource
+    pub row_size_in_bytes: Vec<u64>,
     pub total_bytes: u64,
 }
 

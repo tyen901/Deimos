@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{io::Write, sync::Arc};
 
 use anyhow::Context;
 use d3d12::{
@@ -8,7 +8,11 @@ use deimos_data::{
     tag::WideHash,
     tfx::{ShaderStage, texture::STextureHeader},
 };
-use gpu_allocator::{MemoryLocation, d3d12::ResourceCreateDesc};
+use gpu_allocator::{
+    MemoryLocation,
+    d3d12::{ResourceCreateDesc, ResourceStateOrBarrierLayout},
+};
+use parking_lot::Mutex;
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::package_manager;
 
@@ -60,6 +64,9 @@ impl Texture {
     }
 
     pub fn load(gpu: &Arc<Gpu>, hash: tiger_pkg::TagHash) -> anyhow::Result<Self> {
+        static TEXTURE_LOCK: Mutex<()> = Mutex::new(());
+        let _lock = TEXTURE_LOCK.lock();
+
         let hash = hash.into();
         let _span = debug_span!("Load texture", ?hash).entered();
         let (header, texture_data) = Self::load_data(hash, true)?;
@@ -68,17 +75,12 @@ impl Texture {
             anyhow::bail!("TODO: texture arrays/cubemaps cause crashes on Windows(?), fix later");
         }
 
-        let dimension = if header.depth > 1 {
-            d3d12::ResourceDimension::Texture3D
-        } else {
-            d3d12::ResourceDimension::Texture2D
-        };
-        let resource_desc = d3d12::ResourceDesc::new(dimension)
+        let resource_desc = d3d12::ResourceDesc::new(header.dimension())
             .width(header.width as u64)
             .height(header.height as u32)
             .depth_or_array_size(header.depth.max(header.array_size))
             .format(header.format.into())
-            .mip_levels(header.mip_count as u16);
+            .mip_levels(header.mip_count());
 
         let resource = gpu.allocate_resource(&ResourceCreateDesc {
             name: "texture",
@@ -94,8 +96,7 @@ impl Texture {
             resource_type: &gpu_allocator::d3d12::ResourceType::Placed,
         })?;
 
-        let num_subresources = header.mip_count as u32 * header.array_size as u32;
-        // TODO(cohae): This call crashes in a weird way for cubemap resource descs?
+        let num_subresources = header.mip_count() as u32 * header.array_size as u32;
         let footprint = gpu.get_copyable_footprints(&resource_desc, 0, num_subresources, 0)?;
 
         let upload_buffer = gpu.allocate_upload_buffer(footprint.total_bytes)?;
@@ -105,7 +106,7 @@ impl Texture {
             let mut src_offset: usize = 0;
 
             for (subresource_idx, layout) in footprint.layouts.iter().enumerate() {
-                let mip = subresource_idx as u32 % header.mip_count as u32;
+                let mip = subresource_idx as u32 % header.mip_count() as u32;
 
                 let mip_width = (header.width >> mip).max(1) as u32;
                 let mip_height = (header.height >> mip).max(1) as u32;
@@ -177,14 +178,14 @@ impl Texture {
             ShaderResourceViewDesc::texture_3d(
                 header.format.into(),
                 0,
-                header.mip_count as u32,
+                header.mip_count() as u32,
                 0.0,
             )
         } else if header.array_size > 1 {
             ShaderResourceViewDesc::texture_2d_array(
                 header.format.into(),
                 0,
-                header.mip_count as u32,
+                header.mip_count() as u32,
                 0.0,
                 0,
                 0..header.array_size as u32,
@@ -193,7 +194,7 @@ impl Texture {
             ShaderResourceViewDesc::texture_2d(
                 header.format.into(),
                 0,
-                header.mip_count as u32,
+                header.mip_count() as u32,
                 0.0,
                 0,
             )

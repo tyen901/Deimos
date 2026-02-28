@@ -19,12 +19,35 @@ pub struct STextureHeader {
     pub tile_count: u16,
 
     pub unk2c: u8,
-    pub mip_count: u8,
+    #[deprecated(note = "Value is wrong. Use `mip_count` method to calculate mip count")]
+    pub mip_count_broken: u8,
     pub unk2e: [u8; 10],
     pub unk38: u32,
 
     /// Optional
     pub large_buffer: TagHash,
+}
+
+impl STextureHeader {
+    pub fn mip_count(&self) -> u16 {
+        let smallest_dim = match self.dimension() {
+            d3d12::ResourceDimension::Buffer | d3d12::ResourceDimension::Texture1D => self.width,
+            d3d12::ResourceDimension::Texture2D => self.width.min(self.height),
+            d3d12::ResourceDimension::Texture3D => self.width.min(self.height).min(self.depth),
+        };
+
+        ((smallest_dim as f32).log2().ceil() as u16).max(1)
+    }
+
+    pub fn dimension(&self) -> d3d12::ResourceDimension {
+        if self.depth > 1 {
+            d3d12::ResourceDimension::Texture3D
+        } else if self.height > 1 {
+            d3d12::ResourceDimension::Texture2D
+        } else {
+            d3d12::ResourceDimension::Texture1D
+        }
+    }
 }
 
 #[repr(transparent)]
