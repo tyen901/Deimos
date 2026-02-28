@@ -22,20 +22,16 @@ pub fn load_map_into_world(
     world: &mut hecs::World,
 ) -> anyhow::Result<()> {
     info!("Loading map {taghash}");
+    let start = std::time::Instant::now();
     let parent = package_manager()
         .read_tag_struct::<SBubbleParent>(taghash)
         .context("Failed to read SBubbleParent")?;
-    info!(
-        "Loading {} SBubbleParent",
-        parent.definition.containers.len()
-    );
     for resources in &parent.definition.containers {
-        info!("Loading {} SBubbleParent", resources.data_tables.len());
         for datatable_hash in &resources.data_tables {
             load_nodetable_into_world(renderer, *datatable_hash, world)?;
         }
     }
-    info!("Done");
+    info!("Loaded map in {:?}", start.elapsed());
 
     Ok(())
 }
@@ -95,10 +91,6 @@ pub fn load_nodetable_into_world(
     world: &mut hecs::World,
 ) -> anyhow::Result<()> {
     let table: SMapNodeTable = package_manager().read_tag_struct(table_hash)?;
-    info!(
-        "Loading nodetable {table_hash} ({} entries)",
-        table.nodes.len()
-    );
     for node in table.nodes {
         let transform = Transform::new(
             node.translation.xyz(),
@@ -123,7 +115,6 @@ pub fn load_nodetable_into_world(
             );
         }
 
-        info!("  Spawning pattern {}", node.entity.hash32());
         if let Err(e) = spawn_pattern(
             renderer,
             world,
@@ -135,6 +126,5 @@ pub fn load_nodetable_into_world(
         }
     }
 
-    info!("Nodetable {table_hash} loaded successfully");
     Ok(())
 }

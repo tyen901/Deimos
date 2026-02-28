@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::Context;
 use deimos_data::tfx::{
     ShaderStage,
@@ -20,7 +22,7 @@ pub struct Scope {
 }
 
 impl Scope {
-    pub fn load(asset_manager: &AssetManager, hash: TagHash) -> anyhow::Result<Self> {
+    pub fn load(asset_manager: &Arc<AssetManager>, hash: TagHash) -> anyhow::Result<Self> {
         let data: SScope = package_manager()
             .read_tag_struct(hash)
             .context("Failed to read scope data")?;
@@ -66,7 +68,7 @@ pub struct ScopeStage {
 
 impl ScopeStage {
     pub fn new(
-        asset_manager: &AssetManager,
+        asset_manager: &Arc<AssetManager>,
         stage: SScopeStage,
         shader_stage: ShaderStage,
     ) -> anyhow::Result<Self> {

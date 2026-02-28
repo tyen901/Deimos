@@ -68,7 +68,7 @@ pub struct RenderGlobals {
 }
 
 impl RenderGlobals {
-    pub fn load(asset_manager: &AssetManager, gpu: &Arc<Gpu>) -> anyhow::Result<Self> {
+    pub fn load(asset_manager: &Arc<AssetManager>, gpu: &Arc<Gpu>) -> anyhow::Result<Self> {
         let data: SRenderGlobals = package_manager().read_named_tag_struct("render_globals")?;
         let globs = &data.unk8.first().context("No render globals found")?.unk8.0;
 
@@ -115,7 +115,7 @@ macro_rules! tfx_global_scopes {
         }
 
         impl GlobalScopes {
-            pub fn load(asset_manager: &AssetManager, globals: &SRenderGlobalsData) -> Self {
+            pub fn load(asset_manager: &Arc<AssetManager>, globals: &SRenderGlobalsData) -> Self {
                 let scopes: HashMap<String, TagHash> = globals.scopes.iter().map(|p| (p.name.to_string(), p.scope)).collect();
 
                 Self {
@@ -154,7 +154,7 @@ macro_rules! tfx_global_pipelines {
 
 
         impl GlobalPipelines {
-            pub fn load(asset_manager: &AssetManager, gpu: &Arc<Gpu>, globals: &SRenderGlobalsData) -> Self {
+            pub fn load(asset_manager: &Arc<AssetManager>, gpu: &Arc<Gpu>, globals: &SRenderGlobalsData) -> Self {
                 let techniques: HashMap<String, TagHash> = globals.pipelines.iter().map(|p| (p.name.to_string(), p.technique)).collect();
 
                 Self {

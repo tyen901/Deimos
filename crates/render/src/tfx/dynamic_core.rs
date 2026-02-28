@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::Context;
 use deimos_data::{
     tag::WideHash,
@@ -44,7 +46,7 @@ pub struct DynamicCore {
 
 impl DynamicCore {
     pub fn new(
-        asset_manager: &AssetManager,
+        asset_manager: &Arc<AssetManager>,
         data: SDynamicCore,
         stage: ShaderStage,
     ) -> anyhow::Result<Self> {

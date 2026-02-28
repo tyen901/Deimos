@@ -15,12 +15,13 @@ use deimos_data::tfx::{
 };
 use glam::{Mat4, Vec3, Vec4};
 use itertools::Itertools;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::TagHash;
 use tiger_pkg::package_manager;
 
 use crate::{
-    asset::vertex_buffer::VertexBuffer,
+    asset::{Handle, vertex_buffer::VertexBuffer},
     features::shared::ModelBuffers,
     gpu::{buffer::ImmutableBuffer, command_list::CommandList},
     renderer::Renderer,
@@ -32,7 +33,7 @@ use super::FeatureRenderer;
 struct SpecialMesh {
     mesh: SStaticSpecialMesh,
     buffers: ModelBuffers,
-    technique: Technique,
+    technique: Handle<Technique>,
 }
 
 impl Deref for SpecialMesh {
@@ -45,7 +46,7 @@ impl Deref for SpecialMesh {
 
 pub struct StaticModel {
     pub model: SStaticMesh,
-    pub materials: Vec<Technique>,
+    pub materials: Vec<Handle<Technique>>,
     pub hash: TagHash,
     pub subscribed_stages: RenderStageSubscription,
     buffers: Vec<ModelBuffers>,
@@ -59,9 +60,8 @@ impl StaticModel {
         let materials = model
             .techniques
             .iter()
-            .map(|&tag| Technique::load(&renderer.asset_manager, &renderer.gpu, tag))
-            .collect::<anyhow::Result<Vec<_>>>()
-            .context("loading technique")?;
+            .map(|&tag| renderer.asset_manager.load(tag))
+            .collect::<Vec<_>>();
 
         let buffers = model
             .opaque_meshes
@@ -97,11 +97,7 @@ impl StaticModel {
                         mesh.index_buffer,
                     )
                     .expect("Failed to load special mesh buffers"),
-                    technique: Technique::load(
-                        &renderer.asset_manager,
-                        &renderer.gpu,
-                        mesh.technique,
-                    )?,
+                    technique: renderer.asset_manager.load(mesh.technique),
                 })
             })
             .collect::<anyhow::Result<Vec<_>>>()
@@ -213,10 +209,9 @@ impl StaticModelRenderer {
                 cmd.set_input_layout(group.input_layout_index as usize);
                 cmd.set_input_topology(part.primitive_type);
 
-                if let Some(technique) = &self.model.materials.get(i) {
+                if let Some(technique) = &self.model.materials.get(i).and_then(|h| h.get()) {
                     technique.bind(cmd);
                 } else {
-                    error!("Material {i} not found");
                     continue;
                 }
 
@@ -241,7 +236,11 @@ impl StaticModelRenderer {
 
                 cmd.set_input_layout(mesh.input_layout_index as usize);
                 cmd.set_input_topology(mesh.primitive_type);
-                mesh.technique.bind(cmd);
+                if let Some(technique) = mesh.technique.get() {
+                    technique.bind(cmd);
+                } else {
+                    continue;
+                }
 
                 cmd.draw_indexed_instanced(
                     mesh.index_range(),
@@ -276,10 +275,9 @@ impl StaticModelRenderer {
         cmd.set_input_layout(group.input_layout_index as usize);
         cmd.set_input_topology(part.primitive_type);
 
-        if let Some(technique) = &self.model.materials.get(i) {
+        if let Some(technique) = &self.model.materials.get(i).and_then(|h| h.get()) {
             technique.bind(cmd);
         } else {
-            error!("Material {i} not found");
             return;
         }
 
@@ -428,6 +426,33 @@ impl StaticInstancesRenderer {
 
             models.push(renderer);
         }
+        // let models = instances
+        //     .instance_groups
+        //     .par_iter()
+        //     .map(|group| {
+        //         let model = instances.statics[group.static_index as usize];
+        //         let range = (group.instance_start as usize)
+        //             ..(group.instance_start + group.instance_count) as usize;
+
+        //         let renderer = StaticModelRenderer::new(
+        //             renderer,
+        //             instances.transforms[range.clone()]
+        //                 .iter()
+        //                 .cloned()
+        //                 .zip(
+        //                     instances.occlusion_bounds.bounds[range]
+        //                         .iter()
+        //                         .map(|b| &b.bb)
+        //                         .cloned(),
+        //                 )
+        //                 .collect(),
+        //             model,
+        //             instances.vertex_ao_identifier,
+        //         )?;
+
+        //         Ok(renderer)
+        //     })
+        //     .collect::<anyhow::Result<Vec<_>>>()?;
 
         // let mut groups_by_stage_sorted_by_technique: HashMap<
         //     RenderStage,

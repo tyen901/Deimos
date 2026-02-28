@@ -6,7 +6,10 @@ use std::{
         Arc,
         atomic::{AtomicBool, AtomicU64, Ordering},
     },
+    time::Instant,
 };
+
+use crate::features::static_geometry::InstanceTransformBlock;
 
 pub struct NativeCommandList {
     command_allocator: d3d12::CommandAllocator,
@@ -132,6 +135,7 @@ impl CommandListRing {
         let mut slots = self.slots.lock();
         let slot = &mut slots[*head];
 
+        let start = Instant::now();
         self.wait_for(slot.fence_value)?;
 
         slot.command_list.begin()?;

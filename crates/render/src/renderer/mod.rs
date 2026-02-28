@@ -20,14 +20,14 @@ use crate::{
 pub struct Renderer {
     pub gpu: Arc<Gpu>,
     pub objects: RwLock<SlotMap<RenderObjectHandle, RenderObject>>,
-    pub asset_manager: AssetManager,
+    pub asset_manager: Arc<AssetManager>,
     pub globals: RenderGlobals,
     pub externs: ThreadMutCell<ExternContainer>,
 }
 
 impl Renderer {
     pub fn new(gpu: Arc<Gpu>) -> Self {
-        let asset_manager = AssetManager::new(&gpu);
+        let asset_manager = Arc::new(AssetManager::new(&gpu));
         Self {
             globals: RenderGlobals::load(&asset_manager, &gpu)
                 .expect("Failed to load render globals"),

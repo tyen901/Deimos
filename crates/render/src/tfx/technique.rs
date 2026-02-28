@@ -30,7 +30,7 @@ pub struct Technique {
 
 impl Technique {
     pub fn load(
-        asset_manager: &AssetManager,
+        asset_manager: &Arc<AssetManager>,
         gpu: &Arc<Gpu>,
         hash: TagHash,
     ) -> anyhow::Result<Self> {
@@ -223,7 +223,7 @@ pub struct TechniqueResourceSlot {
 
 impl TechniqueStage {
     pub fn new(
-        asset_manager: &AssetManager,
+        asset_manager: &Arc<AssetManager>,
         gpu: &Arc<Gpu>,
         stage: STechniqueStage,
         shader_stage: ShaderStage,

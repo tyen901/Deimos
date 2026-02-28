@@ -104,15 +104,6 @@ impl App {
                         .swapchain
                         .lock()
                         .resize((new_width as u32, new_height as u32));
-
-                    // self.gui
-                    //     .egui_d3d11
-                    //     .resize_buffers(&self.renderer.gpu, || {
-                    //         self.renderer
-                    //             .resize_swapchain((new_width as u32, new_height as u32));
-                    //         Ok(())
-                    //     })
-                    //     .ok();
                 }
                 sdl3::event::WindowEvent::CloseRequested => {
                     self.running = false;
@@ -166,7 +157,7 @@ impl App {
                 .build()]);
 
             self.gui.draw_ui(&self.shared_state);
-            // cmd.om_set_render_targets(&[], false, None);
+            cmd.om_set_render_targets(&[], false, None);
             self.gui.render(&self.gpu, cmd);
 
             cmd.resource_barriers(&[ResourceBarrier::transition(

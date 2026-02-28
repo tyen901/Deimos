@@ -19,6 +19,7 @@ use super::{
 use crate::{
     asset::{index_buffer::IndexBuffer, texture::Texture, vertex_buffer::VertexBuffer},
     gpu::Gpu,
+    tfx::technique::Technique,
 };
 
 // Asynchronous asset manager. Allows taking a handle to an ArcShift<Option<T>> (where T: Asset), which will be populated with the asset once it is loaded.
@@ -54,7 +55,7 @@ impl AssetManager {
         None
     }
 
-    pub fn load<T: Asset + 'static>(&self, tag: impl Into<WideHash>) -> Handle<T> {
+    pub fn load<T: Asset + 'static>(self: &Arc<Self>, tag: impl Into<WideHash>) -> Handle<T> {
         self.try_load(tag)
             .unwrap_or_else(|| unsafe { self.dummy_handle.clone_as_typed_unchecked() })
     }
@@ -62,7 +63,10 @@ impl AssetManager {
     /// Get the asset handle for the given tag, or create a new one, and send it to the loader thread.
     /// Returns None if the tag is null
     #[profiling::function]
-    pub fn try_load<T: Asset + 'static>(&self, tag: impl Into<WideHash>) -> Option<Handle<T>> {
+    pub fn try_load<T: Asset + 'static>(
+        self: &Arc<Self>,
+        tag: impl Into<WideHash>,
+    ) -> Option<Handle<T>> {
         let tag = tag.into().hash32();
         if tag.is_none() {
             // TODO: Return a dummy handle instead of None
@@ -94,11 +98,12 @@ impl AssetManager {
         };
         let gpu = self.gpu.clone();
         let num_loaded = self.num_loading.clone();
+        let asset_manager = self.clone();
         SCHEDULER
             .job_builder("load_asset")
             .priority(Priority::Low)
             .spawn(move || {
-                load_asset(request, &gpu, &num_loaded);
+                load_asset(request, asset_manager, &gpu, &num_loaded);
             });
 
         // SAFETY: The type ID was checked above
@@ -139,7 +144,12 @@ struct LoadRequest {
     type_id: Uuid,
 }
 
-fn load_asset(request: LoadRequest, gpu: &Arc<Gpu>, num_loaded: &Arc<AtomicUsize>) {
+fn load_asset(
+    request: LoadRequest,
+    asset_manager: Arc<AssetManager>,
+    gpu: &Arc<Gpu>,
+    num_loaded: &Arc<AtomicUsize>,
+) {
     match request.type_id {
         Texture::ASSET_TYPE => {
             match Texture::load(gpu, request.tag) {
@@ -168,14 +178,14 @@ fn load_asset(request: LoadRequest, gpu: &Arc<Gpu>, num_loaded: &Arc<AtomicUsize
                 error!("Failed to load index buffer: {:?}", e);
             }
         },
-        // Technique::ASSET_TYPE => match Technique::load(gpu, request.tag) {
-        //     Ok(o) => {
-        //         request.handle.update(o.into());
-        //     }
-        //     Err(e) => {
-        //         error!("Failed to load technique: {:?}", e);
-        //     }
-        // },
+        Technique::ASSET_TYPE => match Technique::load(&asset_manager, gpu, request.tag) {
+            Ok(o) => {
+                request.handle.update(o.into());
+            }
+            Err(e) => {
+                error!("Failed to load technique: {:?}", e);
+            }
+        },
         u => {
             panic!(
                 "asset loader: Unknown asset type for tag {}: {u:?}",
