@@ -152,7 +152,7 @@ impl Gpu {
 
         let window_size = window.size();
         Ok(Self {
-            cmd_ring: CommandListRing::new(&device, queue.clone(), 8)?,
+            cmd_ring: CommandListRing::new(&device, queue.clone(), 16)?,
             resource_heap: Mutex::new(DescriptorHeapAllocator::new(
                 &device,
                 d3d12::DescriptorHeapType::CbvSrvUav,
