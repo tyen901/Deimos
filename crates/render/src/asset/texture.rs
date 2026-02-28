@@ -69,10 +69,6 @@ impl Texture {
         let _span = debug_span!("Load texture", ?hash).entered();
         let (header, texture_data) = Self::load_data(hash, true)?;
 
-        if header.array_size > 1 {
-            anyhow::bail!("TODO: texture arrays/cubemaps cause crashes on Windows(?), fix later");
-        }
-
         let resource_desc = d3d12::ResourceDesc::new(header.dimension())
             .width(header.width as u64)
             .height(header.height as u32)
@@ -147,7 +143,8 @@ impl Texture {
 
             upload_buffer.resource().unmap(0);
         }
-        gpu.immediate_pool.scope_immediate(|cmd| {
+
+        gpu.cmd_scope(|cmd| {
             cmd.resource_barriers(&[ResourceBarrier::transition(
                 resource.resource(),
                 0,

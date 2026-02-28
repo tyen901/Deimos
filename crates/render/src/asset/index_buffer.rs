@@ -55,7 +55,7 @@ impl IndexBuffer {
         }
         upload_buffer.resource().unmap(0);
 
-        gpu.immediate_pool.scope_immediate(|cmd| {
+        gpu.cmd_scope(|cmd| {
             upload_buffer.transition(cmd, d3d12::ResourceStates::COPY_SOURCE);
             resource.transition(cmd, d3d12::ResourceStates::COPY_DEST);
 

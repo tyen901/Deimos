@@ -18,6 +18,7 @@ use std::{
     any::Any,
     rc::Rc,
     sync::{Arc, atomic::AtomicUsize},
+    time::Duration,
 };
 
 use anyhow::Context;
@@ -46,7 +47,7 @@ use windows::{
 use crate::gpu::{
     alloc::{descriptors::DescriptorHeapAllocator, resource::OwnedResource},
     frame::FrameContext,
-    native_command_list::NativeCommandListPool,
+    native_command_list::{CommandListRing, NativeCommandList},
     pipeline_cache::PipelineCache,
 };
 
@@ -64,11 +65,11 @@ pub struct Gpu {
     pub(crate) frame_index: AtomicUsize,
     pub(crate) frame_fence: GpuFence,
 
-    pub immediate_pool: NativeCommandListPool,
+    cmd_ring: CommandListRing,
     pub resource_heap: Mutex<DescriptorHeapAllocator>,
 
     /// List of resources to be destroyed after the frame is finished.
-    bin: Mutex<[Vec<Box<dyn Any>>; Self::FRAMES_IN_FLIGHT]>,
+    bin: [Mutex<Vec<Box<dyn Any>>>; Self::FRAMES_IN_FLIGHT],
 }
 
 unsafe impl Sync for Gpu {}
@@ -150,6 +151,7 @@ impl Gpu {
 
         let window_size = window.size();
         Ok(Self {
+            cmd_ring: CommandListRing::new(&device, queue.clone(), 8)?,
             resource_heap: Mutex::new(DescriptorHeapAllocator::new(
                 &device,
                 d3d12::DescriptorHeapType::CbvSrvUav,
@@ -157,7 +159,6 @@ impl Gpu {
                 false,
             )?),
             pipeline_cache: Mutex::new(PipelineCache::new(device.clone())),
-            immediate_pool: NativeCommandListPool::new(device.clone(), queue.clone())?,
             queue,
             adapter: adapter3,
             swapchain: Mutex::new(Swapchain::new(swap_chain, &device, window_size)?),
@@ -169,7 +170,7 @@ impl Gpu {
             device,
             allocator: Mutex::new(allocator),
             frame_index: AtomicUsize::new(0),
-            bin: Mutex::new(std::array::from_fn(|_| Vec::new())),
+            bin: std::array::from_fn(|_| Mutex::new(Vec::new())),
         })
     }
 
@@ -214,7 +215,7 @@ impl Gpu {
         frame.begin_frame();
         _ = frame.wait_for_completion(&self.frame_fence);
 
-        self.bin.lock()[frame_index % Self::FRAMES_IN_FLIGHT].clear();
+        let _to_bin = std::mem::take(&mut *self.bin[frame_index % Self::FRAMES_IN_FLIGHT].lock());
 
         frame
     }
@@ -239,6 +240,13 @@ impl Gpu {
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     }
 
+    pub fn cmd_scope<F>(&self, func: F) -> anyhow::Result<()>
+    where
+        F: FnOnce(&NativeCommandList) -> anyhow::Result<()>,
+    {
+        self.cmd_ring.submit(func)
+    }
+
     #[profiling::function]
     pub fn present(&self, vsync: bool) {
         self.swapchain.lock().present(vsync);
@@ -259,8 +267,9 @@ impl Gpu {
     }
 
     pub fn bin_resource<T: 'static>(&self, resource: T) {
-        self.bin.lock()
-            [self.frame_index.load(std::sync::atomic::Ordering::Relaxed) % Self::FRAMES_IN_FLIGHT]
+        self.bin[self.frame_index() % Self::FRAMES_IN_FLIGHT]
+            .try_lock_for(Duration::from_secs(5))
+            .expect("Failed to acquire bin lock")
             .push(Box::new(resource));
     }
 

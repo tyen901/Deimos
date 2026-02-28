@@ -201,27 +201,26 @@ impl ImmutableBuffer {
             upload_buffer.resource().unmap(0);
         }
 
-        gpu.immediate_pool
-            .scope_immediate(|cmd| {
-                cmd.resource_barriers(&[ResourceBarrier::transition(
-                    resource.resource(),
-                    0,
-                    ResourceStates::COMMON,
-                    ResourceStates::COPY_DEST,
-                )]);
+        gpu.cmd_scope(|cmd| {
+            cmd.resource_barriers(&[ResourceBarrier::transition(
+                resource.resource(),
+                0,
+                ResourceStates::COMMON,
+                ResourceStates::COPY_DEST,
+            )]);
 
-                cmd.copy_resource(upload_buffer.resource(), resource.resource());
+            cmd.copy_resource(upload_buffer.resource(), resource.resource());
 
-                cmd.resource_barriers(&[ResourceBarrier::transition(
-                    resource.resource(),
-                    0,
-                    ResourceStates::COPY_DEST,
-                    ResourceStates::COMMON,
-                )]);
+            cmd.resource_barriers(&[ResourceBarrier::transition(
+                resource.resource(),
+                0,
+                ResourceStates::COPY_DEST,
+                ResourceStates::COMMON,
+            )]);
 
-                Ok(())
-            })
-            .context("buffer copy")?;
+            Ok(())
+        })
+        .context("buffer copy")?;
 
         let srv = gpu.resource_heap.lock().allocate_srv(
             name,

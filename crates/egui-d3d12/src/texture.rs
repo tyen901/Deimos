@@ -27,8 +27,6 @@ pub struct TextureAllocator {
     allocated: HashMap<TextureId, ManagedTexture>,
     pub(crate) descriptor_heap_alloc: DescriptorHeapAllocator,
 
-    pending_uploads: Vec<OwnedResource>,
-
     allocated_unmanaged: HashMap<
         TextureId,
         (
@@ -52,7 +50,6 @@ impl TextureAllocator {
         Ok(TextureAllocator {
             allocated: HashMap::default(),
             allocated_unmanaged: HashMap::default(),
-            pending_uploads: Vec::new(),
             descriptor_heap_alloc: descriptor_heap,
             unmanaged_free_handles: Vec::new(),
             unmanaged_index: 0,
@@ -66,23 +63,19 @@ impl TextureAllocator {
         gpu: &Arc<Gpu>,
         delta: &TexturesDelta,
     ) -> Result<(), RenderError> {
-        gpu.immediate_pool
-            .scope_immediate(|cmd| {
-                for (tid, delta) in &delta.set {
-                    if delta.is_whole() {
-                        self.allocate_new(cmd, *tid, &delta.image)?;
-                    } else {
-                        let _did_update =
-                            self.update_partial(cmd, *tid, &delta.image, delta.pos.unwrap())?;
-                    }
+        gpu.cmd_scope(|cmd| {
+            for (tid, delta) in &delta.set {
+                if delta.is_whole() {
+                    self.allocate_new(gpu, cmd, *tid, &delta.image)?;
+                } else {
+                    let _did_update =
+                        self.update_partial(gpu, cmd, *tid, &delta.image, delta.pos.unwrap())?;
                 }
+            }
 
-                Ok(())
-            })
-            .expect("process_deltas scope_immediate");
-
-        // Deallocate pending upload buffers
-        self.pending_uploads.clear();
+            Ok(())
+        })
+        .expect("process_deltas scope_immediate");
 
         for tid in &delta.free {
             self.free(*tid);
@@ -189,11 +182,12 @@ impl Drop for TextureAllocator {
 impl TextureAllocator {
     fn allocate_new(
         &mut self,
+        gpu: &Gpu,
         cmd: &d3d12::GraphicsCommandList,
         tid: TextureId,
         image: &ImageData,
     ) -> Result<(), RenderError> {
-        let tex = self.allocate_texture(cmd, image)?;
+        let tex = self.allocate_texture(gpu, cmd, image)?;
         tex.resource
             .resource()
             .set_debug_name(format!("egui {tid:?}"));
@@ -203,6 +197,7 @@ impl TextureAllocator {
 
     fn update_partial(
         &mut self,
+        gpu: &Gpu,
         cmd: &d3d12::GraphicsCommandList,
         tid: TextureId,
         image: &ImageData,
@@ -223,7 +218,7 @@ impl TextureAllocator {
                 }
             }
 
-            self.upload_texture(cmd, &tex)?;
+            self.upload_texture(gpu, cmd, &tex)?;
 
             self.allocated.insert(tid, tex);
 
@@ -235,6 +230,7 @@ impl TextureAllocator {
 
     fn allocate_texture(
         &mut self,
+        gpu: &Gpu,
         cmd: &d3d12::GraphicsCommandList,
         image: &ImageData,
     ) -> Result<ManagedTexture, RenderError> {
@@ -288,7 +284,7 @@ impl TextureAllocator {
             gpu_handle,
         };
 
-        self.upload_texture(cmd, &tex)?;
+        self.upload_texture(gpu, cmd, &tex)?;
 
         Ok(tex)
     }
@@ -296,6 +292,7 @@ impl TextureAllocator {
     /// Upload the texture data for an allocated texture
     fn upload_texture(
         &mut self,
+        gpu: &Gpu,
         cmd: &d3d12::GraphicsCommandList,
         texture: &ManagedTexture,
     ) -> Result<(), RenderError> {
@@ -343,7 +340,6 @@ impl TextureAllocator {
             ResourceStates::COPY_DEST,
             ResourceStates::COMMON,
         )]);
-        self.pending_uploads.push(upload_buffer);
 
         Ok(())
     }

@@ -69,8 +69,6 @@ impl DepthBuffer {
 
         let mut new_depth_buffer = Self::new(&self.gpu, (width, height))?;
         std::mem::swap(self, &mut new_depth_buffer);
-        let old_depth_buffer = new_depth_buffer;
-        self.gpu.bin_resource(old_depth_buffer);
 
         Ok(())
     }

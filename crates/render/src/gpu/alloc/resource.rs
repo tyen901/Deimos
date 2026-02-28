@@ -4,9 +4,7 @@ use crate::gpu::Gpu;
 
 /// Represents an owned GPU resource that will be automatically freed when dropped.
 pub struct OwnedResource {
-    gpu: Arc<Gpu>,
-    resource: ManuallyDrop<gpu_allocator::d3d12::Resource>,
-    current_state: d3d12::ResourceStates,
+    guard: ManuallyDrop<ResourceGuard>,
 }
 
 impl OwnedResource {
@@ -16,9 +14,11 @@ impl OwnedResource {
         current_state: d3d12::ResourceStates,
     ) -> Self {
         Self {
-            gpu,
-            current_state,
-            resource: ManuallyDrop::new(resource),
+            guard: ManuallyDrop::new(ResourceGuard {
+                gpu,
+                resource: ManuallyDrop::new(resource),
+                current_state,
+            }),
         }
     }
 
@@ -30,22 +30,37 @@ impl OwnedResource {
         cmd.resource_barriers(&[d3d12::ResourceBarrier::transition(
             self.resource(),
             0,
-            self.current_state,
+            self.guard.current_state,
             new_states,
         )]);
-        self.current_state = new_states;
+        self.guard.current_state = new_states;
     }
 
     pub fn resource(&self) -> &d3d12::Resource {
-        self.resource.resource().as_ref()
+        self.guard.resource.resource().as_ref()
     }
 
     pub fn size(&self) -> u64 {
-        self.resource.size
+        self.guard.resource.size
     }
 }
 
 impl Drop for OwnedResource {
+    fn drop(&mut self) {
+        let gpu = self.guard.gpu.clone();
+        unsafe {
+            gpu.bin_resource(ManuallyDrop::take(&mut self.guard));
+        }
+    }
+}
+
+struct ResourceGuard {
+    gpu: Arc<Gpu>,
+    resource: ManuallyDrop<gpu_allocator::d3d12::Resource>,
+    current_state: d3d12::ResourceStates,
+}
+
+impl Drop for ResourceGuard {
     fn drop(&mut self) {
         let resource = unsafe { ManuallyDrop::take(&mut self.resource) };
         self.gpu

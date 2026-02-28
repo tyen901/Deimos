@@ -2,7 +2,10 @@ use std::{sync::atomic::AtomicU64, time::Duration};
 
 use d3d12::ext::GpuFence;
 
-use crate::gpu::{alloc::ring::UploadRing, native_command_list::NativeCommandList};
+use crate::gpu::{
+    alloc::ring::UploadRing,
+    native_command_list::{CommandListRing, NativeCommandList},
+};
 
 /// Represents a frame in flight.
 pub struct FrameContext {
