@@ -30,6 +30,7 @@ use gpu_allocator::{
     AllocationSizes, AllocatorDebugSettings,
     d3d12::{ID3D12DeviceVersion, ResourceStateOrBarrierLayout},
 };
+use itertools::Itertools;
 use parking_lot::Mutex;
 use swapchain::Swapchain;
 use windows::{
@@ -69,7 +70,7 @@ pub struct Gpu {
     pub resource_heap: Mutex<DescriptorHeapAllocator>,
 
     /// List of resources to be destroyed after the frame is finished.
-    bin: [Mutex<Vec<Box<dyn Any>>>; Self::FRAMES_IN_FLIGHT],
+    bin: Mutex<Vec<(Box<dyn Any>, u8)>>,
 }
 
 unsafe impl Sync for Gpu {}
@@ -170,7 +171,7 @@ impl Gpu {
             device,
             allocator: Mutex::new(allocator),
             frame_index: AtomicUsize::new(0),
-            bin: std::array::from_fn(|_| Mutex::new(Vec::new())),
+            bin: Mutex::new(Vec::new()),
         })
     }
 
@@ -215,7 +216,18 @@ impl Gpu {
         frame.begin_frame();
         _ = frame.wait_for_completion(&self.frame_fence);
 
-        let _to_bin = std::mem::take(&mut *self.bin[frame_index % Self::FRAMES_IN_FLIGHT].lock());
+        let _to_bin = self
+            .bin
+            .lock()
+            .extract_if(.., |(_res, lifetime)| {
+                if *lifetime == 0 {
+                    true
+                } else {
+                    *lifetime -= 1;
+                    false
+                }
+            })
+            .collect_vec();
 
         frame
     }
@@ -267,10 +279,10 @@ impl Gpu {
     }
 
     pub fn bin_resource<T: 'static>(&self, resource: T) {
-        self.bin[self.frame_index() % Self::FRAMES_IN_FLIGHT]
+        self.bin
             .try_lock_for(Duration::from_secs(5))
             .expect("Failed to acquire bin lock")
-            .push(Box::new(resource));
+            .push((Box::new(resource), 4));
     }
 
     // #[profiling::function]
