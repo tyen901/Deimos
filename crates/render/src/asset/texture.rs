@@ -1,7 +1,6 @@
-use std::{io::Write, sync::Arc};
+use std::sync::Arc;
 
 use anyhow::Context;
-use chroma_dbg::ChromaDebug;
 use d3d12::{
     DeviceChild, ResourceBarrier, ResourceStates, ShaderResourceViewDesc, TextureCopyLocation,
 };
@@ -9,11 +8,7 @@ use deimos_data::{
     tag::WideHash,
     tfx::{ShaderStage, texture::STextureHeader},
 };
-use gpu_allocator::{
-    MemoryLocation,
-    d3d12::{ResourceCreateDesc, ResourceStateOrBarrierLayout},
-};
-use parking_lot::Mutex;
+use gpu_allocator::{MemoryLocation, d3d12::ResourceCreateDesc};
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::package_manager;
 

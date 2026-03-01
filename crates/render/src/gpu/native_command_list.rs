@@ -3,7 +3,6 @@ use parking_lot::Mutex;
 use std::{
     ops::Deref,
     sync::atomic::{AtomicBool, AtomicU64, Ordering},
-    time::Instant,
 };
 
 pub struct NativeCommandList {

@@ -157,7 +157,9 @@ impl App {
                 .build()]);
 
             self.gui.draw_ui(&self.shared_state);
-            cmd.om_set_render_targets(&[], false, None);
+            if !self.renderer.objects.read().is_empty() {
+                cmd.om_set_render_targets(&[], false, None);
+            }
             self.gui.render(&self.gpu, cmd);
 
             cmd.resource_barriers(&[ResourceBarrier::transition(

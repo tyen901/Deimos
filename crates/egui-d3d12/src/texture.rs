@@ -292,7 +292,7 @@ impl TextureAllocator {
     /// Upload the texture data for an allocated texture
     fn upload_texture(
         &mut self,
-        gpu: &Gpu,
+        _gpu: &Gpu,
         cmd: &d3d12::GraphicsCommandList,
         texture: &ManagedTexture,
     ) -> Result<(), RenderError> {

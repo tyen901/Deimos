@@ -1,4 +1,3 @@
-use anyhow::Context;
 use deimos_data::tfx::{
     RenderStage, ShaderStage,
     features::{
@@ -116,6 +115,7 @@ impl TerrainPatchesRenderer {
             .filter(|(_, u)| u.detail_level == self.detail_level)
         {
             let constants = &self.group_cbuffers[part.group_index as usize];
+            // TODO(cohae): These constants need to be static
             let cb11 = cmd
                 .upload_ring()
                 .alloc::<TerrainPatchGroupConstants>()

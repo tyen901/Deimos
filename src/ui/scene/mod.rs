@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Instant};
 
 use deimos_data::tfx::RenderStage;
 use deimos_render::{camera::Camera, gpu::command_list::CommandList, renderer::Renderer};
-use egui::{RichText, Sense, Ui, UiBuilder, Vec2, containers::menu::MenuConfig, vec2};
+use egui::{RichText, Sense, Ui, UiBuilder, Vec2, vec2};
 use google_material_symbols::GoogleMaterialSymbols;
 use hecs::World;
 
@@ -112,7 +112,7 @@ impl Scene {
                 })
             });
 
-            let fps_rect = ui.painter_at(panel_rect).text(
+            let _fps_rect = ui.painter_at(panel_rect).text(
                 panel_rect.right_top() + Vec2::new(0.0, 3.0) + Vec2::splat(1.0),
                 egui::Align2::RIGHT_TOP,
                 format!("{} ", (1. / delta_time_average).round()),

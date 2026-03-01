@@ -10,9 +10,7 @@ use tiger_pkg::{TagHash, package_manager};
 use crate::{
     asset::AssetManager,
     gpu::{
-        Gpu,
-        alloc::descriptors::{DescriptorRange, DescriptorRing},
-        command_list::CommandList,
+        Gpu, alloc::descriptors::DescriptorRange, command_list::CommandList,
         pipeline_cache::PipelineKey,
     },
     renderer::globals::get_scope_samplers,
