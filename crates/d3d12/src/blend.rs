@@ -59,7 +59,7 @@ impl RenderTargetBlendDesc {
         dest_blend_alpha: Blend::Zero,
         blend_op_alpha: BlendOp::Add,
         logic_op: LogicOp::Noop,
-        render_target_write_mask: 0,
+        render_target_write_mask: D3D12_COLOR_WRITE_ENABLE_ALL.0 as u8,
     };
 }
 

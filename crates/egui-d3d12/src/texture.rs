@@ -1,10 +1,13 @@
 use std::sync::Arc;
 
 use d3d12::{
-    CpuDescriptorHandle, DescriptorHeapType, DeviceChild, Format, GpuDescriptorHandle,
-    ResourceBarrier, ResourceStates, ShaderResourceViewDesc, TextureCopyLocation,
+    DeviceChild, Format, ResourceBarrier, ResourceStates, ShaderResourceViewDesc,
+    TextureCopyLocation,
 };
-use deimos_render::gpu::{alloc::resource::OwnedResource, Gpu};
+use deimos_render::gpu::{
+    alloc::{descriptors::ResourceView, resource::OwnedResource},
+    Gpu,
+};
 use egui::{epaint::ahash::HashMap, Color32, ImageData, TextureId, TexturesDelta};
 use gpu_allocator::{
     d3d12::{ResourceCategory, ResourceCreateDesc, ResourceStateOrBarrierLayout},
@@ -14,8 +17,7 @@ use gpu_allocator::{
 use crate::RenderError;
 
 struct ManagedTexture {
-    cpu_handle: CpuDescriptorHandle,
-    gpu_handle: GpuDescriptorHandle,
+    srv: ResourceView,
 
     pixels: Vec<Color32>,
     width: usize,
@@ -25,13 +27,11 @@ struct ManagedTexture {
 
 pub struct TextureAllocator {
     allocated: HashMap<TextureId, ManagedTexture>,
-    pub(crate) descriptor_heap_alloc: DescriptorHeapAllocator,
 
     allocated_unmanaged: HashMap<
         TextureId,
         (
-            d3d12::GpuDescriptorHandle,
-            d3d12::DescriptorHeap,
+            d3d12::CpuDescriptorHandle,
             Option<egui::TextureFilter>,
             bool,
         ),
@@ -44,13 +44,9 @@ pub struct TextureAllocator {
 
 impl TextureAllocator {
     pub fn new(gpu: &Arc<Gpu>) -> Result<Self, RenderError> {
-        let descriptor_heap =
-            DescriptorHeapAllocator::new(gpu, DescriptorHeapType::CbvSrvUav, 2048)?;
-
         Ok(TextureAllocator {
             allocated: HashMap::default(),
             allocated_unmanaged: HashMap::default(),
-            descriptor_heap_alloc: descriptor_heap,
             unmanaged_free_handles: Vec::new(),
             unmanaged_index: 0,
             unmanaged_temporary_index: 0,
@@ -88,32 +84,23 @@ impl TextureAllocator {
         &self,
         tid: TextureId,
     ) -> Option<(
-        d3d12::GpuDescriptorHandle,
-        &d3d12::DescriptorHeap,
+        d3d12::CpuDescriptorHandle,
         Option<egui::TextureFilter>,
         bool,
     )> {
         self.allocated
             .get(&tid)
-            .map(|t| {
-                (
-                    t.gpu_handle,
-                    &self.descriptor_heap_alloc.descriptor_heap,
-                    None,
-                    true,
-                )
-            })
+            .map(|t| (t.srv.cpu_handle(), None, true))
             .or_else(|| {
                 self.allocated_unmanaged
                     .get(&tid)
-                    .map(|(handle, heap, filter, alpha)| (*handle, heap, *filter, *alpha))
+                    .map(|(handle, filter, alpha)| (*handle, *filter, *alpha))
             })
     }
 
     pub fn allocate_dx(
         &mut self,
-        descriptor_heap: d3d12::DescriptorHeap,
-        handle: d3d12::GpuDescriptorHandle,
+        handle: d3d12::CpuDescriptorHandle,
         filter: Option<egui::TextureFilter>,
     ) -> TextureId {
         let tid = if let Some(t) = self.unmanaged_free_handles.pop() {
@@ -122,16 +109,14 @@ impl TextureAllocator {
             self.unmanaged_index += 1;
             TextureId::User((1 << 60) + self.unmanaged_index)
         };
-        self.allocated_unmanaged
-            .insert(tid, (handle, descriptor_heap, filter, true));
+        self.allocated_unmanaged.insert(tid, (handle, filter, true));
         tid
     }
 
     /// Allocate a temporary texture that will be freed after the current frame finishes painting
     pub fn allocate_dx_temporary(
         &mut self,
-        descriptor_heap: d3d12::DescriptorHeap,
-        handle: d3d12::GpuDescriptorHandle,
+        handle: d3d12::CpuDescriptorHandle,
         filter: Option<egui::TextureFilter>,
         alpha: bool,
     ) -> TextureId {
@@ -139,7 +124,7 @@ impl TextureAllocator {
         let tid = TextureId::User((1 << 63) + self.unmanaged_temporary_index);
 
         self.allocated_unmanaged
-            .insert(tid, (handle, descriptor_heap, filter, alpha));
+            .insert(tid, (handle, filter, alpha));
         tid
     }
 
@@ -159,7 +144,7 @@ impl TextureAllocator {
 
     pub fn free(&mut self, tid: TextureId) -> bool {
         if let Some(removed) = self.allocated.remove(&tid) {
-            self.descriptor_heap_alloc.free(removed.cpu_handle);
+            self.gpu.resource_heap.lock().free_srv(removed.srv);
             true
         } else if self.allocated_unmanaged.remove(&tid).is_some() {
             self.unmanaged_free_handles.push(tid);
@@ -236,9 +221,9 @@ impl TextureAllocator {
     ) -> Result<ManagedTexture, RenderError> {
         let ImageData::Color(image) = image;
         let pixels = image.pixels.clone();
-        let Some((cpu_handle, gpu_handle)) = self.descriptor_heap_alloc.allocate() else {
-            return Err(RenderError::General("Texture descriptor heap out of slots"));
-        };
+        // let Some((cpu_handle, gpu_handle)) = self.gpu.resource_heap.lock().allocate_srv(name, resource, srv_desc).allocate() else {
+        //     return Err(RenderError::General("Texture descriptor heap out of slots"));
+        // };
 
         let tex_desc = d3d12::ResourceDesc::new(d3d12::ResourceDimension::Texture2D)
             .alignment(0)
@@ -263,16 +248,10 @@ impl TextureAllocator {
             })
             .expect("Failed to create texture resource");
 
-        self.gpu.create_shader_resource_view(
-            Some(tex.resource()),
-            Some(&ShaderResourceViewDesc::texture_2d(
-                Format::R8g8b8a8Unorm,
-                0,
-                1,
-                0.0,
-                0,
-            )),
-            cpu_handle,
+        let srv = self.gpu.resource_heap.lock().allocate_srv(
+            "egui_texture",
+            tex.resource(),
+            &ShaderResourceViewDesc::texture_2d(Format::R8g8b8a8Unorm, 0, 1, 0.0, 0),
         );
 
         let tex = ManagedTexture {
@@ -280,8 +259,7 @@ impl TextureAllocator {
             width: image.width(),
             height: image.height(),
             pixels,
-            cpu_handle,
-            gpu_handle,
+            srv,
         };
 
         self.upload_texture(gpu, cmd, &tex)?;
@@ -345,50 +323,50 @@ impl TextureAllocator {
     }
 }
 
-pub struct DescriptorHeapAllocator {
-    pub descriptor_heap: d3d12::DescriptorHeap,
-    free_list: Vec<usize>,
+// pub struct DescriptorHeapAllocator {
+//     pub descriptor_heap: d3d12::DescriptorHeap,
+//     free_list: Vec<usize>,
 
-    increment_size: u32,
-    cpu_handle_base: CpuDescriptorHandle,
-    gpu_handle_base: GpuDescriptorHandle,
-}
+//     increment_size: u32,
+//     cpu_handle_base: CpuDescriptorHandle,
+//     gpu_handle_base: GpuDescriptorHandle,
+// }
 
-impl DescriptorHeapAllocator {
-    pub fn new(
-        device: &d3d12::Device,
-        heap_type: DescriptorHeapType,
-        size: usize,
-    ) -> d3d12::Result<Self> {
-        let descriptor_heap = device.create_descriptor_heap(heap_type, size as u32, true, 0)?;
+// impl DescriptorHeapAllocator {
+//     pub fn new(
+//         device: &d3d12::Device,
+//         heap_type: DescriptorHeapType,
+//         size: usize,
+//     ) -> d3d12::Result<Self> {
+//         let descriptor_heap = device.create_descriptor_heap(heap_type, size as u32, true, 0)?;
 
-        Ok(DescriptorHeapAllocator {
-            cpu_handle_base: descriptor_heap.cpu_descriptor_handle_for_heap_start(),
-            gpu_handle_base: descriptor_heap.gpu_descriptor_handle_for_heap_start(),
-            increment_size: device.descriptor_handle_increment_size(heap_type),
-            descriptor_heap,
-            free_list: (0..size).collect(),
-        })
-    }
+//         Ok(DescriptorHeapAllocator {
+//             cpu_handle_base: descriptor_heap.cpu_descriptor_handle_for_heap_start(),
+//             gpu_handle_base: descriptor_heap.gpu_descriptor_handle_for_heap_start(),
+//             increment_size: device.descriptor_handle_increment_size(heap_type),
+//             descriptor_heap,
+//             free_list: (0..size).collect(),
+//         })
+//     }
 
-    fn handles_for_index(&self, offset: usize) -> (CpuDescriptorHandle, GpuDescriptorHandle) {
-        let cpu = self.cpu_handle_base.offset(offset, self.increment_size);
-        let gpu = self.gpu_handle_base.offset(offset, self.increment_size);
-        (cpu, gpu)
-    }
+//     fn handles_for_index(&self, offset: usize) -> (CpuDescriptorHandle, GpuDescriptorHandle) {
+//         let cpu = self.cpu_handle_base.offset(offset, self.increment_size);
+//         let gpu = self.gpu_handle_base.offset(offset, self.increment_size);
+//         (cpu, gpu)
+//     }
 
-    fn index_for_handle(&self, handle: CpuDescriptorHandle) -> usize {
-        handle.index(self.cpu_handle_base, self.increment_size)
-    }
+//     fn index_for_handle(&self, handle: CpuDescriptorHandle) -> usize {
+//         handle.index(self.cpu_handle_base, self.increment_size)
+//     }
 
-    pub fn allocate(&mut self) -> Option<(CpuDescriptorHandle, GpuDescriptorHandle)> {
-        self.free_list
-            .pop()
-            .map(|index| self.handles_for_index(index))
-    }
+//     pub fn allocate(&mut self) -> Option<(CpuDescriptorHandle, GpuDescriptorHandle)> {
+//         self.free_list
+//             .pop()
+//             .map(|index| self.handles_for_index(index))
+//     }
 
-    pub fn free(&mut self, handle: CpuDescriptorHandle) {
-        let index = self.index_for_handle(handle);
-        self.free_list.push(index);
-    }
-}
+//     pub fn free(&mut self, handle: CpuDescriptorHandle) {
+//         let index = self.index_for_handle(handle);
+//         self.free_list.push(index);
+//     }
+// }

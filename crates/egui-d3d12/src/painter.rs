@@ -16,6 +16,7 @@ use crate::{
 pub struct D3D12Renderer {
     tex_alloc: TextureAllocator,
     pipeline: d3d12::PipelineState,
+    pipeline_opaque: d3d12::PipelineState,
     buffers: [Vec<(DynamicBuffer, DynamicBuffer)>; Gpu::FRAMES_IN_FLIGHT],
     root_signature: d3d12::RootSignature,
 }
@@ -89,10 +90,19 @@ impl D3D12Renderer {
                 .with_input_layout(&input_layout)
                 .with_blend_state(blend_desc),
         )?;
+        let pipeline_opaque = gpu.create_graphics_pipeline_state(
+            &GraphicsPipelineStateDesc::new(&root_signature)
+                .with_vs(include_bytes!("shader/vertex.dxil"))
+                .with_ps(include_bytes!("shader/pixel_opaque.dxil"))
+                .with_rtv_formats(&[Format::R8g8b8a8Unorm])
+                .with_input_layout(&input_layout)
+                .with_blend_state(d3d12::BlendDesc::DISABLED),
+        )?;
 
         Ok(Self {
             tex_alloc: TextureAllocator::new(gpu)?,
             pipeline,
+            pipeline_opaque,
             root_signature,
             buffers: [const { Vec::new() }; Gpu::FRAMES_IN_FLIGHT],
         })
@@ -155,10 +165,7 @@ impl D3D12Renderer {
         // #[allow(deprecated)]
         // cmd.input_assembler_set_primitive_topology(d3d12::PrimitiveTopology::TriangleList);
         cmd.set_root_signature(&self.root_signature);
-        cmd.set_pipeline_state(&self.pipeline);
-        cmd.set_descriptor_heaps(std::slice::from_ref(
-            &self.tex_alloc.descriptor_heap_alloc.descriptor_heap,
-        ));
+        cmd.set_descriptor_heaps(std::slice::from_ref(gpu.frame().descriptors.heap()));
 
         self.buffers[gpu.frame_index() % Gpu::FRAMES_IN_FLIGHT].clear();
 
@@ -184,35 +191,26 @@ impl D3D12Renderer {
                 bottom: mesh.clip.bottom() as _,
             }]);
 
-            //     let mut use_alpha = false;
-            //     if let Some((texture, texture_filter, texture_uses_alpha)) = &texture {
-            //         use_alpha = *texture_uses_alpha;
-            //         self.set_sampler_state(cmd, texture_filter.unwrap_or(egui::TextureFilter::Linear))?;
-            //         cmd.pixel_set_shader_resources(0, &[Some(texture)]);
-            //     }
-
-            //     cmd.input_assembler_set_vertex_buffers(
-            //         0,
-            //         &[Some(&vtx)],
-            //         Some(&[size_of::<GpuVertex>() as _]),
-            //         Some(&[0]),
-            //     )?;
-            //     cmd.input_assembler_set_index_buffer(&idx, Format::R32Uint, 0);
-            //     cmd.vertex_set_shader(&self.shaders.vertex);
-            //     cmd.pixel_set_shader(if use_alpha {
-            //         &self.shaders.pixel
-            //     } else {
-            //         &self.shaders.pixel_no_alpha
-            //     });
-
             let texture = self.tex_alloc.get_by_id(mesh.texture_id);
-            if let Some((texture, descriptor_heap, texture_filter, _texture_uses_alpha)) = &texture
-            {
-                cmd.set_descriptor_heaps(std::slice::from_ref(descriptor_heap));
+            let mut use_alpha = true;
+            if let Some((cpu_handle, texture_filter, texture_uses_alpha)) = &texture {
                 self.set_sampler_state(cmd, texture_filter.unwrap_or(egui::TextureFilter::Linear))?;
-                // use_alpha = *texture_uses_alpha;
+                use_alpha = *texture_uses_alpha;
                 // cmd.pixel_set_shader_resources(0, &[Some(texture)]);
-                cmd.set_graphics_root_descriptor_table(0, *texture);
+                let (dest_handle, gpu_handle) = gpu.frame().descriptors.allocate_one();
+                gpu.copy_descriptors_simple(
+                    1,
+                    *cpu_handle,
+                    dest_handle,
+                    d3d12::DescriptorHeapType::CbvSrvUav,
+                );
+                cmd.set_graphics_root_descriptor_table(0, gpu_handle);
+            }
+
+            if use_alpha {
+                cmd.set_pipeline_state(&self.pipeline);
+            } else {
+                cmd.set_pipeline_state(&self.pipeline_opaque);
             }
 
             cmd.draw_indexed_instanced(0..mesh.indices.len() as _, 0..1, 0);

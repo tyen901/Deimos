@@ -141,14 +141,14 @@ impl Drop for DescriptorHeapAllocator {
 
 /// Texture view descriptor allocation.
 ///
-/// This is internally represented by a 64-bit CPU descriptor handle, so copies are cheap.
-#[repr(transparent)]
+// /// This is internally represented by a 64-bit CPU descriptor handle, so copies are cheap.
+#[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ResourceView(d3d12::CpuDescriptorHandle);
 
 impl ResourceView {
     /// Returns the underlying CPU descriptor handle.
-    pub fn handle(&self) -> d3d12::CpuDescriptorHandle {
+    pub fn cpu_handle(&self) -> d3d12::CpuDescriptorHandle {
         self.0
     }
 }

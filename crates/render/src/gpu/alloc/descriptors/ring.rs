@@ -69,6 +69,11 @@ impl DescriptorRing {
         }
     }
 
+    pub fn allocate_one(&self) -> (d3d12::CpuDescriptorHandle, d3d12::GpuDescriptorHandle) {
+        let range = self.allocate(1);
+        (range.cpu_start, range.gpu_start)
+    }
+
     pub fn heap(&self) -> &d3d12::DescriptorHeap {
         &self.descriptor_heap
     }
@@ -83,6 +88,14 @@ impl DescriptorRing {
 
     pub fn cpu_index(&self, handle: d3d12::CpuDescriptorHandle) -> usize {
         handle.index(self.cpu_handle_base, self.increment_size)
+    }
+
+    pub fn used(&self) -> usize {
+        self.head.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    pub fn capacity(&self) -> usize {
+        self.num_descriptors
     }
 }
 

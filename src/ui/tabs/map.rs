@@ -32,13 +32,13 @@ impl MapTab {
             tag,
             name,
             scene: Box::new(
-                Scene::new(renderer, Camera::default())
+                Scene::new(renderer, Camera::default())?
                     .with_controller(CameraController::new_first_person()),
             ),
         })
     }
 
-    pub fn ui(&mut self, ui: &mut egui::Ui) {
+    pub fn ui(&mut self, ui: &mut egui::Ui, egui_d3d12: &mut egui_d3d12::D3D12Renderer) {
         if let Some(map) = self.load_task.get() {
             match map {
                 Ok(world) => {
@@ -64,7 +64,7 @@ impl MapTab {
                 Color32::GRAY,
             );
         } else {
-            self.scene.show(ui, ui.available_size());
+            self.scene.show(ui, egui_d3d12, ui.available_size());
         }
     }
 }

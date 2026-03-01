@@ -1,8 +1,16 @@
 use std::{sync::Arc, time::Instant};
 
+use anyhow::Context;
 use deimos_data::tfx::RenderStage;
-use deimos_render::{camera::Camera, gpu::command_list::CommandList, renderer::Renderer};
-use egui::{RichText, Sense, Ui, UiBuilder, Vec2, vec2};
+use deimos_render::{
+    camera::Camera,
+    gpu::{
+        command_list::CommandList,
+        render_target::{DepthBuffer, RenderTarget},
+    },
+    renderer::Renderer,
+};
+use egui::{RichText, Sense, Ui, UiBuilder, Vec2, load::SizedTexture, vec2};
 use google_material_symbols::GoogleMaterialSymbols;
 use hecs::World;
 
@@ -26,11 +34,14 @@ pub struct Scene {
 
     // UI
     keep_settings_open: bool,
+
+    render_target: RenderTarget,
+    depth_buffer: DepthBuffer,
 }
 
 impl Scene {
-    pub fn new(renderer: &Arc<Renderer>, camera: Camera) -> Self {
-        Self {
+    pub fn new(renderer: &Arc<Renderer>, camera: Camera) -> anyhow::Result<Self> {
+        Ok(Self {
             renderer: renderer.clone(),
             camera,
             controller: CameraController::new_first_person(),
@@ -38,7 +49,18 @@ impl Scene {
             frametimes: Vec::new(),
             last_frame_time: Instant::now(),
             keep_settings_open: false,
-        }
+
+            render_target: RenderTarget::new(
+                &renderer.gpu,
+                "scene_main_rt",
+                d3d12::Format::R8g8b8a8Unorm,
+                d3d12::Format::R8g8b8a8Unorm,
+                (1920, 1080),
+            )
+            .context("allocating render target")?,
+            depth_buffer: DepthBuffer::new(&renderer.gpu, (1920, 1080))
+                .context("allocating depth buffer")?,
+        })
     }
 
     pub fn with_controller(mut self, controller: CameraController) -> Self {
@@ -60,7 +82,12 @@ impl Scene {
 }
 
 impl Scene {
-    pub fn show(&mut self, ui: &mut egui::Ui, size: Vec2) {
+    pub fn show(
+        &mut self,
+        ui: &mut egui::Ui,
+        egui_d3d12: &mut egui_d3d12::D3D12Renderer,
+        size: Vec2,
+    ) {
         let now = Instant::now();
         let delta_time = (now - self.last_frame_time).as_secs_f32();
         self.frametimes.push(delta_time);
@@ -79,17 +106,17 @@ impl Scene {
         egui::CentralPanel::default().show_inside(ui, |ui| {
             let panel_rect = ui.available_rect_before_wrap();
 
-            let r = ui.allocate_response(size, Sense::CLICK | Sense::DRAG | Sense::HOVER);
-            // let r = ui
-            //     .image(SizedTexture {
-            //         id: egui_d3d11.textures_mut().allocate_dx_temporary(
-            //             self.surface_srv.clone(),
-            //             None,
-            //             false,
-            //         ),
-            //         size,
-            //     })
-            //     .interact(Sense::CLICK | Sense::DRAG | Sense::HOVER);
+            // let r = ui.allocate_response(size, Sense::CLICK | Sense::DRAG | Sense::HOVER);
+            let r = ui
+                .image(SizedTexture {
+                    id: egui_d3d12.textures_mut().allocate_dx_temporary(
+                        self.render_target.srv().cpu_handle(),
+                        None,
+                        false,
+                    ),
+                    size,
+                })
+                .interact(Sense::CLICK | Sense::DRAG | Sense::HOVER);
 
             if !ui.is_rect_visible(r.rect) {
                 return;
@@ -219,10 +246,17 @@ impl Scene {
                     format_bytes(last_frame.upload.capacity()),
                     last_frame.upload.num_allocations(),
                 ));
+                ui.monospace(format!(
+                    "Descriptor Ring:  {}/{}",
+                    last_frame.descriptors.used(),
+                    last_frame.descriptors.capacity(),
+                ));
             });
 
             let size_pixels = size * ui.ctx().pixels_per_point();
             let resolution = (size_pixels.x as u32, size_pixels.y as u32);
+            self.depth_buffer.resize(resolution);
+            self.render_target.resize(resolution);
 
             self.controller.update(&mut self.camera, ui, &r, delta_time);
 
@@ -250,11 +284,39 @@ impl Scene {
             self.renderer.globals.scopes.frame.bind(&mut cmd_tfx);
             self.renderer.globals.scopes.view.bind(&mut cmd_tfx);
             self.renderer.globals.scopes.chunk_model.bind(&mut cmd_tfx);
+
+            self.render_target
+                .transition(cmd, d3d12::ResourceStates::RENDER_TARGET);
+            cmd.clear_render_target_view(self.render_target.cpu_handle(), &[0.0, 0.0, 0.0, 0.0]);
+            cmd.clear_depth_stencil_view(
+                self.depth_buffer.cpu_handle(),
+                d3d12::ClearFlags::DEPTH,
+                0.0,
+                0,
+            );
+            cmd.om_set_render_targets(
+                &[self.render_target.cpu_handle()],
+                false,
+                Some(self.depth_buffer.cpu_handle()),
+            );
+            cmd.set_viewports(&[d3d12::Viewport::builder()
+                .width(resolution.0 as f32)
+                .height(resolution.1 as f32)
+                .build()]);
+            cmd.set_scissor_rects(&[d3d12::Rect::builder()
+                .right(resolution.0 as i32)
+                .bottom(resolution.1 as i32)
+                .top(0)
+                .left(0)
+                .build()]);
+
             for obj in self.renderer.objects.write().values_mut() {
                 obj.renderer.extract(&self.renderer, &());
                 obj.renderer
                     .submit(&mut cmd_tfx, RenderStage::GenerateGbuffer);
             }
+            self.render_target
+                .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
         });
     }
 

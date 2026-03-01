@@ -276,7 +276,7 @@ impl TechniqueStage {
             if let Some(tex) = cmd.get_shader_resource_view(self.core.stage, slot.register as u32) {
                 cmd.gpu().copy_descriptors_simple(
                     1,
-                    tex.handle(),
+                    tex.cpu_handle(),
                     descriptor_range.cpu_handle(slot.descriptor_offset as usize),
                     d3d12::DescriptorHeapType::CbvSrvUav,
                 );
@@ -287,7 +287,7 @@ impl TechniqueStage {
                 // );
                 cmd.gpu().copy_descriptors_simple(
                     1,
-                    cmd.gpu().resource_heap.lock().null().handle(),
+                    cmd.gpu().resource_heap.lock().null().cpu_handle(),
                     descriptor_range.cpu_handle(slot.descriptor_offset as usize),
                     d3d12::DescriptorHeapType::CbvSrvUav,
                 );
