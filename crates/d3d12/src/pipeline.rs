@@ -2,11 +2,12 @@ use std::{marker::PhantomData, mem::transmute_copy};
 
 use windows::Win32::Graphics::{Direct3D12::*, Dxgi::Common::DXGI_SAMPLE_DESC};
 
-use crate::{BlendDesc, Format, InputElementDesc, RootSignature};
+use crate::{impl_device_child, BlendDesc, Format, InputElementDesc, RootSignature};
 
 #[repr(transparent)]
 #[derive(Clone)]
 pub struct PipelineState(pub(crate) ID3D12PipelineState);
+impl_device_child!(PipelineState);
 
 impl PipelineState {
     pub fn get_cached_blob(&self) -> Vec<u8> {

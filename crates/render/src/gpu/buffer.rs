@@ -156,7 +156,6 @@ impl Drop for DynamicBuffer {
 /// Immutable GPU-only buffer
 pub struct ImmutableBuffer {
     gpu: Arc<Gpu>,
-    // gpu_allocator's Resource owns both the ID3D12Resource and the Allocation
     resource: OwnedResource,
     srv: ResourceView,
     size: u64,

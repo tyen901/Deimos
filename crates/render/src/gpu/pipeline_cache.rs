@@ -2,7 +2,7 @@ use std::{collections::hash_map::Entry, sync::Arc};
 
 use ahash::HashMap;
 use anyhow::Context;
-use d3d12::{D3D12_DEPTH_STENCIL_DESC, GraphicsPipelineStateDesc};
+use d3d12::{D3D12_DEPTH_STENCIL_DESC, DeviceChild, GraphicsPipelineStateDesc};
 use deimos_data::tfx::FixedFunctionState;
 use tiger_pkg::{TagHash, package_manager};
 
@@ -87,6 +87,8 @@ impl PipelineCache {
                     .with_depth_stencil_state(depth_state),
             )
             .context("create_graphics_pipeline_state")?;
+
+        pipeline.set_debug_name(format!("vs_{}_ps_{}", key.vertex_shader, key.pixel_shader));
 
         self.storage
             .insert(key.clone(), CachedPipeline { pso: pipeline });

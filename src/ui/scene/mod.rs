@@ -201,6 +201,7 @@ impl Scene {
                 ext.view.camera_to_projective = self.camera.camera_to_projective;
                 ext.view.derive_matrices(resolution);
             }
+            self.renderer.globals.scopes.frame.bind(&mut cmd_tfx);
             self.renderer.globals.scopes.view.bind(&mut cmd_tfx);
             for obj in self.renderer.objects.write().values_mut() {
                 obj.renderer.extract(&self.renderer, &());

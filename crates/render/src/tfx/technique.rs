@@ -19,6 +19,7 @@ use crate::{
 
 pub struct Technique {
     gpu: Arc<Gpu>,
+    tag: TagHash,
     data: STechnique,
     root_signature: d3d12::RootSignature,
     stage_vertex: TechniqueStage,
@@ -139,6 +140,7 @@ impl Technique {
         let root_signature = gpu.create_root_signature(&root_signature_raw)?;
 
         Ok(Self {
+            tag: hash,
             gpu: gpu.clone(),
             root_signature,
             stage_vertex,
@@ -258,8 +260,8 @@ impl TechniqueStage {
                 cmd.set_graphics_root_constant_buffer_view(slot.rs_slot as u32, va);
             } else {
                 // error!(
-                //     "Missing constant buffer view for register {}",
-                //     slot.register
+                //     "Missing constant buffer view for register {} ({}:{:?})",
+                //     slot.register, technique.tag, self.core.stage
                 // );
                 cmd.set_graphics_root_constant_buffer_view(
                     slot.rs_slot as u32,
@@ -278,15 +280,18 @@ impl TechniqueStage {
                     d3d12::DescriptorHeapType::CbvSrvUav,
                 );
             } else {
-                // error!("Missing texture view for register {}", slot.register);
-                // cmd.gpu().copy_descriptors_simple(
-                //     1,
-                //     d3d12::DescriptorHandle::NULL,
-                //     technique
-                //         .descriptors
-                //         .cpu_handle(slot.descriptor_offset as usize),
-                //     d3d12::DescriptorHeapType::CbvSrvUav,
+                // error!(
+                //     "Missing texture view for register {} ({}:{:?})",
+                //     slot.register, technique.tag, self.core.stage
                 // );
+                cmd.gpu().copy_descriptors_simple(
+                    1,
+                    cmd.gpu().resource_heap.lock().null().handle(),
+                    technique
+                        .descriptors
+                        .cpu_handle(slot.descriptor_offset as usize),
+                    d3d12::DescriptorHeapType::CbvSrvUav,
+                );
             }
         }
     }
