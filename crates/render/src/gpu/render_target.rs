@@ -24,7 +24,15 @@ impl DepthBuffer {
                 .flags(ResourceFlags::ALLOW_DEPTH_STENCIL)
                 .as_ref(),
             castable_formats: &[],
-            clear_value: None,
+            clear_value: Some(&d3d12::D3D12_CLEAR_VALUE {
+                Format: d3d12::Format::D32FloatS8x24Uint.into(),
+                Anonymous: d3d12::D3D12_CLEAR_VALUE_0 {
+                    DepthStencil: d3d12::D3D12_DEPTH_STENCIL_VALUE {
+                        Depth: 0.0,
+                        Stencil: 0,
+                    },
+                },
+            }),
             initial_state_or_layout:
                 gpu_allocator::d3d12::ResourceStateOrBarrierLayout::ResourceState(
                     d3d12::D3D12_RESOURCE_STATE_DEPTH_WRITE,
