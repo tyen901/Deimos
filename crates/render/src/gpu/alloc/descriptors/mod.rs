@@ -1,5 +1,5 @@
 mod dynamic;
-mod fixed;
+mod ring;
 
 pub use dynamic::*;
-pub use fixed::*;
+pub use ring::*;

@@ -10,7 +10,9 @@ use tiger_pkg::{TagHash, package_manager};
 use crate::{
     asset::AssetManager,
     gpu::{
-        Gpu, alloc::descriptors::FixedDescriptorHeap, command_list::CommandList,
+        Gpu,
+        alloc::descriptors::{DescriptorRange, DescriptorRing},
+        command_list::CommandList,
         pipeline_cache::PipelineKey,
     },
     renderer::globals::get_scope_samplers,
@@ -19,14 +21,14 @@ use crate::{
 
 pub struct Technique {
     gpu: Arc<Gpu>,
-    tag: TagHash,
+    pub tag: TagHash,
     data: STechnique,
     root_signature: d3d12::RootSignature,
     stage_vertex: TechniqueStage,
     stage_pixel: TechniqueStage,
 
     descriptor_table_parameters: SmallVec<[u32; 3]>,
-    descriptors: FixedDescriptorHeap,
+    descriptor_count: usize,
 }
 
 impl Technique {
@@ -128,12 +130,7 @@ impl Technique {
             descriptor_table_parameters.push(index as u32);
         }
 
-        let descriptors = FixedDescriptorHeap::new(
-            gpu,
-            d3d12::DescriptorHeapType::CbvSrvUav,
-            descriptor_offset as usize,
-            true,
-        )?;
+        let descriptor_count = descriptor_offset as usize;
 
         let root_signature_raw = rsb.serialize()?;
 
@@ -147,7 +144,7 @@ impl Technique {
             stage_pixel,
             data,
             descriptor_table_parameters,
-            descriptors,
+            descriptor_count,
         })
     }
 
@@ -172,6 +169,12 @@ impl Technique {
             input_layout: cmd.get_input_layout() as u8,
         };
 
+        let descriptor_range = cmd
+            .gpu()
+            .frame()
+            .descriptors
+            .allocate(self.descriptor_count);
+
         match self.gpu.pipeline_cache.lock().get_or_create(
             pipeline_key,
             &self.root_signature,
@@ -186,9 +189,11 @@ impl Technique {
             Ok(pipeline) => {
                 cmd.set_pipeline_state(&pipeline.pso);
                 cmd.set_root_signature(&self.root_signature);
-                cmd.set_descriptor_heaps(std::slice::from_ref(self.descriptors.heap()));
+                cmd.set_descriptor_heaps(std::slice::from_ref(
+                    cmd.gpu().frame().descriptors.heap(),
+                ));
                 for &param in self.descriptor_table_parameters.iter() {
-                    cmd.set_graphics_root_descriptor_table(param, self.descriptors.gpu_handle(0));
+                    cmd.set_graphics_root_descriptor_table(param, descriptor_range.gpu_handle(0));
                 }
             }
             Err(err) => {
@@ -198,7 +203,7 @@ impl Technique {
         }
 
         for stage in [&self.stage_vertex, &self.stage_pixel] {
-            stage.bind(cmd, self);
+            stage.bind(cmd, &descriptor_range);
         }
     }
 }
@@ -247,7 +252,7 @@ impl TechniqueStage {
         })
     }
 
-    pub fn bind(&self, cmd: &mut CommandList, technique: &Technique) {
+    pub fn bind(&self, cmd: &mut CommandList, descriptor_range: &DescriptorRange) {
         if let Err(e) = self.core.prepare(cmd) {
             error!("Failed to prepare technique: {}", e);
             return;
@@ -274,9 +279,7 @@ impl TechniqueStage {
                 cmd.gpu().copy_descriptors_simple(
                     1,
                     tex.handle(),
-                    technique
-                        .descriptors
-                        .cpu_handle(slot.descriptor_offset as usize),
+                    descriptor_range.cpu_handle(slot.descriptor_offset as usize),
                     d3d12::DescriptorHeapType::CbvSrvUav,
                 );
             } else {
@@ -287,9 +290,7 @@ impl TechniqueStage {
                 cmd.gpu().copy_descriptors_simple(
                     1,
                     cmd.gpu().resource_heap.lock().null().handle(),
-                    technique
-                        .descriptors
-                        .cpu_handle(slot.descriptor_offset as usize),
+                    descriptor_range.cpu_handle(slot.descriptor_offset as usize),
                     d3d12::DescriptorHeapType::CbvSrvUav,
                 );
             }

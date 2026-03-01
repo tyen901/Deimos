@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use anyhow::Context;
 use d3d12::{
@@ -214,7 +214,7 @@ impl ImmutableBuffer {
                 resource.resource(),
                 0,
                 ResourceStates::COPY_DEST,
-                ResourceStates::COMMON,
+                ResourceStates::ALL_SHADER_RESOURCE,
             )]);
 
             Ok(())

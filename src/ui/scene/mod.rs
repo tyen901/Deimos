@@ -203,6 +203,7 @@ impl Scene {
             }
             self.renderer.globals.scopes.frame.bind(&mut cmd_tfx);
             self.renderer.globals.scopes.view.bind(&mut cmd_tfx);
+            self.renderer.globals.scopes.chunk_model.bind(&mut cmd_tfx);
             for obj in self.renderer.objects.write().values_mut() {
                 obj.renderer.extract(&self.renderer, &());
                 obj.renderer

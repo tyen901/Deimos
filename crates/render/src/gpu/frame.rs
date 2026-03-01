@@ -3,8 +3,8 @@ use std::{sync::atomic::AtomicU64, time::Duration};
 use d3d12::ext::GpuFence;
 
 use crate::gpu::{
-    alloc::ring::UploadRing,
-    native_command_list::{CommandListRing, NativeCommandList},
+    alloc::{descriptors::DescriptorRing, ring::UploadRing},
+    native_command_list::NativeCommandList,
 };
 
 /// Represents a frame in flight.
@@ -13,6 +13,7 @@ pub struct FrameContext {
     fence_value: AtomicU64,
 
     pub upload: UploadRing,
+    pub descriptors: DescriptorRing,
 }
 
 impl FrameContext {
@@ -22,6 +23,12 @@ impl FrameContext {
             upload: UploadRing::new(device, 64 * mb)?,
             command_list: NativeCommandList::new(device)?,
             fence_value: AtomicU64::new(0),
+            descriptors: DescriptorRing::new(
+                device,
+                d3d12::DescriptorHeapType::CbvSrvUav,
+                128_000,
+                true,
+            )?,
         })
     }
 
@@ -30,6 +37,7 @@ impl FrameContext {
     /// Keep in mind that this does not reset the command list.
     pub fn begin_frame(&self) {
         self.upload.reset();
+        self.descriptors.reset();
     }
 
     pub fn wait_for_completion(&self, fence: &GpuFence) -> anyhow::Result<()> {

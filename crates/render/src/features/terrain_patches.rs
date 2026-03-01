@@ -7,6 +7,7 @@ use deimos_data::tfx::{
     },
 };
 use glam::Vec4;
+use itertools::Itertools;
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::TagHash;
 use tiger_pkg::package_manager;
@@ -34,7 +35,7 @@ pub struct TerrainPatchGroupConstants {
 
 pub struct TerrainPatchesRenderer {
     terrain: STerrain,
-    techniques: Vec<Technique>,
+    techniques: Vec<Handle<Technique>>,
     dyemaps: Vec<Handle<Texture>>,
     group_cbuffers: Vec<TerrainPatchGroupConstants>,
     constants_dirty: bool,
@@ -62,9 +63,8 @@ impl TerrainPatchesRenderer {
         let techniques = terrain
             .mesh_parts
             .iter()
-            .map(|part| Technique::load(&renderer.asset_manager, &renderer.gpu, part.technique))
-            .collect::<anyhow::Result<Vec<_>>>()
-            .context("Failed to load technique")?;
+            .map(|part| assets.load(part.technique))
+            .collect_vec();
 
         let group_cbuffers = (0..terrain.mesh_groups.len())
             .map(|_| TerrainPatchGroupConstants::default())
@@ -132,7 +132,11 @@ impl TerrainPatchesRenderer {
                 dyemap.bind(cmd, 14, ShaderStage::Pixel);
             }
 
-            self.techniques[i].bind(cmd);
+            if let Some(technique) = self.techniques.get(i).and_then(|t| t.get()) {
+                technique.bind(cmd);
+            } else {
+                continue;
+            }
             // .expect("Failed to bind technique");
 
             cmd.draw_indexed_instanced(part.index_range(), 0..1, 0);
