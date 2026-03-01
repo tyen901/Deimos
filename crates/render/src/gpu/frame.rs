@@ -26,7 +26,7 @@ impl FrameContext {
             descriptors: DescriptorRing::new(
                 device,
                 d3d12::DescriptorHeapType::CbvSrvUav,
-                128_000,
+                512_000,
                 true,
             )?,
         })
