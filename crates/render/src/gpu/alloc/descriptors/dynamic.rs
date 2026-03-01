@@ -9,7 +9,8 @@ pub struct DescriptorHeapAllocator {
     increment_size: u32,
     cpu_handle_base: d3d12::CpuDescriptorHandle,
 
-    size: usize,
+    capacity: usize,
+    used: usize,
     head: usize,
 
     pub null_texture2d: d3d12::CpuDescriptorHandle,
@@ -46,7 +47,8 @@ impl DescriptorHeapAllocator {
             free_list: Vec::with_capacity(1024),
             descriptor_labels: Vec::with_capacity(1024),
 
-            size,
+            capacity: size,
+            used: 1,
             head: 1,
         })
     }
@@ -64,23 +66,29 @@ impl DescriptorHeapAllocator {
     }
 
     fn allocate_handle(&mut self) -> d3d12::CpuDescriptorHandle {
-        if let Some(index) = self.free_list.pop() {
+        let handle = if let Some(index) = self.free_list.pop() {
             self.handle_for_index(index)
         } else {
             let index = self.head;
             self.head += 1;
-            if index > self.size {
-                panic!("Descriptor heap out of slots! ({} total)", self.size);
+            if index > self.capacity {
+                panic!("Descriptor heap out of slots! ({} total)", self.capacity);
             }
 
             self.handle_for_index(index)
-        }
+        };
+
+        self.used += 1;
+
+        handle
     }
 
     fn free_handle(&mut self, handle: d3d12::CpuDescriptorHandle) {
         let index = self.index_for_handle(handle);
         self.descriptor_labels[index] = None;
         self.free_list.push(index);
+
+        self.used -= 1;
     }
 
     pub fn allocate_srv(
@@ -110,6 +118,14 @@ impl DescriptorHeapAllocator {
 
     pub fn null(&self) -> ResourceView {
         ResourceView(self.null_texture2d)
+    }
+
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
+
+    pub fn used(&self) -> usize {
+        self.used
     }
 }
 

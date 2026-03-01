@@ -1,4 +1,4 @@
-use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use d3d12::{HeapFlags, HeapProperties};
 
@@ -10,6 +10,7 @@ pub struct UploadRing {
     gpu_base: d3d12::GpuVirtualAddress,
     head: AtomicUsize,
     capacity: usize,
+    num_allocations: AtomicUsize,
 }
 
 impl UploadRing {
@@ -36,19 +37,19 @@ impl UploadRing {
             // First block is reserved for null pointer
             head: AtomicUsize::new(Self::BLOCK_ALIGNMENT),
             capacity: capacity as usize,
+            num_allocations: AtomicUsize::new(0),
         })
     }
 
     pub fn reset(&self) {
-        self.head
-            .store(Self::BLOCK_ALIGNMENT, std::sync::atomic::Ordering::Relaxed);
+        self.head.store(Self::BLOCK_ALIGNMENT, Ordering::Relaxed);
+        self.num_allocations.store(0, Ordering::Relaxed);
     }
 
     pub fn alloc_slice(&self, size: usize) -> anyhow::Result<RingSlice> {
         let size_aligned = size.next_multiple_of(Self::BLOCK_ALIGNMENT);
-        let start = self
-            .head
-            .fetch_add(size_aligned, std::sync::atomic::Ordering::Relaxed);
+        let start = self.head.fetch_add(size_aligned, Ordering::Relaxed);
+        self.num_allocations.fetch_add(1, Ordering::Relaxed);
 
         debug_assert!(
             start.is_multiple_of(Self::BLOCK_ALIGNMENT),
@@ -76,6 +77,18 @@ impl UploadRing {
 
     pub fn null(&self) -> d3d12::GpuVirtualAddress {
         self.gpu_base
+    }
+
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
+
+    pub fn used(&self) -> usize {
+        self.head.load(Ordering::Relaxed)
+    }
+
+    pub fn num_allocations(&self) -> usize {
+        self.num_allocations.load(Ordering::Relaxed)
     }
 }
 

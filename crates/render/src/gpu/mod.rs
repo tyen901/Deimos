@@ -242,6 +242,10 @@ impl Gpu {
         &self.frames[self.frame_index() % Self::FRAMES_IN_FLIGHT]
     }
 
+    pub fn previous_frame(&self) -> &FrameContext {
+        &self.frames[(self.frame_index() - 1) % Self::FRAMES_IN_FLIGHT]
+    }
+
     /// Signal the frame fence and increments the frame index
     ///
     /// Should be called after submitting the current frame's commandlist

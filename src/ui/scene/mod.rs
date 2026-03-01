@@ -6,7 +6,7 @@ use egui::{RichText, Sense, Ui, UiBuilder, Vec2, vec2};
 use google_material_symbols::GoogleMaterialSymbols;
 use hecs::World;
 
-use crate::ui::scene::controller::CameraController;
+use crate::ui::{scene::controller::CameraController, util::format_bytes};
 
 pub mod controller;
 
@@ -128,6 +128,24 @@ impl Scene {
                 egui::Color32::GREEN,
             );
 
+            let vram_report = self.renderer.gpu.allocator.lock().generate_report();
+
+            let vram_rect = ui.painter_at(panel_rect).text(
+                panel_rect.right_top() + Vec2::new(-8.0, 21.0) + Vec2::splat(1.0),
+                egui::Align2::RIGHT_TOP,
+                format_bytes(vram_report.total_capacity_bytes as usize),
+                egui::FontId::monospace(16.0),
+                egui::Color32::BLACK,
+            );
+
+            ui.painter_at(panel_rect).text(
+                panel_rect.right_top() + Vec2::new(-8.0, 21.0),
+                egui::Align2::RIGHT_TOP,
+                format_bytes(vram_report.total_allocated_bytes as usize),
+                egui::FontId::monospace(16.0),
+                egui::Color32::GREEN,
+            );
+
             ui.scope_builder(
                 egui::UiBuilder::new().max_rect(panel_rect.shrink2(vec2(12.0, 4.0))),
                 |ui| {
@@ -174,6 +192,34 @@ impl Scene {
             //         ui.weak("Profiler data not available yet.");
             //     }
             // });
+            ui.interact(
+                vram_rect,
+                "vram_report_profiler_tooltip".into(),
+                Sense::hover(),
+            )
+            .on_hover_ui(|ui| {
+                let last_frame = self.renderer.gpu.previous_frame();
+                let gpu = &self.renderer.gpu;
+                let resource_heap = gpu.resource_heap.lock();
+                ui.style_mut().spacing.item_spacing = vec2(0.0, 0.0);
+                ui.monospace(format!(
+                    "Capacity:  {}",
+                    format_bytes(vram_report.total_allocated_bytes as usize)
+                ));
+                ui.monospace(format!(
+                    "Descriptor Heap: {}/{} ({:.0}%)",
+                    resource_heap.used(),
+                    resource_heap.capacity(),
+                    resource_heap.used() as f32 / resource_heap.capacity() as f32 * 100.0
+                ));
+                ui.separator();
+                ui.monospace(format!(
+                    "Upload Ring:  {}/{} ({})",
+                    format_bytes(last_frame.upload.used()),
+                    format_bytes(last_frame.upload.capacity()),
+                    last_frame.upload.num_allocations(),
+                ));
+            });
 
             let size_pixels = size * ui.ctx().pixels_per_point();
             let resolution = (size_pixels.x as u32, size_pixels.y as u32);
