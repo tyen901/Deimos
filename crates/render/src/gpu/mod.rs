@@ -152,7 +152,7 @@ impl Gpu {
 
         let window_size = window.size();
         Ok(Self {
-            cmd_ring: CommandListRing::new(&device, queue.clone(), 16)?,
+            cmd_ring: CommandListRing::new(&device, queue.clone(), 4)?,
             resource_heap: Mutex::new(DescriptorHeapAllocator::new(
                 &device,
                 d3d12::DescriptorHeapType::CbvSrvUav,
@@ -214,7 +214,9 @@ impl Gpu {
         let frame_index = self.frame_index.load(std::sync::atomic::Ordering::Relaxed);
         let frame = &self.frames[frame_index % Self::FRAMES_IN_FLIGHT];
         frame.begin_frame();
-        _ = frame.wait_for_completion(&self.frame_fence);
+        frame
+            .wait_for_completion(&self.frame_fence)
+            .expect("wait for frame completion");
 
         let _to_bin = self
             .bin
@@ -247,6 +249,7 @@ impl Gpu {
         let frame_index = self.frame_index.load(std::sync::atomic::Ordering::Relaxed);
         let frame = &self.frames[frame_index % Self::FRAMES_IN_FLIGHT];
         frame.signal(&self.frame_fence, &self.queue);
+        self.cmd_ring.advance().expect("advance command ring");
 
         self.frame_index
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);

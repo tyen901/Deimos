@@ -1,15 +1,10 @@
-use d3d12::{Event, ext::GpuFence};
+use d3d12::Event;
 use parking_lot::Mutex;
 use std::{
     ops::Deref,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, AtomicU64, Ordering},
-    },
+    sync::atomic::{AtomicBool, AtomicU64, Ordering},
     time::Instant,
 };
-
-use crate::features::static_geometry::InstanceTransformBlock;
 
 pub struct NativeCommandList {
     command_allocator: d3d12::CommandAllocator,
@@ -117,6 +112,8 @@ impl CommandListRing {
             })
             .collect::<anyhow::Result<Box<[_]>>>()?;
 
+        slots[0].command_list.begin()?;
+
         Ok(Self {
             queue,
             fence,
@@ -127,37 +124,42 @@ impl CommandListRing {
         })
     }
 
-    pub fn submit<F>(&self, f: F) -> anyhow::Result<()>
-    where
-        F: FnOnce(&NativeCommandList) -> anyhow::Result<()>,
-    {
+    pub fn advance(&self) -> anyhow::Result<()> {
         let mut head = self.head.lock();
         let mut slots = self.slots.lock();
-        let slot = &mut slots[*head];
 
-        let start = Instant::now();
-        self.wait_for(slot.fence_value)?;
-
-        slot.command_list.begin()?;
-
-        f(&slot.command_list)?;
-
-        slot.command_list.end()?;
-        self.queue
-            .execute_command_lists(std::slice::from_ref(&slot.command_list));
-
+        // Finish the current slot's command list and signal the fence
+        let previous_slot = &mut slots[*head];
         let fence_value = self.next_fence_value.fetch_add(1, Ordering::Relaxed);
+        previous_slot.command_list.end()?;
+        self.queue
+            .execute_command_lists(std::slice::from_ref(&previous_slot.command_list));
         self.queue.signal(&self.fence, fence_value)?;
-        slot.fence_value = fence_value;
+        previous_slot.fence_value = fence_value;
 
+        // Advance to next slot and wait for it to be ready (if necessary)
         *head = (*head + 1) % slots.len();
+        let current_slot = &mut slots[*head];
+        self.wait_for(current_slot.fence_value)?;
+        current_slot.command_list.begin()?;
 
         Ok(())
     }
 
-    /// Wait for a previously returned fence value.
-    /// Useful if a caller needs to know uploads are done before proceeding.
-    pub fn wait_for(&self, fence_value: u64) -> anyhow::Result<()> {
+    pub fn submit<F>(&self, f: F) -> anyhow::Result<()>
+    where
+        F: FnOnce(&NativeCommandList) -> anyhow::Result<()>,
+    {
+        let head = self.head.lock();
+        let mut slots = self.slots.lock();
+        let slot = &mut slots[*head];
+
+        f(&slot.command_list)?;
+
+        Ok(())
+    }
+
+    fn wait_for(&self, fence_value: u64) -> anyhow::Result<()> {
         if self.fence.get_completed_value() < fence_value {
             self.fence
                 .set_event_on_completion(&self.fence_event, fence_value)?;
