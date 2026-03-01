@@ -143,11 +143,6 @@ impl StaticModelRenderer {
         identifier: u64,
     ) -> anyhow::Result<Self> {
         let model = StaticModel::load(renderer, model_hash)?;
-        // let cbuffer = ConstantBuffer::create_raw(
-        //     gpu,
-        //     size_of::<InstanceTransformBlock>() // header + padding
-        //     + transforms.len() * size_of::<InstanceTransformBlock>(), // per-transform data
-        // )?;
         let transforms_tmp = transforms.iter().map(|(t, _)| t.clone()).collect_vec();
         let instance_data = Self::generate_constants(&model.model.opaque_meshes, &transforms_tmp);
         let instance_buffer = ImmutableBuffer::new(

@@ -10,7 +10,10 @@ use tiger_pkg::{TagHash, package_manager};
 
 use crate::{
     app::SharedState,
-    ui::{tabs::TabResult, util::DButton},
+    ui::{
+        tabs::{Tab, TabResult, activity::ActivityTab},
+        util::DButton,
+    },
 };
 
 pub struct ActivityListTab {
@@ -156,7 +159,7 @@ impl ActivityListTab {
                             .filter(|child| child.title().to_lowercase().contains(query))
                         {
                             #[allow(clippy::collapsible_if)]
-                            if let ActivityTreeNode::Leaf { title: _, tag: _ } = child {
+                            if let ActivityTreeNode::Leaf { title, tag } = child {
                                 if DButton::new_black(child.atoms())
                                     .min_size(vec2(768.0, 32.0))
                                     .stroke(1.0, child.stroke_color())
@@ -164,19 +167,19 @@ impl ActivityListTab {
                                     .ui(ui)
                                     .clicked()
                                 {
-                                    // match ActivityTab::new(
-                                    //     &self.shared_state,
-                                    //     *tag,
-                                    //     title.to_string(),
-                                    // ) {
-                                    //     Ok(tab) => {
-                                    //         *result = TabResult::Open(Tab::Activity(tab));
-                                    //     }
-                                    //     Err(err) => {
-                                    //         // TODO(cohae): Error popup
-                                    //         error!("Failed to open activity tab: {}", err);
-                                    //     }
-                                    // }
+                                    match ActivityTab::new(
+                                        &self.shared_state,
+                                        *tag,
+                                        title.to_string(),
+                                    ) {
+                                        Ok(tab) => {
+                                            *result = TabResult::Open(Tab::Activity(tab));
+                                        }
+                                        Err(err) => {
+                                            // TODO(cohae): Error popup
+                                            error!("Failed to open activity tab: {err:?}");
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -204,7 +207,7 @@ impl ActivityListTab {
                                         self.current_node.borrow_mut().push(i);
                                     }
                                 }
-                                ActivityTreeNode::Leaf { title: _, tag } => {
+                                ActivityTreeNode::Leaf { title, tag } => {
                                     if DButton::new((child.atoms(), format!("({tag})")))
                                         .min_size(vec2(512.0, 32.0))
                                         .stroke(1.0, child.stroke_color())
@@ -212,19 +215,19 @@ impl ActivityListTab {
                                         .ui(ui)
                                         .clicked()
                                     {
-                                        // match ActivityTab::new(
-                                        //     &self.shared_state,
-                                        //     *tag,
-                                        //     title.to_string(),
-                                        // ) {
-                                        //     Ok(tab) => {
-                                        //         *result = TabResult::Open(Tab::Activity(tab));
-                                        //     }
-                                        //     Err(err) => {
-                                        //         // TODO(cohae): Error popup
-                                        //         error!("Failed to open activity tab: {}", err);
-                                        //     }
-                                        // }
+                                        match ActivityTab::new(
+                                            &self.shared_state,
+                                            *tag,
+                                            title.to_string(),
+                                        ) {
+                                            Ok(tab) => {
+                                                *result = TabResult::Open(Tab::Activity(tab));
+                                            }
+                                            Err(err) => {
+                                                // TODO(cohae): Error popup
+                                                error!("Failed to open activity tab: {err:?}");
+                                            }
+                                        }
                                     }
                                 }
                             }

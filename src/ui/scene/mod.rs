@@ -26,7 +26,7 @@ pub struct Scene {
     controller: CameraController,
 
     // World
-    world: World,
+    pub world: World,
 
     // Metrics
     frametimes: Vec<f32>,
@@ -160,7 +160,7 @@ impl Scene {
             let vram_rect = ui.painter_at(panel_rect).text(
                 panel_rect.right_top() + Vec2::new(-8.0, 21.0) + Vec2::splat(1.0),
                 egui::Align2::RIGHT_TOP,
-                format_bytes(vram_report.total_capacity_bytes as usize),
+                format_bytes(vram_report.total_allocated_bytes as usize),
                 egui::FontId::monospace(16.0),
                 egui::Color32::BLACK,
             );
@@ -229,9 +229,10 @@ impl Scene {
                 let gpu = &self.renderer.gpu;
                 let resource_heap = gpu.resource_heap.lock();
                 ui.style_mut().spacing.item_spacing = vec2(0.0, 0.0);
+                ui.monospace(format!("{} allocations", vram_report.allocations.len()));
                 ui.monospace(format!(
                     "Capacity:  {}",
-                    format_bytes(vram_report.total_allocated_bytes as usize)
+                    format_bytes(vram_report.total_capacity_bytes as usize)
                 ));
                 ui.monospace(format!(
                     "Descriptor Heap: {}/{} ({:.0}%)",

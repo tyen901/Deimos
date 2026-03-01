@@ -3,9 +3,9 @@ use std::{
     time::Instant,
 };
 
-use alkahest_data::activity::SActivity;
-use alkahest_render::{Renderer, camera::Camera};
 use anyhow::Context;
+use deimos_data::activity::SActivity;
+use deimos_render::{camera::Camera, renderer::Renderer};
 use egui::vec2;
 use google_material_symbols::GoogleMaterialSymbols;
 use tiger_parse::PackageManagerExt;
@@ -24,6 +24,7 @@ use crate::{
 };
 
 pub struct ActivityTab {
+    renderer: Arc<Renderer>,
     state: Arc<SharedState>,
     activity: Arc<SActivity>,
     maps: Vec<ActivityMap>,
@@ -56,10 +57,11 @@ impl ActivityTab {
             });
         }
         if let Some(map) = maps.first_mut() {
-            map.start_load();
+            map.start_load(state.renderer.clone());
         }
 
         Ok(Self {
+            renderer: state.renderer.clone(),
             state: state.clone(),
             activity,
             current_map_index: 0,
@@ -67,13 +69,13 @@ impl ActivityTab {
             tag,
             name,
             scene: Box::new(
-                Scene::new(Renderer::instance().clone(), Camera::default())?
+                Scene::new(&state.renderer.clone(), Camera::default())?
                     .with_controller(CameraController::new_first_person()),
             ),
         })
     }
 
-    pub fn ui(&mut self, ui: &mut egui::Ui, egui_d3d11: &mut egui_d3d11::D3D11Renderer) {
+    pub fn ui(&mut self, ui: &mut egui::Ui, egui_d3d12: &mut egui_d3d12::D3D12Renderer) {
         egui::SidePanel::left(format!("activity_{}_map_list", self.tag)).show_inside(ui, |ui| {
             egui::ScrollArea::vertical()
                 .auto_shrink([true, false])
@@ -91,14 +93,14 @@ impl ActivityTab {
                         }
 
                         let btn = if self.current_map_index == i {
-                            DButton::new_white((load_sym.to_string(), map.name.clone()))
+                            DButton::new_black((load_sym.to_string(), map.name.clone()))
                         } else {
                             DButton::new((load_sym.to_string(), map.name.clone()))
                         };
 
                         if btn.min_size(vec2(384.0, 32.0)).ui(ui).clicked() {
                             self.current_map_index = i;
-                            map.start_load();
+                            map.start_load(self.renderer.clone());
                         }
                     }
                 });
@@ -112,7 +114,7 @@ impl ActivityTab {
         if let Some(world) = map.world.as_mut() {
             std::mem::swap(world, &mut self.scene.world);
             self.scene
-                .show(ui, ui.available_size_before_wrap(), egui_d3d11);
+                .show(ui, egui_d3d12, ui.available_size_before_wrap());
             std::mem::swap(&mut self.scene.world, world);
         }
     }
@@ -129,20 +131,22 @@ struct ActivityMap {
 }
 
 impl ActivityMap {
-    fn start_load(&mut self) {
+    fn start_load(&mut self, renderer: Arc<Renderer>) {
         if let ActivityLoadState::Unloaded = self.state {
             self.state = ActivityLoadState::Loading;
             let activity = self.activity.clone();
             let map_index = self.index;
-            self.load_task = Task::new(move || {
+            self.load_task = Task::new(format!("load_activity_map({map_index})"), move || {
                 let mut world = hecs::World::new();
                 let activity_map = &activity.unk50[map_index];
                 // TODO(cohae): It's possible to have multiple maps per phase (see Tower), how do we handle showing those?
                 let map_hash = activity_map.map_references[0];
 
-                load_map_into_world(map_hash.hash32(), &mut world).expect("Failed to load map");
+                load_map_into_world(&renderer, map_hash.hash32(), &mut world)
+                    .expect("Failed to load map");
 
                 if let Err(e) = load_activity_for_map_into_world(
+                    &renderer,
                     activity.ambient_activity,
                     activity_map.bubble_name,
                     &mut world,
@@ -151,7 +155,7 @@ impl ActivityMap {
                 }
 
                 for unk in &activity_map.unk18 {
-                    if let Err(e) = load_activity_phase_into_world(unk, &mut world) {
+                    if let Err(e) = load_activity_phase_into_world(&renderer, unk, &mut world) {
                         error!(
                             "Activity phase load for {} failed: {e}",
                             unk.unk_entity_reference.taghash()

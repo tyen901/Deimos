@@ -96,7 +96,7 @@ pub struct SUnk80808948 {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_type(id = 0x8FFFFFFF)]
+#[tiger_type(id = 0x8080B566)]
 pub struct SUnk80808e89 {
     pub file_size: u64,
     pub unk8: u64,
@@ -107,14 +107,14 @@ pub struct SUnk80808e89 {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_type(id = 0x8FFFFFFF)]
+#[tiger_type(id = 0x8080B5D3)]
 pub struct SUnk80808ebe {
     pub file_size: u64,
     pub entity_resources: Vec<Tag<Unk80808943>>,
 }
 
 #[derive(Debug, Clone)]
-#[tiger_type(id = 0x8FFFFFFF, size = 0x24)]
+#[tiger_type(id = 0x8080AD8B, size = 0x24)]
 pub struct Unk80808943 {
     pub file_size: u64,
     #[tiger(offset = 0x20)]
