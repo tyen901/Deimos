@@ -1,3 +1,5 @@
+use anyhow::Context;
+use bytemuck::{Pod, Zeroable};
 use deimos_data::tfx::{
     RenderStage, ShaderStage,
     features::{
@@ -13,7 +15,7 @@ use tiger_pkg::package_manager;
 
 use crate::{
     asset::{Handle, index_buffer::IndexBuffer, texture::Texture, vertex_buffer::VertexBuffer},
-    gpu::command_list::CommandList,
+    gpu::{buffer::ImmutableBuffer, command_list::CommandList},
     renderer::Renderer,
     tfx::technique::Technique,
 };
@@ -21,7 +23,7 @@ use crate::{
 use super::FeatureRenderer;
 
 #[repr(C)]
-#[derive(Default, Debug)]
+#[derive(Default, Clone, Copy, Debug, Pod, Zeroable)]
 pub struct TerrainPatchGroupConstants {
     offset: Vec4,
     texcoord_transform: Vec4,
@@ -36,7 +38,7 @@ pub struct TerrainPatchesRenderer {
     terrain: STerrain,
     techniques: Vec<Handle<Technique>>,
     dyemaps: Vec<Handle<Texture>>,
-    group_cbuffers: Vec<TerrainPatchGroupConstants>,
+    group_cbuffers: Vec<ImmutableBuffer>,
     constants_dirty: bool,
     detail_level: TerrainDetailLevel,
 
@@ -65,9 +67,39 @@ impl TerrainPatchesRenderer {
             .map(|part| assets.load(part.technique))
             .collect_vec();
 
-        let group_cbuffers = (0..terrain.mesh_groups.len())
-            .map(|_| TerrainPatchGroupConstants::default())
-            .collect::<Vec<_>>();
+        let group_cbuffers = terrain
+            .mesh_groups
+            .iter()
+            .map(|group| {
+                let offset = Vec4::new(
+                    terrain.unk30.x,
+                    terrain.unk30.y,
+                    terrain.unk30.z,
+                    terrain.unk30.w,
+                );
+
+                let texcoord_transform =
+                    Vec4::new(group.unk20.x, group.unk20.y, group.unk20.z, group.unk20.w);
+
+                // let scope_terrain = Mat4::from_cols(offset, texcoord_transform, Vec4::ZERO, Vec4::ZERO);
+                let scope_terrain = TerrainPatchGroupConstants {
+                    offset,
+                    texcoord_transform,
+                    ao_offset: 0x02000000,
+                    // ao_offset: ao
+                    //     .and_then(|ao| ao.get_offset_by_identifier(self.identifier))
+                    //     .unwrap_or(0x02000000),
+                    ..Default::default()
+                };
+
+                ImmutableBuffer::new(
+                    &renderer.gpu,
+                    "terrain_patch_constants",
+                    bytemuck::cast_slice(&[scope_terrain]),
+                )
+            })
+            .collect::<anyhow::Result<Vec<_>>>()
+            .context("allocating terrain patch constant buffers")?;
 
         Ok(Box::new(Self {
             vertex0_buffer: assets.load(terrain.vertex0_buffer),
@@ -115,18 +147,7 @@ impl TerrainPatchesRenderer {
             .filter(|(_, u)| u.detail_level == self.detail_level)
         {
             let constants = &self.group_cbuffers[part.group_index as usize];
-            // TODO(cohae): These constants need to be static
-            let cb11 = cmd
-                .upload_ring()
-                .alloc::<TerrainPatchGroupConstants>()
-                .expect("Failed to allocate terrain group constants");
-            cb11.write(constants);
-
-            cmd.set_shader_constant_buffer_view(
-                ShaderStage::Vertex,
-                11,
-                Some(cb11.virtual_address()),
-            );
+            constants.bind_cbv(cmd, ShaderStage::Vertex, 11);
 
             if let Some(dyemap) = self.dyemaps[part.group_index as usize].get() {
                 dyemap.bind(cmd, 14, ShaderStage::Pixel);
@@ -143,43 +164,43 @@ impl TerrainPatchesRenderer {
         }
     }
 
-    #[profiling::function]
-    pub fn update_constants(
-        &mut self,
-        // ao: Option<&SStaticAmbientOcclusion>,
-    ) {
-        // if ao
-        //     .and_then(|ao| ao.get_offset_by_identifier(self.identifier))
-        //     .is_none()
-        // {
-        //     warn!("No AO for terrain 0x{:016X}", self.identifier);
-        // }
+    // #[profiling::function]
+    // pub fn update_constants(
+    //     &mut self,
+    //     // ao: Option<&SStaticAmbientOcclusion>,
+    // ) {
+    //     // if ao
+    //     //     .and_then(|ao| ao.get_offset_by_identifier(self.identifier))
+    //     //     .is_none()
+    //     // {
+    //     //     warn!("No AO for terrain 0x{:016X}", self.identifier);
+    //     // }
 
-        for (i, group) in self.terrain.mesh_groups.iter().enumerate() {
-            let offset = Vec4::new(
-                self.terrain.unk30.x,
-                self.terrain.unk30.y,
-                self.terrain.unk30.z,
-                self.terrain.unk30.w,
-            );
+    //     for (i, group) in self.terrain.mesh_groups.iter().enumerate() {
+    //         let offset = Vec4::new(
+    //             self.terrain.unk30.x,
+    //             self.terrain.unk30.y,
+    //             self.terrain.unk30.z,
+    //             self.terrain.unk30.w,
+    //         );
 
-            let texcoord_transform =
-                Vec4::new(group.unk20.x, group.unk20.y, group.unk20.z, group.unk20.w);
+    //         let texcoord_transform =
+    //             Vec4::new(group.unk20.x, group.unk20.y, group.unk20.z, group.unk20.w);
 
-            // let scope_terrain = Mat4::from_cols(offset, texcoord_transform, Vec4::ZERO, Vec4::ZERO);
-            let scope_terrain = TerrainPatchGroupConstants {
-                offset,
-                texcoord_transform,
-                ao_offset: 0x02000000,
-                // ao_offset: ao
-                //     .and_then(|ao| ao.get_offset_by_identifier(self.identifier))
-                //     .unwrap_or(0x02000000),
-                ..Default::default()
-            };
+    //         // let scope_terrain = Mat4::from_cols(offset, texcoord_transform, Vec4::ZERO, Vec4::ZERO);
+    //         let scope_terrain = TerrainPatchGroupConstants {
+    //             offset,
+    //             texcoord_transform,
+    //             ao_offset: 0x02000000,
+    //             // ao_offset: ao
+    //             //     .and_then(|ao| ao.get_offset_by_identifier(self.identifier))
+    //             //     .unwrap_or(0x02000000),
+    //             ..Default::default()
+    //         };
 
-            self.group_cbuffers[i] = scope_terrain;
-        }
-    }
+    //         self.group_cbuffers[i] = scope_terrain;
+    //     }
+    // }
 }
 
 impl FeatureRenderer for TerrainPatchesRenderer {
@@ -199,10 +220,10 @@ impl FeatureRenderer for TerrainPatchesRenderer {
     // }
 
     fn extract(&mut self, _renderer: &Renderer, _data: &dyn std::any::Any) {
-        if self.constants_dirty {
-            self.update_constants();
-            self.constants_dirty = false;
-        }
+        // if self.constants_dirty {
+        //     self.update_constants();
+        //     self.constants_dirty = false;
+        // }
     }
 
     fn prepare(&mut self, _renderer: &Renderer) {}

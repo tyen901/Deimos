@@ -185,7 +185,7 @@ impl StaticModelRenderer {
     pub fn render_all(&self, cmd: &mut CommandList, stage: RenderStage) {
         // self.unk_cb1.bind(cmd, ShaderStage::Vertex, 1);
         self.instance_id_buffer.bind_single(cmd, 2);
-        self.instance_buffer.bind(cmd, ShaderStage::Vertex, 2);
+        self.instance_buffer.bind_srv(cmd, ShaderStage::Vertex, 2);
 
         let is_opaque = matches!(
             stage,

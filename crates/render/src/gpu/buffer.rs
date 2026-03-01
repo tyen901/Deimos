@@ -244,12 +244,20 @@ impl ImmutableBuffer {
         self.size
     }
 
-    pub fn view(&self) -> ResourceView {
+    pub fn resource_view(&self) -> ResourceView {
         self.srv
     }
 
-    pub fn bind(&self, cmd: &mut CommandList, stage: ShaderStage, slot: u32) {
-        cmd.set_shader_resource_view(stage, slot, Some(self.view()));
+    pub fn constant_buffer_view(&self) -> d3d12::GpuVirtualAddress {
+        self.resource.resource().gpu_virtual_address()
+    }
+
+    pub fn bind_srv(&self, cmd: &mut CommandList, stage: ShaderStage, slot: u32) {
+        cmd.set_shader_resource_view(stage, slot, Some(self.resource_view()));
+    }
+
+    pub fn bind_cbv(&self, cmd: &mut CommandList, stage: ShaderStage, slot: u32) {
+        cmd.set_shader_constant_buffer_view(stage, slot, Some(self.constant_buffer_view()));
     }
 }
 
