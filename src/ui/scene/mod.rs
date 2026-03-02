@@ -14,7 +14,10 @@ use egui::{RichText, Sense, Ui, UiBuilder, Vec2, load::SizedTexture, vec2};
 use google_material_symbols::GoogleMaterialSymbols;
 use hecs::World;
 
-use crate::ui::{scene::controller::CameraController, util::format_bytes};
+use crate::{
+    ui::{scene::controller::CameraController, util::format_bytes},
+    world::render_objects::{DynamicRenderObject, s_extract_render_objects},
+};
 
 pub mod controller;
 
@@ -35,7 +38,9 @@ pub struct Scene {
     // UI
     keep_settings_open: bool,
 
-    render_target: RenderTarget,
+    render_target1: RenderTarget,
+    render_target2: RenderTarget,
+    render_target3: RenderTarget,
     depth_buffer: DepthBuffer,
 }
 
@@ -50,7 +55,23 @@ impl Scene {
             last_frame_time: Instant::now(),
             keep_settings_open: false,
 
-            render_target: RenderTarget::new(
+            render_target1: RenderTarget::new(
+                &renderer.gpu,
+                "scene_main_rt",
+                d3d12::Format::R8g8b8a8Unorm,
+                d3d12::Format::R8g8b8a8Unorm,
+                (1920, 1080),
+            )
+            .context("allocating render target")?,
+            render_target2: RenderTarget::new(
+                &renderer.gpu,
+                "scene_main_rt",
+                d3d12::Format::R10g10b10a2Typeless,
+                d3d12::Format::R10g10b10a2Unorm,
+                (1920, 1080),
+            )
+            .context("allocating render target")?,
+            render_target3: RenderTarget::new(
                 &renderer.gpu,
                 "scene_main_rt",
                 d3d12::Format::R8g8b8a8Unorm,
@@ -110,7 +131,7 @@ impl Scene {
             let r = ui
                 .image(SizedTexture {
                     id: egui_d3d12.textures_mut().allocate_dx_temporary(
-                        self.render_target.srv().cpu_handle(),
+                        self.render_target1.srv().cpu_handle(),
                         None,
                         false,
                     ),
@@ -257,7 +278,9 @@ impl Scene {
             let size_pixels = size * ui.ctx().pixels_per_point();
             let resolution = (size_pixels.x as u32, size_pixels.y as u32);
             self.depth_buffer.resize(resolution);
-            self.render_target.resize(resolution);
+            self.render_target1.resize(resolution);
+            self.render_target2.resize(resolution);
+            self.render_target3.resize(resolution);
 
             self.controller.update(&mut self.camera, ui, &r, delta_time);
 
@@ -286,9 +309,9 @@ impl Scene {
             self.renderer.globals.scopes.view.bind(&mut cmd_tfx);
             self.renderer.globals.scopes.chunk_model.bind(&mut cmd_tfx);
 
-            self.render_target
+            self.render_target1
                 .transition(cmd, d3d12::ResourceStates::RENDER_TARGET);
-            cmd.clear_render_target_view(self.render_target.cpu_handle(), &[0.0, 0.0, 0.0, 0.0]);
+            cmd.clear_render_target_view(self.render_target1.cpu_handle(), &[0.0, 0.0, 0.0, 0.0]);
             cmd.clear_depth_stencil_view(
                 self.depth_buffer.cpu_handle(),
                 d3d12::ClearFlags::DEPTH,
@@ -296,7 +319,11 @@ impl Scene {
                 0,
             );
             cmd.om_set_render_targets(
-                &[self.render_target.cpu_handle()],
+                &[
+                    self.render_target1.cpu_handle(),
+                    self.render_target2.cpu_handle(),
+                    self.render_target3.cpu_handle(),
+                ],
                 false,
                 Some(self.depth_buffer.cpu_handle()),
             );
@@ -311,12 +338,18 @@ impl Scene {
                 .left(0)
                 .build()]);
 
-            for obj in self.renderer.objects.write().values_mut() {
-                obj.renderer.extract(&self.renderer, &());
-                obj.renderer
+            s_extract_render_objects(&self.world, &self.renderer);
+
+            for (_entity, render_object) in self.world.query::<&DynamicRenderObject>().iter() {
+                self.renderer.objects.read()[render_object.handle]
+                    .renderer
                     .submit(&mut cmd_tfx, RenderStage::GenerateGbuffer);
             }
-            self.render_target
+            // for obj in self.renderer.objects.write().values_mut() {
+            //     obj.renderer
+            //         .submit(&mut cmd_tfx, RenderStage::GenerateGbuffer);
+            // }
+            self.render_target1
                 .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
         });
     }

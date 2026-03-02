@@ -63,13 +63,18 @@ impl UntypedHandle {
     }
 
     pub fn update<T: Asset + Send + Sync + 'static>(&self, asset: Box<T>) {
-        if self.is_loaded() {
-            error!(
-                "Attempted to update already loaded asset handle {}",
-                self.tag
-            );
-            return;
-        }
+        assert!(
+            !self.is_loaded(),
+            "Can't update loaded asset handle {}. Assets become immutable after loading",
+            self.tag
+        );
+        // if self.is_loaded() {
+        //     error!(
+        //         "Attempted to update already loaded asset handle {}",
+        //         self.tag
+        //     );
+        //     return;
+        // }
 
         unsafe { *self.inner.data.get() = Arc::<T>::from(asset) };
         self.inner

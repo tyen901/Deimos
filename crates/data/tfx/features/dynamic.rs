@@ -6,7 +6,7 @@ use tiger_pkg::TagHash;
 use crate::tfx::{LodCategory, PrimitiveType, RenderStage};
 
 #[derive(Debug, Clone)]
-#[tiger_type(id = 0x8FFFFFFF, size = 0xD0)]
+#[tiger_type(id = 0x80808714, size = 0xD0)]
 pub struct SDynamicModel {
     pub file_size: u64,
     pub unk8: u64,
@@ -26,7 +26,7 @@ impl SDynamicModel {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_type(id = 0x8FFFFFFF, size = 0x88)]
+#[tiger_type(id = 0x808086D9, size = 0x88)]
 pub struct SDynamicMesh {
     pub vertex0_buffer: TagHash,
     pub vertex1_buffer: TagHash,
@@ -59,7 +59,7 @@ impl SDynamicMesh {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_type(id = 0x8FFFFFFF, size = 0x28)]
+#[tiger_type(id = 0x808086DF, size = 0x28)]
 pub struct SDynamicMeshPart {
     pub technique: TagHash,
     pub variant_shader_index: u16,
@@ -89,6 +89,12 @@ pub struct SDynamicMeshPart {
     pub unk24: u32,
 }
 
+impl SDynamicMeshPart {
+    pub fn index_range(&self) -> Range<u32> {
+        self.index_start..self.index_start + self.index_count
+    }
+}
+
 #[derive(Debug, Clone)]
 #[tiger_type(size = 0x450)]
 pub struct SDynamicModelComponent {
@@ -110,7 +116,7 @@ pub struct SDynamicModelComponent {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_type(id = 0x8FFFFFFF)]
+#[tiger_type(id = 0x8080859C)]
 pub struct SDynamicMeshMaterialVariants {
     pub technique_count: u32,
     pub technique_start: u32,
@@ -118,7 +124,7 @@ pub struct SDynamicMeshMaterialVariants {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_type(id = 0x8FFFFFFF, size = 0x8)]
+#[tiger_type(id = 0x8080859D, size = 0x8)]
 pub struct S80808682 {
     pub unk0: u16,
     pub unk2: i16,
@@ -127,14 +133,14 @@ pub struct S80808682 {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_type(id = 0x8FFFFFFF, size = 0x18)]
+#[tiger_type(id = 0x8080BD64, size = 0x18)]
 pub struct S8080BACC {
     pub unk0: u64,
     pub unk8: Vec<S8080BAD0>,
 }
 
 #[derive(Debug, Clone)]
-#[tiger_type(id = 0x8FFFFFFF, size = 0x8)]
+#[tiger_type(id = 0x8080BD68, size = 0x8)]
 pub struct S8080BAD0 {
     pub switch_key: u32,
     pub value: u32,

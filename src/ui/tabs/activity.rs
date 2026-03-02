@@ -145,12 +145,14 @@ impl ActivityMap {
                 load_map_into_world(&renderer, map_hash.hash32(), &mut world)
                     .expect("Failed to load map");
 
-                if let Err(e) = load_activity_for_map_into_world(
-                    &renderer,
-                    activity.ambient_activity,
-                    activity_map.bubble_name,
-                    &mut world,
-                ) {
+                if activity.ambient_activity.is_some()
+                    && let Err(e) = load_activity_for_map_into_world(
+                        &renderer,
+                        activity.ambient_activity,
+                        activity_map.bubble_name,
+                        &mut world,
+                    )
+                {
                     error!("Failed to load ambient activity: {e}");
                 }
 

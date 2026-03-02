@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use d3d12::{HeapFlags, HeapProperties};
+use d3d12::{D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT, HeapFlags, HeapProperties};
 
 /// Lock-free thread-safe ring buffer for uploading data to the GPU.
 pub struct UploadRing {
@@ -14,7 +14,7 @@ pub struct UploadRing {
 }
 
 impl UploadRing {
-    const BLOCK_ALIGNMENT: usize = 0x100;
+    const BLOCK_ALIGNMENT: usize = D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT as usize;
 
     pub fn new(device: &d3d12::Device, capacity: u64) -> anyhow::Result<Self> {
         let heap_resource = device.create_committed_resource(

@@ -2,6 +2,8 @@ use std::sync::Arc;
 
 use deimos_render::renderer::{Renderer, object::RenderObjectHandle};
 
+use crate::world::{permutations::PermutationConfig, transform::Transform};
+
 pub struct StaticRenderObject {
     renderer: Arc<Renderer>,
     handle: RenderObjectHandle,
@@ -24,7 +26,7 @@ impl Drop for StaticRenderObject {
 
 pub struct DynamicRenderObject {
     renderer: Arc<Renderer>,
-    handle: RenderObjectHandle,
+    pub handle: RenderObjectHandle,
     pub permutation: usize,
 }
 
@@ -64,34 +66,42 @@ impl Drop for DynamicRenderObject {
 //     }
 // }
 
-pub fn s_extract_render_objects(_world: &hecs::World) {
-    // for (_entity, static_render_object) in world.query::<&StaticRenderObject>().iter() {
-    //     frame_packet.push_static_render_object(static_render_object.handle);
-    // }
+pub fn s_extract_render_objects(world: &hecs::World, renderer: &Renderer) {
+    let mut render_objects = renderer.objects.write();
+    for (_entity, static_render_object) in world.query::<&StaticRenderObject>().iter() {
+        render_objects[static_render_object.handle]
+            .renderer
+            .extract(renderer, &());
 
-    // for (_entity, (transform, render_object, permutations)) in world
-    //     .query::<(
-    //         Option<&Transform>,
-    //         &DynamicRenderObject,
-    //         Option<&PermutationConfig>,
-    //     )>()
-    //     .iter()
-    // {
-    //     let transform = transform.copied().unwrap_or_default();
-    //     let permutation = if let Some(permutation) = permutations {
-    //         permutation
-    //             .calculate_permutation_index()
-    //             .unwrap_or(render_object.permutation)
-    //     } else {
-    //         render_object.permutation
-    //     };
+        // frame_packet.push_static_render_object(static_render_object.handle);
+    }
 
-    //     frame_packet.push_dynamic_render_object(
-    //         render_object.handle,
-    //         transform.local_to_world().into(),
-    //         permutation,
-    //     );
-    // }
+    for (_entity, (transform, render_object, permutations)) in world
+        .query::<(
+            Option<&Transform>,
+            &DynamicRenderObject,
+            Option<&PermutationConfig>,
+        )>()
+        .iter()
+    {
+        let transform = transform.copied().unwrap_or_default();
+        let permutation = if let Some(permutation) = permutations {
+            permutation
+                .calculate_permutation_index()
+                .unwrap_or(render_object.permutation)
+        } else {
+            render_object.permutation
+        };
+
+        render_objects[render_object.handle]
+            .renderer
+            .extract(renderer, &(transform.local_to_world(), permutation));
+        // frame_packet.push_dynamic_render_object(
+        //     render_object.handle,
+        //     transform.local_to_world().into(),
+        //     permutation,
+        // );
+    }
 }
 
 pub fn s_are_all_objects_loaded(_world: &hecs::World, _renderer: &Renderer) -> bool {

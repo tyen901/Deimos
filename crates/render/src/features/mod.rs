@@ -1,5 +1,6 @@
 use std::any::Any;
 
+pub mod rigid_model;
 mod shared;
 pub mod static_geometry;
 pub mod terrain_patches;

@@ -20,7 +20,7 @@ use crate::{
 pub struct Technique {
     gpu: Arc<Gpu>,
     pub tag: TagHash,
-    data: STechnique,
+    pub data: STechnique,
     root_signature: d3d12::RootSignature,
     stage_vertex: TechniqueStage,
     stage_pixel: TechniqueStage,
