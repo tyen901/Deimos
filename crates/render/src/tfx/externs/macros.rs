@@ -84,7 +84,7 @@ macro_rules! local_extern_container {
         }
 
         impl LocalExternContainer {
-            pub fn new(parent: Arc<Renderer>) -> Self {
+            pub const fn new(parent: Arc<Renderer>) -> Self {
                 Self {
                     parent,
                     $(
@@ -122,14 +122,14 @@ macro_rules! extern_struct {
 
         impl Extern for $name {
             fn get_field_ptr(&self, offset: usize) -> Option<(*const (), TypeId)> {
-                let ptr = self as *const _ as *const u8;
+                let ptr = (self as *const Self).cast::<u8>();
 
                 match offset {
                     $($field_offset => {
                         unsafe {
                             let ptr = ptr.add(std::mem::offset_of!(Self, $field));
 
-                            Some((ptr as *const (), std::any::TypeId::of::<$field_type>()))
+                            Some((ptr.cast::<()>(), std::any::TypeId::of::<$field_type>()))
                         }
                     })*
                     _ => {

@@ -10,7 +10,7 @@ macro_rules! verify_ffi_type {
 
         impl $struct {
             #[allow(dead_code)]
-            pub fn as_ffi(&self) -> *const $ffi {
+            pub const fn as_ffi(&self) -> *const $ffi {
                 self as *const _ as _
             }
         }
@@ -29,7 +29,7 @@ where
 {
     let cstr = CString::new(s.as_ref()).expect("Failed to convert string to CString");
     let pcstr = cstr.as_ptr();
-    (cstr, PCSTR::from_raw(pcstr as _))
+    (cstr, PCSTR::from_raw(pcstr.cast()))
 }
 
 // pub fn to_pcwstr<S>(s: S) -> (Vec<u16>, PCWSTR)
@@ -62,7 +62,7 @@ where
 //     }
 // }
 
-/// Helper macro to cast a slice of Option<&Resource> to a SmallVec of Option<NonNull<c_void>>
+/// Helper macro to cast a slice of Option<&Resource> to a `SmallVec` of Option<`NonNull`<`c_void`>>
 /// for use in D3D11 methods that take raw resource pointers.
 /// # Arguments
 /// * `$stack_count`: The number of elements to store on the stack before spilling to the heap.

@@ -122,8 +122,7 @@ impl ExternContainer {
         self.global_ids
             .iter()
             .position(|i| *i == id)
-            .map(|pos| self.globals[pos])
-            .unwrap_or(Vec4::ONE)
+            .map_or(Vec4::ONE, |pos| self.globals[pos])
     }
 
     /// Sets the value of the given global channel by ID

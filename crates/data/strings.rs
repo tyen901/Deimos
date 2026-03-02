@@ -118,7 +118,7 @@ impl StringContainer {
             stringcontainers
                 .par_iter()
                 .flat_map(|t| {
-                    if let Ok(strings) = StringContainer::load(*t) {
+                    if let Ok(strings) = Self::load(*t) {
                         strings.0.into_iter().collect()
                     } else {
                         vec![]

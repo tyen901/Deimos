@@ -78,7 +78,7 @@ pub fn load_activity_for_map_into_world(
             error!(
                 "Activity phase load for {} failed: {e}",
                 unk.unk_entity_reference.taghash()
-            )
+            );
         }
     }
 

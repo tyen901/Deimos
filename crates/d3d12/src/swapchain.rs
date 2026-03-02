@@ -151,7 +151,7 @@ pub struct Rational {
 }
 
 impl Rational {
-    pub fn new(numerator: u32, denominator: u32) -> Self {
+    pub const fn new(numerator: u32, denominator: u32) -> Self {
         Self {
             numerator,
             denominator,
@@ -189,7 +189,7 @@ pub enum SwapEffect {
     Sequential = DXGI_SWAP_EFFECT_SEQUENTIAL.0,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SwapChainStatus {
     Ok,
     Clipped,                  // DXGI_STATUS_CLIPPED
@@ -260,7 +260,7 @@ verify_ffi_type!(SampleDesc, DXGI_SAMPLE_DESC);
 
 impl Default for SampleDesc {
     fn default() -> Self {
-        SampleDesc {
+        Self {
             count: 1,
             quality: 0,
         }

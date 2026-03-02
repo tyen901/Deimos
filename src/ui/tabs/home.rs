@@ -71,8 +71,8 @@ impl HomeTab {
             uis[1].heading("2D");
             uis[1].add_space(4.0);
             uis[1].disable();
-            let _ = uis[1].d_button(format!("{} TEXTURES", GoogleMaterialSymbols::Image));
-            let _ = uis[1].d_button(format!("{} UI", GoogleMaterialSymbols::DesktopWindows));
+            let _b = uis[1].d_button(format!("{} TEXTURES", GoogleMaterialSymbols::Image));
+            let _b = uis[1].d_button(format!("{} UI", GoogleMaterialSymbols::DesktopWindows));
         });
 
         ui.separator();

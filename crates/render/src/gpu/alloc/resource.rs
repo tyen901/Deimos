@@ -8,7 +8,7 @@ pub struct OwnedResource {
 }
 
 impl OwnedResource {
-    pub fn new(
+    pub const fn new(
         gpu: Arc<Gpu>,
         resource: gpu_allocator::d3d12::Resource,
         current_state: d3d12::ResourceStates,

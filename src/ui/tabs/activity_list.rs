@@ -167,11 +167,8 @@ impl ActivityListTab {
                                     .ui(ui)
                                     .clicked()
                                 {
-                                    match ActivityTab::new(
-                                        &self.shared_state,
-                                        *tag,
-                                        title.to_string(),
-                                    ) {
+                                    match ActivityTab::new(&self.shared_state, *tag, title.clone())
+                                    {
                                         Ok(tab) => {
                                             *result = TabResult::Open(Tab::Activity(tab));
                                         }
@@ -218,7 +215,7 @@ impl ActivityListTab {
                                         match ActivityTab::new(
                                             &self.shared_state,
                                             *tag,
-                                            title.to_string(),
+                                            title.clone(),
                                         ) {
                                             Ok(tab) => {
                                                 *result = TabResult::Open(Tab::Activity(tab));
@@ -251,15 +248,14 @@ enum ActivityTreeNode {
     },
     Branch {
         title: String,
-        children: Vec<ActivityTreeNode>,
+        children: Vec<Self>,
     },
 }
 
 impl ActivityTreeNode {
     fn title(&self) -> &str {
         match self {
-            ActivityTreeNode::Leaf { title, .. } => title,
-            ActivityTreeNode::Branch { title, .. } => title,
+            Self::Leaf { title, .. } | Self::Branch { title, .. } => title,
         }
     }
 
@@ -304,7 +300,7 @@ impl ActivityTreeNode {
     }
 
     fn color(&self) -> Color32 {
-        self.kind().map(|k| k.color()).unwrap_or(Color32::WHITE)
+        self.kind().map_or(Color32::WHITE, |k| k.color())
     }
 
     fn stroke_color(&self) -> Color32 {
@@ -354,19 +350,19 @@ impl ActivityKind {
     //     }
     // }
 
-    fn color(&self) -> Color32 {
+    const fn color(&self) -> Color32 {
         match self {
-            ActivityKind::Crucible => Color32::from_rgb(145, 37, 29),
-            ActivityKind::Raid => Color32::WHITE,
-            ActivityKind::IronBanner => Color32::WHITE,
-            ActivityKind::Trials => Color32::from_rgb(198, 159, 99),
-            ActivityKind::Gambit => Color32::from_rgb(57, 119, 94),
-            ActivityKind::Dungeon => Color32::from_rgb(104, 85, 72),
-            ActivityKind::Patrol => Color32::WHITE,
-            ActivityKind::LostSector => Color32::from_rgb(80, 73, 159),
-            ActivityKind::Strike => Color32::from_rgb(57, 100, 128),
-            ActivityKind::Exotic => Color32::from_rgb(191, 153, 65),
-            ActivityKind::Quest | ActivityKind::Mission => Color32::from_rgb(38, 68, 127),
+            Self::Crucible => Color32::from_rgb(145, 37, 29),
+            Self::Raid => Color32::WHITE,
+            Self::IronBanner => Color32::WHITE,
+            Self::Trials => Color32::from_rgb(198, 159, 99),
+            Self::Gambit => Color32::from_rgb(57, 119, 94),
+            Self::Dungeon => Color32::from_rgb(104, 85, 72),
+            Self::Patrol => Color32::WHITE,
+            Self::LostSector => Color32::from_rgb(80, 73, 159),
+            Self::Strike => Color32::from_rgb(57, 100, 128),
+            Self::Exotic => Color32::from_rgb(191, 153, 65),
+            Self::Quest | Self::Mission => Color32::from_rgb(38, 68, 127),
         }
     }
 }

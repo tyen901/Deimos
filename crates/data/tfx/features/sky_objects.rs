@@ -19,7 +19,7 @@ pub struct SUnk80806f97 {
     /// Transformation matrix
     pub transform: Mat4,
 
-    /// Same as the bounding box from the SObjectOcclusionBounds array
+    /// Same as the bounding box from the `SObjectOcclusionBounds` array
     pub bounds: AxisAlignedBBox,
 
     pub model_ref: Tag<SSkyObjectModelRef>,

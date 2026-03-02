@@ -279,6 +279,7 @@ tfx_global_pipelines! {
 }
 
 impl GlobalPipelines {
+    #[allow(clippy::fn_params_excessive_bools)]
     pub fn get_specialized_cubemap_pipeline(
         &self,
         shape: CubemapShape,

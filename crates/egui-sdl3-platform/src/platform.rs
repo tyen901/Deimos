@@ -231,7 +231,7 @@ impl Platform {
         }
     }
 
-    pub fn context(&self) -> &egui::Context {
+    pub const fn context(&self) -> &egui::Context {
         &self.egui_ctx
     }
 

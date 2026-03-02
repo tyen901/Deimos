@@ -9,7 +9,7 @@ use deimos_data::tfx::{RenderStage, features::dynamic::RenderStageSubscription};
 
 use crate::{gpu::command_list::CommandList, renderer::Renderer};
 
-pub trait FeatureRenderer {
+pub trait FeatureRenderer: Send {
     fn extract(&mut self, renderer: &Renderer, data: &dyn Any);
 
     fn prepare(&mut self, renderer: &Renderer);

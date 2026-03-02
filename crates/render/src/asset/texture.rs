@@ -44,14 +44,14 @@ impl Texture {
             package_manager()
                 .read_tag(texture_header_ref)
                 .context("Failed to read texture data")?
-                .to_vec()
+                
         };
 
         if load_full_mip && texture.large_buffer.is_some() {
             let ab = package_manager()
                 .read_tag(texture_header_ref)
                 .context("Failed to read large texture buffer")?
-                .to_vec();
+                ;
 
             texture_data.extend(ab);
         }
@@ -105,18 +105,18 @@ impl Texture {
 
                 let (src_row_pitch, _) = header.format.calculate_pitch(mip_width, mip_height);
 
-                let block_height: u32 = if header.format.is_compressed() {
+                let block_height: usize = if header.format.is_compressed() {
                     mip_height.div_ceil(4)
                 } else {
                     mip_height
-                };
+                } as usize;
 
-                let dst_slice_pitch = layout.footprint.row_pitch as usize * block_height as usize;
+                let dst_slice_pitch = layout.footprint.row_pitch as usize * block_height;
 
                 for depth_slice in 0..mip_depth as usize {
-                    for row in 0..block_height as usize {
+                    for row in 0..block_height {
                         let src_start = src_offset
-                            + depth_slice * src_row_pitch * block_height as usize
+                            + depth_slice * src_row_pitch * block_height
                             + row * src_row_pitch;
                         let src_end = src_start + src_row_pitch;
 
@@ -133,7 +133,7 @@ impl Texture {
                     }
                 }
 
-                src_offset += src_row_pitch * block_height as usize * mip_depth as usize;
+                src_offset += src_row_pitch * block_height * mip_depth as usize;
             }
 
             upload_buffer.resource().unmap(0);

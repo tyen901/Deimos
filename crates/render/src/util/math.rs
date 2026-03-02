@@ -9,7 +9,7 @@ pub trait Vec3Ext {
 
 impl Vec3Ext for Vec3 {
     fn flatten(&self) -> Vec3 {
-        Vec3::new(self.x, self.y, 0.0)
+        Self::new(self.x, self.y, 0.0)
     }
 }
 
@@ -20,10 +20,10 @@ pub trait Vec4Ext {
 
 impl Vec4Ext for Vec4 {
     fn sqrt(&self) -> Vec4 {
-        unsafe { Vec4::from(_mm_sqrt_ps((*self).into())) }
+        unsafe { Self::from(_mm_sqrt_ps((*self).into())) }
     }
 
     fn rsqrt(&self) -> Vec4 {
-        unsafe { Vec4::from(_mm_rsqrt_ps((*self).into())) }
+        unsafe { Self::from(_mm_rsqrt_ps((*self).into())) }
     }
 }

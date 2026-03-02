@@ -56,7 +56,7 @@ pub struct SStaticMeshPart {
 }
 
 impl SStaticMeshPart {
-    pub fn index_range(&self) -> Range<u32> {
+    pub const fn index_range(&self) -> Range<u32> {
         self.index_start..self.index_start + self.index_count
     }
 }
@@ -69,7 +69,7 @@ pub struct SStaticMeshGroup {
     pub input_layout_index: u8,
     pub unk5: u8,
     /// Usually 1.
-    /// If 2, at least for render_stage=ShadowGenerate, the geometry in this group has some kind of vertex animation
+    /// If 2, at least for `render_stage=ShadowGenerate`, the geometry in this group has some kind of vertex animation
     /// This can be used to differentiate stationary static geometry from moving/animated statics
     pub unk6: u8,
 }
@@ -134,7 +134,7 @@ pub struct SStaticSpecialMesh {
 }
 
 impl SStaticSpecialMesh {
-    pub fn index_range(&self) -> Range<u32> {
+    pub const fn index_range(&self) -> Range<u32> {
         self.index_start..self.index_start + self.index_count
     }
 }

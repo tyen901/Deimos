@@ -132,7 +132,7 @@ impl<'a> DecompilerState<'a> {
         }
     }
 
-    pub fn with_ansi(mut self, use_ansi: bool) -> Self {
+    pub const fn with_ansi(mut self, use_ansi: bool) -> Self {
         self.use_ansi = use_ansi;
         self
     }
@@ -183,11 +183,11 @@ impl<'a> DecompilerState<'a> {
         self.stack
             .get(self.stack_pointer)
             .cloned()
-            .unwrap_or("NULL".to_string())
+            .unwrap_or_else(|| "NULL".to_string())
     }
 
     #[inline(always)]
-    fn stack_top(&mut self) -> &mut String {
+    const fn stack_top(&mut self) -> &mut String {
         &mut self.stack[self.stack_pointer]
     }
 
@@ -300,7 +300,7 @@ impl<'a> DecompilerState<'a> {
                 Opcode::Cubic => {
                     let x = cached_top;
                     let coefficients = self.get(-1)?;
-                    set_top!(format!("<fun>cubic<reset>({x}, {coefficients})"))
+                    set_top!(format!("<fun>cubic<reset>({x}, {coefficients})"));
                 }
                 Opcode::Lerp => {
                     let s = cached_top;
@@ -529,7 +529,7 @@ impl<'a> DecompilerState<'a> {
 
                     let field = Externs::get_extern_field_name(extern_id, offset as usize * 4)
                         // .map(str::to_string)
-                        .unwrap_or(format!("0x{:X}", offset as usize * 4));
+                        .unwrap_or_else(|| format!("0x{:X}", offset as usize * 4));
 
                     cached_top = self.push(format!(
                         "<fun>extern<reset><float>(<ident>{extern_id:?}<reset>->{field})"
@@ -543,7 +543,7 @@ impl<'a> DecompilerState<'a> {
 
                     let field = Externs::get_extern_field_name(extern_id, offset as usize * 16)
                         // .map(str::to_string)
-                        .unwrap_or(format!("0x{:X}", offset as usize * 16));
+                        .unwrap_or_else(|| format!("0x{:X}", offset as usize * 16));
                     cached_top = self.push(format!(
                         "<fun>extern<reset><float4>(<ident>{extern_id:?}<reset>->{field})",
                     ))?;
@@ -556,7 +556,7 @@ impl<'a> DecompilerState<'a> {
 
                     let field = Externs::get_extern_field_name(extern_id, offset as usize * 16)
                         // .map(str::to_string)
-                        .unwrap_or(format!("0x{:X}", offset as usize * 16));
+                        .unwrap_or_else(|| format!("0x{:X}", offset as usize * 16));
                     cached_top = self.push(format!(
                         "<fun>extern<reset><float4x4>(<ident>{extern_id:?}<reset>->{field})"
                     ))?;
@@ -569,7 +569,7 @@ impl<'a> DecompilerState<'a> {
 
                     let field = Externs::get_extern_field_name(extern_id, offset as usize * 8)
                         // .map(str::to_string)
-                        .unwrap_or(format!("0x{:X}", offset as usize * 8));
+                        .unwrap_or_else(|| format!("0x{:X}", offset as usize * 8));
                     cached_top = self.push(format!(
                         "<fun>extern<reset><TextureView>(<ident>{extern_id:?}<reset>->{field})"
                     ))?;
@@ -582,7 +582,7 @@ impl<'a> DecompilerState<'a> {
 
                     let field = Externs::get_extern_field_name(extern_id, offset as usize * 8)
                         // .map(str::to_string)
-                        .unwrap_or(format!("0x{:X}", offset as usize * 8));
+                        .unwrap_or_else(|| format!("0x{:X}", offset as usize * 8));
                     cached_top = self.push(format!(
                         "<fun>extern<reset><UAV>(<ident>{extern_id:?}<reset>->{field})"
                     ))?;

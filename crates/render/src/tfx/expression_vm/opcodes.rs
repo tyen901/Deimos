@@ -118,59 +118,60 @@ pub enum Opcode {
     // ExtBindSampler = 0x82,
 }
 
+#[allow(clippy::match_same_arms)]
 impl Opcode {
     /// Returns the size of the opcode in bytes, including the opcode itself.
-    pub fn size(&self) -> usize {
+    pub const fn size(&self) -> usize {
         match self {
-            Opcode::Add
-            | Opcode::Add_
-            | Opcode::Subtract
-            | Opcode::Multiply
-            | Opcode::Multiply_
-            | Opcode::Divide
-            | Opcode::IsZero
-            | Opcode::Min
-            | Opcode::Max
-            | Opcode::LessThan
-            | Opcode::Dot
-            | Opcode::Merge1_3
-            | Opcode::Merge2_2
-            | Opcode::Merge3_1
+            Self::Add
+            | Self::Add_
+            | Self::Subtract
+            | Self::Multiply
+            | Self::Multiply_
+            | Self::Divide
+            | Self::IsZero
+            | Self::Min
+            | Self::Max
+            | Self::LessThan
+            | Self::Dot
+            | Self::Merge1_3
+            | Self::Merge2_2
+            | Self::Merge3_1
 
-            | Opcode::Cubic
-            | Opcode::Unknown0x10
-            | Opcode::Unknown0x11
-            | Opcode::Unknown0x12
-            | Opcode::Lerp
-            | Opcode::LerpSaturated
-            | Opcode::MultiplyAdd
-            | Opcode::Clamp
-            | Opcode::Unknown0x17
-            | Opcode::Abs
-            | Opcode::Signum
-            | Opcode::Floor
-            | Opcode::Ceil
-            | Opcode::Round
-            | Opcode::Frac
-            | Opcode::Unknown0x1E
-            | Opcode::Unknown0x1F
-            | Opcode::Negate
-            | Opcode::VectorRotationsSin
-            | Opcode::VectorRotationsCos
-            | Opcode::VectorRotationsSinCos
-            | Opcode::Splat
-            | Opcode::Saturate
-            | Opcode::Triangle
-            | Opcode::Jitter
-            | Opcode::Wander
-            | Opcode::Rand
-            | Opcode::RandSmooth
-            | Opcode::Unknown0x25
-            | Opcode::Unknown0x26
-            | Opcode::TransformVec4
-            | Opcode::Unknown0x24
-            | Opcode::Unknown0x2C
-            | Opcode::Unknown0x2D
+            | Self::Cubic
+            | Self::Unknown0x10
+            | Self::Unknown0x11
+            | Self::Unknown0x12
+            | Self::Lerp
+            | Self::LerpSaturated
+            | Self::MultiplyAdd
+            | Self::Clamp
+            | Self::Unknown0x17
+            | Self::Abs
+            | Self::Signum
+            | Self::Floor
+            | Self::Ceil
+            | Self::Round
+            | Self::Frac
+            | Self::Unknown0x1E
+            | Self::Unknown0x1F
+            | Self::Negate
+            | Self::VectorRotationsSin
+            | Self::VectorRotationsCos
+            | Self::VectorRotationsSinCos
+            | Self::Splat
+            | Self::Saturate
+            | Self::Triangle
+            | Self::Jitter
+            | Self::Wander
+            | Self::Rand
+            | Self::RandSmooth
+            | Self::Unknown0x25
+            | Self::Unknown0x26
+            | Self::TransformVec4
+            | Self::Unknown0x24
+            | Self::Unknown0x2C
+            | Self::Unknown0x2D
             // | Opcode::CompareLess
             // | Opcode::CompareLessEqual
             // | Opcode::CompareGreater
@@ -178,56 +179,56 @@ impl Opcode {
             // | Opcode::CompareEqual
             // | Opcode::CompareNotEqual
             // | Opcode::CompareNotZeroTernary
-            | Opcode::Unknown0x3B
-            | Opcode::Unknown0x3D
-            | Opcode::Unknown0x3F
-            | Opcode::Unknown0x41
+            | Self::Unknown0x3B
+            | Self::Unknown0x3D
+            | Self::Unknown0x3F
+            | Self::Unknown0x41
             => 1,
 
-            Opcode::PopOutput
-            | Opcode::PushTemp
-            | Opcode::PopTemp
-            | Opcode::PopSamplerState
-            | Opcode::PushSamplerState
-            | Opcode::PushFromOutput
-            | Opcode::PopOutputMat4
-            | Opcode::PopTextureView
-            | Opcode::PushGlobalChannelVector
-            | Opcode::PushConstVec4
-            | Opcode::LerpConstant
-            | Opcode::Spline8Const
-            | Opcode::Permute
-            | Opcode::PopUav
-            | Opcode::PushTexDimensions
-            | Opcode::LerpConstantSaturated
-            | Opcode::Spline4Const
-            | Opcode::Spline8ChainConst
-            | Opcode::Gradient4Const => 2,
+            Self::PopOutput
+            | Self::PushTemp
+            | Self::PopTemp
+            | Self::PopSamplerState
+            | Self::PushSamplerState
+            | Self::PushFromOutput
+            | Self::PopOutputMat4
+            | Self::PopTextureView
+            | Self::PushGlobalChannelVector
+            | Self::PushConstVec4
+            | Self::LerpConstant
+            | Self::Spline8Const
+            | Self::Permute
+            | Self::PopUav
+            | Self::PushTexDimensions
+            | Self::LerpConstantSaturated
+            | Self::Spline4Const
+            | Self::Spline8ChainConst
+            | Self::Gradient4Const => 2,
 
-            Opcode::PushExternInputFloat
-            | Opcode::PushExternInputVec4
-            | Opcode::PushExternInputMat4
-            | Opcode::PushExternInputTextureView
-            | Opcode::PushExternInputU32
-            | Opcode::PushExternInputUav
-            | Opcode::PushTexTilingParams
-            | Opcode::PushTexTileLayerCount
-            | Opcode::Unknown0x63
+            Self::PushExternInputFloat
+            | Self::PushExternInputVec4
+            | Self::PushExternInputMat4
+            | Self::PushExternInputTextureView
+            | Self::PushExternInputU32
+            | Self::PushExternInputUav
+            | Self::PushTexTilingParams
+            | Self::PushTexTileLayerCount
+            | Self::Unknown0x63
             => 3,
 
-            Opcode::PushObjectChannelVector => 5,
+            Self::PushObjectChannelVector => 5,
 
-            Opcode::ExtReturn => 1,
+            Self::ExtReturn => 1,
 
             // Unknowns
-            Opcode::Unknown0x50
-            | Opcode::Unknown0x5f
-            | Opcode::Unknown0x64
-            | Opcode::Unknown0x65
-            | Opcode::Unknown0x66
-            | Opcode::Unknown0x67 => 1,
+            Self::Unknown0x50
+            | Self::Unknown0x5f
+            | Self::Unknown0x64
+            | Self::Unknown0x65
+            | Self::Unknown0x66
+            | Self::Unknown0x67 => 1,
 
-            Opcode::Unknown0x49 | Opcode::Unknown0x57 | Opcode::Unknown0x5a | Opcode::Unknown0x5e => 2,
+            Self::Unknown0x49 | Self::Unknown0x57 | Self::Unknown0x5a | Self::Unknown0x5e => 2,
         }
     }
 }
@@ -238,7 +239,7 @@ pub struct OpcodeIterator<'a> {
 }
 
 impl<'a> OpcodeIterator<'a> {
-    pub fn new(data: &'a [u8]) -> Self {
+    pub const fn new(data: &'a [u8]) -> Self {
         Self { data, position: 0 }
     }
 }

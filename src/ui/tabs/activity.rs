@@ -132,7 +132,7 @@ struct ActivityMap {
 
 impl ActivityMap {
     fn start_load(&mut self, renderer: Arc<Renderer>) {
-        if let ActivityLoadState::Unloaded = self.state {
+        if matches!(self.state, ActivityLoadState::Unloaded) {
             self.state = ActivityLoadState::Loading;
             let activity = self.activity.clone();
             let map_index = self.index;
@@ -161,7 +161,7 @@ impl ActivityMap {
                         error!(
                             "Activity phase load for {} failed: {e}",
                             unk.unk_entity_reference.taghash()
-                        )
+                        );
                     }
                 }
                 world
@@ -199,8 +199,8 @@ enum ActivityLoadState {
 impl ActivityLoadState {
     fn symbol(&self) -> GoogleMaterialSymbols {
         match self {
-            ActivityLoadState::Unloaded => GoogleMaterialSymbols::Circle,
-            ActivityLoadState::Loading => {
+            Self::Unloaded => GoogleMaterialSymbols::Circle,
+            Self::Loading => {
                 static START_TIME: LazyLock<Instant> = LazyLock::new(Instant::now);
                 let elapsed = Instant::now().duration_since(*START_TIME);
                 const SYMBOLS: [GoogleMaterialSymbols; 5] = [
@@ -213,8 +213,8 @@ impl ActivityLoadState {
 
                 SYMBOLS[(elapsed.as_millis() / 100) as usize % SYMBOLS.len()]
             }
-            ActivityLoadState::Loaded => GoogleMaterialSymbols::CheckCircle,
-            ActivityLoadState::Error => GoogleMaterialSymbols::Error,
+            Self::Loaded => GoogleMaterialSymbols::CheckCircle,
+            Self::Error => GoogleMaterialSymbols::Error,
         }
     }
 }

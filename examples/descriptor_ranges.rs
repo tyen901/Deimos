@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use anyhow::Context;
 use deimos_data::tfx::{STechnique, scope::SScope};
 use deimos_render::tfx::expression_vm::{
@@ -7,7 +5,7 @@ use deimos_render::tfx::expression_vm::{
 };
 use itertools::Itertools;
 use tiger_parse::{PackageManagerExt, TigerReadable};
-use tiger_pkg::{TagHash, package_manager};
+use tiger_pkg::package_manager;
 
 fn main() -> anyhow::Result<()> {
     let Some(package_dir) = std::env::args().nth(1) else {
@@ -62,21 +60,18 @@ fn main() -> anyhow::Result<()> {
             .context("Failed to read/parse tag")?;
         // println!("=== Technique {hash} ===");
 
-        for (stage, shader) in technique.all_valid_shaders() {
+        for (_stage, shader) in technique.all_valid_shaders() {
             if shader.core.bytecode.is_empty() {
                 continue;
             }
 
             let mut op_iter = OpcodeIterator::new(&shader.core.bytecode);
             while let Some(Ok((op, ptr))) = op_iter.next() {
-                match op {
-                    expression_vm::opcodes::Opcode::PopTextureView => {
-                        let slot = ptr[0] & 0x1F;
-                        if let Some((_, usage_dynamic)) = usages.get_mut(slot as usize) {
-                            *usage_dynamic += 1;
-                        }
+                if op == expression_vm::opcodes::Opcode::PopTextureView {
+                    let slot = ptr[0] & 0x1F;
+                    if let Some((_, usage_dynamic)) = usages.get_mut(slot as usize) {
+                        *usage_dynamic += 1;
                     }
-                    _ => {}
                 }
             }
 

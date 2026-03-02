@@ -129,43 +129,43 @@ pub enum Format {
 }
 
 impl Format {
-    pub fn is_compressed(&self) -> bool {
+    pub const fn is_compressed(&self) -> bool {
         matches!(
             self,
-            Format::Bc1Typeless
-                | Format::Bc1Unorm
-                | Format::Bc1UnormSrgb
-                | Format::Bc2Typeless
-                | Format::Bc2Unorm
-                | Format::Bc2UnormSrgb
-                | Format::Bc3Typeless
-                | Format::Bc3Unorm
-                | Format::Bc3UnormSrgb
-                | Format::Bc4Typeless
-                | Format::Bc4Unorm
-                | Format::Bc4Snorm
-                | Format::Bc5Typeless
-                | Format::Bc5Unorm
-                | Format::Bc5Snorm
-                | Format::Bc6hTypeless
-                | Format::Bc6hUf16
-                | Format::Bc6hSf16
-                | Format::Bc7Typeless
-                | Format::Bc7Unorm
-                | Format::Bc7UnormSrgb
+            Self::Bc1Typeless
+                | Self::Bc1Unorm
+                | Self::Bc1UnormSrgb
+                | Self::Bc2Typeless
+                | Self::Bc2Unorm
+                | Self::Bc2UnormSrgb
+                | Self::Bc3Typeless
+                | Self::Bc3Unorm
+                | Self::Bc3UnormSrgb
+                | Self::Bc4Typeless
+                | Self::Bc4Unorm
+                | Self::Bc4Snorm
+                | Self::Bc5Typeless
+                | Self::Bc5Unorm
+                | Self::Bc5Snorm
+                | Self::Bc6hTypeless
+                | Self::Bc6hUf16
+                | Self::Bc6hSf16
+                | Self::Bc7Typeless
+                | Self::Bc7Unorm
+                | Self::Bc7UnormSrgb
         )
     }
 
-    pub fn is_srgb(&self) -> bool {
+    pub const fn is_srgb(&self) -> bool {
         matches!(
             self,
-            Format::B8g8r8a8UnormSrgb
-                | Format::B8g8r8x8UnormSrgb
-                | Format::Bc1UnormSrgb
-                | Format::Bc2UnormSrgb
-                | Format::Bc3UnormSrgb
-                | Format::Bc7UnormSrgb
-                | Format::R8g8b8a8UnormSrgb
+            Self::B8g8r8a8UnormSrgb
+                | Self::B8g8r8x8UnormSrgb
+                | Self::Bc1UnormSrgb
+                | Self::Bc2UnormSrgb
+                | Self::Bc3UnormSrgb
+                | Self::Bc7UnormSrgb
+                | Self::R8g8b8a8UnormSrgb
         )
     }
 
@@ -193,147 +193,147 @@ impl Format {
         self.format_type() == Some(FormatType::Snorm)
     }
 
-    pub fn is_depth(&self) -> bool {
+    pub const fn is_depth(&self) -> bool {
         matches!(
             self,
-            Format::D16Unorm
-                | Format::D24UnormS8Uint
-                | Format::D32Float
-                | Format::D32FloatS8x24Uint
-                | Format::R32g8x24Typeless
+            Self::D16Unorm
+                | Self::D24UnormS8Uint
+                | Self::D32Float
+                | Self::D32FloatS8x24Uint
+                | Self::R32g8x24Typeless
         )
     }
 
-    pub fn format_type(&self) -> Option<FormatType> {
+    pub const fn format_type(&self) -> Option<FormatType> {
         match self {
-            Format::Bc4Snorm
-            | Format::Bc5Snorm
-            | Format::R16g16b16a16Snorm
-            | Format::R16g16Snorm
-            | Format::R16Snorm
-            | Format::R8g8b8a8Snorm
-            | Format::R8g8Snorm
-            | Format::R8Snorm => Some(FormatType::Snorm),
+            Self::Bc4Snorm
+            | Self::Bc5Snorm
+            | Self::R16g16b16a16Snorm
+            | Self::R16g16Snorm
+            | Self::R16Snorm
+            | Self::R8g8b8a8Snorm
+            | Self::R8g8Snorm
+            | Self::R8Snorm => Some(FormatType::Snorm),
 
-            Format::A4b4g4r4Unorm
-            | Format::A8Unorm
-            | Format::B4g4r4a4Unorm
-            | Format::B5g5r5a1Unorm
-            | Format::B5g6r5Unorm
-            | Format::B8g8r8a8Unorm
-            | Format::B8g8r8a8UnormSrgb
-            | Format::B8g8r8x8Unorm
-            | Format::B8g8r8x8UnormSrgb
-            | Format::Bc1Unorm
-            | Format::Bc1UnormSrgb
-            | Format::Bc2Unorm
-            | Format::Bc2UnormSrgb
-            | Format::Bc3Unorm
-            | Format::Bc3UnormSrgb
-            | Format::Bc4Unorm
-            | Format::Bc5Unorm
-            | Format::Bc7Unorm
-            | Format::Bc7UnormSrgb
-            | Format::D16Unorm
-            | Format::D24UnormS8Uint
-            | Format::G8r8G8b8Unorm
-            | Format::R10g10b10a2Unorm
-            | Format::R10g10b10XrBiasA2Unorm
-            | Format::R16g16b16a16Unorm
-            | Format::R16g16Unorm
-            | Format::R16Unorm
-            | Format::R1Unorm
-            | Format::R24UnormX8Typeless
-            | Format::R8g8b8a8Unorm
-            | Format::R8g8b8a8UnormSrgb
-            | Format::R8g8B8g8Unorm
-            | Format::R8g8Unorm
-            | Format::R8Unorm => Some(FormatType::Unorm),
+            Self::A4b4g4r4Unorm
+            | Self::A8Unorm
+            | Self::B4g4r4a4Unorm
+            | Self::B5g5r5a1Unorm
+            | Self::B5g6r5Unorm
+            | Self::B8g8r8a8Unorm
+            | Self::B8g8r8a8UnormSrgb
+            | Self::B8g8r8x8Unorm
+            | Self::B8g8r8x8UnormSrgb
+            | Self::Bc1Unorm
+            | Self::Bc1UnormSrgb
+            | Self::Bc2Unorm
+            | Self::Bc2UnormSrgb
+            | Self::Bc3Unorm
+            | Self::Bc3UnormSrgb
+            | Self::Bc4Unorm
+            | Self::Bc5Unorm
+            | Self::Bc7Unorm
+            | Self::Bc7UnormSrgb
+            | Self::D16Unorm
+            | Self::D24UnormS8Uint
+            | Self::G8r8G8b8Unorm
+            | Self::R10g10b10a2Unorm
+            | Self::R10g10b10XrBiasA2Unorm
+            | Self::R16g16b16a16Unorm
+            | Self::R16g16Unorm
+            | Self::R16Unorm
+            | Self::R1Unorm
+            | Self::R24UnormX8Typeless
+            | Self::R8g8b8a8Unorm
+            | Self::R8g8b8a8UnormSrgb
+            | Self::R8g8B8g8Unorm
+            | Self::R8g8Unorm
+            | Self::R8Unorm => Some(FormatType::Unorm),
 
-            Format::R16g16b16a16Sint
-            | Format::R16g16Sint
-            | Format::R16Sint
-            | Format::R32g32b32a32Sint
-            | Format::R32g32b32Sint
-            | Format::R32g32Sint
-            | Format::R32Sint
-            | Format::R8g8b8a8Sint
-            | Format::R8g8Sint
-            | Format::R8Sint => Some(FormatType::Sint),
+            Self::R16g16b16a16Sint
+            | Self::R16g16Sint
+            | Self::R16Sint
+            | Self::R32g32b32a32Sint
+            | Self::R32g32b32Sint
+            | Self::R32g32Sint
+            | Self::R32Sint
+            | Self::R8g8b8a8Sint
+            | Self::R8g8Sint
+            | Self::R8Sint => Some(FormatType::Sint),
 
-            Format::D32FloatS8x24Uint
-            | Format::R10g10b10a2Uint
-            | Format::R16g16b16a16Uint
-            | Format::R16g16Uint
-            | Format::R16Uint
-            | Format::R32g32b32a32Uint
-            | Format::R32g32b32Uint
-            | Format::R32g32Uint
-            | Format::R32Uint
-            | Format::R8g8b8a8Uint
-            | Format::R8g8Uint
-            | Format::R8Uint => Some(FormatType::Uint),
+            Self::D32FloatS8x24Uint
+            | Self::R10g10b10a2Uint
+            | Self::R16g16b16a16Uint
+            | Self::R16g16Uint
+            | Self::R16Uint
+            | Self::R32g32b32a32Uint
+            | Self::R32g32b32Uint
+            | Self::R32g32Uint
+            | Self::R32Uint
+            | Self::R8g8b8a8Uint
+            | Self::R8g8Uint
+            | Self::R8Uint => Some(FormatType::Uint),
 
-            Format::D32Float
-            | Format::R11g11b10Float
-            | Format::R16g16b16a16Float
-            | Format::R16g16Float
-            | Format::R16Float
-            | Format::R32g32b32a32Float
-            | Format::R32g32b32Float
-            | Format::R32g32Float
-            | Format::R32Float
-            | Format::R32FloatX8x24Typeless => Some(FormatType::Float),
+            Self::D32Float
+            | Self::R11g11b10Float
+            | Self::R16g16b16a16Float
+            | Self::R16g16Float
+            | Self::R16Float
+            | Self::R32g32b32a32Float
+            | Self::R32g32b32Float
+            | Self::R32g32Float
+            | Self::R32Float
+            | Self::R32FloatX8x24Typeless => Some(FormatType::Float),
 
-            Format::B8g8r8a8Typeless
-            | Format::B8g8r8x8Typeless
-            | Format::Bc1Typeless
-            | Format::Bc2Typeless
-            | Format::Bc3Typeless
-            | Format::Bc4Typeless
-            | Format::Bc5Typeless
-            | Format::Bc6hTypeless
-            | Format::Bc7Typeless
-            | Format::R10g10b10a2Typeless
-            | Format::R16g16b16a16Typeless
-            | Format::R16g16Typeless
-            | Format::R16Typeless
-            | Format::R24g8Typeless
-            | Format::R32g32b32a32Typeless
-            | Format::R32g32b32Typeless
-            | Format::R32g32Typeless
-            | Format::R32g8x24Typeless
-            | Format::R32Typeless
-            | Format::R8g8b8a8Typeless
-            | Format::R8g8Typeless
-            | Format::R8Typeless
-            | Format::X24TypelessG8Uint
-            | Format::X32TypelessG8x24Uint => Some(FormatType::Typeless),
+            Self::B8g8r8a8Typeless
+            | Self::B8g8r8x8Typeless
+            | Self::Bc1Typeless
+            | Self::Bc2Typeless
+            | Self::Bc3Typeless
+            | Self::Bc4Typeless
+            | Self::Bc5Typeless
+            | Self::Bc6hTypeless
+            | Self::Bc7Typeless
+            | Self::R10g10b10a2Typeless
+            | Self::R16g16b16a16Typeless
+            | Self::R16g16Typeless
+            | Self::R16Typeless
+            | Self::R24g8Typeless
+            | Self::R32g32b32a32Typeless
+            | Self::R32g32b32Typeless
+            | Self::R32g32Typeless
+            | Self::R32g8x24Typeless
+            | Self::R32Typeless
+            | Self::R8g8b8a8Typeless
+            | Self::R8g8Typeless
+            | Self::R8Typeless
+            | Self::X24TypelessG8Uint
+            | Self::X32TypelessG8x24Uint => Some(FormatType::Typeless),
 
-            Format::Opaque420
-            | Format::A8p8
-            | Format::Ai44
-            | Format::Ayuv
-            | Format::Bc6hSf16
-            | Format::Bc6hUf16
-            | Format::Ia44
-            | Format::Nv11
-            | Format::Nv12
-            | Format::P010
-            | Format::P016
-            | Format::P208
-            | Format::P8
-            | Format::R9g9b9e5Sharedexp
-            | Format::SamplerFeedbackMinMipOpaque
-            | Format::SamplerFeedbackMipRegionUsedOpaque
-            | Format::Unknown
-            | Format::V208
-            | Format::V408
-            | Format::Y210
-            | Format::Y216
-            | Format::Y410
-            | Format::Y416
-            | Format::Yuy2 => None,
+            Self::Opaque420
+            | Self::A8p8
+            | Self::Ai44
+            | Self::Ayuv
+            | Self::Bc6hSf16
+            | Self::Bc6hUf16
+            | Self::Ia44
+            | Self::Nv11
+            | Self::Nv12
+            | Self::P010
+            | Self::P016
+            | Self::P208
+            | Self::P8
+            | Self::R9g9b9e5Sharedexp
+            | Self::SamplerFeedbackMinMipOpaque
+            | Self::SamplerFeedbackMipRegionUsedOpaque
+            | Self::Unknown
+            | Self::V208
+            | Self::V408
+            | Self::Y210
+            | Self::Y216
+            | Self::Y410
+            | Self::Y416
+            | Self::Yuy2 => None,
         }
     }
 }
@@ -350,7 +350,7 @@ impl TryFrom<u32> for Format {
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
         if value >= DXGI_FORMAT_UNKNOWN.0 as u32 && value <= DXGI_FORMAT_YUY2.0 as u32 {
-            Ok(unsafe { std::mem::transmute::<u32, Format>(value) })
+            Ok(unsafe { std::mem::transmute::<u32, Self>(value) })
         } else {
             Err(())
         }

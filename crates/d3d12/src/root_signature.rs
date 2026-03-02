@@ -112,7 +112,7 @@ impl<'a> RootSignatureBuilder<'a> {
             .push(unsafe { transmute::<StaticSamplerDesc, D3D12_STATIC_SAMPLER_DESC>(desc) });
     }
 
-    pub fn flags(mut self, flags: RootSignatureFlags) -> Self {
+    pub const fn flags(mut self, flags: RootSignatureFlags) -> Self {
         self.flags = flags;
         self
     }
@@ -260,7 +260,7 @@ pub enum ShaderVisibility {
 
 impl From<ShaderVisibility> for D3D12_SHADER_VISIBILITY {
     fn from(value: ShaderVisibility) -> Self {
-        D3D12_SHADER_VISIBILITY(value as i32)
+        Self(value as i32)
     }
 }
 

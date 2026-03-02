@@ -43,12 +43,12 @@ impl<'a> InterpreterState<'a> {
         }
     }
 
-    pub fn with_object_channels(mut self, object_channels: &'a TempObjectChannels) -> Self {
+    pub const fn with_object_channels(mut self, object_channels: &'a TempObjectChannels) -> Self {
         self.object_channels = Some(object_channels);
         self
     }
 
-    pub fn with_debug(mut self, debug: bool) -> Self {
+    pub const fn with_debug(mut self, debug: bool) -> Self {
         self.debug = debug;
         self
     }
@@ -112,7 +112,7 @@ impl<'a> InterpreterState<'a> {
     }
 
     #[inline(always)]
-    fn stack_top(&mut self) -> &mut Vec4 {
+    const fn stack_top(&mut self) -> &mut Vec4 {
         &mut self.stack[self.stack_pointer]
     }
 
@@ -326,7 +326,7 @@ impl<'a> InterpreterState<'a> {
                     ));
                 }
                 Opcode::Saturate => {
-                    set_top!(cached_top.clamp(Vec4::ZERO, Vec4::ONE))
+                    set_top!(cached_top.clamp(Vec4::ZERO, Vec4::ONE));
                 }
                 Opcode::Unknown0x25 => {
                     set_top!(super::helpers::bytecode_op_25(cached_top));
@@ -537,16 +537,7 @@ impl<'a> InterpreterState<'a> {
                     self.push(val.z_axis)?;
                     cached_top = self.push(val.w_axis)?;
                 }
-                Opcode::PushExternInputTextureView => {
-                    let extern_id = ExternIndex::try_from(ptr[1])
-                        .ok()
-                        .context("Invalid extern index")?;
-                    let offset = ptr[2] as u32 * 8;
-
-                    let bits = (extern_id as u32) << 24 | (offset & 0xFFFFFF);
-                    cached_top = self.push(Vec4::new(f32::from_bits(bits), 0.0, 0.0, 0.0))?;
-                }
-                Opcode::PushExternInputUav => {
+                Opcode::PushExternInputTextureView | Opcode::PushExternInputUav => {
                     let extern_id = ExternIndex::try_from(ptr[1])
                         .ok()
                         .context("Invalid extern index")?;

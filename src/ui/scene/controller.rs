@@ -16,7 +16,7 @@ pub enum CameraController {
 
 impl CameraController {
     pub const DEFAULT_YAW_PITCH: Vec2 = Vec2::new(220.0, 25.0);
-    pub fn new_orbit(target: Vec3, distance: f32) -> Self {
+    pub const fn new_orbit(target: Vec3, distance: f32) -> Self {
         Self::Orbit {
             target,
             distance,
@@ -24,7 +24,7 @@ impl CameraController {
         }
     }
 
-    pub fn new_first_person() -> Self {
+    pub const fn new_first_person() -> Self {
         Self::FirstPerson {
             speed: 25.0,
             yaw_pitch: Vec2::ZERO,
@@ -43,7 +43,7 @@ impl CameraController {
                     *distance += -scroll_delta.y / 250.0;
                     *distance = distance.clamp(0.01, 1000.0);
                 }
-                let real_distance = 2.0f32.powf(*distance * 0.3) - 0.9;
+                let real_distance = (*distance * 0.3).exp2() - 0.9;
 
                 let drag_delta = response.drag_delta();
                 // Rotate
@@ -116,37 +116,33 @@ impl CameraController {
         self.update_rotation(camera);
     }
 
-    pub fn set_yaw_pitch(&mut self, yaw_pitch: Vec2) {
+    pub const fn set_yaw_pitch(&mut self, yaw_pitch: Vec2) {
         match self {
-            CameraController::Orbit { yaw_pitch: yp, .. } => {
-                *yp = yaw_pitch;
-            }
-            CameraController::FirstPerson { yaw_pitch: yp, .. } => {
+            Self::Orbit { yaw_pitch: yp, .. } | Self::FirstPerson { yaw_pitch: yp, .. } => {
                 *yp = yaw_pitch;
             }
         }
     }
 
-    pub fn yaw_pitch(&self) -> Vec2 {
+    pub const fn yaw_pitch(&self) -> Vec2 {
         match self {
-            CameraController::Orbit { yaw_pitch, .. } => *yaw_pitch,
-            CameraController::FirstPerson { yaw_pitch, .. } => *yaw_pitch,
+            Self::Orbit { yaw_pitch, .. } | Self::FirstPerson { yaw_pitch, .. } => *yaw_pitch,
         }
     }
 
     pub fn update_rotation(&mut self, camera: &mut Camera) {
         match self {
-            CameraController::Orbit {
+            Self::Orbit {
                 target,
                 yaw_pitch,
                 distance,
             } => {
                 camera.rotation = Quat::from_rotation_z(yaw_pitch.x.to_radians())
                     * Quat::from_rotation_y(yaw_pitch.y.to_radians());
-                let real_distance = 2.0f32.powf(*distance * 0.3) - 0.9;
+                let real_distance = (*distance * 0.3).exp2() - 0.9;
                 camera.position = *target - camera.forward() * real_distance;
             }
-            CameraController::FirstPerson { yaw_pitch, .. } => {
+            Self::FirstPerson { yaw_pitch, .. } => {
                 camera.rotation = Quat::from_rotation_z(yaw_pitch.x.to_radians())
                     * Quat::from_rotation_y(yaw_pitch.y.to_radians());
             }
@@ -154,6 +150,6 @@ impl CameraController {
     }
 }
 
-pub fn egui_to_glam_vec2(vec: egui::Vec2) -> glam::Vec2 {
+pub const fn egui_to_glam_vec2(vec: egui::Vec2) -> glam::Vec2 {
     glam::Vec2::new(vec.x, vec.y)
 }

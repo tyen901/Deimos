@@ -57,14 +57,15 @@ impl STechnique {
 }
 
 /// Indicates what to bind
-///     VertexPixel - bind vs+ps, unbind gs+hs+ds+cs (also does stuff with gear_dye scopes, hasn't been reversed yet)
-///     VertexOnly - bind vs, unbind ps+gs+hs+ds+cs
-///     VertexGeometryPixel - bind vs+gs+ps, unbind hs+ds+cs
-///     VertexPixelTesselated - bind vs+hs+ds+ps, unbind gs+cs
-///     VertexOnlyTesselated - bind vs+hs+ds, unbind ps+cs+gs
+///
+///     `VertexPixel` - bind vs+ps, unbind gs+hs+ds+cs (also does stuff with `gear_dye` scopes, hasn't been reversed yet)
+///     `VertexOnly` - bind vs, unbind ps+gs+hs+ds+cs
+///     `VertexGeometryPixel` - bind vs+gs+ps, unbind hs+ds+cs
+///     `VertexPixelTesselated` - bind vs+hs+ds+ps, unbind gs+cs
+///     `VertexOnlyTesselated` - bind vs+hs+ds, unbind ps+cs+gs
 ///     Compute - bind cs, unbind vs+gs+hs+ds+ps
 #[repr(u32)]
-#[derive(Clone, Copy, Debug, PartialEq, IntEnum)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, IntEnum)]
 pub enum TechniqueBindMode {
     VertexPixel = 1,
     VertexOnly = 2,
@@ -80,7 +81,7 @@ impl TigerReadable for TechniqueBindMode {
         endian: tiger_parse::Endian,
     ) -> tiger_parse::Result<Self> {
         let v = u32::read_ds_endian(reader, endian)?;
-        Self::try_from(v).map_err(|_| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
+        Self::try_from(v).map_err(|_e| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
     }
 
     const SIZE: usize = 4;
@@ -194,15 +195,15 @@ impl FixedFunctionState {
         depth_bias_state: Option<usize>,
     ) -> Self {
         Self {
-            blend_state: blend_state.map(|v| v | 0x80).unwrap_or(0) as u8,
-            depth_stencil_state: depth_stencil_state.map(|v| v | 0x80).unwrap_or(0) as u8,
-            rasterizer_state: rasterizer_state.map(|v| v | 0x80).unwrap_or(0) as u8,
-            depth_bias_state: depth_bias_state.map(|v| v | 0x80).unwrap_or(0) as u8,
+            blend_state: blend_state.map_or(0, |v| v | 0x80) as u8,
+            depth_stencil_state: depth_stencil_state.map_or(0, |v| v | 0x80) as u8,
+            rasterizer_state: rasterizer_state.map_or(0, |v| v | 0x80) as u8,
+            depth_bias_state: depth_bias_state.map_or(0, |v| v | 0x80) as u8,
         }
     }
 
     #[inline(always)]
-    pub fn from_raw(raw: u32) -> Self {
+    pub const fn from_raw(raw: u32) -> Self {
         Self {
             blend_state: (raw & 0xff) as u8,
             depth_stencil_state: ((raw >> 8) & 0xff) as u8,
@@ -212,7 +213,7 @@ impl FixedFunctionState {
     }
 
     #[inline(always)]
-    pub fn raw(&self) -> u32 {
+    pub const fn raw(&self) -> u32 {
         (self.blend_state as u32)
             | ((self.depth_stencil_state as u32) << 8)
             | ((self.rasterizer_state as u32) << 16)
@@ -220,12 +221,12 @@ impl FixedFunctionState {
     }
 
     /// Creates a new selection, filling unset states in `other` with the default state in `self`
-    pub fn select(&self, other: &FixedFunctionState) -> FixedFunctionState {
+    pub const fn select(&self, other: &Self) -> Self {
         let current = self.raw();
         let other = other.raw();
         let new_states = ((other >> 7 & 0x1010101) * 0xff) & (current ^ other) ^ current;
 
-        FixedFunctionState::from_raw(new_states)
+        Self::from_raw(new_states)
 
         // PipelineState::new(
         //     other.blend_state().or_else(|| self.blend_state()),
@@ -237,7 +238,7 @@ impl FixedFunctionState {
         // )
     }
 
-    pub fn blend_state(&self) -> Option<usize> {
+    pub const fn blend_state(&self) -> Option<usize> {
         if self.blend_state & 0x80 != 0 {
             Some((self.blend_state & 0x7f) as usize)
         } else {
@@ -245,7 +246,7 @@ impl FixedFunctionState {
         }
     }
 
-    pub fn depth_stencil_state(&self) -> Option<usize> {
+    pub const fn depth_stencil_state(&self) -> Option<usize> {
         if self.depth_stencil_state & 0x80 != 0 {
             Some((self.depth_stencil_state & 0x7f) as usize)
         } else {
@@ -253,7 +254,7 @@ impl FixedFunctionState {
         }
     }
 
-    pub fn rasterizer_state(&self) -> Option<usize> {
+    pub const fn rasterizer_state(&self) -> Option<usize> {
         if self.rasterizer_state & 0x80 != 0 {
             Some((self.rasterizer_state & 0x7f) as usize)
         } else {
@@ -261,7 +262,7 @@ impl FixedFunctionState {
         }
     }
 
-    pub fn depth_bias_state(&self) -> Option<usize> {
+    pub const fn depth_bias_state(&self) -> Option<usize> {
         if self.depth_bias_state & 0x80 != 0 {
             Some((self.depth_bias_state & 0x7f) as usize)
         } else {
@@ -269,7 +270,7 @@ impl FixedFunctionState {
         }
     }
 
-    pub fn reset(&mut self) {
+    pub const fn reset(&mut self) {
         self.blend_state = 0;
         self.depth_stencil_state = 0;
         self.rasterizer_state = 0;

@@ -323,7 +323,7 @@ pub struct VertexBufferView {
 assert_eq_size!(VertexBufferView, D3D12_VERTEX_BUFFER_VIEW);
 
 impl VertexBufferView {
-    pub fn new(
+    pub const fn new(
         buffer_location: GpuVirtualAddress,
         size_in_bytes: u32,
         stride_in_bytes: u32,

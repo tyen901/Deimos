@@ -53,7 +53,7 @@ impl ExternAccessorExt for &dyn ExternAccessor {
             );
             return None;
         }
-        let value = unsafe { &*(ptr as *const U) };
+        let value = unsafe { &*ptr.cast::<U>() };
         Some(value.clone())
     }
 }
@@ -86,17 +86,17 @@ impl TextureView {
     //     };
     // }
 
-    pub fn is_none(&self) -> bool {
-        matches!(self, TextureView::None)
+    pub const fn is_none(&self) -> bool {
+        matches!(self, Self::None)
     }
 }
 
 impl Debug for TextureView {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            TextureView::None => write!(f, "None"),
+            Self::None => write!(f, "None"),
             // TextureView::Surface(surface) => write!(f, "Surface({surface:?})"),
-            TextureView::Resource(texture) => write!(f, "Resource({})", texture.hash()),
+            Self::Resource(texture) => write!(f, "Resource({})", texture.hash()),
             // TextureView::Raw(_) => write!(f, "Raw"),
         }
     }
@@ -110,7 +110,7 @@ impl Debug for TextureView {
 
 impl From<Handle<Texture>> for TextureView {
     fn from(texture: Handle<Texture>) -> Self {
-        TextureView::Resource(texture)
+        Self::Resource(texture)
     }
 }
 
@@ -139,7 +139,7 @@ pub enum Uav {
 impl Debug for Uav {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Uav::None => write!(f, "None"),
+            Self::None => write!(f, "None"),
             // Uav::Surface(surface) => write!(f, "Surface({surface:?})"),
         }
     }
@@ -182,25 +182,25 @@ pub trait ExternDefault {
 
 impl ExternDefault for TextureView {
     fn extern_default() -> Self {
-        TextureView::None
+        Self::None
     }
 }
 
 impl ExternDefault for Uav {
     fn extern_default() -> Self {
-        Uav::None
+        Self::None
     }
 }
 
 impl ExternDefault for Vec4 {
     fn extern_default() -> Self {
-        Vec4::ONE
+        Self::ONE
     }
 }
 
 impl ExternDefault for Mat4 {
     fn extern_default() -> Self {
-        Mat4::IDENTITY
+        Self::IDENTITY
     }
 }
 

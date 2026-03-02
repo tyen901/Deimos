@@ -84,7 +84,7 @@ impl Scene {
         })
     }
 
-    pub fn with_controller(mut self, controller: CameraController) -> Self {
+    pub const fn with_controller(mut self, controller: CameraController) -> Self {
         self.controller = controller;
         self
     }

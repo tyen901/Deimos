@@ -17,9 +17,9 @@ mod world;
 #[macro_use]
 extern crate tracing;
 
-#[cfg(all(feature = "dhat-heap", not(feature = "tracy")))]
-#[global_allocator]
-static ALLOC: dhat::Alloc = dhat::Alloc;
+// #[cfg(all(feature = "dhat-heap", not(feature = "tracy")))]
+// #[global_allocator]
+// static ALLOC: dhat::Alloc = dhat::Alloc;
 
 // #[cfg(feature = "tracy")]
 // #[global_allocator]

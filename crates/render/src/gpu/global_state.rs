@@ -413,7 +413,7 @@ struct TigerInputLayoutElement {
 
 impl From<TigerInputLayoutElement> for d3d12::InputElementDesc {
     fn from(value: TigerInputLayoutElement) -> Self {
-        d3d12::InputElementDesc::builder()
+        Self::builder()
             .semantic_name(value.semantic_name)
             .semantic_index(value.semantic_index)
             .format(value.format)

@@ -105,7 +105,7 @@ impl CommandList {
 
 // GPU state management
 impl CommandList {
-    fn reset_states(&mut self) {
+    const fn reset_states(&mut self) {
         // Reset current states
         self.current_blend_state = usize::MAX;
         self.current_depth_state = usize::MAX;
@@ -116,7 +116,7 @@ impl CommandList {
         self.bound_technique = TagHash::NONE;
     }
 
-    pub fn flush_states(&mut self) {
+    pub const fn flush_states(&mut self) {
         self.reset_states();
         if let Some(blend) = self.state.blend_state() {
             self.set_blend_state(blend);
@@ -132,7 +132,7 @@ impl CommandList {
         }
     }
 
-    pub fn set_blend_state(&mut self, index: usize) {
+    pub const fn set_blend_state(&mut self, index: usize) {
         self.current_blend_state = index;
     }
 
@@ -145,11 +145,11 @@ impl CommandList {
         }
     }
 
-    pub fn set_depth_stencil_state(&mut self, index: usize) {
+    pub const fn set_depth_stencil_state(&mut self, index: usize) {
         self.current_depth_state = index;
     }
 
-    pub fn set_stencil_ref(&mut self, ref_value: u32) {
+    pub const fn set_stencil_ref(&mut self, ref_value: u32) {
         if self.current_stencil_ref != ref_value {
             self.current_stencil_ref = ref_value;
             let d = self.current_depth_state;
@@ -158,11 +158,11 @@ impl CommandList {
         }
     }
 
-    pub fn set_rasterizer_state(&mut self, index: usize) {
+    pub const fn set_rasterizer_state(&mut self, index: usize) {
         self.current_rasterizer_state = index;
     }
 
-    pub fn set_depth_bias(&mut self, index: usize) {
+    pub const fn set_depth_bias(&mut self, index: usize) {
         self.current_depth_bias = index;
     }
 
@@ -176,16 +176,16 @@ impl CommandList {
         }
     }
 
-    pub fn set_input_layout(&mut self, index: usize) {
+    pub const fn set_input_layout(&mut self, index: usize) {
         self.current_input_layout = index;
     }
 
-    pub fn get_input_layout(&self) -> usize {
+    pub const fn get_input_layout(&self) -> usize {
         self.current_input_layout
     }
 
     /// Applies a one-time state override
-    pub fn apply_state(&mut self, states: &FixedFunctionState) {
+    pub const fn apply_state(&mut self, states: &FixedFunctionState) {
         if let Some(u) = states.blend_state() {
             self.set_blend_state(u);
         }
@@ -240,7 +240,7 @@ impl CommandList {
     //     }
     // }
 
-    pub fn resources(&mut self, stage: ShaderStage) -> &mut StageResources {
+    pub const fn resources(&mut self, stage: ShaderStage) -> &mut StageResources {
         match stage {
             ShaderStage::Vertex => &mut self.resources_vs,
             ShaderStage::Pixel => &mut self.resources_ps,

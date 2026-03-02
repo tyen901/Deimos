@@ -8,7 +8,7 @@ pub struct Transform {
 }
 
 impl Transform {
-    pub fn new(position: glam::Vec3, rotation: glam::Quat, scale: Vec3) -> Self {
+    pub const fn new(position: glam::Vec3, rotation: glam::Quat, scale: Vec3) -> Self {
         Self {
             translation: position,
             rotation,

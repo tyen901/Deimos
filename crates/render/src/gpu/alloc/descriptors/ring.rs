@@ -35,7 +35,7 @@ impl DescriptorRing {
             null_texture2d,
         );
 
-        Ok(DescriptorRing {
+        Ok(Self {
             cpu_handle_base: descriptor_heap.cpu_descriptor_handle_for_heap_start(),
             gpu_handle_base: descriptor_heap.gpu_descriptor_handle_for_heap_start(),
             increment_size: device.descriptor_handle_increment_size(heap_type),
@@ -74,19 +74,19 @@ impl DescriptorRing {
         (range.cpu_start, range.gpu_start)
     }
 
-    pub fn heap(&self) -> &d3d12::DescriptorHeap {
+    pub const fn heap(&self) -> &d3d12::DescriptorHeap {
         &self.descriptor_heap
     }
 
-    pub fn gpu_handle(&self, offset: usize) -> d3d12::GpuDescriptorHandle {
+    pub const fn gpu_handle(&self, offset: usize) -> d3d12::GpuDescriptorHandle {
         self.gpu_handle_base.offset(offset, self.increment_size)
     }
 
-    pub fn cpu_handle(&self, offset: usize) -> d3d12::CpuDescriptorHandle {
+    pub const fn cpu_handle(&self, offset: usize) -> d3d12::CpuDescriptorHandle {
         self.cpu_handle_base.offset(offset, self.increment_size)
     }
 
-    pub fn cpu_index(&self, handle: d3d12::CpuDescriptorHandle) -> usize {
+    pub const fn cpu_index(&self, handle: d3d12::CpuDescriptorHandle) -> usize {
         handle.index(self.cpu_handle_base, self.increment_size)
     }
 
@@ -94,7 +94,7 @@ impl DescriptorRing {
         self.head.load(std::sync::atomic::Ordering::Relaxed)
     }
 
-    pub fn capacity(&self) -> usize {
+    pub const fn capacity(&self) -> usize {
         self.num_descriptors
     }
 }
@@ -107,19 +107,19 @@ pub struct DescriptorRange {
 }
 
 impl DescriptorRange {
-    pub fn gpu_handle(&self, offset: usize) -> d3d12::GpuDescriptorHandle {
+    pub const fn gpu_handle(&self, offset: usize) -> d3d12::GpuDescriptorHandle {
         self.gpu_start.offset(offset, self.increment_size)
     }
 
-    pub fn cpu_handle(&self, offset: usize) -> d3d12::CpuDescriptorHandle {
+    pub const fn cpu_handle(&self, offset: usize) -> d3d12::CpuDescriptorHandle {
         self.cpu_start.offset(offset, self.increment_size)
     }
 
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.num_descriptors
     }
 
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.num_descriptors == 0
     }
 }

@@ -62,41 +62,41 @@ impl<'a> GraphicsPipelineStateDesc<'a> {
         }
     }
 
-    pub fn with_vs(mut self, bytecode: &'a [u8]) -> Self {
+    pub const fn with_vs(mut self, bytecode: &'a [u8]) -> Self {
         self.inner.VS = D3D12_SHADER_BYTECODE {
-            pShaderBytecode: bytecode.as_ptr() as *const _,
+            pShaderBytecode: bytecode.as_ptr().cast(),
             BytecodeLength: bytecode.len(),
         };
         self
     }
 
-    pub fn with_ps(mut self, bytecode: &'a [u8]) -> Self {
+    pub const fn with_ps(mut self, bytecode: &'a [u8]) -> Self {
         self.inner.PS = D3D12_SHADER_BYTECODE {
-            pShaderBytecode: bytecode.as_ptr() as *const _,
+            pShaderBytecode: bytecode.as_ptr().cast(),
             BytecodeLength: bytecode.len(),
         };
         self
     }
 
-    pub fn with_ds(mut self, bytecode: &'a [u8]) -> Self {
+    pub const fn with_ds(mut self, bytecode: &'a [u8]) -> Self {
         self.inner.DS = D3D12_SHADER_BYTECODE {
-            pShaderBytecode: bytecode.as_ptr() as *const _,
+            pShaderBytecode: bytecode.as_ptr().cast(),
             BytecodeLength: bytecode.len(),
         };
         self
     }
 
-    pub fn with_hs(mut self, bytecode: &'a [u8]) -> Self {
+    pub const fn with_hs(mut self, bytecode: &'a [u8]) -> Self {
         self.inner.HS = D3D12_SHADER_BYTECODE {
-            pShaderBytecode: bytecode.as_ptr() as *const _,
+            pShaderBytecode: bytecode.as_ptr().cast(),
             BytecodeLength: bytecode.len(),
         };
         self
     }
 
-    pub fn with_gs(mut self, bytecode: &'a [u8]) -> Self {
+    pub const fn with_gs(mut self, bytecode: &'a [u8]) -> Self {
         self.inner.GS = D3D12_SHADER_BYTECODE {
-            pShaderBytecode: bytecode.as_ptr() as *const _,
+            pShaderBytecode: bytecode.as_ptr().cast(),
             BytecodeLength: bytecode.len(),
         };
         self
@@ -108,7 +108,7 @@ impl<'a> GraphicsPipelineStateDesc<'a> {
         self
     }
 
-    pub fn with_primitive_topology(mut self, topology: PrimitiveTopology2) -> Self {
+    pub const fn with_primitive_topology(mut self, topology: PrimitiveTopology2) -> Self {
         self.inner.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE(topology as i32);
         self
     }
@@ -124,7 +124,7 @@ impl<'a> GraphicsPipelineStateDesc<'a> {
         self
     }
 
-    pub fn with_depth_stencil_state(mut self, desc: D3D12_DEPTH_STENCIL_DESC) -> Self {
+    pub const fn with_depth_stencil_state(mut self, desc: D3D12_DEPTH_STENCIL_DESC) -> Self {
         self.inner.DepthStencilState = desc;
         self
     }
@@ -134,7 +134,7 @@ impl<'a> GraphicsPipelineStateDesc<'a> {
         self
     }
 
-    pub fn with_blend_state(mut self, desc: BlendDesc) -> Self {
+    pub const fn with_blend_state(mut self, desc: BlendDesc) -> Self {
         self.inner.BlendState = unsafe { desc.as_ffi().read() };
         self
     }

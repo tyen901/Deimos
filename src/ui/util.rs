@@ -46,11 +46,11 @@ pub fn spinner_image() -> &'static ImageSource<'static> {
         .with(|start_time| start_time.borrow().elapsed())
         .as_secs_f32();
 
-    const IMG0: ImageSource = include_image!("../../assets/ui/load0.png");
-    const IMG1: ImageSource = include_image!("../../assets/ui/load1.png");
-    const IMG2: ImageSource = include_image!("../../assets/ui/load2.png");
-    const IMG3: ImageSource = include_image!("../../assets/ui/load3.png");
-    const IMG4: ImageSource = include_image!("../../assets/ui/load4.png");
+    const IMG0: ImageSource<'static> = include_image!("../../assets/ui/load0.png");
+    const IMG1: ImageSource<'static> = include_image!("../../assets/ui/load1.png");
+    const IMG2: ImageSource<'static> = include_image!("../../assets/ui/load2.png");
+    const IMG3: ImageSource<'static> = include_image!("../../assets/ui/load3.png");
+    const IMG4: ImageSource<'static> = include_image!("../../assets/ui/load4.png");
 
     &[IMG0, IMG0, IMG1, IMG2, IMG3, IMG4, IMG4, IMG3, IMG2, IMG1][(time * 8.0) as usize % 10]
 }
@@ -124,7 +124,7 @@ impl<'a> DButton<'a> {
         self
     }
 
-    pub fn fill(mut self, color: Color32) -> Self {
+    pub const fn fill(mut self, color: Color32) -> Self {
         self.fill_color = color;
         self
     }

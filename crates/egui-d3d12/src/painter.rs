@@ -193,8 +193,8 @@ impl D3D12Renderer {
 
             let texture = self.tex_alloc.get_by_id(mesh.texture_id);
             let mut use_alpha = true;
-            if let Some((cpu_handle, texture_filter, texture_uses_alpha)) = &texture {
-                self.set_sampler_state(cmd, texture_filter.unwrap_or(egui::TextureFilter::Linear))?;
+            if let Some((cpu_handle, _texture_filter, texture_uses_alpha)) = &texture {
+                // self.set_sampler_state(cmd, texture_filter.unwrap_or(egui::TextureFilter::Linear))?;
                 use_alpha = *texture_uses_alpha;
                 // cmd.pixel_set_shader_resources(0, &[Some(texture)]);
                 let (dest_handle, gpu_handle) = gpu.frame().descriptors.allocate_one();
@@ -226,28 +226,11 @@ impl D3D12Renderer {
         Ok(output)
     }
 
-    pub fn textures(&self) -> &TextureAllocator {
+    pub const fn textures(&self) -> &TextureAllocator {
         &self.tex_alloc
     }
 
-    pub fn textures_mut(&mut self) -> &mut TextureAllocator {
+    pub const fn textures_mut(&mut self) -> &mut TextureAllocator {
         &mut self.tex_alloc
-    }
-}
-
-impl D3D12Renderer {
-    fn set_sampler_state(
-        &self,
-        _cmd: &d3d12::GraphicsCommandList,
-        _filter: egui::TextureFilter,
-    ) -> Result<(), RenderError> {
-        // cmd.pixel_set_samplers(
-        //     0,
-        //     &[Some(match filter {
-        //         egui::TextureFilter::Linear => &self.samplers[0],
-        //         egui::TextureFilter::Nearest => &self.samplers[1],
-        //     })],
-        // );
-        Ok(())
     }
 }

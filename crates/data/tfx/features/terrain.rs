@@ -64,13 +64,13 @@ pub struct STerrainMeshPart {
 }
 
 impl STerrainMeshPart {
-    pub fn index_range(&self) -> Range<u32> {
+    pub const fn index_range(&self) -> Range<u32> {
         self.index_start..self.index_start + self.index_count as u32
     }
 }
 
 #[repr(u8)]
-#[derive(Debug, IntEnum, PartialEq, PartialOrd)]
+#[derive(Debug, IntEnum, PartialEq, Eq, PartialOrd)]
 pub enum TerrainDetailLevel {
     High = 0,
     Medium = 1,
@@ -85,8 +85,7 @@ impl TigerReadable for TerrainDetailLevel {
         endian: tiger_parse::Endian,
     ) -> tiger_parse::Result<Self> {
         let v = u8::read_ds_endian(reader, endian)?;
-        TerrainDetailLevel::try_from(v)
-            .map_err(|_| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
+        Self::try_from(v).map_err(|_e| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
     }
 
     const SIZE: usize = 1;

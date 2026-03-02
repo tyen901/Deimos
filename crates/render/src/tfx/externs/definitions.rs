@@ -121,7 +121,7 @@ impl View {
         self.derive_matrices(view_resolution);
     }
 
-    /// Derives matrices based on world_to_camera, camera_to_projective and view resolution
+    /// Derives matrices based on `world_to_camera`, `camera_to_projective` and view resolution
     pub fn derive_matrices(&mut self, (view_width, view_height): (u32, u32)) {
         self.target_width = view_width as f32;
         self.target_height = view_height as f32;

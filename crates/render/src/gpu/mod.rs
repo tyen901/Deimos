@@ -70,7 +70,7 @@ pub struct Gpu {
     pub resource_heap: Mutex<DescriptorHeapAllocator>,
 
     /// List of resources to be destroyed after the frame is finished.
-    bin: Mutex<Vec<(Box<dyn Any>, u8)>>,
+    bin: Mutex<Vec<(Box<dyn Any + Send>, u8)>>,
 }
 
 unsafe impl Sync for Gpu {}
@@ -177,7 +177,7 @@ impl Gpu {
 
     pub fn allocate_resource(
         self: &Arc<Self>,
-        desc: &gpu_allocator::d3d12::ResourceCreateDesc,
+        desc: &gpu_allocator::d3d12::ResourceCreateDesc<'_>,
     ) -> anyhow::Result<OwnedResource> {
         let res = self.allocator.lock().create_resource(desc)?;
 
@@ -278,14 +278,16 @@ impl Gpu {
     pub fn wait_for_idle(&self) {
         let fence = GpuFence::new(&self.device).unwrap();
         let fence_value = fence.signal(&self.queue);
-        _ = fence.wait(fence_value, None);
+        fence
+            .wait(fence_value, None)
+            .expect("Failed to wait for idle fence");
     }
 
     pub fn shutdown(&self) {
         self.wait_for_idle();
     }
 
-    pub fn bin_resource<T: 'static>(&self, resource: T) {
+    pub fn bin_resource<T: 'static + Send>(&self, resource: T) {
         self.bin
             .try_lock_for(Duration::from_secs(5))
             .expect("Failed to acquire bin lock")
@@ -304,7 +306,7 @@ impl Gpu {
         unsafe {
             let d = self.adapter.GetDesc().unwrap().Description;
             let len = d.iter().position(|&x| x == 0).unwrap();
-            String::from_utf16_lossy(&d[..len]).to_string()
+            String::from_utf16_lossy(&d[..len])
         }
     }
 

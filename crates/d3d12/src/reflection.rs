@@ -55,7 +55,7 @@ impl Reflection {
         }
     }
 
-    pub fn iter_resource_binding_desc(&self) -> ResourceBindingDescIter<'_> {
+    pub const fn iter_resource_binding_desc(&self) -> ResourceBindingDescIter<'_> {
         ResourceBindingDescIter {
             reflection: self,
             index: 0,

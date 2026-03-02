@@ -70,16 +70,16 @@ impl UploadRing {
     pub fn alloc<T: Sized>(&self) -> anyhow::Result<TypedRingAllocation<T>> {
         let slice = self.alloc_slice(std::mem::size_of::<T>())?;
         Ok(TypedRingAllocation {
-            ptr: slice.ptr as *mut T,
+            ptr: slice.ptr.cast::<T>(),
             gpu_va: slice.gpu_va,
         })
     }
 
-    pub fn null(&self) -> d3d12::GpuVirtualAddress {
+    pub const fn null(&self) -> d3d12::GpuVirtualAddress {
         self.gpu_base
     }
 
-    pub fn capacity(&self) -> usize {
+    pub const fn capacity(&self) -> usize {
         self.capacity
     }
 
@@ -101,35 +101,35 @@ pub struct RingSlice {
 }
 
 impl RingSlice {
-    pub fn ptr(&self) -> *mut u8 {
+    pub const fn ptr(&self) -> *mut u8 {
         self.ptr
     }
 
     /// Returns the total capacity of the ring slice.
     ///
     /// This is the allocated length aligned up to 256 bytes
-    pub fn capacity(&self) -> usize {
+    pub const fn capacity(&self) -> usize {
         self.capacity
     }
 
     /// Returns the length of the ring slice.
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.len
     }
 
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.len == 0
     }
 
-    pub fn as_slice(&self) -> &[u8] {
+    pub const fn as_slice(&self) -> &[u8] {
         unsafe { std::slice::from_raw_parts(self.ptr, self.len) }
     }
 
-    pub fn as_mut_slice(&mut self) -> &mut [u8] {
+    pub const fn as_mut_slice(&mut self) -> &mut [u8] {
         unsafe { std::slice::from_raw_parts_mut(self.ptr, self.len) }
     }
 
-    pub fn virtual_address(&self) -> d3d12::GpuVirtualAddress {
+    pub const fn virtual_address(&self) -> d3d12::GpuVirtualAddress {
         self.gpu_va
     }
 }
@@ -140,17 +140,17 @@ pub struct TypedRingAllocation<T: Sized> {
 }
 
 impl<T: Sized> TypedRingAllocation<T> {
-    pub fn ptr(&self) -> *mut T {
+    pub const fn ptr(&self) -> *mut T {
         self.ptr
     }
 
-    pub fn write(&self, data: &T) {
+    pub const fn write(&self, data: &T) {
         unsafe {
             self.ptr().copy_from(data as *const T, 1);
         }
     }
 
-    pub fn virtual_address(&self) -> d3d12::GpuVirtualAddress {
+    pub const fn virtual_address(&self) -> d3d12::GpuVirtualAddress {
         self.gpu_va
     }
 }

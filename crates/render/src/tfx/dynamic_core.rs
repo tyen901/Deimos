@@ -100,7 +100,7 @@ impl DynamicCore {
             if vec4s.is_empty() {
                 vec![]
             } else {
-                vec4s.to_vec()
+                vec4s.clone()
             }
         };
         core.cbuffer_size = core.initial_constants.len() * size_of::<Vec4>();
@@ -108,7 +108,7 @@ impl DynamicCore {
         Ok(core)
     }
 
-    pub fn cbuffer_slot(&self) -> i32 {
+    pub const fn cbuffer_slot(&self) -> i32 {
         self.data.constant_buffer_slot
     }
 

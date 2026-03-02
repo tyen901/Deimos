@@ -1,4 +1,3 @@
-use crossbeam::epoch::Pointable;
 use deimos_data::tfx::{
     RenderStage, ShaderStage, TfxScopeBits,
     features::dynamic::{
@@ -138,15 +137,15 @@ impl DynamicModel {
         }))
     }
 
-    pub fn mesh_count(&self) -> usize {
+    pub const fn mesh_count(&self) -> usize {
         self.model.meshes.len()
     }
 
-    pub fn variant_count(&self) -> usize {
+    pub const fn variant_count(&self) -> usize {
         self.permutation_count
     }
 
-    pub fn identifier_count(&self) -> usize {
+    pub const fn identifier_count(&self) -> usize {
         self.identifier_count
     }
 

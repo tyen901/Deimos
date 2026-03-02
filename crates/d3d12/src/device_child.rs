@@ -22,7 +22,7 @@ pub trait DeviceChild {
             let _ = self.as_device_child().SetPrivateData(
                 &WKPDID_D3DDebugObjectName,
                 name_cstr.to_bytes().len() as _,
-                Some(name_cstr.as_ptr() as _),
+                Some(name_cstr.as_ptr().cast()),
             );
         }
     }

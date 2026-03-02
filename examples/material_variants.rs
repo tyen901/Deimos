@@ -8,12 +8,9 @@ use std::{
 use anyhow::Context;
 use chroma_dbg::ChromaDebug;
 use deimos_data::{
-    hash::fnv1,
-    pattern::SComponent,
-    tfx::features::dynamic::{SDynamicMeshMaterialVariants, SDynamicModelComponent},
+    hash::fnv1, pattern::SComponent, tfx::features::dynamic::SDynamicModelComponent,
 };
-use itertools::Itertools;
-use tiger_parse::{Endian, PackageManagerExt, TigerReadable};
+use tiger_parse::{PackageManagerExt, TigerReadable};
 use tiger_pkg::{TagHash, package_manager};
 
 fn main() -> anyhow::Result<()> {

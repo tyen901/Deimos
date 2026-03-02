@@ -64,27 +64,27 @@ impl ResourceDesc {
         })
     }
 
-    pub fn alignment(mut self, alignment: u64) -> Self {
+    pub const fn alignment(mut self, alignment: u64) -> Self {
         self.0.Alignment = alignment;
         self
     }
 
-    pub fn width(mut self, width: u64) -> Self {
+    pub const fn width(mut self, width: u64) -> Self {
         self.0.Width = width;
         self
     }
 
-    pub fn height(mut self, height: u32) -> Self {
+    pub const fn height(mut self, height: u32) -> Self {
         self.0.Height = height;
         self
     }
 
-    pub fn depth_or_array_size(mut self, depth_or_array_size: u16) -> Self {
+    pub const fn depth_or_array_size(mut self, depth_or_array_size: u16) -> Self {
         self.0.DepthOrArraySize = depth_or_array_size;
         self
     }
 
-    pub fn mip_levels(mut self, mip_levels: u16) -> Self {
+    pub const fn mip_levels(mut self, mip_levels: u16) -> Self {
         self.0.MipLevels = mip_levels;
         self
     }
@@ -196,7 +196,7 @@ verify_ffi_type!(SubresourceFootprint, D3D12_SUBRESOURCE_FOOTPRINT);
 pub struct TextureCopyLocation<'a>(pub(crate) D3D12_TEXTURE_COPY_LOCATION, PhantomData<&'a ()>);
 
 impl<'a> TextureCopyLocation<'a> {
-    pub fn subresource(resource: &'a Resource, subresource: u32) -> Self {
+    pub const fn subresource(resource: &'a Resource, subresource: u32) -> Self {
         Self(
             D3D12_TEXTURE_COPY_LOCATION {
                 pResource: unsafe { transmute_copy(&resource.0) },
@@ -239,7 +239,7 @@ impl<'a> TextureCopyLocation<'a> {
 pub struct ResourceBarrier<'a>(pub(crate) D3D12_RESOURCE_BARRIER, PhantomData<&'a ()>);
 
 impl<'a> ResourceBarrier<'a> {
-    pub fn transition(
+    pub const fn transition(
         resource: &'a Resource,
         subresource: u32,
         state_before: ResourceStates,
@@ -263,7 +263,7 @@ impl<'a> ResourceBarrier<'a> {
         )
     }
 
-    pub fn aliasing(resource_before: &'a Resource, resource_after: &'a Resource) -> Self {
+    pub const fn aliasing(resource_before: &'a Resource, resource_after: &'a Resource) -> Self {
         Self(
             D3D12_RESOURCE_BARRIER {
                 Type: D3D12_RESOURCE_BARRIER_TYPE_ALIASING,
@@ -280,7 +280,7 @@ impl<'a> ResourceBarrier<'a> {
         )
     }
 
-    pub fn uav(resource: &'a Resource) -> Self {
+    pub const fn uav(resource: &'a Resource) -> Self {
         Self(
             D3D12_RESOURCE_BARRIER {
                 Type: D3D12_RESOURCE_BARRIER_TYPE_UAV,

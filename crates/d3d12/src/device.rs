@@ -267,7 +267,7 @@ impl Device {
         }
     }
 
-    pub fn as_windows(&self) -> &ID3D12Device {
+    pub const fn as_windows(&self) -> &ID3D12Device {
         &self.0
     }
 }

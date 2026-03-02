@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::Context;
-use deimos_data::tfx::{STechnique, scope::SScope};
+use deimos_data::tfx::scope::SScope;
 use deimos_render::tfx::expression_vm::{self, decompiler::DecompilerState};
 use itertools::Itertools;
 use tiger_parse::PackageManagerExt;

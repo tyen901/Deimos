@@ -124,7 +124,7 @@ impl<T: Asset + Sync + Send + 'static> Handle<T> {
         self.asset.tag.is_none()
     }
 
-    pub fn hash(&self) -> TagHash {
+    pub const fn hash(&self) -> TagHash {
         self.asset.tag
     }
 

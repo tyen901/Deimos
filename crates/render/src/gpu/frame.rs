@@ -19,7 +19,7 @@ pub struct FrameContext {
 impl FrameContext {
     pub fn new(device: &d3d12::Device) -> anyhow::Result<Self> {
         let mb = 1024 * 1024;
-        Ok(FrameContext {
+        Ok(Self {
             upload: UploadRing::new(device, 64 * mb)?,
             command_list: NativeCommandList::new(device)?,
             fence_value: AtomicU64::new(0),

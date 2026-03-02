@@ -3,7 +3,7 @@ use std::{backtrace::Backtrace, panic::PanicHookInfo};
 
 use nu_ansi_term::{Color, Style};
 
-pub fn hook(panic: &PanicHookInfo) {
+pub fn hook(panic: &PanicHookInfo<'_>) {
     let message = if let Some(s) = panic.payload().downcast_ref::<&str>() {
         Some(s.to_string())
     } else {
@@ -39,7 +39,9 @@ pub fn hook(panic: &PanicHookInfo) {
         std::backtrace::BacktraceStatus::Captured => {
             writeln!(&mut msg, "Backtrace:\n{bt}").ok();
         }
-        _ => unimplemented!(),
+        u => {
+            writeln!(&mut msg, "Unknown backtrace status: {:?}", u).ok();
+        }
     }
 
     eprint!("{}", style.paint(&msg));

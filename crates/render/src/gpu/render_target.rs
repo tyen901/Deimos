@@ -95,7 +95,7 @@ impl RenderTarget {
         self.dsv_heap.gpu_descriptor_handle_for_heap_start()
     }
 
-    pub fn srv(&self) -> ResourceView {
+    pub const fn srv(&self) -> ResourceView {
         self.srv
     }
 

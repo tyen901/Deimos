@@ -43,10 +43,7 @@ impl Event {
     /// If `timeout` is `None`, the function will wait indefinitely.
     pub fn wait(&self, timeout: Option<Duration>) -> WaitResult {
         let res = unsafe {
-            WaitForSingleObject(
-                self.0,
-                timeout.map(|d| d.as_millis() as u32).unwrap_or(INFINITE),
-            )
+            WaitForSingleObject(self.0, timeout.map_or(INFINITE, |d| d.as_millis() as u32))
         };
 
         match res {

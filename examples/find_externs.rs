@@ -73,10 +73,7 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    for (t, _) in package_manager()
-        .get_all_by_reference(SScope::ID.unwrap())
-        .into_iter()
-    {
+    for (t, _) in package_manager().get_all_by_reference(SScope::ID.unwrap()) {
         let Ok(scope): tiger_parse::Result<SScope> = package_manager().read_tag_struct(t) else {
             continue;
         };
@@ -85,10 +82,7 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    for (t, _) in package_manager()
-        .get_all_by_reference(STechnique::ID.unwrap())
-        .into_iter()
-    {
+    for (t, _) in package_manager().get_all_by_reference(STechnique::ID.unwrap()) {
         let Ok(technique): tiger_parse::Result<STechnique> = package_manager().read_tag_struct(t)
         else {
             continue;

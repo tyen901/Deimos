@@ -38,7 +38,7 @@ impl DescriptorHeapAllocator {
             null_texture2d,
         );
 
-        Ok(DescriptorHeapAllocator {
+        Ok(Self {
             device: device.clone(),
             cpu_handle_base: descriptor_heap.cpu_descriptor_handle_for_heap_start(),
             increment_size: device.descriptor_handle_increment_size(heap_type),
@@ -53,15 +53,15 @@ impl DescriptorHeapAllocator {
         })
     }
 
-    pub fn heap(&self) -> &d3d12::DescriptorHeap {
+    pub const fn heap(&self) -> &d3d12::DescriptorHeap {
         &self.descriptor_heap
     }
 
-    fn handle_for_index(&self, offset: usize) -> d3d12::CpuDescriptorHandle {
+    const fn handle_for_index(&self, offset: usize) -> d3d12::CpuDescriptorHandle {
         self.cpu_handle_base.offset(offset, self.increment_size)
     }
 
-    fn index_for_handle(&self, handle: d3d12::CpuDescriptorHandle) -> usize {
+    const fn index_for_handle(&self, handle: d3d12::CpuDescriptorHandle) -> usize {
         handle.index(self.cpu_handle_base, self.increment_size)
     }
 
@@ -116,15 +116,15 @@ impl DescriptorHeapAllocator {
         self.free_handle(handle.0);
     }
 
-    pub fn null(&self) -> ResourceView {
+    pub const fn null(&self) -> ResourceView {
         ResourceView(self.null_texture2d)
     }
 
-    pub fn capacity(&self) -> usize {
+    pub const fn capacity(&self) -> usize {
         self.capacity
     }
 
-    pub fn used(&self) -> usize {
+    pub const fn used(&self) -> usize {
         self.used
     }
 }
@@ -148,7 +148,7 @@ pub struct ResourceView(d3d12::CpuDescriptorHandle);
 
 impl ResourceView {
     /// Returns the underlying CPU descriptor handle.
-    pub fn cpu_handle(&self) -> d3d12::CpuDescriptorHandle {
+    pub const fn cpu_handle(&self) -> d3d12::CpuDescriptorHandle {
         self.0
     }
 }

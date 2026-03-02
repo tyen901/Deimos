@@ -50,7 +50,7 @@ impl DynamicBuffer {
                 .Map(0, None, Some(&mut mapped_ptr))
                 .context("Failed to map upload buffer")?;
         }
-        buf.mapped_ptr = Some(mapped_ptr as *mut u8);
+        buf.mapped_ptr = Some(mapped_ptr.cast::<u8>());
 
         Ok(buf)
     }
@@ -112,7 +112,7 @@ impl DynamicBuffer {
         self.d3d12_resource().gpu_virtual_address()
     }
 
-    pub fn size(&self) -> u64 {
+    pub const fn size(&self) -> u64 {
         self.size
     }
 
@@ -240,11 +240,11 @@ impl ImmutableBuffer {
         })
     }
 
-    pub fn size(&self) -> u64 {
+    pub const fn size(&self) -> u64 {
         self.size
     }
 
-    pub fn resource_view(&self) -> ResourceView {
+    pub const fn resource_view(&self) -> ResourceView {
         self.srv
     }
 

@@ -70,7 +70,7 @@ impl IndexBuffer {
             .resource()
             .set_debug_name(format!("index_bufer {hash}"));
 
-        Ok(IndexBuffer {
+        Ok(Self {
             resource,
             length: header.data_size as usize / if header.is_32bit { 4 } else { 2 },
             size: header.data_size as usize,

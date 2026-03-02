@@ -39,21 +39,21 @@ pub struct SDynamicMesh {
     pub parts: Vec<SDynamicMeshPart>,
     /// Range of parts to render per render stage
     /// Can be obtained as follows:
-    ///     - Start = part_range_per_render_stage[stage]
-    ///     - End = part_range_per_render_stage[stage + 1]
+    ///     - Start = `part_range_per_render_stage`[stage]
+    ///     - End = `part_range_per_render_stage`[stage + 1]
     pub part_range_per_render_stage: [u16; RenderStage::COUNT + 1],
     pub input_layout_per_render_stage: [u8; RenderStage::COUNT],
     _pad7a: [u16; 3],
 }
 
 impl SDynamicMesh {
-    pub fn get_range_for_stage(&self, stage: RenderStage) -> Range<usize> {
+    pub const fn get_range_for_stage(&self, stage: RenderStage) -> Range<usize> {
         let start = self.part_range_per_render_stage[stage as usize];
         let end = self.part_range_per_render_stage[stage as usize + 1];
         start as usize..end as usize
     }
 
-    pub fn get_input_layout_for_stage(&self, stage: RenderStage) -> u8 {
+    pub const fn get_input_layout_for_stage(&self, stage: RenderStage) -> u8 {
         self.input_layout_per_render_stage[stage as usize]
     }
 }
@@ -90,7 +90,7 @@ pub struct SDynamicMeshPart {
 }
 
 impl SDynamicMeshPart {
-    pub fn index_range(&self) -> Range<u32> {
+    pub const fn index_range(&self) -> Range<u32> {
         self.index_start..self.index_start + self.index_count
     }
 }
@@ -177,7 +177,7 @@ bitflags::bitflags! {
 }
 
 impl RenderStageSubscription {
-    pub fn is_subscribed(&self, stage: RenderStage) -> bool {
+    pub const fn is_subscribed(&self, stage: RenderStage) -> bool {
         self.contains(Self::from_bits_truncate(1 << stage as u32))
     }
 

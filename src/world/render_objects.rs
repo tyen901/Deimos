@@ -104,19 +104,19 @@ pub fn s_extract_render_objects(world: &hecs::World, renderer: &Renderer) {
     }
 }
 
-pub fn s_are_all_objects_loaded(_world: &hecs::World, _renderer: &Renderer) -> bool {
-    warn!("s_are_all_objects_loaded is not implemented yet");
-    // for (_entity, static_render_object) in world.query::<&StaticRenderObject>().iter() {
-    //     if !renderer.is_object_loaded(static_render_object.handle) {
-    //         return false;
-    //     }
-    // }
+// pub fn s_are_all_objects_loaded(_world: &hecs::World, _renderer: &Renderer) -> bool {
+//     warn!("s_are_all_objects_loaded is not implemented yet");
+//     // for (_entity, static_render_object) in world.query::<&StaticRenderObject>().iter() {
+//     //     if !renderer.is_object_loaded(static_render_object.handle) {
+//     //         return false;
+//     //     }
+//     // }
 
-    // for (_entity, render_object) in world.query::<&DynamicRenderObject>().iter() {
-    //     if !renderer.is_object_loaded(render_object.handle) {
-    //         return false;
-    //     }
-    // }
+//     // for (_entity, render_object) in world.query::<&DynamicRenderObject>().iter() {
+//     //     if !renderer.is_object_loaded(render_object.handle) {
+//     //         return false;
+//     //     }
+//     // }
 
-    true
-}
+//     true
+// }

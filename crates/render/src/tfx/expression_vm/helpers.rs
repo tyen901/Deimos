@@ -3,7 +3,7 @@ use std::ops::{Add, BitAnd, Mul, Shr, Sub};
 use glam::{IVec4, UVec4, Vec4, Vec4Swizzles, vec4};
 
 fn lerp(start: f32, end: f32, t: f32) -> f32 {
-    start + (end - start) * t
+    (end - start).mul_add(t, start)
 }
 
 fn _trig_helper_vector_pseudo_sin_rotations_clamped(a: Vec4) -> Vec4 {
@@ -34,7 +34,7 @@ pub fn bytecode_op_jitter(x: Vec4) -> Vec4 {
 
     // hermite smooth interpolation (3*v^2 - 2*v^3)
     let v2 = v * v;
-    let jitter_result = (-2.0 * v + 3.0) * v2;
+    let jitter_result = (-2.0f32).mul_add(v, 3.0) * v2;
 
     Vec4::splat(jitter_result)
 }
@@ -76,7 +76,7 @@ pub fn bytecode_op_rand_smooth(x: Vec4) -> Vec4 {
     let f2 = f * f;
 
     // hermite smooth interpolation (3*f^2 - 2*f^3)
-    let smooth_f = (-2.0 * f + 3.0) * f2;
+    let smooth_f = (-2.0f32).mul_add(f, 3.0) * f2;
 
     // these magic numbers are 1/(prime/1000000)
     let mut val0 = Vec4::splat(v0).dot(Vec4::new(
@@ -443,6 +443,6 @@ impl Vec4SimdExt for Vec4 {
     }
 
     fn from_bits_uvec4(bits: UVec4) -> Self {
-        Vec4::from_slice(bytemuck::cast_slice(&bits.to_array()))
+        Self::from_slice(bytemuck::cast_slice(&bits.to_array()))
     }
 }

@@ -153,16 +153,16 @@ pub struct SDecoratorsComponent {
 }
 
 pub struct SComponentDataNode {
-    next: Option<Box<SComponentDataNode>>,
+    next: Option<Box<Self>>,
     data: ComponentData,
 }
 
 impl SComponentDataNode {
-    pub fn next(&self) -> Option<&SComponentDataNode> {
+    pub fn next(&self) -> Option<&Self> {
         self.next.as_deref()
     }
 
-    pub fn data(&self) -> &ComponentData {
+    pub const fn data(&self) -> &ComponentData {
         &self.data
     }
 }
@@ -170,13 +170,13 @@ impl SComponentDataNode {
 pub struct SComponentDataListPtr(Option<SComponentDataNode>);
 
 impl SComponentDataListPtr {
-    pub fn iter<'a>(&'a self) -> ComponentDataListIter<'a> {
+    pub const fn iter<'a>(&'a self) -> ComponentDataListIter<'a> {
         ComponentDataListIter {
             current: self.0.as_ref(),
         }
     }
 
-    pub fn first(&self) -> Option<&SComponentDataNode> {
+    pub const fn first(&self) -> Option<&SComponentDataNode> {
         self.0.as_ref()
     }
 
@@ -204,7 +204,7 @@ impl TigerReadable for SComponentDataListPtr {
 
         reader.seek(SeekFrom::Start(offset_base))?;
         reader.seek(SeekFrom::Current(offset))?;
-        let next_unboxed = SComponentDataListPtr::read_ds_endian(reader, endian)?;
+        let next_unboxed = Self::read_ds_endian(reader, endian)?;
         let next = next_unboxed.0.map(Box::new);
 
         reader.seek(SeekFrom::Start(offset_base))?;

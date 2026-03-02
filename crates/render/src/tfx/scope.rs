@@ -50,7 +50,7 @@ impl Scope {
         }
     }
 
-    pub fn all_stages(&self) -> [&ScopeStage; 2] {
+    pub const fn all_stages(&self) -> [&ScopeStage; 2] {
         [&self.stage_vertex, &self.stage_pixel]
     }
 
@@ -100,12 +100,12 @@ impl ScopeSamplers {
         Ok(Self {
             stage_vertex: ScopeStageSamplers::new(data.stage_vertex.clone(), ShaderStage::Vertex)
                 .context("while loading vertex stage")?,
-            stage_pixel: ScopeStageSamplers::new(data.stage_pixel.clone(), ShaderStage::Pixel)
+            stage_pixel: ScopeStageSamplers::new(data.stage_pixel, ShaderStage::Pixel)
                 .context("while loading pixel stage")?,
         })
     }
 
-    pub fn all_stages(&self) -> [&ScopeStageSamplers; 2] {
+    pub const fn all_stages(&self) -> [&ScopeStageSamplers; 2] {
         [&self.stage_vertex, &self.stage_pixel]
     }
 

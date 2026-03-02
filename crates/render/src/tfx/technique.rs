@@ -233,12 +233,14 @@ impl TechniqueStage {
         stage: STechniqueStage,
         shader_stage: ShaderStage,
     ) -> anyhow::Result<Self> {
-        let mut resources = Vec::new();
-        if let Ok(bytecode) = gpu.pipeline_cache.lock().get_or_load_bytecode(stage.shader)
+        let resources = if let Ok(bytecode) =
+            gpu.pipeline_cache.lock().get_or_load_bytecode(stage.shader)
             && let Some(parsed_resources) = d3d12::ext::parse_psv0_resources(&bytecode)
         {
-            resources = parsed_resources;
-        }
+            parsed_resources
+        } else {
+            vec![]
+        };
 
         let core = DynamicCore::new(asset_manager, stage.core, shader_stage)?;
         Ok(Self {

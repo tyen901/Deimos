@@ -36,21 +36,18 @@ pub enum Tab {
 }
 
 impl Tab {
-    pub fn is_fixed(&self) -> bool {
-        matches!(self, Tab::Home | Tab::Settings)
+    pub const fn is_fixed(&self) -> bool {
+        matches!(self, Self::Home | Self::Settings)
     }
 
     /// Returns an arbitrary key that's unique for the corresponding tab type. Tabs with only 1 instance return 0
-    pub fn key(&self) -> u64 {
+    pub const fn key(&self) -> u64 {
         match self {
-            Tab::Home => 0,
-            Tab::Settings => 0,
+            Self::Home | Self::Settings | Self::MapList(_) | Self::ActivityList(_) => 0,
             // Tab::EntityList(_) => 0,
             // Tab::StaticList(_) => 0,
-            Tab::MapList(_) => 0,
-            Tab::Map(tab) => tab.tag.0 as u64,
-            Tab::ActivityList(_) => 0,
-            Tab::Activity(tab) => tab.tag.0 as u64,
+            Self::Map(tab) => tab.tag.0 as u64,
+            Self::Activity(tab) => tab.tag.0 as u64,
             // Tab::TestScene(_) => 0,
             // Tab::TagLookup(_) => 0,
         }
@@ -60,16 +57,16 @@ impl Tab {
 impl Display for Tab {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            Tab::Settings => GoogleMaterialSymbols::Settings.to_string(),
-            Tab::Home => format!("{} Home", GoogleMaterialSymbols::Home),
+            Self::Settings => GoogleMaterialSymbols::Settings.to_string(),
+            Self::Home => format!("{} Home", GoogleMaterialSymbols::Home),
             // Tab::EntityList(_) => format!("{} Entities", GoogleMaterialSymbols::ChessPawn),
             // Tab::StaticList(_) => format!("{} Statics", GoogleMaterialSymbols::Landscape),
-            Tab::MapList(_) => format!("{} Maps", GoogleMaterialSymbols::Map),
-            Tab::Map(tab) => format!("{} ({})", tab.name, tab.tag),
-            Tab::ActivityList(_) => {
+            Self::MapList(_) => format!("{} Maps", GoogleMaterialSymbols::Map),
+            Self::Map(tab) => format!("{} ({})", tab.name, tab.tag),
+            Self::ActivityList(_) => {
                 format!("{} Activities", GoogleMaterialSymbols::StadiaController)
             }
-            Tab::Activity(tab) => format!("{} ({})", tab.name, tab.tag),
+            Self::Activity(tab) => format!("{} ({})", tab.name, tab.tag),
             // Tab::TestScene(_) => format!("{} Test Scene", GoogleMaterialSymbols::Experiment),
             // Tab::TagLookup(_) => format!("{} Tag Lookup", GoogleMaterialSymbols::Search),
         };

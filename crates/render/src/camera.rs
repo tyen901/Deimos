@@ -21,7 +21,7 @@ pub struct Camera {
 
 impl Default for Camera {
     fn default() -> Self {
-        Camera {
+        Self {
             position: Vec3::ZERO,
             rotation: Quat::IDENTITY,
             // projection: CameraProjection::perspective(90.0, Self::NEAR, Self::FAR),
@@ -168,7 +168,7 @@ impl CameraProjection {
             Self::Perspective => {
                 Mat4::perspective_rh(fov_or_max_width.to_radians(), aspect, near, far)
             }
-            _ => self.matrix(aspect, fov_or_max_width, near, far),
+            Self::Orthographic => self.matrix(aspect, fov_or_max_width, near, far),
         }
     }
 }

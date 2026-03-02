@@ -19,10 +19,7 @@ impl<T: Sized + Send> Task<T> {
     }
 
     pub fn is_pending(&self) -> bool {
-        self.join_handle
-            .as_ref()
-            .map(|s| !s.is_finished())
-            .unwrap_or(false)
+        self.join_handle.as_ref().is_some_and(|s| !s.is_finished())
     }
 
     pub fn get(&mut self) -> Option<std::thread::Result<T>> {

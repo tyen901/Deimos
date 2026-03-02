@@ -44,7 +44,7 @@ impl STextureHeader {
         calculated_mip_count.min(self.mip_count_broken as u16)
     }
 
-    pub fn dimension(&self) -> d3d12::ResourceDimension {
+    pub const fn dimension(&self) -> d3d12::ResourceDimension {
         if self.depth > 1 {
             d3d12::ResourceDimension::Texture3D
         } else if self.height > 1 {
@@ -56,7 +56,7 @@ impl STextureHeader {
 }
 
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DxgiFormat(d3d12::Format);
 
 impl TigerReadable for DxgiFormat {
@@ -65,7 +65,7 @@ impl TigerReadable for DxgiFormat {
         endian: tiger_parse::Endian,
     ) -> tiger_parse::Result<Self> {
         let v = u32::read_ds_endian(reader, endian)?;
-        Self::try_from(v).map_err(|_| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
+        Self::try_from(v).map_err(|_e| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
     }
 
     const SIZE: usize = 4;
@@ -73,7 +73,7 @@ impl TigerReadable for DxgiFormat {
 
 impl From<DxgiFormat> for u32 {
     fn from(val: DxgiFormat) -> Self {
-        val.0 as u32
+        val.0 as Self
     }
 }
 
@@ -85,7 +85,7 @@ impl From<DxgiFormat> for d3d12::Format {
 
 impl From<d3d12::Format> for DxgiFormat {
     fn from(val: d3d12::Format) -> Self {
-        DxgiFormat(val)
+        Self(val)
     }
 }
 
@@ -102,6 +102,7 @@ impl TryFrom<u32> for DxgiFormat {
 
 #[allow(unused)]
 impl DxgiFormat {
+    #[allow(clippy::match_same_arms)]
     pub fn bpp(&self) -> u32 {
         match self.0 {
             d3d12::Format::R32g32b32a32Typeless
@@ -220,7 +221,7 @@ impl DxgiFormat {
         }
     }
 
-    pub fn is_srgb(&self) -> bool {
+    pub const fn is_srgb(&self) -> bool {
         matches!(
             self.0,
             d3d12::Format::R8g8b8a8UnormSrgb
@@ -233,7 +234,7 @@ impl DxgiFormat {
         )
     }
 
-    pub fn is_compressed(&self) -> bool {
+    pub const fn is_compressed(&self) -> bool {
         matches!(
             self.0,
             d3d12::Format::Bc1Typeless

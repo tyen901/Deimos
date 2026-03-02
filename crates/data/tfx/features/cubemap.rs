@@ -52,7 +52,7 @@ pub struct SCubemapComponent {
     pub unk1cc: [u32; 3],
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub enum CubemapShape {
     Cube = 0,
     Sphere = 1,
@@ -68,7 +68,7 @@ impl SCubemapComponent {
         self.unk180.y > 0.0
     }
 
-    pub fn use_probes(&self) -> bool {
+    pub const fn use_probes(&self) -> bool {
         (self.probes_resolution[0] * self.probes_resolution[1] * self.probes_resolution[2]) > 1
     }
 
@@ -83,7 +83,7 @@ impl SCubemapComponent {
     //     v.x > 0.0 && v.y > 0.0 && v.z > 0.0
     // }
 
-    pub fn shape(&self) -> CubemapShape {
+    pub const fn shape(&self) -> CubemapShape {
         // // TODO(cohae): uses some more funky math to determine, but this is generally correct
         // if self.unk60.w > 0.0 {
         //     CubemapShape::CubeSphere

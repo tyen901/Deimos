@@ -30,7 +30,7 @@ impl VertexBuffer {
             .read_tag(entry.reference)
             .context("Failed to read buffer data")?;
 
-        let vb = VertexBuffer::load_data(gpu, &data, header.stride as _)?;
+        let vb = Self::load_data(gpu, &data, header.stride as _)?;
         vb.resource
             .resource()
             .set_debug_name(format!("vertex_buffer {hash}"));

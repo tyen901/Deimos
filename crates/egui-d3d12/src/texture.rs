@@ -44,7 +44,7 @@ pub struct TextureAllocator {
 
 impl TextureAllocator {
     pub fn new(gpu: &Arc<Gpu>) -> Result<Self, RenderError> {
-        Ok(TextureAllocator {
+        Ok(Self {
             allocated: HashMap::default(),
             allocated_unmanaged: HashMap::default(),
             unmanaged_free_handles: Vec::new(),
@@ -136,11 +136,11 @@ impl TextureAllocator {
         });
     }
 
-    pub fn set_filter(&mut self, _tid: TextureId, _filter: Option<egui::TextureFilter>) {
-        // if let Some((_, f, _)) = self.allocated_unmanaged.get_mut(&tid) {
-        //     *f = filter;
-        // }
-    }
+    // pub const fn set_filter(&mut self, _tid: TextureId, _filter: Option<egui::TextureFilter>) {
+    //     // if let Some((_, f, _)) = self.allocated_unmanaged.get_mut(&tid) {
+    //     //     *f = filter;
+    //     // }
+    // }
 
     pub fn free(&mut self, tid: TextureId) -> bool {
         if let Some(removed) = self.allocated.remove(&tid) {
@@ -191,7 +191,7 @@ impl TextureAllocator {
         if let Some(mut tex) = self.allocated.remove(&tid) {
             match image {
                 ImageData::Color(f) => {
-                    let new: Vec<Color32> = f.pixels.to_vec();
+                    let new: Vec<Color32> = f.pixels.clone();
 
                     for y in 0..f.height() {
                         for x in 0..f.width() {
@@ -214,7 +214,7 @@ impl TextureAllocator {
     }
 
     fn allocate_texture(
-        &mut self,
+        &self,
         gpu: &Gpu,
         cmd: &d3d12::GraphicsCommandList,
         image: &ImageData,
@@ -269,7 +269,7 @@ impl TextureAllocator {
 
     /// Upload the texture data for an allocated texture
     fn upload_texture(
-        &mut self,
+        &self,
         _gpu: &Gpu,
         cmd: &d3d12::GraphicsCommandList,
         texture: &ManagedTexture,

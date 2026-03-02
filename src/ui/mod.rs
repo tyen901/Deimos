@@ -194,28 +194,28 @@ impl Gui {
                 let hovered = TabInteractionStyle {
                     outline_color: Color32::from_gray(127),
                     bg_fill: ctx.style().visuals.window_fill().gamma_multiply(0.5),
-                    ..inactive.clone()
+                    ..inactive
                 };
 
                 let active = TabInteractionStyle {
                     bg_fill: ctx.style().visuals.window_fill(),
-                    ..hovered.clone()
+                    ..hovered
                 };
 
                 let focused = TabInteractionStyle {
                     outline_color: Color32::WHITE,
                     bg_fill: ctx.style().visuals.window_fill(),
-                    ..inactive.clone()
+                    ..inactive
                 };
 
                 style.tab = egui_dock::TabStyle {
                     active: active.clone(),
                     inactive: inactive.clone(),
                     focused: focused.clone(),
-                    hovered: hovered.clone(),
-                    inactive_with_kb_focus: inactive.clone(),
-                    active_with_kb_focus: active.clone(),
-                    focused_with_kb_focus: focused.clone(),
+                    hovered,
+                    inactive_with_kb_focus: inactive,
+                    active_with_kb_focus: active,
+                    focused_with_kb_focus: focused,
                     tab_body: egui_dock::TabBodyStyle {
                         inner_margin: ctx.style().spacing.window_margin,
                         stroke: ctx.style().visuals.widgets.noninteractive.bg_stroke,

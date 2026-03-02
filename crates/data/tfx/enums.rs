@@ -39,7 +39,7 @@ pub enum RenderStage {
 impl RenderStage {
     pub const COUNT: usize = Self::ComputeSkinning as usize + 1;
 
-    pub fn to_flag(&self) -> RenderStageSubscription {
+    pub const fn to_flag(&self) -> RenderStageSubscription {
         RenderStageSubscription::from_bits(1 << *self as u32).unwrap()
     }
 }
@@ -84,14 +84,14 @@ impl TigerReadable for RenderStage {
         endian: tiger_parse::Endian,
     ) -> tiger_parse::Result<Self> {
         let v = u8::read_ds_endian(reader, endian)?;
-        Self::try_from(v).map_err(|_| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
+        Self::try_from(v).map_err(|_e| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
     }
 
     const SIZE: usize = 1;
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq, IntEnum)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, IntEnum)]
 pub enum TfxFeatureRenderer {
     StaticObjects = 0,
     DynamicObjects = 1,
@@ -125,33 +125,33 @@ pub enum TfxFeatureRenderer {
 impl Display for TfxFeatureRenderer {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let n = match self {
-            TfxFeatureRenderer::StaticObjects => "static_object",
-            TfxFeatureRenderer::DynamicObjects => "dynamic_object",
-            TfxFeatureRenderer::ExampleEntity => "example_entity",
-            TfxFeatureRenderer::SkinnedObject => "skinned_object",
-            TfxFeatureRenderer::Gear => "gear",
-            TfxFeatureRenderer::RigidObject => "rigid_object",
-            TfxFeatureRenderer::Cloth => "cloth",
-            TfxFeatureRenderer::ChunkedInstanceObjects => "chunked_instance_object",
-            TfxFeatureRenderer::SoftDeformable => "soft_deformable",
-            TfxFeatureRenderer::TerrainPatch => "terrain_patch",
-            TfxFeatureRenderer::SpeedtreeTrees => "speedtree_trees",
-            TfxFeatureRenderer::EditorTerrainTile => "editor_terrain_tile",
-            TfxFeatureRenderer::EditorMesh => "editor_mesh",
-            TfxFeatureRenderer::BatchedEditorMesh => "batched_editor_mesh",
-            TfxFeatureRenderer::EditorDecal => "editor_decal",
-            TfxFeatureRenderer::Particles => "particles",
-            TfxFeatureRenderer::ChunkedLights => "chunked_light",
-            TfxFeatureRenderer::DeferredLights => "deferred_light",
-            TfxFeatureRenderer::SkyTransparent => "sky_transparent",
-            TfxFeatureRenderer::Widget => "widget",
-            TfxFeatureRenderer::Decals => "decal",
-            TfxFeatureRenderer::DynamicDecals => "dynamic_decal",
-            TfxFeatureRenderer::RoadDecals => "road_decal",
-            TfxFeatureRenderer::Water => "water",
-            TfxFeatureRenderer::LensFlares => "lens_flare",
-            TfxFeatureRenderer::Volumetrics => "volumetrics",
-            TfxFeatureRenderer::Cubemaps => "cubemap",
+            Self::StaticObjects => "static_object",
+            Self::DynamicObjects => "dynamic_object",
+            Self::ExampleEntity => "example_entity",
+            Self::SkinnedObject => "skinned_object",
+            Self::Gear => "gear",
+            Self::RigidObject => "rigid_object",
+            Self::Cloth => "cloth",
+            Self::ChunkedInstanceObjects => "chunked_instance_object",
+            Self::SoftDeformable => "soft_deformable",
+            Self::TerrainPatch => "terrain_patch",
+            Self::SpeedtreeTrees => "speedtree_trees",
+            Self::EditorTerrainTile => "editor_terrain_tile",
+            Self::EditorMesh => "editor_mesh",
+            Self::BatchedEditorMesh => "batched_editor_mesh",
+            Self::EditorDecal => "editor_decal",
+            Self::Particles => "particles",
+            Self::ChunkedLights => "chunked_light",
+            Self::DeferredLights => "deferred_light",
+            Self::SkyTransparent => "sky_transparent",
+            Self::Widget => "widget",
+            Self::Decals => "decal",
+            Self::DynamicDecals => "dynamic_decal",
+            Self::RoadDecals => "road_decal",
+            Self::Water => "water",
+            Self::LensFlares => "lens_flare",
+            Self::Volumetrics => "volumetrics",
+            Self::Cubemaps => "cubemap",
         };
 
         write!(f, "{n}")
@@ -164,7 +164,7 @@ impl TigerReadable for TfxFeatureRenderer {
         endian: tiger_parse::Endian,
     ) -> tiger_parse::Result<Self> {
         let v = u8::read_ds_endian(reader, endian)?;
-        Self::try_from(v).map_err(|_| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
+        Self::try_from(v).map_err(|_e| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
     }
 
     const SIZE: usize = 1;
@@ -208,14 +208,14 @@ impl FeatureRendererSubscription {
         Self::all().difference(Self::from_bits_truncate(1 << feature as u32))
     }
 
-    pub fn is_subscribed(&self, feature: TfxFeatureRenderer) -> bool {
+    pub const fn is_subscribed(&self, feature: TfxFeatureRenderer) -> bool {
         self.contains(Self::from_bits_truncate(1 << feature as u32))
     }
 }
 
 // TODO(cohae): Duplicate struct, used in TFX bytecode in the renderer
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq, IntEnum)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, IntEnum)]
 pub enum ShaderStage {
     Pixel = 1,
     Vertex = 2,
@@ -226,37 +226,37 @@ pub enum ShaderStage {
 }
 
 impl ShaderStage {
-    pub fn from_index(index: u8) -> Option<Self> {
+    pub const fn from_index(index: u8) -> Option<Self> {
         match index {
-            1 => Some(ShaderStage::Pixel),
-            2 => Some(ShaderStage::Vertex),
-            3 => Some(ShaderStage::Geometry),
-            4 => Some(ShaderStage::Hull),
-            5 => Some(ShaderStage::Compute),
-            6 => Some(ShaderStage::Domain),
+            1 => Some(Self::Pixel),
+            2 => Some(Self::Vertex),
+            3 => Some(Self::Geometry),
+            4 => Some(Self::Hull),
+            5 => Some(Self::Compute),
+            6 => Some(Self::Domain),
             _ => None,
         }
     }
 
-    pub fn short_name(&self) -> &'static str {
+    pub const fn short_name(&self) -> &'static str {
         match self {
-            ShaderStage::Pixel => "PS",
-            ShaderStage::Vertex => "VS",
-            ShaderStage::Geometry => "GS",
-            ShaderStage::Hull => "HS",
-            ShaderStage::Compute => "CS",
-            ShaderStage::Domain => "DS",
+            Self::Pixel => "PS",
+            Self::Vertex => "VS",
+            Self::Geometry => "GS",
+            Self::Hull => "HS",
+            Self::Compute => "CS",
+            Self::Domain => "DS",
         }
     }
 
-    pub fn shader_visibility(&self) -> d3d12::ShaderVisibility {
+    pub const fn shader_visibility(&self) -> d3d12::ShaderVisibility {
         match self {
-            ShaderStage::Pixel => d3d12::ShaderVisibility::Pixel,
-            ShaderStage::Vertex => d3d12::ShaderVisibility::Vertex,
-            ShaderStage::Geometry => d3d12::ShaderVisibility::Geometry,
-            ShaderStage::Hull => d3d12::ShaderVisibility::Hull,
-            ShaderStage::Compute => d3d12::ShaderVisibility::All,
-            ShaderStage::Domain => d3d12::ShaderVisibility::Domain,
+            Self::Pixel => d3d12::ShaderVisibility::Pixel,
+            Self::Vertex => d3d12::ShaderVisibility::Vertex,
+            Self::Geometry => d3d12::ShaderVisibility::Geometry,
+            Self::Hull => d3d12::ShaderVisibility::Hull,
+            Self::Compute => d3d12::ShaderVisibility::All,
+            Self::Domain => d3d12::ShaderVisibility::Domain,
         }
     }
 }
@@ -267,13 +267,13 @@ impl TigerReadable for ShaderStage {
         endian: tiger_parse::Endian,
     ) -> tiger_parse::Result<Self> {
         let v = u8::read_ds_endian(reader, endian)?;
-        Self::try_from(v).map_err(|_| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
+        Self::try_from(v).map_err(|_e| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
     }
 
     const SIZE: usize = 1;
 }
 
-#[derive(Debug, PartialEq, Copy, Clone, IntEnum)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, IntEnum)]
 #[repr(u8)]
 pub enum PrimitiveType {
     PointList = 0,
@@ -289,7 +289,7 @@ impl TigerReadable for PrimitiveType {
         endian: tiger_parse::Endian,
     ) -> tiger_parse::Result<Self> {
         let v = u8::read_ds_endian(reader, endian)?;
-        Self::try_from(v).map_err(|_| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
+        Self::try_from(v).map_err(|_e| tiger_parse::Error::EnumVariantOutOfRange(v as usize))
     }
 
     const SIZE: usize = 1;
@@ -308,7 +308,7 @@ impl std::fmt::Debug for LodCategory {
 }
 
 impl LodCategory {
-    pub fn is_highest_detail(&self) -> bool {
+    pub const fn is_highest_detail(&self) -> bool {
         self.0 & 0b1 == 0b1
         // (self.0 & 0b10000000) != 0
         // matches!(
@@ -320,7 +320,7 @@ impl LodCategory {
         //         | LodCategory::Lod_Detail
         // )
     }
-    pub fn is_second_highest_detail(&self) -> bool {
+    pub const fn is_second_highest_detail(&self) -> bool {
         self.0 & 0b10 == 0b10
         // (self.0 & 0b10000000) != 0
         // matches!(

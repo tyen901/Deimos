@@ -142,7 +142,5 @@ pub fn find_kv_name(hash: u32) -> Option<&'static str> {
 }
 
 pub fn find_kv_name_or_default(hash: u32) -> String {
-    find_kv_name(hash)
-        .map(|v| v.to_string())
-        .unwrap_or_else(|| format!("unknown_{hash:08X}"))
+    find_kv_name(hash).map_or_else(|| format!("unknown_{hash:08X}"), |v| v.to_string())
 }
