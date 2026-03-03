@@ -1,8 +1,8 @@
 use std::any::Any;
 
 // pub mod rigid_model;
-// mod shared;
-// pub mod static_geometry;
+mod shared;
+pub mod static_geometry;
 pub mod terrain_patches;
 
 use deimos_data::tfx::{RenderStage, features::dynamic::RenderStageSubscription};
@@ -13,12 +13,13 @@ use crate::{
         Renderer,
         packet::{RenderPerViewNode, SubmitNode, SubmitNodeContainer},
     },
+    visibility::{ViewVisibility, frustum::Frustum},
 };
 
 pub trait FeatureRenderer: Send {
-    fn extract(&mut self, renderer: &Renderer, data: &dyn Any);
+    fn extract(&mut self, renderer: &Renderer, view_node: &RenderPerViewNode);
 
-    fn prepare(&mut self, renderer: &Renderer);
+    fn prepare(&mut self, renderer: &Renderer, view_node: &RenderPerViewNode);
 
     fn submit(
         &self,
@@ -43,6 +44,7 @@ pub trait FeatureRenderer: Send {
         &self,
         renderer: &Renderer,
         view_node: usize,
+        visibility: &ViewVisibility,
         submit_node_blocks: &mut SubmitNodeContainer,
     );
 

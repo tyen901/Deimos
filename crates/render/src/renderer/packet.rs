@@ -6,9 +6,9 @@ use deimos_data::tfx::{
 };
 use static_assertions::assert_eq_size;
 
-use crate::renderer::object::RenderObjectHandle;
+use crate::{renderer::object::RenderObjectHandle, visibility::frustum::Frustum};
 
-#[derive(Default, Debug)]
+#[derive(Default)]
 pub struct FramePacket {
     allocator: bumpalo::Bump,
     pub per_frame_nodes: Vec<RenderPerFrameNode>,
@@ -39,8 +39,9 @@ impl FramePacket {
         index
     }
 
-    pub fn insert_view(&mut self, view_id: usize) {
+    pub fn insert_view(&mut self, view_id: usize, culling_frustum: Frustum) {
         self.views.resize_with(view_id + 1, ViewPacket::default);
+        self.views[view_id].culling_frustum = culling_frustum;
     }
 
     pub fn push_view_node<T: Pod>(
@@ -77,8 +78,8 @@ impl FramePacket {
     }
 }
 
-#[derive(Debug)]
 pub struct ViewPacket {
+    pub culling_frustum: Frustum,
     pub view_nodes: Vec<RenderPerViewNode>,
     pub submit_node_blocks: SubmitNodeContainer,
 }
@@ -86,6 +87,7 @@ pub struct ViewPacket {
 impl Default for ViewPacket {
     fn default() -> Self {
         Self {
+            culling_frustum: Frustum::default(),
             view_nodes: Vec::with_capacity(4096),
             submit_node_blocks: SubmitNodeContainer::default(),
         }
@@ -95,16 +97,16 @@ impl Default for ViewPacket {
 pub struct SubmitNodeContainer([Vec<SubmitNode>; RenderStage::COUNT]);
 
 impl SubmitNodeContainer {
-    pub fn submit_block(&self, stage: RenderStage) -> &[SubmitNode] {
+    pub fn block(&self, stage: RenderStage) -> &[SubmitNode] {
         &self.0[stage as usize]
     }
 
-    pub const fn submit_block_mut(&mut self, stage: RenderStage) -> &mut Vec<SubmitNode> {
+    pub const fn block_mut(&mut self, stage: RenderStage) -> &mut Vec<SubmitNode> {
         &mut self.0[stage as usize]
     }
 
     pub fn push(&mut self, stage: RenderStage, node: SubmitNode) {
-        self.submit_block_mut(stage).push(node);
+        self.block_mut(stage).push(node);
     }
 
     pub fn broadcast(&mut self, stages: RenderStageSubscription, node: SubmitNode) {
@@ -115,7 +117,7 @@ impl SubmitNodeContainer {
 
     /// Reserves space for additional submit nodes in the specified stage, if needed.
     pub fn ensure_capacity(&mut self, stage: RenderStage, additional: usize) {
-        let block = self.submit_block_mut(stage);
+        let block = self.block_mut(stage);
         if block.capacity() - block.len() < additional {
             block.reserve(additional);
         }

@@ -7,11 +7,16 @@ use crate::{
     gpu::frame,
     renderer::{Renderer, packet::ViewPacket, scene::SceneRenderer},
     tfx::view,
+    visibility::ViewVisibility,
 };
 
 pub mod render_objects;
 
-pub fn s_extract_frame_packet(world: &hecs::World, scene: &mut SceneRenderer) {
+pub fn s_extract_frame_packet(
+    world: &hecs::World,
+    scene: &mut SceneRenderer,
+    visibility: &ViewVisibility,
+) {
     let SceneRenderer {
         parent: renderer,
         frame_packet,
@@ -19,18 +24,21 @@ pub fn s_extract_frame_packet(world: &hecs::World, scene: &mut SceneRenderer) {
     } = scene;
 
     let views = [&main_view];
-    frame_packet.insert_view(0);
+    frame_packet.insert_view(0, main_view.culling_frustum.clone());
 
     for (_entity, (static_render_object, bounds)) in world
         .query::<(&StaticRenderObject, Option<&AxisAlignedBBox>)>()
         .iter()
     {
-        let bounds = bounds.map_or(SphereBounds::INFINITE, |b| b.sphere());
-        let frame_node =
-            frame_packet.push_frame_node::<()>(static_render_object.handle(), bounds, None);
+        let bounds = bounds.map_or(AxisAlignedBBox::EVERYTHING, |b| b.clone());
+        let frame_node = frame_packet.push_frame_node::<()>(
+            static_render_object.handle(),
+            bounds.sphere(),
+            None,
+        );
 
         for (view_id, v) in views.iter().enumerate() {
-            if v.culling_frustum.sphere_intersecting(&bounds) {
+            if visibility.is_visible(&bounds) {
                 frame_packet.push_view_node::<()>(view_id, frame_node, None);
             }
         }
@@ -64,7 +72,7 @@ pub fn s_extract_frame_packet(world: &hecs::World, scene: &mut SceneRenderer) {
     // }
 }
 
-pub fn populate_submit_nodes(scene: &mut SceneRenderer) {
+pub fn populate_submit_nodes(scene: &mut SceneRenderer, visibility: &ViewVisibility) {
     let SceneRenderer {
         parent: renderer,
         frame_packet,
@@ -73,6 +81,7 @@ pub fn populate_submit_nodes(scene: &mut SceneRenderer) {
 
     let render_objects = renderer.objects.read();
     for ViewPacket {
+        culling_frustum,
         view_nodes,
         submit_node_blocks,
     } in frame_packet.views.iter_mut()
@@ -86,6 +95,7 @@ pub fn populate_submit_nodes(scene: &mut SceneRenderer) {
             render_object.renderer.populate_submit_node_blocks(
                 renderer,
                 view_node,
+                visibility,
                 submit_node_blocks,
             );
         }

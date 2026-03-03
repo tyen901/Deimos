@@ -16,7 +16,7 @@ use deimos_data::{
 use deimos_ecs::transform::Transform;
 use deimos_render::{
     ecs::render_objects::StaticRenderObject,
-    features::terrain_patches::TerrainPatchesRenderer,
+    features::{static_geometry::StaticInstancesRenderer, terrain_patches::TerrainPatchesRenderer},
     renderer::{Renderer, object::RenderObject},
 };
 use glam::Vec4Swizzles;
@@ -193,21 +193,21 @@ pub fn spawn_pattern_from_header(
                 )?;
             }
             0x808084E8 => {
-                // let data = get_component_data!(SStaticInstancesCollectionComponent);
-                // let instances: SUnk808082D5 = package_manager().read_tag_struct(data.instances)?;
-                // world.insert_one(
-                //     entity,
-                //     StaticRenderObject::new(
-                //         renderer,
-                //         renderer.add_object(RenderObject::new(
-                //             TfxFeatureRenderer::ChunkedInstanceObjects,
-                //             Box::new(StaticInstancesRenderer::load(
-                //                 renderer,
-                //                 instances.instances,
-                //             )?),
-                //         )),
-                //     ),
-                // )?;
+                let data = get_component_data!(SStaticInstancesCollectionComponent);
+                let instances: SUnk808082D5 = package_manager().read_tag_struct(data.instances)?;
+                world.insert_one(
+                    entity,
+                    StaticRenderObject::new(
+                        renderer,
+                        renderer.add_object(RenderObject::new(
+                            TfxFeatureRenderer::ChunkedInstanceObjects,
+                            Box::new(StaticInstancesRenderer::load(
+                                renderer,
+                                instances.instances,
+                            )?),
+                        )),
+                    ),
+                )?;
             }
             // 0x80806957 => {
             //     let data = get_component_data!(SDecalCollectionComponent);

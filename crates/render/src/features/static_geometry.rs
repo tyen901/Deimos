@@ -24,8 +24,12 @@ use crate::{
     asset::{Handle, vertex_buffer::VertexBuffer},
     features::shared::ModelBuffers,
     gpu::{buffer::ImmutableBuffer, command_list::CommandList},
-    renderer::Renderer,
+    renderer::{
+        Renderer,
+        packet::{RenderPerViewNode, SubmitNode},
+    },
     tfx::technique::Technique,
+    visibility::ViewVisibility,
 };
 
 use super::FeatureRenderer;
@@ -478,9 +482,9 @@ impl FeatureRenderer for StaticInstancesRenderer {
     //     true
     // }
 
-    fn extract(&mut self, _renderer: &Renderer, _data: &dyn std::any::Any) {}
+    fn extract(&mut self, _renderer: &Renderer, _view_node: &RenderPerViewNode) {}
 
-    fn prepare(&mut self, _renderer: &Renderer) {
+    fn prepare(&mut self, _renderer: &Renderer, _view_node: &RenderPerViewNode) {
         // let ctx = renderer.gpu.context();
         // for (model, _visible) in self.models.iter_mut().filter(|(_, visible)| *visible) {
         //     model.prepare_write_instance_ids(&ctx);
@@ -493,10 +497,37 @@ impl FeatureRenderer for StaticInstancesRenderer {
         // }
     }
 
-    fn submit(&self, cmd: &mut CommandList, stage: RenderStage) {
-        for model in self.models.iter() {
-            model.render_all(cmd, stage);
+    fn populate_submit_node_blocks(
+        &self,
+        _renderer: &Renderer,
+        view_node: usize,
+        visibility: &ViewVisibility,
+        submit_node_blocks: &mut crate::renderer::packet::SubmitNodeContainer,
+    ) {
+        for (i, model) in self.models.iter().enumerate() {
+            if visibility.is_visible(&model.bounds) {
+                submit_node_blocks.broadcast(
+                    model.model.subscribed_stages,
+                    SubmitNode {
+                        key: i as u64,
+                        view_node,
+                    },
+                );
+            }
         }
+    }
+
+    fn submit(
+        &self,
+        cmd: &mut CommandList,
+        stage: RenderStage,
+        view_node: &RenderPerViewNode,
+        submit_key: u64,
+    ) {
+        self.models[submit_key as usize].render_all(cmd, stage);
+        // for model in self.models.iter() {
+        // model.render_all(cmd, stage);
+        // }
 
         // let Some(groups_sorted_by_technique) = self.groups_by_stage_sorted_by_technique.get(&stage)
         // else {

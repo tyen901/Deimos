@@ -1,7 +1,6 @@
 use std::{sync::Arc, time::Instant};
 
 use anyhow::Context;
-use chroma_dbg::ChromaDebug;
 use deimos_data::tfx::RenderStage;
 use deimos_render::{
     camera::Camera,
@@ -12,7 +11,7 @@ use deimos_render::{
     },
     renderer::{Renderer, packet::FramePacket, scene::SceneRenderer},
     tfx::view::ShadedView,
-    visibility::frustum::Frustum,
+    visibility::{ViewVisibility, frustum::Frustum},
 };
 use egui::{RichText, Sense, Ui, UiBuilder, Vec2, load::SizedTexture, vec2};
 use google_material_symbols::GoogleMaterialSymbols;
@@ -354,9 +353,35 @@ impl Scene {
                 //         .submit(&mut cmd_tfx, RenderStage::GenerateGbuffer);
                 // }
                 self.scene.frame_packet.reset();
-                s_extract_frame_packet(&self.world, &mut self.scene);
-                populate_submit_nodes(&mut self.scene);
-                // println!("{:#?}", self.scene.frame_packet.views);
+                let vis = &ViewVisibility {
+                    culling_frustum: self.camera.culling_frustum.clone(),
+                    position: self.camera.position,
+                    world_to_projective: self.camera.world_to_projective,
+                };
+                s_extract_frame_packet(&self.world, &mut self.scene, vis);
+                populate_submit_nodes(&mut self.scene, vis);
+
+                let render_objects = self.renderer.objects.read();
+                for view in &self.scene.frame_packet.views {
+                    for submit_node in view.submit_node_blocks.block(RenderStage::GenerateGbuffer) {
+                        let view_node = &view.view_nodes[submit_node.view_node];
+                        let frame_node =
+                            &self.scene.frame_packet.per_frame_nodes[view_node.frame_node];
+                        let Some(render_object) = render_objects.get(frame_node.object) else {
+                            error!(
+                                "Render object with handle {:?} not found",
+                                frame_node.object
+                            );
+                            continue;
+                        };
+                        render_object.renderer.submit(
+                            &mut cmd_tfx,
+                            RenderStage::GenerateGbuffer,
+                            view_node,
+                            submit_node.key,
+                        );
+                    }
+                }
 
                 self.render_target1
                     .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);

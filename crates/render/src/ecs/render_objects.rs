@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-use deimos_ecs::{permutations::PermutationConfig, transform::Transform};
-
 use crate::renderer::{Renderer, object::RenderObjectHandle};
 
 pub struct StaticRenderObject {

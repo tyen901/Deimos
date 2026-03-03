@@ -72,6 +72,13 @@ impl RenderGlobals {
         let data: SRenderGlobals = package_manager().read_named_tag_struct("render_globals")?;
         let globs = &data.unk8.first().context("No render globals found")?.unk8.0;
 
+        for (i, scope) in globs.scopes.iter().enumerate() {
+            println!(
+                "const {} = 1 << {i};",
+                scope.name.0.to_string().to_uppercase()
+            );
+        }
+
         Ok(Self {
             scopes: GlobalScopes::load(asset_manager, globs),
             // pipelines: GlobalPipelines::load(gpu, globs),

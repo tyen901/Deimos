@@ -22,6 +22,7 @@ use crate::{
         packet::{RenderPerViewNode, SubmitNode, SubmitNodeContainer},
     },
     tfx::technique::Technique,
+    visibility::ViewVisibility,
 };
 
 use super::FeatureRenderer;
@@ -201,9 +202,9 @@ impl FeatureRenderer for TerrainPatchesRenderer {
     //         .aabb_intersecting(&self.terrain.bounds)
     // }
 
-    fn extract(&mut self, _renderer: &Renderer, _data: &dyn std::any::Any) {}
+    fn extract(&mut self, _renderer: &Renderer, _view_node: &RenderPerViewNode) {}
 
-    fn prepare(&mut self, _renderer: &Renderer) {}
+    fn prepare(&mut self, _renderer: &Renderer, _view_node: &RenderPerViewNode) {}
 
     fn submit(
         &self,
@@ -219,6 +220,7 @@ impl FeatureRenderer for TerrainPatchesRenderer {
         &self,
         _renderer: &Renderer,
         view_node: usize,
+        _visibility: &ViewVisibility,
         submit_node_blocks: &mut SubmitNodeContainer,
     ) {
         for (i, _part) in self

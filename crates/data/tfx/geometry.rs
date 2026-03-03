@@ -16,6 +16,11 @@ impl AxisAlignedBBox {
         max: Vec4::new(f32::MIN, f32::MIN, f32::MIN, f32::MIN),
     };
 
+    pub const EVERYTHING: Self = Self {
+        min: Vec4::new(f32::MIN, f32::MIN, f32::MIN, f32::MIN),
+        max: Vec4::new(f32::MAX, f32::MAX, f32::MAX, f32::MAX),
+    };
+
     pub fn from_center_extents(center: Vec3, extents: Vec3) -> Self {
         Self {
             min: vec3(
@@ -94,6 +99,15 @@ impl AxisAlignedBBox {
             center: self.center(),
             radius: self.radius(),
         }
+    }
+
+    pub fn contains_point(&self, point: Vec3) -> bool {
+        point.x >= self.min.x
+            && point.x <= self.max.x
+            && point.y >= self.min.y
+            && point.y <= self.max.y
+            && point.z >= self.min.z
+            && point.z <= self.max.z
     }
 }
 
