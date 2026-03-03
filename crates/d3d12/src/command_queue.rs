@@ -34,6 +34,21 @@ impl CommandQueue {
         }
         Ok(())
     }
+
+    pub fn get_clock_calibration(&self) -> Result<ClockCalibration> {
+        let mut calibration = ClockCalibration::default();
+        unsafe {
+            self.0.GetClockCalibration(
+                &mut calibration.gpu_timestamp,
+                &mut calibration.cpu_timestamp,
+            )?;
+        }
+        Ok(calibration)
+    }
+
+    pub fn get_timestamp_frequency(&self) -> Result<u64> {
+        Ok(unsafe { self.0.GetTimestampFrequency()? })
+    }
 }
 
 #[repr(C)]
@@ -68,4 +83,10 @@ bitflags! {
     pub struct CommandQueueFlags : i32 {
         const DISABLE_GPU_TIMEOUT = D3D12_COMMAND_QUEUE_FLAG_DISABLE_GPU_TIMEOUT.0;
     }
+}
+
+#[derive(Default)]
+pub struct ClockCalibration {
+    pub gpu_timestamp: u64,
+    pub cpu_timestamp: u64,
 }

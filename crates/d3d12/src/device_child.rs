@@ -11,7 +11,7 @@ pub trait DeviceChild {
         unsafe {
             let mut device = None;
 
-            _ = self.as_device_child().GetDevice(&mut device);
+            let _r = self.as_device_child().GetDevice(&mut device);
             Device(device.unwrap())
         }
     }
@@ -19,7 +19,7 @@ pub trait DeviceChild {
     fn set_debug_name(&self, name: impl AsRef<str>) {
         let name_cstr = std::ffi::CString::new(name.as_ref()).unwrap();
         unsafe {
-            let _ = self.as_device_child().SetPrivateData(
+            let _r = self.as_device_child().SetPrivateData(
                 &WKPDID_D3DDebugObjectName,
                 name_cstr.to_bytes().len() as _,
                 Some(name_cstr.as_ptr().cast()),

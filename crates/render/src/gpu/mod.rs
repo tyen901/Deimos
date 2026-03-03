@@ -3,7 +3,7 @@
 // pub mod debug_text;
 mod global_state;
 pub mod pipeline_cache;
-// pub mod profiler;
+pub mod profiler;
 // pub mod spinner;
 // pub mod state;
 pub mod alloc;
@@ -142,7 +142,7 @@ impl Gpu {
         )
         .context("Failed to create swap chain")?;
 
-        let allocator =
+        let mut allocator =
             gpu_allocator::d3d12::Allocator::new(&gpu_allocator::d3d12::AllocatorCreateDesc {
                 device: ID3D12DeviceVersion::Device(device.as_windows().clone()),
                 debug_settings: AllocatorDebugSettings::default(),
@@ -165,7 +165,7 @@ impl Gpu {
             swapchain: Mutex::new(Swapchain::new(swap_chain, &device, window_size)?),
             // global_states: global_state::RenderStates::new(&device)?,
             frames: std::array::from_fn(|_| {
-                FrameContext::new(&device).expect("Failed to create frame context")
+                FrameContext::new(&device, &mut allocator).expect("Failed to create frame context")
             }),
             frame_fence: GpuFence::new(&device)?,
             device,
@@ -213,7 +213,7 @@ impl Gpu {
     pub fn begin_frame(&self) -> &FrameContext {
         let frame_index = self.frame_index.load(std::sync::atomic::Ordering::Relaxed);
         let frame = &self.frames[frame_index % Self::FRAMES_IN_FLIGHT];
-        frame.begin_frame();
+        frame.begin_frame(&self.queue);
         frame
             .wait_for_completion(&self.frame_fence)
             .expect("wait for frame completion");
@@ -230,6 +230,11 @@ impl Gpu {
                 }
             })
             .collect_vec();
+
+        frame
+            .command_list
+            .begin()
+            .expect("frame command list begin");
 
         frame
     }
@@ -252,6 +257,15 @@ impl Gpu {
     pub fn end_frame(&self) {
         let frame_index = self.frame_index.load(std::sync::atomic::Ordering::Relaxed);
         let frame = &self.frames[frame_index % Self::FRAMES_IN_FLIGHT];
+
+        frame
+            .profiler
+            .resolve_query_data(&frame.command_list.command_list);
+
+        frame.command_list.end().expect("frame command list end");
+
+        self.queue
+            .execute_command_lists(std::slice::from_ref(&frame.command_list.command_list));
         frame.signal(&self.frame_fence, &self.queue);
         self.cmd_ring.advance().expect("advance command ring");
 

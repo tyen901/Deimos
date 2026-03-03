@@ -309,48 +309,54 @@ impl Scene {
             self.renderer.globals.scopes.view.bind(&mut cmd_tfx);
             self.renderer.globals.scopes.chunk_model.bind(&mut cmd_tfx);
 
-            self.render_target1
-                .transition(cmd, d3d12::ResourceStates::RENDER_TARGET);
-            cmd.clear_render_target_view(self.render_target1.cpu_handle(), &[0.0, 0.0, 0.0, 0.0]);
-            cmd.clear_depth_stencil_view(
-                self.depth_buffer.cpu_handle(),
-                d3d12::ClearFlags::DEPTH,
-                0.0,
-                0,
-            );
-            cmd.om_set_render_targets(
-                &[
+            {
+                let _scope = self.renderer.gpu.frame().profiler.scope(cmd, "Scene");
+                self.render_target1
+                    .transition(cmd, d3d12::ResourceStates::RENDER_TARGET);
+                cmd.clear_render_target_view(
                     self.render_target1.cpu_handle(),
-                    self.render_target2.cpu_handle(),
-                    self.render_target3.cpu_handle(),
-                ],
-                false,
-                Some(self.depth_buffer.cpu_handle()),
-            );
-            cmd.set_viewports(&[d3d12::Viewport::builder()
-                .width(resolution.0 as f32)
-                .height(resolution.1 as f32)
-                .build()]);
-            cmd.set_scissor_rects(&[d3d12::Rect::builder()
-                .right(resolution.0 as i32)
-                .bottom(resolution.1 as i32)
-                .top(0)
-                .left(0)
-                .build()]);
+                    &[0.0, 0.0, 0.0, 0.0],
+                );
+                cmd.clear_depth_stencil_view(
+                    self.depth_buffer.cpu_handle(),
+                    d3d12::ClearFlags::DEPTH,
+                    0.0,
+                    0,
+                );
+                cmd.om_set_render_targets(
+                    &[
+                        self.render_target1.cpu_handle(),
+                        self.render_target2.cpu_handle(),
+                        self.render_target3.cpu_handle(),
+                    ],
+                    false,
+                    Some(self.depth_buffer.cpu_handle()),
+                );
+                cmd.set_viewports(&[d3d12::Viewport::builder()
+                    .width(resolution.0 as f32)
+                    .height(resolution.1 as f32)
+                    .build()]);
+                cmd.set_scissor_rects(&[d3d12::Rect::builder()
+                    .right(resolution.0 as i32)
+                    .bottom(resolution.1 as i32)
+                    .top(0)
+                    .left(0)
+                    .build()]);
 
-            s_extract_render_objects(&self.world, &self.renderer);
+                s_extract_render_objects(&self.world, &self.renderer);
 
-            for (_entity, render_object) in self.world.query::<&DynamicRenderObject>().iter() {
-                self.renderer.objects.read()[render_object.handle]
-                    .renderer
-                    .submit(&mut cmd_tfx, RenderStage::GenerateGbuffer);
+                // for (_entity, render_object) in self.world.query::<&DynamicRenderObject>().iter() {
+                //     self.renderer.objects.read()[render_object.handle]
+                //         .renderer
+                //         .submit(&mut cmd_tfx, RenderStage::GenerateGbuffer);
+                // }
+                for obj in self.renderer.objects.write().values_mut() {
+                    obj.renderer
+                        .submit(&mut cmd_tfx, RenderStage::GenerateGbuffer);
+                }
+                self.render_target1
+                    .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
             }
-            // for obj in self.renderer.objects.write().values_mut() {
-            //     obj.renderer
-            //         .submit(&mut cmd_tfx, RenderStage::GenerateGbuffer);
-            // }
-            self.render_target1
-                .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
         });
     }
 

@@ -59,15 +59,6 @@ impl NativeCommandList {
         self.command_list.close()?;
         Ok(())
     }
-
-    pub fn scope<F>(&self, f: F) -> anyhow::Result<()>
-    where
-        F: FnOnce(&d3d12::GraphicsCommandList) -> anyhow::Result<()>,
-    {
-        self.begin()?;
-        f(&self.command_list)?;
-        self.end()
-    }
 }
 
 impl Deref for NativeCommandList {

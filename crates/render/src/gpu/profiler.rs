@@ -1,298 +1,204 @@
+use std::{ffi::c_void, sync::Arc, time::Instant};
+
 use anyhow::Context;
-use d3d11::query::{QueryDesc, D3D11_QUERY_DATA_TIMESTAMP_DISJOINT};
-use d3d11::{DeviceContext, Query};
 use parking_lot::Mutex;
-use std::collections::VecDeque;
-use std::sync::Arc;
-use std::time::Instant;
 
-use crate::Gpu;
+use crate::gpu::{Gpu, alloc::resource::OwnedResource};
 
-const MAX_PENDING_FRAMES: usize = 4;
-
-#[derive(Clone, Debug)]
-pub struct ProfileScope {
-    pub name: String,
-    pub cpu_duration_us: f64,
-    pub gpu_duration_us: f64,
+struct PendingProfilerSpan {
+    name: &'static str,
+    start_time: Instant,
+    end_time: Instant,
+    start_query_index: u32,
+    end_query_index: u32,
+    depth: usize,
 }
 
-struct TimestampQuery {
-    context: DeviceContext,
-    name: String,
-    start_query: Query,
-    end_query: Query,
-    disjoint_query: Query,
-    cpu_start: Instant,
+struct ProfilerSpan {
+    name: &'static str,
     cpu_duration_us: f64,
+    gpu_duration_us: f64,
+    depth: usize,
 }
 
-struct FrameQueries {
-    queries: Vec<TimestampQuery>,
-    frame_index: u64,
+#[derive(Default)]
+struct FrameProfilerState {
+    timestamp_frequency: u64,
+    pending_spans: Vec<PendingProfilerSpan>,
+    query_index: u32,
+    scope_depth: usize,
 }
 
-struct ProfilerState {
-    gpu: Arc<Gpu>,
+pub struct FrameProfiler {
+    heap: d3d12::QueryHeap,
+    readback: gpu_allocator::d3d12::Resource,
+    readback_ptr: *mut c_void,
 
-    current_frame: FrameQueries,
-
-    pending_frames: VecDeque<FrameQueries>,
-
-    last_results: Vec<ProfileScope>,
-
-    frame_index: u64,
+    state: Mutex<FrameProfilerState>,
 }
 
-#[derive(Clone)]
-pub struct D3D11Profiler {
-    state: Arc<Mutex<ProfilerState>>,
-}
+impl FrameProfiler {
+    pub const MAX_PROFILER_SPANS: u32 = 64;
+    pub const MAX_PROFILER_QUERIES: u32 = Self::MAX_PROFILER_SPANS * 2;
 
-impl D3D11Profiler {
-    pub fn new(gpu: &Arc<Gpu>) -> Self {
-        let state = ProfilerState {
-            gpu: gpu.clone(),
-            current_frame: FrameQueries {
-                queries: Vec::new(),
-                frame_index: 0,
-            },
-            pending_frames: VecDeque::with_capacity(MAX_PENDING_FRAMES),
-            last_results: Vec::new(),
-            frame_index: 0,
-        };
+    pub fn new(
+        device: &d3d12::Device,
+        allocator: &mut gpu_allocator::d3d12::Allocator,
+    ) -> anyhow::Result<Self> {
+        let heap = device
+            .create_query_heap(
+                d3d12::QueryHeapType::Timestamp,
+                Self::MAX_PROFILER_QUERIES,
+                0,
+            )
+            .context("creating query heap")?;
 
-        Self {
-            state: Arc::new(Mutex::new(state)),
-        }
+        let readback = allocator
+            .create_resource(&gpu_allocator::d3d12::ResourceCreateDesc {
+                name: "Profiler readback buffer",
+                memory_location: gpu_allocator::MemoryLocation::GpuToCpu,
+                resource_category: gpu_allocator::d3d12::ResourceCategory::Buffer,
+                resource_desc: d3d12::ResourceDesc::buffer(Self::MAX_PROFILER_QUERIES as u64 * 8)
+                    .as_ref(),
+                castable_formats: &[],
+                clear_value: None,
+                initial_state_or_layout:
+                    gpu_allocator::d3d12::ResourceStateOrBarrierLayout::ResourceState(
+                        d3d12::D3D12_RESOURCE_STATE_COPY_DEST,
+                    ),
+                resource_type: &gpu_allocator::d3d12::ResourceType::Placed,
+            })
+            .context("allocating readback buffer")?;
+
+        Ok(Self {
+            heap,
+            readback_ptr: readback.resource().as_ref().map(0)?.cast(),
+            readback,
+            state: Mutex::new(FrameProfilerState::default()),
+        })
     }
 
-    pub fn scope(&self, context: &DeviceContext, name: impl Into<String>) -> ProfileScopeGuard {
-        ProfileScopeGuard::new(self.clone(), context, name.into())
+    pub(super) fn begin_frame(&self, queue: &d3d12::CommandQueue) {
+        self.resolve_pending_queries();
+
+        let mut state = self.state.lock();
+        state.query_index = 0;
+        state.pending_spans.clear();
+        state.scope_depth = 0;
+        state.timestamp_frequency = queue
+            .get_timestamp_frequency()
+            .inspect_err(|e| {
+                warn!("Failed to obtain timestamp frequency: {e:?}");
+            })
+            .unwrap_or(1_000_000);
     }
 
-    fn start_scope(&self, name: String, context: &DeviceContext) -> anyhow::Result<ScopeHandle> {
+    fn resolve_pending_queries(&self) {
         let mut state = self.state.lock();
 
-        let device = &state.gpu.device;
+        let readback_data = unsafe {
+            std::slice::from_raw_parts(
+                self.readback_ptr.cast::<u64>(),
+                Self::MAX_PROFILER_QUERIES as usize,
+            )
+        };
 
-        let start_query = device
-            .create_query(&QueryDesc::timestamp())
-            .context("Failed to create start query")?;
+        for span in &state.pending_spans {
+            let gpu_start_ticks = readback_data[span.start_query_index as usize];
+            let gpu_end_ticks = readback_data[span.end_query_index as usize];
 
-        let end_query = device
-            .create_query(&QueryDesc::timestamp())
-            .context("Failed to create end query")?;
+            let gpu_duration_ticks = gpu_end_ticks.saturating_sub(gpu_start_ticks);
+            let gpu_duration_us =
+                gpu_duration_ticks as f64 / state.timestamp_frequency as f64 * 1_000_000.0;
 
-        let disjoint_query = device
-            .create_query(&QueryDesc::timestamp_disjoint())
-            .context("Failed to create disjoint query")?;
+            let cpu_duration_us =
+                span.end_time.duration_since(span.start_time).as_secs_f64() * 1_000_000.0;
 
-        context.begin(&disjoint_query);
+            info!(
+                "Profiler span '{}' - CPU: {:.3} ms, GPU: {:.3} ms",
+                span.name,
+                cpu_duration_us / 1000.0,
+                gpu_duration_us / 1000.0,
+            );
+        }
+    }
 
-        context.end(&start_query);
+    pub(super) fn resolve_query_data(&self, command_list: &d3d12::GraphicsCommandList) {
+        let state = self.state.lock();
+        if state.pending_spans.is_empty() {
+            return;
+        }
 
-        let cpu_start = Instant::now();
-        let index = state.current_frame.queries.len();
+        command_list.resolve_query_data(
+            &self.heap,
+            d3d12::QueryType::Timestamp,
+            0,
+            state.pending_spans.len() as u32 * 2,
+            self.readback.resource().as_ref(),
+            0,
+        );
+    }
 
-        state.current_frame.queries.push(TimestampQuery {
-            context: context.clone(),
+    pub fn scope(
+        &self,
+        command_list: &d3d12::GraphicsCommandList,
+        name: &'static str,
+    ) -> ScopeGuard<'_> {
+        let mut state = self.state.lock();
+        if state.pending_spans.len() as u32 >= Self::MAX_PROFILER_SPANS {
+            warn!("Exceeded maximum number of profiler spans");
+            return ScopeGuard {
+                profiler: self,
+                cmd: command_list.clone(),
+                pending_span_index: usize::MAX,
+            };
+        }
+
+        let start_query_index = state.query_index;
+        let end_query_index = state.query_index + 1;
+        state.query_index += 2;
+        let pending_span_index = state.pending_spans.len();
+        let depth = state.scope_depth;
+        state.scope_depth += 1;
+        state.pending_spans.push(PendingProfilerSpan {
             name,
-            start_query,
-            end_query,
-            disjoint_query,
-            cpu_start,
-            cpu_duration_us: 0.0,
+            start_time: Instant::now(),
+            end_time: Instant::now(),
+            start_query_index,
+            end_query_index,
+            depth,
         });
 
-        Ok(ScopeHandle { index })
-    }
-
-    fn end_scope(&self, handle: ScopeHandle) -> anyhow::Result<()> {
-        let ProfilerState { current_frame, .. } = &mut *self.state.lock();
-
-        if handle.index >= current_frame.queries.len() {
-            anyhow::bail!("Invalid scope handle");
+        command_list.end_query(&self.heap, d3d12::QueryType::Timestamp, start_query_index);
+        ScopeGuard {
+            profiler: self,
+            cmd: command_list.clone(),
+            pending_span_index,
         }
-
-        let query = &mut current_frame.queries[handle.index];
-
-        query.context.end(&query.end_query);
-
-        query.context.end(&query.disjoint_query);
-
-        query.cpu_duration_us = query.cpu_start.elapsed().as_secs_f64() * 1_000_000.0;
-
-        Ok(())
-    }
-
-    pub fn end_frame(&self) {
-        let ProfilerState {
-            gpu,
-            current_frame,
-            pending_frames,
-            last_results,
-            frame_index,
-            ..
-        } = &mut *self.state.lock();
-
-        let mut frame = FrameQueries {
-            queries: Vec::new(),
-            frame_index: *frame_index,
-        };
-        std::mem::swap(&mut frame, current_frame);
-
-        pending_frames.push_back(frame);
-        *frame_index += 1;
-
-        while pending_frames.len() > MAX_PENDING_FRAMES {
-            pending_frames.pop_front();
-        }
-
-        if let Some(oldest_frame) = pending_frames.front() {
-            if let Ok(results) = Self::try_get_frame_results(&gpu.context(), oldest_frame) {
-                *last_results = results;
-                pending_frames.pop_front();
-            }
-        } else {
-            warn!("No pending profiling frames");
-        }
-    }
-
-    fn try_get_frame_results(
-        context: &DeviceContext,
-        frame: &FrameQueries,
-    ) -> anyhow::Result<Vec<ProfileScope>> {
-        let mut results = Vec::new();
-
-        for query in &frame.queries {
-            let start_data = match unsafe { context.get_data::<u64>(&query.start_query, false) } {
-                d3d11::GetDataResult::Ok(o) => o,
-                d3d11::GetDataResult::Pending => anyhow::bail!("Start query not ready"),
-                d3d11::GetDataResult::Error(error) => {
-                    anyhow::bail!(format!("Failed to get start query data: {error:?}"))
-                }
-            };
-
-            let end_data = match unsafe { context.get_data::<u64>(&query.end_query, false) } {
-                d3d11::GetDataResult::Ok(o) => o,
-                d3d11::GetDataResult::Pending => anyhow::bail!("Start query not ready"),
-                d3d11::GetDataResult::Error(error) => {
-                    anyhow::bail!(format!("Failed to get start query data: {error:?}"))
-                }
-            };
-
-            let disjoint_data = match unsafe {
-                context
-                    .get_data::<D3D11_QUERY_DATA_TIMESTAMP_DISJOINT>(&query.disjoint_query, false)
-            } {
-                d3d11::GetDataResult::Ok(o) => o,
-                d3d11::GetDataResult::Pending => {
-                    anyhow::bail!("Disjoint query not ready")
-                }
-                d3d11::GetDataResult::Error(error) => {
-                    anyhow::bail!(format!("Failed to get disjoint query data: {error:?}"))
-                }
-            };
-
-            if disjoint_data.Disjoint.as_bool() {
-                continue;
-            }
-
-            let ticks = end_data.saturating_sub(start_data);
-            let gpu_duration_us = if disjoint_data.Frequency > 0 {
-                (ticks as f64 / disjoint_data.Frequency as f64) * 1_000_000.0
-            } else {
-                0.0
-            };
-
-            results.push(ProfileScope {
-                name: query.name.clone(),
-                cpu_duration_us: query.cpu_duration_us,
-                gpu_duration_us,
-            });
-        }
-
-        Ok(results)
-    }
-
-    pub fn get_results(&self) -> Vec<ProfileScope> {
-        let state = self.state.lock();
-        state.last_results.clone()
-    }
-
-    pub fn get_results_string(&self) -> String {
-        let results = self.get_results();
-
-        if results.is_empty() {
-            return "No profiling data available yet".to_string();
-        }
-
-        let mut output = String::new();
-        output.push_str(&format!(
-            "{:<30} {:>12} {:>12}\n",
-            "Scope", "CPU (µs)", "GPU (µs)"
-        ));
-        output.push_str(&"-".repeat(56));
-        output.push('\n');
-
-        let mut longest_duration_cpu = 0f64;
-        let mut longest_duration_gpu = 0f64;
-        for scope in results {
-            output.push_str(&format!(
-                "{:<30} {:>12.1} {:>12.1}\n",
-                scope.name, scope.cpu_duration_us, scope.gpu_duration_us
-            ));
-            longest_duration_cpu = longest_duration_cpu.max(scope.cpu_duration_us);
-            longest_duration_gpu = longest_duration_gpu.max(scope.gpu_duration_us);
-        }
-
-        output.push_str(&"-".repeat(56));
-        output.push('\n');
-        output.push_str(&format!(
-            "{:<30} {:>12.1} {:>12.1}\n",
-            "Potential FPS",
-            if longest_duration_cpu > 0.0 {
-                1_000_000.0 / longest_duration_cpu
-            } else {
-                f64::INFINITY
-            },
-            if longest_duration_gpu > 0.0 {
-                1_000_000.0 / longest_duration_gpu
-            } else {
-                f64::INFINITY
-            }
-        ));
-
-        output
     }
 }
 
-struct ScopeHandle {
-    index: usize,
+pub struct ScopeGuard<'a> {
+    profiler: &'a FrameProfiler,
+    cmd: d3d12::GraphicsCommandList,
+    pending_span_index: usize,
 }
 
-pub struct ProfileScopeGuard {
-    profiler: D3D11Profiler,
-    handle: Option<ScopeHandle>,
-}
-
-impl ProfileScopeGuard {
-    fn new(profiler: D3D11Profiler, context: &DeviceContext, name: String) -> Self {
-        let handle = profiler.start_scope(name, context).ok();
-        Self { profiler, handle }
-    }
-
-    /// Executes the provided closure within the scope of this profiling guard.
-    pub fn span<F: FnOnce()>(self, f: F) {
-        f();
-    }
-}
-
-impl Drop for ProfileScopeGuard {
+impl Drop for ScopeGuard<'_> {
     fn drop(&mut self) {
-        if let Some(handle) = self.handle.take() {
-            let _ = self.profiler.end_scope(handle);
+        let mut state = self.profiler.state.lock();
+        if self.pending_span_index >= state.pending_spans.len() {
+            warn!("Invalid profiler scope guard index");
+            return;
         }
+
+        let pending_span = &mut state.pending_spans[self.pending_span_index];
+        pending_span.end_time = Instant::now();
+        self.cmd.end_query(
+            &self.profiler.heap,
+            d3d12::QueryType::Timestamp,
+            pending_span.end_query_index,
+        );
+        state.scope_depth = state.scope_depth.saturating_sub(1);
     }
 }

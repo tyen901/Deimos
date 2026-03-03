@@ -122,7 +122,7 @@ impl App {
 
         let cmd = &frame.command_list;
 
-        cmd.scope(|cmd| {
+        {
             let (back_buffer_handle, back_buffer) = self.gpu.swapchain.lock().get_back_buffer();
 
             self.gui.draw_ui(&self.shared_state);
@@ -155,13 +155,7 @@ impl App {
                 ResourceStates::RENDER_TARGET,
                 ResourceStates::PRESENT,
             )]);
-
-            Ok(())
-        })?;
-
-        self.gpu
-            .queue
-            .execute_command_lists(std::slice::from_ref(cmd));
+        }
 
         self.gpu.end_frame();
         self.gpu.present(self.shared_state.config.read().vsync);

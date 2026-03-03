@@ -7,8 +7,8 @@ use windows::Win32::Graphics::Direct3D12::*;
 
 use crate::{
     verify_ffi_type, CpuDescriptorHandle, DescriptorHeap, Format, GpuDescriptorHandle,
-    GpuVirtualAddress, PipelineState, PrimitiveTopology, Resource, ResourceBarrier, Result,
-    RootSignature, TextureCopyLocation,
+    GpuVirtualAddress, PipelineState, PrimitiveTopology, QueryHeap, QueryType, Resource,
+    ResourceBarrier, Result, RootSignature, TextureCopyLocation,
 };
 
 #[repr(transparent)]
@@ -36,7 +36,40 @@ impl GraphicsCommandList {
         Ok(())
     }
 
-    pub fn resource_barriers(&self, barriers: &[ResourceBarrier]) {
+    pub fn begin_query(&self, query_heap: &QueryHeap, query_type: QueryType, index: u32) {
+        unsafe {
+            self.0.BeginQuery(&query_heap.0, query_type.into(), index);
+        }
+    }
+
+    pub fn end_query(&self, query_heap: &QueryHeap, query_type: QueryType, index: u32) {
+        unsafe {
+            self.0.EndQuery(&query_heap.0, query_type.into(), index);
+        }
+    }
+
+    pub fn resolve_query_data(
+        &self,
+        query_heap: &QueryHeap,
+        query_type: QueryType,
+        start_index: u32,
+        num_queries: u32,
+        destination_buffer: &Resource,
+        aligned_destination_buffer_offset: u64,
+    ) {
+        unsafe {
+            self.0.ResolveQueryData(
+                &query_heap.0,
+                query_type.into(),
+                start_index,
+                num_queries,
+                &destination_buffer.0,
+                aligned_destination_buffer_offset,
+            );
+        }
+    }
+
+    pub fn resource_barriers(&self, barriers: &[ResourceBarrier<'_>]) {
         unsafe {
             self.0.ResourceBarrier(
                 transmute::<&[ResourceBarrier<'_>], &[D3D12_RESOURCE_BARRIER]>(barriers),
@@ -46,9 +79,9 @@ impl GraphicsCommandList {
 
     pub fn copy_texture_region(
         &self,
-        src: &TextureCopyLocation,
+        src: &TextureCopyLocation<'_>,
         src_box: Option<Box>,
-        dst: &TextureCopyLocation,
+        dst: &TextureCopyLocation<'_>,
         (dstx, dsty, dstz): (u32, u32, u32),
     ) {
         unsafe {

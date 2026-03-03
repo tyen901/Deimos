@@ -11,7 +11,7 @@ macro_rules! verify_ffi_type {
         impl $struct {
             #[allow(dead_code)]
             pub const fn as_ffi(&self) -> *const $ffi {
-                self as *const _ as _
+                (self as *const Self).cast()
             }
         }
 

@@ -75,8 +75,7 @@ pub enum TerrainDetailLevel {
     High = 0,
     Medium = 1,
     Low = 2,
-    /// ???
-    Crust = 3,
+    Thumbnail = 3,
 }
 
 impl TigerReadable for TerrainDetailLevel {

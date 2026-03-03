@@ -44,6 +44,9 @@ pub use root_signature::*;
 mod handles;
 pub use handles::*;
 
+mod query;
+pub use query::*;
+
 mod sampler;
 pub use sampler::*;
 

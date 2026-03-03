@@ -178,7 +178,7 @@ impl Technique {
             &self.root_signature,
             &[
                 Format::R8g8b8a8Unorm,
-                Format::R11g11b10Float,
+                Format::R10g10b10a2Unorm,
                 Format::R8g8b8a8Unorm,
                 Format::R8g8b8a8Unorm,
             ],

@@ -7,8 +7,9 @@ use crate::{
     error::Result, util::to_pcstr, CommandAllocator, CommandListType, CommandQueue,
     CommandQueueDesc, CopyableFootprints, CpuDescriptorHandle, DepthStencilViewDesc,
     DescriptorHeap, DescriptorHeapType, ElementOffset, Fence, FenceFlags, GraphicsCommandList,
-    GraphicsPipelineStateDesc, HeapFlags, HeapProperties, PipelineState, RenderTargetViewDesc,
-    Resource, ResourceDesc, ResourceStates, RootSignature, ShaderResourceViewDesc,
+    GraphicsPipelineStateDesc, HeapFlags, HeapProperties, PipelineState, QueryHeap, QueryHeapType,
+    RenderTargetViewDesc, Resource, ResourceDesc, ResourceStates, RootSignature,
+    ShaderResourceViewDesc,
 };
 
 #[repr(transparent)]
@@ -31,7 +32,7 @@ impl Device {
 
     pub fn create_graphics_pipeline_state(
         &self,
-        desc: &GraphicsPipelineStateDesc,
+        desc: &GraphicsPipelineStateDesc<'_>,
     ) -> Result<PipelineState> {
         let mut cstrings = vec![];
         let mut input_layout_ffi = vec![];
@@ -62,6 +63,8 @@ impl Device {
 
         let pipeline_state: ID3D12PipelineState =
             unsafe { self.0.CreateGraphicsPipelineState(&raw const desc_raw)? };
+
+        drop(cstrings);
 
         Ok(PipelineState(pipeline_state))
     }
@@ -241,6 +244,28 @@ impl Device {
         };
 
         Ok(DescriptorHeap(descriptor_heap))
+    }
+
+    pub fn create_query_heap(
+        &self,
+        type_: QueryHeapType,
+        count: u32,
+        node_mask: u32,
+    ) -> Result<QueryHeap> {
+        let mut query_heap: Option<ID3D12QueryHeap> = None;
+
+        unsafe {
+            self.0.CreateQueryHeap(
+                &D3D12_QUERY_HEAP_DESC {
+                    Type: type_.into(),
+                    Count: count,
+                    NodeMask: node_mask,
+                },
+                &raw mut query_heap,
+            )?;
+        };
+
+        Ok(QueryHeap(query_heap.expect("query_heap is null")))
     }
 
     pub fn descriptor_handle_increment_size(&self, type_: DescriptorHeapType) -> u32 {
