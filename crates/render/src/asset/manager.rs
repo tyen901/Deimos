@@ -99,12 +99,16 @@ impl AssetManager {
         let gpu = self.gpu.clone();
         let num_loaded = self.num_loading.clone();
         let asset_manager = self.clone();
-        SCHEDULER
-            .job_builder("load_asset")
-            .priority(Priority::Low)
-            .spawn(move || {
-                load_asset(request, asset_manager, &gpu, &num_loaded);
-            });
+        // TODO(cohae): Potassium has a memory corruption issue here? Should be resolved ASAP once the problem is found
+        // SCHEDULER
+        //     .job_builder("load_asset")
+        //     .priority(Priority::Low)
+        //     .spawn(move || {
+        //         load_asset(request, asset_manager, &gpu, &num_loaded);
+        //     });
+        rayon::spawn(move || {
+            load_asset(request, asset_manager, &gpu, &num_loaded);
+        });
 
         // SAFETY: The type ID was checked above
         Some(unsafe { handle.clone_as_typed_unchecked() })
