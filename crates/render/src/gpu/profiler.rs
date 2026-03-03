@@ -1,9 +1,7 @@
-use std::{ffi::c_void, sync::Arc, time::Instant};
+use std::{ffi::c_void, time::Instant};
 
 use anyhow::Context;
 use parking_lot::Mutex;
-
-use crate::gpu::{Gpu, alloc::resource::OwnedResource};
 
 struct PendingProfilerSpan {
     name: &'static str,
@@ -24,9 +22,11 @@ struct ProfilerSpan {
 #[derive(Default)]
 struct FrameProfilerState {
     timestamp_frequency: u64,
-    pending_spans: Vec<PendingProfilerSpan>,
     query_index: u32,
     scope_depth: usize,
+
+    pending_spans: Vec<PendingProfilerSpan>,
+    resolved_frames: Vec<Vec<ProfilerSpan>>,
 }
 
 pub struct FrameProfiler {
@@ -40,6 +40,8 @@ pub struct FrameProfiler {
 impl FrameProfiler {
     pub const MAX_PROFILER_SPANS: u32 = 64;
     pub const MAX_PROFILER_QUERIES: u32 = Self::MAX_PROFILER_SPANS * 2;
+    /// The maximum number of frames to keep for averaging results.
+    pub const MAX_RESOLVED_FRAMES: usize = 15;
 
     pub fn new(
         device: &d3d12::Device,
@@ -94,7 +96,12 @@ impl FrameProfiler {
     }
 
     fn resolve_pending_queries(&self) {
-        let mut state = self.state.lock();
+        let FrameProfilerState {
+            timestamp_frequency,
+            pending_spans,
+            resolved_frames,
+            ..
+        } = &mut *self.state.lock();
 
         let readback_data = unsafe {
             std::slice::from_raw_parts(
@@ -102,25 +109,29 @@ impl FrameProfiler {
                 Self::MAX_PROFILER_QUERIES as usize,
             )
         };
-
-        for span in &state.pending_spans {
+        while resolved_frames.len() >= Self::MAX_RESOLVED_FRAMES {
+            resolved_frames.remove(0);
+        }
+        let mut resolved_spans = Vec::with_capacity(pending_spans.len());
+        for span in pending_spans {
             let gpu_start_ticks = readback_data[span.start_query_index as usize];
             let gpu_end_ticks = readback_data[span.end_query_index as usize];
 
             let gpu_duration_ticks = gpu_end_ticks.saturating_sub(gpu_start_ticks);
             let gpu_duration_us =
-                gpu_duration_ticks as f64 / state.timestamp_frequency as f64 * 1_000_000.0;
+                gpu_duration_ticks as f64 / *timestamp_frequency as f64 * 1_000_000.0;
 
             let cpu_duration_us =
                 span.end_time.duration_since(span.start_time).as_secs_f64() * 1_000_000.0;
 
-            info!(
-                "Profiler span '{}' - CPU: {:.3} ms, GPU: {:.3} ms",
-                span.name,
-                cpu_duration_us / 1000.0,
-                gpu_duration_us / 1000.0,
-            );
+            resolved_spans.push(ProfilerSpan {
+                name: span.name,
+                cpu_duration_us,
+                gpu_duration_us,
+                depth: span.depth,
+            });
         }
+        resolved_frames.push(resolved_spans);
     }
 
     pub(super) fn resolve_query_data(&self, command_list: &d3d12::GraphicsCommandList) {
@@ -137,6 +148,87 @@ impl FrameProfiler {
             self.readback.resource().as_ref(),
             0,
         );
+    }
+
+    pub fn get_results_string(&self) -> String {
+        let state = self.state.lock();
+        if state.resolved_frames.is_empty() {
+            return "No profiling data available yet".to_string();
+        }
+
+        let mut results = Vec::new();
+        for scope in state
+            .resolved_frames
+            .last()
+            .expect("resolved_frames cannot be empty")
+        {
+            // Average over last 10 frames
+            let mut total_cpu = 0.0;
+            let mut total_gpu = 0.0;
+            let mut count = 0;
+            for frame in state.resolved_frames.iter().rev() {
+                if let Some(s) = frame
+                    .iter()
+                    .find(|s| s.name == scope.name && s.depth == scope.depth)
+                {
+                    total_cpu += s.cpu_duration_us;
+                    total_gpu += s.gpu_duration_us;
+                    count += 1;
+                }
+            }
+
+            results.push(ProfilerSpan {
+                name: scope.name,
+                depth: scope.depth,
+                cpu_duration_us: total_cpu / count as f64,
+                gpu_duration_us: total_gpu / count as f64,
+            });
+        }
+
+        let mut output = String::new();
+        output.push_str(&format!(
+            "{:<30} {:>12} {:>12}\n",
+            "Scope", "CPU (ms)", "GPU (ms)"
+        ));
+        output.push_str(&"-".repeat(56));
+        output.push('\n');
+
+        let mut longest_duration_cpu = 0f64;
+        let mut longest_duration_gpu = 0f64;
+        for span in results {
+            let scope_name = if span.depth > 0 {
+                format!("{}{}", "  ".repeat(span.depth), span.name)
+            } else {
+                span.name.to_string()
+            };
+            output.push_str(&format!(
+                "{:<30} {:>12.3} {:>12.3}\n",
+                scope_name,
+                span.cpu_duration_us / 1000.0,
+                span.gpu_duration_us / 1000.0
+            ));
+            longest_duration_cpu = longest_duration_cpu.max(span.cpu_duration_us);
+            longest_duration_gpu = longest_duration_gpu.max(span.gpu_duration_us);
+        }
+
+        output.push_str(&"-".repeat(56));
+        output.push('\n');
+        output.push_str(&format!(
+            "{:<30} {:>12.1} {:>12.1}\n",
+            "Potential FPS",
+            if longest_duration_cpu > 0.0 {
+                1_000_000.0 / longest_duration_cpu
+            } else {
+                f64::INFINITY
+            },
+            if longest_duration_gpu > 0.0 {
+                1_000_000.0 / longest_duration_gpu
+            } else {
+                f64::INFINITY
+            }
+        ));
+
+        output
     }
 
     pub fn scope(

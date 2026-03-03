@@ -160,7 +160,7 @@ impl Scene {
                 })
             });
 
-            let _fps_rect = ui.painter_at(panel_rect).text(
+            let fps_rect = ui.painter_at(panel_rect).text(
                 panel_rect.right_top() + Vec2::new(0.0, 3.0) + Vec2::splat(1.0),
                 egui::Align2::RIGHT_TOP,
                 format!("{} ", (1. / delta_time_average).round()),
@@ -179,7 +179,7 @@ impl Scene {
             let vram_report = self.renderer.gpu.allocator.lock().generate_report();
 
             let vram_rect = ui.painter_at(panel_rect).text(
-                panel_rect.right_top() + Vec2::new(-8.0, 21.0) + Vec2::splat(1.0),
+                panel_rect.right_top() + Vec2::new(-8.0, 23.0) + Vec2::splat(1.0),
                 egui::Align2::RIGHT_TOP,
                 format_bytes(vram_report.total_allocated_bytes as usize),
                 egui::FontId::monospace(16.0),
@@ -187,7 +187,7 @@ impl Scene {
             );
 
             ui.painter_at(panel_rect).text(
-                panel_rect.right_top() + Vec2::new(-8.0, 21.0),
+                panel_rect.right_top() + Vec2::new(-8.0, 23.0),
                 egui::Align2::RIGHT_TOP,
                 format_bytes(vram_report.total_allocated_bytes as usize),
                 egui::FontId::monospace(16.0),
@@ -224,22 +224,15 @@ impl Scene {
 
             ui.style_mut().spacing.tooltip_width = 4096.0;
             // Renderer::instance().profiler.set_enabled(false);
-            // ui.interact(
-            //     fps_rect,
-            //     "frame_counter_profiler_tooltip".into(),
-            //     Sense::hover(),
-            // )
-            // .on_hover_ui(|ui| {
-            //     Renderer::instance().profiler.set_enabled(true);
-            //     if let Some(profiler_results) = &self.profiler_results {
-            //         ui.add(
-            //             egui::Label::new(RichText::new(profiler_results.clone()).monospace())
-            //                 .extend(),
-            //         );
-            //     } else {
-            //         ui.weak("Profiler data not available yet.");
-            //     }
-            // });
+            ui.interact(
+                fps_rect,
+                "frame_counter_profiler_tooltip".into(),
+                Sense::hover(),
+            )
+            .on_hover_ui(|ui| {
+                let profiler_results = self.renderer.gpu.frame().profiler.get_results_string();
+                ui.add(egui::Label::new(RichText::new(profiler_results).monospace()).extend());
+            });
             ui.interact(
                 vram_rect,
                 "vram_report_profiler_tooltip".into(),
