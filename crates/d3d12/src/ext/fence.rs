@@ -42,7 +42,9 @@ impl GpuFence {
     /// Queues a signal for the fence and returns the key. Calling await will block until the given signal key has been reached.
     pub fn signal(&self, queue: &CommandQueue) -> u64 {
         let value = self.next_value.fetch_add(1, Ordering::Relaxed);
-        _ = queue.signal(&self.fence, value);
+        queue
+            .signal(&self.fence, value)
+            .expect("failed to signal fence on queue");
         value
     }
 }

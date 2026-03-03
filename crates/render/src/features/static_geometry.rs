@@ -4,7 +4,6 @@ use anyhow::Context;
 use bytemuck::{Pod, Zeroable};
 use deimos_data::tfx::{
     RenderStage, ShaderStage,
-    common::AxisAlignedBBox,
     features::{
         dynamic::RenderStageSubscription,
         statics::{
@@ -12,6 +11,7 @@ use deimos_data::tfx::{
             SStaticSpecialMesh,
         },
     },
+    geometry::AxisAlignedBBox,
 };
 use glam::{Mat4, Vec3, Vec4};
 use itertools::Itertools;

@@ -21,6 +21,7 @@ fn main() {
 
         // Copy lib/SDL3.dll to OUT_DIR
         let out_dir = target_dir.join(std::env::var("PROFILE").expect("PROFILE not set"));
+        _ = std::fs::create_dir_all(&out_dir);
         let sdl3_dll = std::path::Path::new("lib/SDL3.dll");
         std::fs::copy(sdl3_dll, out_dir.join("SDL3.dll")).expect("Failed to copy SDL3.dll");
 

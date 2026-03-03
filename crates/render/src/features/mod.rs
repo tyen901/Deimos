@@ -1,20 +1,32 @@
 use std::any::Any;
 
-pub mod rigid_model;
-mod shared;
-pub mod static_geometry;
+// pub mod rigid_model;
+// mod shared;
+// pub mod static_geometry;
 pub mod terrain_patches;
 
 use deimos_data::tfx::{RenderStage, features::dynamic::RenderStageSubscription};
 
-use crate::{gpu::command_list::CommandList, renderer::Renderer};
+use crate::{
+    gpu::command_list::CommandList,
+    renderer::{
+        Renderer,
+        packet::{RenderPerViewNode, SubmitNode, SubmitNodeContainer},
+    },
+};
 
 pub trait FeatureRenderer: Send {
     fn extract(&mut self, renderer: &Renderer, data: &dyn Any);
 
     fn prepare(&mut self, renderer: &Renderer);
 
-    fn submit(&self, cmd: &mut CommandList, stage: RenderStage);
+    fn submit(
+        &self,
+        cmd: &mut CommandList,
+        stage: RenderStage,
+        view_node: &RenderPerViewNode,
+        submit_key: u64,
+    );
 
     // fn submit_parallel(
     //     &self,
@@ -27,9 +39,12 @@ pub trait FeatureRenderer: Send {
     //     _ = (renderer, view_index, set, stage, jobs);
     // }
 
-    fn dyn_clone(&self) -> Option<Box<dyn FeatureRenderer>> {
-        None
-    }
+    fn populate_submit_node_blocks(
+        &self,
+        renderer: &Renderer,
+        view_node: usize,
+        submit_node_blocks: &mut SubmitNodeContainer,
+    );
 
     fn subscribed_stages(&self) -> RenderStageSubscription;
 

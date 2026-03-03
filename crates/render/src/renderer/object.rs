@@ -20,14 +20,6 @@ impl RenderObject {
             feature_type: kind,
         }
     }
-
-    pub fn dyn_clone(&self) -> Option<Self> {
-        Some(Self {
-            stages: self.stages,
-            renderer: self.renderer.dyn_clone()?,
-            feature_type: self.feature_type,
-        })
-    }
 }
 
 unsafe impl Send for RenderObject {}

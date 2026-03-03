@@ -42,6 +42,10 @@ impl RenderStage {
     pub const fn to_flag(&self) -> RenderStageSubscription {
         RenderStageSubscription::from_bits(1 << *self as u32).unwrap()
     }
+
+    pub fn iter() -> impl Iterator<Item = Self> {
+        (0..Self::COUNT).map(|i| Self::try_from(i as u8).unwrap())
+    }
 }
 
 impl Display for RenderStage {

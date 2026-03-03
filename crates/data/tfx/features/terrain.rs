@@ -5,7 +5,7 @@ use int_enum::IntEnum;
 use tiger_parse::{tiger_type, TigerReadable};
 use tiger_pkg::TagHash;
 
-use crate::tfx::common::AxisAlignedBBox;
+use crate::tfx::geometry::AxisAlignedBBox;
 
 /// Terrain
 #[derive(Debug)]
@@ -23,8 +23,8 @@ pub struct STerrain {
     pub vertex0_buffer: TagHash,
     pub vertex1_buffer: TagHash,
     pub index_buffer: TagHash,
-    pub unk_technique1: TagHash,
-    pub unk_technique2: TagHash,
+    pub technique_shadow: TagHash,
+    pub technique_depth_only: TagHash,
 
     #[tiger(offset = 0x78)]
     pub mesh_parts: Vec<STerrainMeshPart>,

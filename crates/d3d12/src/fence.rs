@@ -53,13 +53,13 @@ impl Event {
     }
 
     pub fn reset(&self) {
-        _ = unsafe { ResetEvent(self.0) };
+        unsafe { ResetEvent(self.0) }.expect("reset event");
     }
 }
 
 impl Drop for Event {
     fn drop(&mut self) {
-        _ = unsafe { CloseHandle(self.0) };
+        unsafe { CloseHandle(self.0) }.expect("close event handle");
     }
 }
 

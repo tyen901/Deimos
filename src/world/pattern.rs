@@ -9,15 +9,14 @@ use deimos_data::{
     pattern::SPattern,
     tfx::{
         TfxFeatureRenderer,
-        common::AxisAlignedBBox,
         features::{dynamic::SDynamicModelComponent, statics::SUnk808082D5},
+        geometry::AxisAlignedBBox,
     },
 };
+use deimos_ecs::transform::Transform;
 use deimos_render::{
-    features::{
-        rigid_model::DynamicModel, static_geometry::StaticInstancesRenderer,
-        terrain_patches::TerrainPatchesRenderer,
-    },
+    ecs::render_objects::StaticRenderObject,
+    features::terrain_patches::TerrainPatchesRenderer,
     renderer::{Renderer, object::RenderObject},
 };
 use glam::Vec4Swizzles;
@@ -25,11 +24,7 @@ use itertools::Itertools;
 use tiger_parse::{PackageManagerExt, TigerReadable};
 use tiger_pkg::{TagHash, package_manager};
 
-use crate::world::{
-    UnimplementedTigerComponent, UnimplementedTigerComponents,
-    render_objects::{DynamicRenderObject, StaticRenderObject},
-    transform::Transform,
-};
+use crate::world::{UnimplementedTigerComponent, UnimplementedTigerComponents};
 
 #[macro_export]
 macro_rules! once {
@@ -114,31 +109,31 @@ pub fn spawn_pattern_from_header(
 
         match component.unk10.resource_type {
             0x8080858e => {
-                let mut cur = Cursor::new(package_manager().read_tag(component.taghash())?);
-                cur.seek(SeekFrom::Start(component.unk18.offset))?;
-                let model: SDynamicModelComponent = TigerReadable::read_ds(&mut cur)?;
+                // let mut cur = Cursor::new(package_manager().read_tag(component.taghash())?);
+                // cur.seek(SeekFrom::Start(component.unk18.offset))?;
+                // let model: SDynamicModelComponent = TigerReadable::read_ds(&mut cur)?;
 
-                // if let Some(permutations) = PermutationConfig::from_model(&model) {
-                //     world.insert_one(entity, permutations)?;
-                // }
+                // // if let Some(permutations) = PermutationConfig::from_model(&model) {
+                // //     world.insert_one(entity, permutations)?;
+                // // }
 
-                let model = DynamicModel::load(
-                    renderer,
-                    model.model_hash,
-                    model.technique_map,
-                    model.techniques,
-                )?;
-                world.insert_one(
-                    entity,
-                    AxisAlignedBBox::from_center_extents(
-                        model.model.model_offset.xyz(),
-                        model.model.model_scale.xyz() * 2.0,
-                    ),
-                )?;
+                // let model = DynamicModel::load(
+                //     renderer,
+                //     model.model_hash,
+                //     model.technique_map,
+                //     model.techniques,
+                // )?;
+                // world.insert_one(
+                //     entity,
+                //     AxisAlignedBBox::from_center_extents(
+                //         model.model.model_offset.xyz(),
+                //         model.model.model_scale.xyz() * 2.0,
+                //     ),
+                // )?;
 
-                let obj =
-                    renderer.add_object(RenderObject::new(TfxFeatureRenderer::RigidObject, model));
-                world.insert_one(entity, DynamicRenderObject::new(renderer, obj))?;
+                // let obj =
+                //     renderer.add_object(RenderObject::new(TfxFeatureRenderer::RigidObject, model));
+                // world.insert_one(entity, DynamicRenderObject::new(renderer, obj))?;
             }
             // 0x80808412 => {
             //     let mut cur = Cursor::new(package_manager().read_tag(component.taghash())?);
@@ -181,34 +176,38 @@ pub fn spawn_pattern_from_header(
 
                 let feature_renderer =
                     TerrainPatchesRenderer::load(renderer, data.terrain, data.identifier)?;
+                let bounds = feature_renderer.bounds();
 
-                world.insert_one(
+                world.insert(
                     entity,
-                    StaticRenderObject::new(
-                        renderer,
-                        renderer.add_object(RenderObject::new(
-                            TfxFeatureRenderer::TerrainPatch,
-                            feature_renderer,
-                        )),
+                    (
+                        StaticRenderObject::new(
+                            renderer,
+                            renderer.add_object(RenderObject::new(
+                                TfxFeatureRenderer::TerrainPatch,
+                                feature_renderer,
+                            )),
+                        ),
+                        bounds,
                     ),
                 )?;
             }
             0x808084E8 => {
-                let data = get_component_data!(SStaticInstancesCollectionComponent);
-                let instances: SUnk808082D5 = package_manager().read_tag_struct(data.instances)?;
-                world.insert_one(
-                    entity,
-                    StaticRenderObject::new(
-                        renderer,
-                        renderer.add_object(RenderObject::new(
-                            TfxFeatureRenderer::ChunkedInstanceObjects,
-                            Box::new(StaticInstancesRenderer::load(
-                                renderer,
-                                instances.instances,
-                            )?),
-                        )),
-                    ),
-                )?;
+                // let data = get_component_data!(SStaticInstancesCollectionComponent);
+                // let instances: SUnk808082D5 = package_manager().read_tag_struct(data.instances)?;
+                // world.insert_one(
+                //     entity,
+                //     StaticRenderObject::new(
+                //         renderer,
+                //         renderer.add_object(RenderObject::new(
+                //             TfxFeatureRenderer::ChunkedInstanceObjects,
+                //             Box::new(StaticInstancesRenderer::load(
+                //                 renderer,
+                //                 instances.instances,
+                //             )?),
+                //         )),
+                //     ),
+                // )?;
             }
             // 0x80806957 => {
             //     let data = get_component_data!(SDecalCollectionComponent);

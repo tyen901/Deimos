@@ -4,7 +4,7 @@ use tiger_pkg::TagHash;
 
 use crate::{
     tag::{OptionalTag, Tag},
-    tfx::common::{AxisAlignedBBox, SOcclusionBounds},
+    tfx::{common::SOcclusionBounds, geometry::AxisAlignedBBox},
 };
 
 #[derive(Clone, Debug)]

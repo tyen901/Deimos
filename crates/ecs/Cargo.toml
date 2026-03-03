@@ -1,0 +1,11 @@
+[package]
+name = "deimos-ecs"
+version = "0.0.0"
+edition = "2024"
+
+[dependencies]
+deimos-data = { path = "../data" }
+
+glam.workspace = true
+hecs.workspace = true
+tracing.workspace = true

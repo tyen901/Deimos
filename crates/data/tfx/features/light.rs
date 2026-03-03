@@ -4,7 +4,10 @@ use tiger_pkg::TagHash;
 
 use crate::{
     tag::Tag,
-    tfx::common::{AxisAlignedBBox, SOcclusionBounds, SRotationTranslation},
+    tfx::{
+        common::{SOcclusionBounds, SRotationTranslation},
+        geometry::AxisAlignedBBox,
+    },
 };
 
 #[derive(Clone, Debug)]

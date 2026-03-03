@@ -88,6 +88,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4aa90d7ce82d4be67b64039a3d588d38dbcc6736577de4a847025ce5b0c468d1"
 
 [[package]]
+name = "allocator-api2"
+version = "0.2.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
+
+[[package]]
 name = "anstream"
 version = "0.6.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -339,9 +345,12 @@ checksum = "56ed6191a7e78c36abdb16ab65341eefd73d64d303fffccdbb00d51e4205967b"
 
 [[package]]
 name = "bumpalo"
-version = "3.19.1"
+version = "3.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5dd9dc738b7a8311c7ade152424974d8115f2cdad61e8dab8dac9f2362298510"
+checksum = "5d20789868f4b01b2f2caec9f5c4e0213b41e3e5702a50157d699ae31ced2fcb"
+dependencies = [
+ "allocator-api2",
+]
 
 [[package]]
 name = "bytemuck"
@@ -773,6 +782,7 @@ dependencies = [
  "d3d12",
  "deimos-core",
  "deimos-data",
+ "deimos-ecs",
  "deimos-render",
  "egui",
  "egui-d3d12",
@@ -833,12 +843,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "deimos-ecs"
+version = "0.0.0"
+dependencies = [
+ "deimos-data",
+ "glam",
+ "hecs",
+ "tracing 0.2.0",
+]
+
+[[package]]
 name = "deimos-render"
 version = "0.1.0"
 dependencies = [
  "ahash",
  "anyhow",
  "assert-offset",
+ "bumpalo",
  "bytemuck",
  "chroma-dbg 0.1.1",
  "crossbeam",
@@ -846,8 +867,10 @@ dependencies = [
  "ddsfile",
  "deimos-core",
  "deimos-data",
+ "deimos-ecs",
  "glam",
  "gpu-allocator",
+ "hecs",
  "int-enum",
  "itertools 0.14.0",
  "lazy_static",
@@ -861,6 +884,7 @@ dependencies = [
  "sdl3",
  "slotmap",
  "smallvec",
+ "static_assertions",
  "tiger-parse",
  "tiger-pkg",
  "tracing 0.2.0",

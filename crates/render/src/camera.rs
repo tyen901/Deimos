@@ -1,4 +1,7 @@
+use deimos_data::tfx::geometry::AxisAlignedBBox;
 use glam::{Mat4, Quat, Vec2, Vec3, Vec4};
+
+use crate::visibility::frustum::Frustum;
 
 // A simple camera controller (X forward, Z up)
 pub struct Camera {
@@ -13,7 +16,7 @@ pub struct Camera {
     pub max_ortho_width: f32,
 
     pub aspect_ratio: f32,
-    // pub culling_frustum: Frustum,
+    pub culling_frustum: Frustum,
     pub world_to_camera: Mat4,
     pub camera_to_projective: Mat4,
     pub world_to_projective: Mat4,
@@ -31,7 +34,7 @@ impl Default for Camera {
             fov_y: 90.0,
             max_ortho_width: 2.0,
             aspect_ratio: 16. / 9.,
-            // culling_frustum: Frustum::default(),
+            culling_frustum: Frustum::default(),
             world_to_camera: Mat4::IDENTITY,
             camera_to_projective: Mat4::IDENTITY,
             world_to_projective: Mat4::IDENTITY,
@@ -44,12 +47,12 @@ impl Camera {
     pub const FAR: f32 = 50000.0;
 
     pub fn update(&mut self) {
-        // self.fov_y += 10.0;
-        // let mut real_far = 350.0;
-        // std::mem::swap(&mut real_far, &mut self.far);
-        // self.culling_frustum = Frustum::from_camera(self);
-        // std::mem::swap(&mut real_far, &mut self.far);
-        // self.fov_y -= 10.0;
+        self.fov_y += 10.0;
+        let mut real_far = 350.0;
+        std::mem::swap(&mut real_far, &mut self.far);
+        self.culling_frustum = Frustum::from_camera(self);
+        std::mem::swap(&mut real_far, &mut self.far);
+        self.fov_y -= 10.0;
 
         self.world_to_camera = self.view_matrix();
         self.camera_to_projective = self.projection_matrix(self.aspect_ratio);
@@ -100,33 +103,33 @@ impl Camera {
         self.rotation.mul_vec3(Vec3::Z)
     }
 
-    // pub fn is_visible(&self, aabb: &AxisAlignedBBox) -> bool {
-    //     if !self.culling_frustum.aabb_intersecting(aabb) {
-    //         return false;
-    //     }
+    pub fn is_visible(&self, aabb: &AxisAlignedBBox) -> bool {
+        if !self.culling_frustum.aabb_intersecting(aabb) {
+            return false;
+        }
 
-    //     // Project the AABB corners to check how big they appear on screen
-    //     let corners = aabb.points();
-    //     let mut min_ndc = Vec3::splat(f32::MAX);
-    //     let mut max_ndc = Vec3::splat(f32::MIN);
-    //     for corner in &corners {
-    //         let world_pos = corner.extend(1.0);
-    //         let clip_pos = self.local_to_projective * world_pos;
-    //         let ndc_pos = clip_pos.truncate() / clip_pos.w;
+        // Project the AABB corners to check how big they appear on screen
+        let corners = aabb.points();
+        let mut min_ndc = Vec3::splat(f32::MAX);
+        let mut max_ndc = Vec3::splat(f32::MIN);
+        for corner in &corners {
+            let world_pos = corner.extend(1.0);
+            let clip_pos = self.world_to_projective * world_pos;
+            let ndc_pos = clip_pos.truncate() / clip_pos.w;
 
-    //         min_ndc = min_ndc.min(ndc_pos);
-    //         max_ndc = max_ndc.max(ndc_pos);
-    //     }
+            min_ndc = min_ndc.min(ndc_pos);
+            max_ndc = max_ndc.max(ndc_pos);
+        }
 
-    //     // If the projected size is too small, consider it not visible
-    //     let ndc_size = max_ndc - min_ndc;
-    //     let screen_size_threshold = 0.01; // Adjust this threshold as needed
-    //     if ndc_size.x < screen_size_threshold && ndc_size.y < screen_size_threshold {
-    //         return false;
-    //     }
+        // If the projected size is too small, consider it not visible
+        let ndc_size = max_ndc - min_ndc;
+        let screen_size_threshold = 0.01; // Adjust this threshold as needed
+        if ndc_size.x < screen_size_threshold && ndc_size.y < screen_size_threshold {
+            return false;
+        }
 
-    //     true
-    // }
+        true
+    }
 }
 
 #[derive(Clone)]

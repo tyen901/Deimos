@@ -9,12 +9,13 @@ use deimos_data::{
     map::{ComponentData, SBubbleParent, SMapNodeTable},
     pattern::SComponent,
 };
+use deimos_ecs::transform::Transform;
 use deimos_render::renderer::Renderer;
 use glam::Vec4Swizzles;
 use tiger_parse::{PackageManagerExt, TigerReadable};
 use tiger_pkg::{TagHash, package_manager};
 
-use crate::world::{pattern::spawn_pattern, transform::Transform};
+use crate::world::pattern::spawn_pattern;
 
 pub fn load_map_into_world(
     renderer: &Arc<Renderer>,

@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use deimos_data::{hash::fnv1, tfx::features::dynamic::SDynamicModelComponent};
+use tracing::{debug, error};
 
 pub struct PermutationConfig {
     /// Current configuration of key-value pairs

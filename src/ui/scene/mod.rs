@@ -1,28 +1,30 @@
 use std::{sync::Arc, time::Instant};
 
 use anyhow::Context;
+use chroma_dbg::ChromaDebug;
 use deimos_data::tfx::RenderStage;
 use deimos_render::{
     camera::Camera,
+    ecs::{populate_submit_nodes, s_extract_frame_packet},
     gpu::{
         command_list::CommandList,
         render_target::{DepthBuffer, RenderTarget},
     },
-    renderer::Renderer,
+    renderer::{Renderer, packet::FramePacket, scene::SceneRenderer},
+    tfx::view::ShadedView,
+    visibility::frustum::Frustum,
 };
 use egui::{RichText, Sense, Ui, UiBuilder, Vec2, load::SizedTexture, vec2};
 use google_material_symbols::GoogleMaterialSymbols;
 use hecs::World;
 
-use crate::{
-    ui::{scene::controller::CameraController, util::format_bytes},
-    world::render_objects::{DynamicRenderObject, s_extract_render_objects},
-};
+use crate::ui::{scene::controller::CameraController, util::format_bytes};
 
 pub mod controller;
 
 pub struct Scene {
     renderer: Arc<Renderer>,
+    scene: SceneRenderer,
 
     // Camera/view
     camera: Camera,
@@ -47,6 +49,13 @@ pub struct Scene {
 impl Scene {
     pub fn new(renderer: &Arc<Renderer>, camera: Camera) -> anyhow::Result<Self> {
         Ok(Self {
+            scene: SceneRenderer {
+                parent: renderer.clone(),
+                frame_packet: FramePacket::default(),
+                main_view: ShadedView {
+                    culling_frustum: Frustum::default(),
+                },
+            },
             renderer: renderer.clone(),
             camera,
             controller: CameraController::new_first_person(),
@@ -297,6 +306,7 @@ impl Scene {
                 ext.view.world_to_camera = self.camera.world_to_camera;
                 ext.view.camera_to_projective = self.camera.camera_to_projective;
                 ext.view.derive_matrices(resolution);
+                self.scene.main_view.culling_frustum = self.camera.culling_frustum.clone();
             }
             self.renderer.globals.scopes.frame.bind(&mut cmd_tfx);
             self.renderer.globals.scopes.view.bind(&mut cmd_tfx);
@@ -336,17 +346,18 @@ impl Scene {
                     .left(0)
                     .build()]);
 
-                s_extract_render_objects(&self.world, &self.renderer);
+                // s_extract_render_objects(&self.world, &self.renderer);
 
                 // for (_entity, render_object) in self.world.query::<&DynamicRenderObject>().iter() {
                 //     self.renderer.objects.read()[render_object.handle]
                 //         .renderer
                 //         .submit(&mut cmd_tfx, RenderStage::GenerateGbuffer);
                 // }
-                for obj in self.renderer.objects.write().values_mut() {
-                    obj.renderer
-                        .submit(&mut cmd_tfx, RenderStage::GenerateGbuffer);
-                }
+                self.scene.frame_packet.reset();
+                s_extract_frame_packet(&self.world, &mut self.scene);
+                populate_submit_nodes(&mut self.scene);
+                // println!("{:#?}", self.scene.frame_packet.views);
+
                 self.render_target1
                     .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
             }

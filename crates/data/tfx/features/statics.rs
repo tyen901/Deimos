@@ -6,8 +6,8 @@ use tiger_pkg::TagHash;
 use crate::{
     tag::Tag,
     tfx::{
-        common::{AxisAlignedBBox, SOcclusionBounds},
-        LodCategory, PrimitiveType, RenderStage,
+        common::SOcclusionBounds, geometry::AxisAlignedBBox, LodCategory, PrimitiveType,
+        RenderStage,
     },
 };
 

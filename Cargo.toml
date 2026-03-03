@@ -16,6 +16,7 @@ members = [
     "crates/egui-sdl3-platform",
     "crates/d3d12",
     "crates/egui-d3d12",
+    "crates/ecs",
 ]
 
 [workspace.dependencies]
@@ -25,6 +26,7 @@ egui = { version = "0.33", default-features = false, features = ["bytemuck"] }
 egui_dock = "0.18"
 glam = { version = "0.29", features = ["bytemuck", "fast-math"] }
 itertools = "0.14"
+hecs = "0.10.5"
 parking_lot = "0.12"
 potassium = "0.4.2"
 profiling = "1"
@@ -60,6 +62,7 @@ features = [
 [dependencies]
 deimos-core = { path = "./crates/core" }
 deimos-data = { path = "./crates/data" }
+deimos-ecs = { path = "./crates/ecs" }
 deimos-render = { path = "./crates/render" }
 d3d12 = { path = "./crates/d3d12" }
 egui-sdl3-platform = { path = "./crates/egui-sdl3-platform" }
@@ -91,18 +94,18 @@ glam.workspace = true
 sdl3.workspace = true
 
 # UI
-egui.workspace = true
-egui_extras = { version = "0.33", features = ["image"] }
-egui_dock.workspace = true
-image = { version = "0.25", features = ["png"] }
-nu-ansi-term = "0.50.1"
-native-dialog = "0.7.0"
-clap = { version = "4.5.37", features = ["derive"] }
-google_material_symbols = "0.2.9"
-hecs = "0.10.5"
-rayon.workspace = true
-chroma-dbg = "0.2.1"
 ahash = "0.8.12"
+chroma-dbg = "0.2.1"
+clap = { version = "4.5.37", features = ["derive"] }
+egui.workspace = true
+egui_dock.workspace = true
+egui_extras = { version = "0.33", features = ["image"] }
+google_material_symbols = "0.2.9"
+hecs.workspace = true
+image = { version = "0.25", features = ["png"] }
+native-dialog = "0.7.0"
+nu-ansi-term = "0.50.1"
+rayon.workspace = true
 
 [build-dependencies]
 embed-resource = "3.0.1"
