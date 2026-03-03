@@ -123,6 +123,7 @@ impl App {
         let cmd = &frame.command_list;
 
         {
+            let _scope = cmd.event_scope_str("scene");
             let (back_buffer_handle, back_buffer) = self.gpu.swapchain.lock().get_back_buffer();
 
             self.gui.draw_ui(&self.shared_state);

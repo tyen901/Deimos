@@ -36,6 +36,33 @@ impl GraphicsCommandList {
         Ok(())
     }
 
+    pub fn begin_event_raw(&self, metadata: EventMetadata, data: &[u8]) {
+        unsafe {
+            self.0.BeginEvent(
+                metadata as u32,
+                Some(data.as_ptr().cast()),
+                data.len() as u32,
+            );
+        }
+    }
+
+    pub fn begin_event_str(&self, name: impl AsRef<str>) {
+        self.begin_event_raw(EventMetadata::Ansi, name.as_ref().as_bytes());
+    }
+
+    pub fn end_event(&self) {
+        unsafe {
+            self.0.EndEvent();
+        }
+    }
+
+    /// Creates a new event scope with the given name. The event will automatically end when the returned RAII guard is dropped.
+    #[must_use]
+    pub fn event_scope_str(&self, name: impl AsRef<str>) -> EventGuard<'_> {
+        self.begin_event_str(name);
+        EventGuard { this: self }
+    }
+
     pub fn begin_query(&self, query_heap: &QueryHeap, query_type: QueryType, index: u32) {
         unsafe {
             self.0.BeginQuery(&query_heap.0, query_type.into(), index);
@@ -367,4 +394,22 @@ impl VertexBufferView {
             stride_in_bytes,
         }
     }
+}
+
+pub struct EventGuard<'a> {
+    this: &'a GraphicsCommandList,
+}
+
+impl Drop for EventGuard<'_> {
+    fn drop(&mut self) {
+        self.this.end_event();
+    }
+}
+
+#[repr(u32)]
+#[derive(Clone, Copy, Debug)]
+pub enum EventMetadata {
+    Unicode = 0,
+    Ansi = 1,
+    Pix3Blob = 2,
 }
