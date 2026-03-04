@@ -35,7 +35,7 @@ pub fn s_extract_frame_packet(
         );
 
         for (view_id, _v) in views.iter().enumerate() {
-            if visibility.is_visible(&bounds) {
+            if visibility.is_visible_quick(&bounds) {
                 frame_packet.push_view_node::<()>(view_id, frame_node, None);
             }
         }

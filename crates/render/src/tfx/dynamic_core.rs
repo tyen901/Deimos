@@ -112,6 +112,7 @@ impl DynamicCore {
         self.data.constant_buffer_slot
     }
 
+    #[profiling::function]
     pub fn prepare(&self, cmd: &mut CommandList) -> anyhow::Result<()> {
         if self.data.constant_buffer_slot >= 0 {
             let mut buffer = cmd

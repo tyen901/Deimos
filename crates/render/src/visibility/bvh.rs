@@ -32,6 +32,7 @@ impl Bvh {
         Self { nodes }
     }
 
+    #[profiling::function]
     pub fn is_visible(&self, vis: &ViewVisibility) -> bool {
         if self.nodes.is_empty() {
             return false;
@@ -43,7 +44,7 @@ impl Bvh {
         while let Some(idx) = stack.pop() {
             let node = &self.nodes[idx as usize];
 
-            if !vis.is_visible(&node.aabb) {
+            if !vis.is_visible_quick(&node.aabb) {
                 continue;
             }
 
@@ -59,7 +60,7 @@ impl Bvh {
         false
     }
 
-    pub fn node_count(&self) -> usize {
+    pub const fn node_count(&self) -> usize {
         self.nodes.len()
     }
 

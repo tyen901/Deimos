@@ -11,12 +11,22 @@ pub struct ViewVisibility {
 }
 
 impl ViewVisibility {
-    pub fn is_visible(&self, aabb: &AxisAlignedBBox) -> bool {
+    #[profiling::function]
+    pub fn is_visible_quick(&self, aabb: &AxisAlignedBBox) -> bool {
         if aabb.contains_point(self.position) {
             return true;
         }
 
         if !self.culling_frustum.aabb_intersecting(aabb) {
+            return false;
+        }
+
+        true
+    }
+
+    #[profiling::function]
+    pub fn is_visible(&self, aabb: &AxisAlignedBBox) -> bool {
+        if !self.is_visible_quick(aabb) {
             return false;
         }
 

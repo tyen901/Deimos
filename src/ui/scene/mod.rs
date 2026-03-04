@@ -265,96 +265,98 @@ impl Scene {
             //     self.sun_light_angle = self.sun_light_angle.rem_euclid(360.0);
             // }
 
-            // self.render(delta_time, resolution);
-
-            let cmd = &self.renderer.gpu.frame().command_list;
-            let mut cmd_tfx =
-                CommandList::from_native_command_list(&self.renderer, cmd.command_list.clone());
-
-            {
-                let ext = self.renderer.externs.get_mut();
-                self.camera.aspect_ratio = resolution.0 as f32 / resolution.1 as f32;
-                self.controller.update_rotation(&mut self.camera);
-                self.camera.update();
-                ext.view.world_to_camera = self.camera.world_to_camera;
-                ext.view.camera_to_projective = self.camera.camera_to_projective;
-                ext.view.derive_matrices(resolution);
-                self.scene.main_view.culling_frustum = self.camera.culling_frustum.clone();
-            }
-            self.renderer.globals.scopes.frame.bind(&mut cmd_tfx);
-            self.renderer.globals.scopes.view.bind(&mut cmd_tfx);
-            self.renderer.globals.scopes.chunk_model.bind(&mut cmd_tfx);
-
-            {
-                let _scope = self.renderer.gpu.frame().profiler.scope(cmd, "Scene");
-                self.scene
-                    .main_view
-                    .gbuffer
-                    .transition(cmd, d3d12::ResourceStates::RENDER_TARGET);
-                self.scene.main_view.gbuffer.clear(cmd);
-                self.scene.main_view.gbuffer.bind(cmd);
-
-                // s_extract_render_objects(&self.world, &self.renderer);
-
-                // for (_entity, render_object) in self.world.query::<&DynamicRenderObject>().iter() {
-                //     self.renderer.objects.read()[render_object.handle]
-                //         .renderer
-                //         .submit(&mut cmd_tfx, RenderStage::GenerateGbuffer);
-                // }
-                self.scene.frame_packet.reset();
-                let vis = &ViewVisibility {
-                    culling_frustum: self.camera.culling_frustum.clone(),
-                    position: self.camera.position,
-                    world_to_projective: self.camera.world_to_projective,
-                };
-                s_extract_frame_packet(&self.world, &mut self.scene, vis);
-                populate_submit_nodes(&mut self.scene, vis);
-
-                let render_objects = self.renderer.objects.read();
-                for view in &self.scene.frame_packet.views {
-                    // let context = TempSubmitContext {
-                    //     renderer: self.renderer.clone(),
-                    //     frame_packet: &self.scene.frame_packet,
-                    // };
-
-                    // submit_node_block_range(
-                    //     context.clone(),
-                    //     0..view
-                    //         .submit_node_blocks
-                    //         .block(RenderStage::GenerateGbuffer)
-                    //         .len(),
-                    // );
-
-                    // self.renderer.gpu.frame().cmd_pool.apply(
-                    //     &cmd_tfx,
-                    //     std::slice::from_ref(self.renderer.gpu.frame().descriptors.heap()),
-                    // );
-                    for submit_node in view.submit_node_blocks.block(RenderStage::GenerateGbuffer) {
-                        let view_node = &view.view_nodes[submit_node.view_node];
-                        let frame_node =
-                            &self.scene.frame_packet.per_frame_nodes[view_node.frame_node];
-                        let Some(render_object) = render_objects.get(frame_node.object) else {
-                            error!(
-                                "Render object with handle {:?} not found",
-                                frame_node.object
-                            );
-                            continue;
-                        };
-                        render_object.renderer.submit(
-                            &mut cmd_tfx,
-                            RenderStage::GenerateGbuffer,
-                            view_node,
-                            submit_node.key,
-                        );
-                    }
-                }
-
-                self.scene
-                    .main_view
-                    .gbuffer
-                    .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
-            }
+            self.render(delta_time, resolution);
         });
+    }
+
+    #[profiling::function]
+    fn render(&mut self, delta_time: f32, resolution: (u32, u32)) {
+        let cmd = &self.renderer.gpu.frame().command_list;
+        let mut cmd_tfx =
+            CommandList::from_native_command_list(&self.renderer, cmd.command_list.clone());
+
+        {
+            let ext = self.renderer.externs.get_mut();
+            self.camera.aspect_ratio = resolution.0 as f32 / resolution.1 as f32;
+            self.controller.update_rotation(&mut self.camera);
+            self.camera.update();
+            ext.view.world_to_camera = self.camera.world_to_camera;
+            ext.view.camera_to_projective = self.camera.camera_to_projective;
+            ext.view.derive_matrices(resolution);
+            self.scene.main_view.culling_frustum = self.camera.culling_frustum.clone();
+        }
+        self.renderer.globals.scopes.frame.bind(&mut cmd_tfx);
+        self.renderer.globals.scopes.view.bind(&mut cmd_tfx);
+        self.renderer.globals.scopes.chunk_model.bind(&mut cmd_tfx);
+
+        {
+            let _scope = self.renderer.gpu.frame().profiler.scope(cmd, "Scene");
+            self.scene
+                .main_view
+                .gbuffer
+                .transition(cmd, d3d12::ResourceStates::RENDER_TARGET);
+            self.scene.main_view.gbuffer.clear(cmd);
+            self.scene.main_view.gbuffer.bind(cmd);
+
+            // s_extract_render_objects(&self.world, &self.renderer);
+
+            // for (_entity, render_object) in self.world.query::<&DynamicRenderObject>().iter() {
+            //     self.renderer.objects.read()[render_object.handle]
+            //         .renderer
+            //         .submit(&mut cmd_tfx, RenderStage::GenerateGbuffer);
+            // }
+            self.scene.frame_packet.reset();
+            let vis = &ViewVisibility {
+                culling_frustum: self.camera.culling_frustum.clone(),
+                position: self.camera.position,
+                world_to_projective: self.camera.world_to_projective,
+            };
+            s_extract_frame_packet(&self.world, &mut self.scene, vis);
+            populate_submit_nodes(&mut self.scene, vis);
+
+            let render_objects = self.renderer.objects.read();
+            for view in &self.scene.frame_packet.views {
+                // let context = TempSubmitContext {
+                //     renderer: self.renderer.clone(),
+                //     frame_packet: &self.scene.frame_packet,
+                // };
+
+                // submit_node_block_range(
+                //     context.clone(),
+                //     0..view
+                //         .submit_node_blocks
+                //         .block(RenderStage::GenerateGbuffer)
+                //         .len(),
+                // );
+
+                // self.renderer.gpu.frame().cmd_pool.apply(
+                //     &cmd_tfx,
+                //     std::slice::from_ref(self.renderer.gpu.frame().descriptors.heap()),
+                // );
+                for submit_node in view.submit_node_blocks.block(RenderStage::GenerateGbuffer) {
+                    let view_node = &view.view_nodes[submit_node.view_node];
+                    let frame_node = &self.scene.frame_packet.per_frame_nodes[view_node.frame_node];
+                    let Some(render_object) = render_objects.get(frame_node.object) else {
+                        error!(
+                            "Render object with handle {:?} not found",
+                            frame_node.object
+                        );
+                        continue;
+                    };
+                    render_object.renderer.submit(
+                        &mut cmd_tfx,
+                        RenderStage::GenerateGbuffer,
+                        view_node,
+                        submit_node.key,
+                    );
+                }
+            }
+
+            self.scene
+                .main_view
+                .gbuffer
+                .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
+        }
     }
 
     fn show_toolbar(&mut self, ui: &mut Ui) {

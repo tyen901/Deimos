@@ -216,6 +216,7 @@ impl FeatureRenderer for TerrainPatchesRenderer {
         self.render_group(cmd, stage, submit_key as usize);
     }
 
+    #[profiling::function]
     fn populate_submit_node_blocks(
         &self,
         _renderer: &Renderer,

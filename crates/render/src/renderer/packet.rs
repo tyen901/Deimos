@@ -109,6 +109,7 @@ impl SubmitNodeContainer {
         self.block_mut(stage).push(node);
     }
 
+    #[profiling::function]
     pub fn broadcast(&mut self, stages: RenderStageSubscription, node: SubmitNode) {
         for stage in stages.iter() {
             self.0[stage.bits().ilog2() as usize].push(node);

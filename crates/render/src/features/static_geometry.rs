@@ -15,7 +15,8 @@ use deimos_data::tfx::{
 };
 use glam::{Mat4, Vec3, Vec4};
 use itertools::Itertools;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use parking_lot::Mutex;
+use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::TagHash;
 use tiger_pkg::package_manager;
@@ -26,7 +27,7 @@ use crate::{
     gpu::{buffer::ImmutableBuffer, command_list::CommandList},
     renderer::{
         Renderer,
-        packet::{RenderPerViewNode, SubmitNode},
+        packet::{RenderPerViewNode, SubmitNode, SubmitNodeContainer},
     },
     tfx::technique::Technique,
     visibility::{ViewVisibility, bvh::Bvh},
@@ -396,6 +397,7 @@ impl StaticModelRenderer {
     //     }
     // }
 
+    #[profiling::function]
     pub fn is_visible(&self, visibility: &ViewVisibility) -> bool {
         if !visibility.is_visible(&self.bounds) {
             return false;
@@ -535,12 +537,13 @@ impl FeatureRenderer for StaticInstancesRenderer {
         // }
     }
 
+    #[profiling::function]
     fn populate_submit_node_blocks(
         &self,
         _renderer: &Renderer,
         view_node: usize,
         visibility: &ViewVisibility,
-        submit_node_blocks: &mut crate::renderer::packet::SubmitNodeContainer,
+        submit_node_blocks: &mut SubmitNodeContainer,
     ) {
         for (i, model) in self.models.iter().enumerate() {
             if model.is_visible(visibility) {
@@ -553,6 +556,27 @@ impl FeatureRenderer for StaticInstancesRenderer {
                 );
             }
         }
+
+        // TODO(cohae): Quite a bit faster already, but causes bugs :(
+        // let per_view_container = Mutex::new(SubmitNodeContainer::default());
+        // self.models.par_iter().enumerate().for_each(|(i, model)| {
+        //     if model.is_visible(visibility) {
+        //         per_view_container.lock().broadcast(
+        //             model.model.subscribed_stages,
+        //             SubmitNode {
+        //                 key: i as u64,
+        //                 view_node,
+        //             },
+        //         );
+        //     }
+        // });
+
+        // let per_view_container = per_view_container.into_inner();
+        // for stage in deimos_data::tfx::RenderStage::iter() {
+        //     submit_node_blocks
+        //         .block_mut(stage)
+        //         .extend_from_slice(per_view_container.block(stage));
+        // }
     }
 
     fn submit(

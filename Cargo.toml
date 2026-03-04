@@ -87,7 +87,7 @@ tracing-subscriber = { version = "0.3", git = "https://github.com/cohaereo/traci
     "tracing-log",
 ] }
 tracing.workspace = true
-tracy-client = { version = "0.18.2", optional = true }
+tracy-client = { version = "0.18.4", optional = true }
 
 # Graphics
 glam.workspace = true

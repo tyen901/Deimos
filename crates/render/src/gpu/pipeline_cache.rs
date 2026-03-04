@@ -38,6 +38,7 @@ impl PipelineCache {
         }
     }
 
+    #[profiling::function]
     pub fn get_or_create(
         &mut self,
         key: PipelineKey,
@@ -95,6 +96,7 @@ impl PipelineCache {
         Ok(self.storage.get(&key).expect("unreachable: just inserted"))
     }
 
+    #[profiling::function]
     pub fn get_or_load_bytecode(&mut self, hash: TagHash) -> anyhow::Result<Arc<[u8]>> {
         match self.bytecode_cache.entry(hash) {
             Entry::Occupied(entry) => Ok(entry.into_mut().clone()),
