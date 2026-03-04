@@ -180,7 +180,7 @@ impl Technique {
                 Format::R8g8b8a8Unorm,
                 Format::R10g10b10a2Unorm,
                 Format::R8g8b8a8Unorm,
-                Format::R8g8b8a8Unorm,
+                Format::R32g32Float,
             ],
             Some(Format::D32FloatS8x24Uint),
         ) {

@@ -20,5 +20,3 @@ pub mod renderer;
 pub mod tfx;
 pub mod util;
 pub mod visibility;
-
-mod temp_renderer;

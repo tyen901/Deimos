@@ -13,16 +13,17 @@ use anyhow::Context;
 use crossbeam::atomic::AtomicCell;
 use d3d11::dxgi;
 use deimos_core::ConVars;
-use deimos_data::tfx::{texture::DxgiFormat, ExternIndex, FeatureRendererSubscription};
+use deimos_data::tfx::{ExternIndex, FeatureRendererSubscription, texture::DxgiFormat};
 use glam::Mat4;
 use globals::RenderGlobals;
 use parking_lot::{Mutex, RwLock, RwLockReadGuard};
 use surface::Surfaces;
 
 use crate::{
+    Gpu,
     asset::{
-        texture::{Texture, TextureHandle},
         AssetManager,
+        texture::{Texture, TextureHandle},
     },
     feature::immediate::ImmediateShapeRenderer,
     gpu::{cbuffer::ConstantBuffer, debug_text::DebugTextRenderer, profiler::D3D11Profiler},
@@ -32,7 +33,6 @@ use crate::{
         arena::Arena,
         threading::{CommandThreadPool, ThreadMutCell},
     },
-    Gpu,
 };
 
 const DEBUG_SHADER: &str = include_str!("../builtin/shaders/debug.hlsl");

@@ -36,6 +36,12 @@ impl GraphicsCommandList {
         Ok(())
     }
 
+    pub fn execute_bundle(&self, command_list: &Self) {
+        unsafe {
+            self.0.ExecuteBundle(&command_list.0);
+        }
+    }
+
     pub fn begin_event_raw(&self, metadata: EventMetadata, data: &[u8]) {
         unsafe {
             self.0.BeginEvent(

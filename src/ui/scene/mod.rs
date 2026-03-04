@@ -1,19 +1,17 @@
 use std::{sync::Arc, time::Instant};
 
-use anyhow::Context;
 use deimos_data::tfx::RenderStage;
 use deimos_render::{
     camera::Camera,
     ecs::{populate_submit_nodes, s_extract_frame_packet},
-    gpu::{
-        command_list::CommandList,
-        render_target::{DepthBuffer, RenderTarget},
-    },
+    gpu::command_list::CommandList,
     renderer::{Renderer, packet::FramePacket, scene::SceneRenderer},
-    tfx::view::ShadedView,
-    visibility::{ViewVisibility, frustum::Frustum},
+    tfx::{externs::get_global_channel_name, view::ShadedView},
+    visibility::ViewVisibility,
 };
-use egui::{RichText, Sense, Ui, UiBuilder, Vec2, load::SizedTexture, vec2};
+use egui::{
+    FontId, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2, Widget, load::SizedTexture, vec2,
+};
 use google_material_symbols::GoogleMaterialSymbols;
 use hecs::World;
 
@@ -38,23 +36,13 @@ pub struct Scene {
 
     // UI
     keep_settings_open: bool,
-
-    render_target1: RenderTarget,
-    render_target2: RenderTarget,
-    render_target3: RenderTarget,
-    depth_buffer: DepthBuffer,
+    show_channel_editor: bool,
 }
 
 impl Scene {
     pub fn new(renderer: &Arc<Renderer>, camera: Camera) -> anyhow::Result<Self> {
         Ok(Self {
-            scene: SceneRenderer {
-                parent: renderer.clone(),
-                frame_packet: FramePacket::default(),
-                main_view: ShadedView {
-                    culling_frustum: Frustum::default(),
-                },
-            },
+            scene: SceneRenderer::new(renderer.clone())?,
             renderer: renderer.clone(),
             camera,
             controller: CameraController::new_first_person(),
@@ -62,33 +50,7 @@ impl Scene {
             frametimes: Vec::new(),
             last_frame_time: Instant::now(),
             keep_settings_open: false,
-
-            render_target1: RenderTarget::new(
-                &renderer.gpu,
-                "scene_main_rt",
-                d3d12::Format::R8g8b8a8Unorm,
-                d3d12::Format::R8g8b8a8Unorm,
-                (1920, 1080),
-            )
-            .context("allocating render target")?,
-            render_target2: RenderTarget::new(
-                &renderer.gpu,
-                "scene_main_rt",
-                d3d12::Format::R10g10b10a2Typeless,
-                d3d12::Format::R10g10b10a2Unorm,
-                (1920, 1080),
-            )
-            .context("allocating render target")?,
-            render_target3: RenderTarget::new(
-                &renderer.gpu,
-                "scene_main_rt",
-                d3d12::Format::R8g8b8a8Unorm,
-                d3d12::Format::R8g8b8a8Unorm,
-                (1920, 1080),
-            )
-            .context("allocating render target")?,
-            depth_buffer: DepthBuffer::new(&renderer.gpu, (1920, 1080))
-                .context("allocating depth buffer")?,
+            show_channel_editor: false,
         })
     }
 
@@ -132,6 +94,19 @@ impl Scene {
             delta_time
         };
 
+        // if self.show_surface_viewer {
+        //     egui::SidePanel::right("surface_viewer").show_inside(ui, |ui| {
+        //         // self.show_texture_viewer(ui, egui_d3d11);
+        //         self.show_surface_viewer(ui, egui_d3d11);
+        //     });
+        // }
+
+        if self.show_channel_editor {
+            egui::SidePanel::right("channel_editor").show_inside(ui, |ui| {
+                self.show_channel_editor(ui);
+            });
+        }
+
         egui::CentralPanel::default().show_inside(ui, |ui| {
             let panel_rect = ui.available_rect_before_wrap();
 
@@ -139,7 +114,7 @@ impl Scene {
             let r = ui
                 .image(SizedTexture {
                     id: egui_d3d12.textures_mut().allocate_dx_temporary(
-                        self.render_target1.srv().cpu_handle(),
+                        self.scene.main_view.gbuffer.albedo.srv().cpu_handle(),
                         None,
                         false,
                     ),
@@ -278,10 +253,9 @@ impl Scene {
 
             let size_pixels = size * ui.ctx().pixels_per_point();
             let resolution = (size_pixels.x as u32, size_pixels.y as u32);
-            self.depth_buffer.resize(resolution);
-            self.render_target1.resize(resolution);
-            self.render_target2.resize(resolution);
-            self.render_target3.resize(resolution);
+            if let Err(e) = self.scene.main_view.resize(&self.renderer.gpu, resolution) {
+                error!("Failed to resize main view: {e:?}");
+            }
 
             self.controller.update(&mut self.camera, ui, &r, delta_time);
 
@@ -313,37 +287,12 @@ impl Scene {
 
             {
                 let _scope = self.renderer.gpu.frame().profiler.scope(cmd, "Scene");
-                self.render_target1
+                self.scene
+                    .main_view
+                    .gbuffer
                     .transition(cmd, d3d12::ResourceStates::RENDER_TARGET);
-                cmd.clear_render_target_view(
-                    self.render_target1.cpu_handle(),
-                    &[0.0, 0.0, 0.0, 0.0],
-                );
-                cmd.clear_depth_stencil_view(
-                    self.depth_buffer.cpu_handle(),
-                    d3d12::ClearFlags::DEPTH,
-                    0.0,
-                    0,
-                );
-                cmd.om_set_render_targets(
-                    &[
-                        self.render_target1.cpu_handle(),
-                        self.render_target2.cpu_handle(),
-                        self.render_target3.cpu_handle(),
-                    ],
-                    false,
-                    Some(self.depth_buffer.cpu_handle()),
-                );
-                cmd.set_viewports(&[d3d12::Viewport::builder()
-                    .width(resolution.0 as f32)
-                    .height(resolution.1 as f32)
-                    .build()]);
-                cmd.set_scissor_rects(&[d3d12::Rect::builder()
-                    .right(resolution.0 as i32)
-                    .bottom(resolution.1 as i32)
-                    .top(0)
-                    .left(0)
-                    .build()]);
+                self.scene.main_view.gbuffer.clear(cmd);
+                self.scene.main_view.gbuffer.bind(cmd);
 
                 // s_extract_render_objects(&self.world, &self.renderer);
 
@@ -363,6 +312,23 @@ impl Scene {
 
                 let render_objects = self.renderer.objects.read();
                 for view in &self.scene.frame_packet.views {
+                    // let context = TempSubmitContext {
+                    //     renderer: self.renderer.clone(),
+                    //     frame_packet: &self.scene.frame_packet,
+                    // };
+
+                    // submit_node_block_range(
+                    //     context.clone(),
+                    //     0..view
+                    //         .submit_node_blocks
+                    //         .block(RenderStage::GenerateGbuffer)
+                    //         .len(),
+                    // );
+
+                    // self.renderer.gpu.frame().cmd_pool.apply(
+                    //     &cmd_tfx,
+                    //     std::slice::from_ref(self.renderer.gpu.frame().descriptors.heap()),
+                    // );
                     for submit_node in view.submit_node_blocks.block(RenderStage::GenerateGbuffer) {
                         let view_node = &view.view_nodes[submit_node.view_node];
                         let frame_node =
@@ -383,7 +349,9 @@ impl Scene {
                     }
                 }
 
-                self.render_target1
+                self.scene
+                    .main_view
+                    .gbuffer
                     .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
             }
         });
@@ -417,15 +385,117 @@ impl Scene {
 
         if ui
             .selectable_label(
-                false, // self.show_channel_editor,
+                self.show_channel_editor,
                 GoogleMaterialSymbols::BarChart4Bars.to_string(),
             )
             .clicked()
         {
-            // self.show_channel_editor = !self.show_channel_editor;
+            self.show_channel_editor = !self.show_channel_editor;
         }
 
         // self.render_mode.ui(ui);
         // self.view.subscribed_features.show_input(ui);
     }
+
+    fn show_channel_editor(&mut self, ui: &mut Ui) {
+        ui.style_mut()
+            .text_styles
+            .insert(TextStyle::Body, FontId::proportional(16.0));
+        ui.style_mut()
+            .text_styles
+            .insert(TextStyle::Button, FontId::proportional(16.0));
+
+        // let automated_ids = s_get_all_global_channel_ids(&self.world);
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            ui.heading("Global Channels");
+            for (i, channel) in self.scene.global_channels.iter_mut().enumerate() {
+                let Some(channel_id) = self.renderer.externs.global_ids.get(i) else {
+                    continue;
+                };
+                // let is_automated = automated_ids.contains(channel_id);
+                let is_automated = false;
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = 4.0;
+                    if let Some(name) = get_global_channel_name(*channel_id) {
+                        ui.label(format!("Channel #{i} {name} (0x{channel_id:08X})"));
+                    } else {
+                        ui.label(format!("Channel #{i} 0x{channel_id:08X}"));
+                    }
+                    if is_automated {
+                        ui.weak("(automated)");
+                    }
+                });
+                ui.add_enabled_ui(!is_automated, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.spacing_mut().button_padding = vec2(4.0, 1.0);
+                        ui.spacing_mut().interact_size = egui::vec2(100.0, 32.0);
+                        egui::DragValue::new(&mut channel.x)
+                            .fixed_decimals(4)
+                            .speed(0.01)
+                            .ui(ui);
+                        egui::DragValue::new(&mut channel.y)
+                            .fixed_decimals(4)
+                            .speed(0.01)
+                            .ui(ui);
+                        egui::DragValue::new(&mut channel.z)
+                            .fixed_decimals(4)
+                            .speed(0.01)
+                            .ui(ui);
+                        egui::DragValue::new(&mut channel.w)
+                            .fixed_decimals(4)
+                            .speed(0.01)
+                            .ui(ui);
+                    });
+                });
+            }
+        });
+    }
 }
+
+// #[derive(Clone)]
+// struct TempSubmitContext {
+//     renderer: Arc<Renderer>,
+//     frame_packet: *const FramePacket,
+// }
+
+// unsafe impl Send for TempSubmitContext {}
+
+// const RANGE_GRANULARITY: usize = 128;
+// fn submit_node_block_range(ctx: TempSubmitContext, range: Range<usize>) {
+//     if range.len() > RANGE_GRANULARITY {
+//         let middle = range.len() / 2;
+//         let range1 = range.start..range.start + middle;
+//         let range2 = range.start + middle..range.end;
+//         let ctx2 = ctx.clone();
+//         rayon::join(
+//             || submit_node_block_range(ctx, range1),
+//             || submit_node_block_range(ctx2, range2),
+//         );
+//     } else {
+//         let render_objects = ctx.renderer.objects.read();
+//         let cmd = ctx.renderer.gpu.frame().cmd_pool.acquire();
+//         let mut cmd_tfx =
+//             CommandList::from_native_command_list(&ctx.renderer, cmd.command_list.clone());
+
+//         let frame_packet = unsafe { &*ctx.frame_packet };
+//         let view = &frame_packet.views[0];
+//         for submit_node in &view.submit_node_blocks.block(RenderStage::GenerateGbuffer)[range] {
+//             let view_node = &view.view_nodes[submit_node.view_node];
+//             let frame_node = &frame_packet.per_frame_nodes[view_node.frame_node];
+//             let Some(render_object) = render_objects.get(frame_node.object) else {
+//                 error!(
+//                     "Render object with handle {:?} not found",
+//                     frame_node.object
+//                 );
+//                 continue;
+//             };
+//             render_object.renderer.submit(
+//                 &mut cmd_tfx,
+//                 RenderStage::GenerateGbuffer,
+//                 view_node,
+//                 submit_node.key,
+//             );
+//         }
+//         ctx.renderer.gpu.frame().cmd_pool.release(cmd);
+//     }
+// }

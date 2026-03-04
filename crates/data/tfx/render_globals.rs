@@ -86,6 +86,14 @@ pub struct SRenderGlobalsGlobalChannels {
     pub unk28: Vec<()>,
 }
 
+impl SRenderGlobalsGlobalChannels {
+    pub fn default_values(&self) -> [Vec4; 256] {
+        let mut default_values = [Vec4::ZERO; 256];
+        default_values[..self.default_values.len()].copy_from_slice(&self.default_values);
+        default_values
+    }
+}
+
 #[tiger_type(id = 0x8080857C, size = 0x38)]
 pub struct SVertexInputLayouts {
     pub file_size: u64,

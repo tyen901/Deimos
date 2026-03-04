@@ -12,14 +12,9 @@ pub struct NativeCommandList {
 }
 
 impl NativeCommandList {
-    pub fn new(device: &d3d12::Device) -> anyhow::Result<Self> {
-        let command_allocator = device.create_command_allocator(d3d12::CommandListType::Direct)?;
-        let command_list = device.create_command_list(
-            0,
-            d3d12::CommandListType::Direct,
-            &command_allocator,
-            None,
-        )?;
+    pub fn new(device: &d3d12::Device, list_type: d3d12::CommandListType) -> anyhow::Result<Self> {
+        let command_allocator = device.create_command_allocator(list_type)?;
+        let command_list = device.create_command_list(0, list_type, &command_allocator, None)?;
         command_list.close()?;
 
         Ok(Self {
@@ -94,7 +89,7 @@ impl CommandListRing {
 
         let slots = (0..capacity)
             .map(|_| {
-                let command_list = NativeCommandList::new(device)?;
+                let command_list = NativeCommandList::new(device, d3d12::CommandListType::Direct)?;
                 Ok(CommandListSlot {
                     command_list,
                     fence_value: 0,

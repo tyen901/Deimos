@@ -26,7 +26,7 @@ impl FrameContext {
         let mb = 1024 * 1024;
         Ok(Self {
             upload: UploadRing::new(device, 64 * mb)?,
-            command_list: NativeCommandList::new(device)?,
+            command_list: NativeCommandList::new(device, d3d12::CommandListType::Direct)?,
             fence_value: AtomicU64::new(0),
             descriptors: DescriptorRing::new(
                 device,

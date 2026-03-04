@@ -1,8 +1,6 @@
 use deimos_data::tfx::geometry::AxisAlignedBBox;
 use glam::Vec3;
 
-use crate::tfx::externs::View;
-
 pub mod frustum;
 
 pub struct ViewVisibility {

@@ -1,12 +1,9 @@
-use deimos_data::tfx::geometry::{AxisAlignedBBox, SphereBounds};
-use deimos_ecs::transform::Transform;
+use deimos_data::tfx::geometry::AxisAlignedBBox;
 use hecs::World;
 
 use crate::{
     ecs::render_objects::StaticRenderObject,
-    gpu::frame,
-    renderer::{Renderer, packet::ViewPacket, scene::SceneRenderer},
-    tfx::view,
+    renderer::{packet::ViewPacket, scene::SceneRenderer},
     visibility::ViewVisibility,
 };
 
@@ -18,9 +15,9 @@ pub fn s_extract_frame_packet(
     visibility: &ViewVisibility,
 ) {
     let SceneRenderer {
-        parent: renderer,
         frame_packet,
         main_view,
+        ..
     } = scene;
 
     let views = [&main_view];
@@ -37,7 +34,7 @@ pub fn s_extract_frame_packet(
             None,
         );
 
-        for (view_id, v) in views.iter().enumerate() {
+        for (view_id, _v) in views.iter().enumerate() {
             if visibility.is_visible(&bounds) {
                 frame_packet.push_view_node::<()>(view_id, frame_node, None);
             }
@@ -81,9 +78,9 @@ pub fn populate_submit_nodes(scene: &mut SceneRenderer, visibility: &ViewVisibil
 
     let render_objects = renderer.objects.read();
     for ViewPacket {
-        culling_frustum,
         view_nodes,
         submit_node_blocks,
+        ..
     } in frame_packet.views.iter_mut()
     {
         for (view_node, render_object) in view_nodes
