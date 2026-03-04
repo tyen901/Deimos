@@ -79,8 +79,19 @@ impl AxisAlignedBBox {
         (self.max - self.min).xyz()
     }
 
-    pub fn center(&self) -> Vec3 {
+    pub fn centroid(&self) -> Vec3 {
         ((self.min + self.max) / 2.0).xyz()
+    }
+
+    pub fn longest_axis(&self) -> usize {
+        let d = self.max - self.min;
+        if d.x >= d.y && d.x >= d.z {
+            0
+        } else if d.y >= d.z {
+            1
+        } else {
+            2
+        }
     }
 
     pub fn radius(&self) -> f32 {
@@ -96,7 +107,7 @@ impl AxisAlignedBBox {
 
     pub fn sphere(&self) -> SphereBounds {
         SphereBounds {
-            center: self.center(),
+            center: self.centroid(),
             radius: self.radius(),
         }
     }

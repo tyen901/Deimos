@@ -121,7 +121,7 @@ impl Frustum {
 
     pub fn aabb_intersecting(&self, bb: &AxisAlignedBBox) -> bool {
         let extents: Vec3A = bb.extents().into();
-        let center: Vec3A = bb.center().into();
+        let center: Vec3A = bb.centroid().into();
         let is_on_or_forward_plane = |plane: &Plane| {
             let r = extents.dot(Vec3A::from(plane.xyz()).abs());
             // let r =

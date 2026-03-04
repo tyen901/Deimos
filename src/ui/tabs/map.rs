@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use deimos_render::{camera::Camera, renderer::Renderer};
 use egui::{Color32, Rect, Vec2, vec2};
+use glam::Vec3;
 use tiger_pkg::TagHash;
 
 use crate::{
@@ -22,6 +23,11 @@ pub struct MapTab {
 impl MapTab {
     pub fn new(renderer: &Arc<Renderer>, tag: TagHash, name: String) -> anyhow::Result<Self> {
         let renderer_clone = renderer.clone();
+        let camera = Camera {
+            position: Vec3::Z * 30.0,
+            ..Default::default()
+        };
+
         Ok(Self {
             load_task: Task::new(format!("load_map({tag})"), move || {
                 let mut world = hecs::World::new();
@@ -32,8 +38,7 @@ impl MapTab {
             tag,
             name,
             scene: Box::new(
-                Scene::new(renderer, Camera::default())?
-                    .with_controller(CameraController::new_first_person()),
+                Scene::new(renderer, camera)?.with_controller(CameraController::new_first_person()),
             ),
         })
     }

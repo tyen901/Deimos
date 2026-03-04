@@ -29,7 +29,7 @@ use crate::{
         packet::{RenderPerViewNode, SubmitNode},
     },
     tfx::technique::Technique,
-    visibility::ViewVisibility,
+    visibility::{ViewVisibility, bvh::Bvh},
 };
 
 use super::FeatureRenderer;
@@ -129,6 +129,8 @@ pub struct StaticModelRenderer {
     identifier: u64,
 
     constants_dirty: bool,
+
+    bvh: Bvh,
 }
 
 #[repr(C)]
@@ -166,13 +168,18 @@ impl StaticModelRenderer {
             4,
         )?;
 
+        let bounds = transforms.iter().map(|(_, b)| b.clone()).collect_vec();
+        let group_bounds = bounds.iter().cloned().sum();
+        let bvh = Bvh::build(&bounds);
+
         trace!(instances = transforms.len(), model_hash=%model_hash, "Loading model");
         Ok(Self {
             // unk_cb1: ConstantBuffer::create(gpu, Some(&Vec4::ZERO))?, // Offsets instance buffer data
             instance_buffer,
             instance_id_buffer,
             model,
-            bounds: transforms.iter().map(|(_, b)| b.clone()).sum(),
+            bounds: group_bounds,
+            bvh,
             visible_instance_ids,
             transforms,
             identifier,
@@ -388,6 +395,14 @@ impl StaticModelRenderer {
     //             .unwrap();
     //     }
     // }
+
+    pub fn is_visible(&self, visibility: &ViewVisibility) -> bool {
+        if !visibility.is_visible(&self.bounds) {
+            return false;
+        }
+
+        self.bvh.is_visible(visibility)
+    }
 }
 
 pub struct StaticInstancesRenderer {
@@ -428,6 +443,29 @@ impl StaticInstancesRenderer {
                 Ok(renderer)
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
+
+        // // Janky JSON representation of model bounds
+        // println!("{{");
+        // for (i, m) in models.iter().enumerate() {
+        //     println!("\"{i}\": {{");
+        //     print!("  \"total_bounds\": ");
+        //     print_aabb(&m.bounds);
+        //     println!(",");
+        //     println!("  \"bounds\": [");
+        //     for (i, b) in m.transforms.iter().map(|(_, b)| b).enumerate() {
+        //         print!("    ");
+        //         print_aabb(b);
+        //         if i != m.transforms.len() - 1 {
+        //             println!(",");
+        //         } else {
+        //             println!();
+        //         }
+        //     }
+        //     println!("  ]");
+        //     println!("}},");
+        // }
+        // println!("}}");
+        // panic!("done");
 
         // let mut groups_by_stage_sorted_by_technique: HashMap<
         //     RenderStage,
@@ -505,7 +543,7 @@ impl FeatureRenderer for StaticInstancesRenderer {
         submit_node_blocks: &mut crate::renderer::packet::SubmitNodeContainer,
     ) {
         for (i, model) in self.models.iter().enumerate() {
-            if visibility.is_visible(&model.bounds) {
+            if model.is_visible(visibility) {
                 submit_node_blocks.broadcast(
                     model.model.subscribed_stages,
                     SubmitNode {
@@ -626,4 +664,19 @@ impl FeatureRenderer for StaticInstancesRenderer {
     fn subscribed_stages(&self) -> RenderStageSubscription {
         self.subscribed_stages
     }
+}
+
+fn print_vec4(v: Vec4) {
+    print!(
+        r#"{{ "x": {}, "y": {}, "z": {}, "w": {} }}"#,
+        v.x, v.y, v.z, v.w
+    );
+}
+
+fn print_aabb(aabb: &AxisAlignedBBox) {
+    print!(r#"{{ "min": "#);
+    print_vec4(aabb.min);
+    print!(", \"max\": ");
+    print_vec4(aabb.max);
+    print!(" }}");
 }
