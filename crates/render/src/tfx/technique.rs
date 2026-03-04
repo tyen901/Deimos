@@ -158,8 +158,9 @@ impl Technique {
 
         let fixed_function_state = cmd
             .state
+            .ffstate
             .select(&self.data.states)
-            .select(&cmd.state_override);
+            .select(&cmd.state.ffstate_override);
 
         let pipeline_key = PipelineKey {
             vertex_shader: self.data.shader_vertex.shader,

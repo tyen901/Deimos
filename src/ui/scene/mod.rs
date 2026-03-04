@@ -10,7 +10,8 @@ use deimos_render::{
     visibility::ViewVisibility,
 };
 use egui::{
-    FontId, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2, Widget, load::SizedTexture, vec2,
+    Color32, FontId, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2, Widget, load::SizedTexture,
+    vec2,
 };
 use google_material_symbols::GoogleMaterialSymbols;
 use hecs::World;
@@ -159,12 +160,21 @@ impl Scene {
                 egui::Color32::GREEN,
             );
 
-            let vram_report = self.renderer.gpu.allocator.lock().generate_report();
+            let memory_stats = self.renderer.gpu.memory_stats();
+            let mut vram_text = format_bytes(memory_stats.allocator_used as usize);
+            let mut vram_color = Color32::GREEN;
+            if !memory_stats.errors.is_empty() {
+                vram_text = format!("{} {}", GoogleMaterialSymbols::Error, vram_text);
+                vram_color = Color32::RED;
+            } else if !memory_stats.warnings.is_empty() {
+                vram_text = format!("{} {}", GoogleMaterialSymbols::Warning, vram_text);
+                vram_color = Color32::YELLOW;
+            }
 
             let vram_rect = ui.painter_at(panel_rect).text(
                 panel_rect.right_top() + Vec2::new(-8.0, 23.0) + Vec2::splat(1.0),
                 egui::Align2::RIGHT_TOP,
-                format_bytes(vram_report.total_allocated_bytes as usize),
+                &vram_text,
                 egui::FontId::monospace(16.0),
                 egui::Color32::BLACK,
             );
@@ -172,9 +182,9 @@ impl Scene {
             ui.painter_at(panel_rect).text(
                 panel_rect.right_top() + Vec2::new(-8.0, 23.0),
                 egui::Align2::RIGHT_TOP,
-                format_bytes(vram_report.total_allocated_bytes as usize),
+                vram_text,
                 egui::FontId::monospace(16.0),
-                egui::Color32::GREEN,
+                vram_color,
             );
 
             ui.scope_builder(
@@ -222,33 +232,45 @@ impl Scene {
                 Sense::hover(),
             )
             .on_hover_ui(|ui| {
-                let last_frame = self.renderer.gpu.previous_frame();
-                let gpu = &self.renderer.gpu;
-                let resource_heap = gpu.resource_heap.lock();
                 ui.style_mut().spacing.item_spacing = vec2(0.0, 0.0);
-                ui.monospace(format!("{} allocations", vram_report.allocations.len()));
+                ui.monospace(format!("{} allocations", memory_stats.num_allocations));
                 ui.monospace(format!(
                     "Capacity:  {}",
-                    format_bytes(vram_report.total_capacity_bytes as usize)
+                    format_bytes(memory_stats.allocator_capacity as usize)
                 ));
                 ui.monospace(format!(
                     "Descriptor Heap: {}/{} ({:.0}%)",
-                    resource_heap.used(),
-                    resource_heap.capacity(),
-                    resource_heap.used() as f32 / resource_heap.capacity() as f32 * 100.0
+                    memory_stats.descriptor_heap_used,
+                    memory_stats.descriptor_heap_capacity,
+                    memory_stats.descriptor_heap_used as f32
+                        / memory_stats.descriptor_heap_capacity as f32
+                        * 100.0
                 ));
                 ui.separator();
                 ui.monospace(format!(
                     "Upload Ring:  {}/{} ({})",
-                    format_bytes(last_frame.upload.used()),
-                    format_bytes(last_frame.upload.capacity()),
-                    last_frame.upload.num_allocations(),
+                    format_bytes(memory_stats.upload_ring_used),
+                    format_bytes(memory_stats.upload_ring_capacity),
+                    memory_stats.num_upload_ring_allocations
                 ));
                 ui.monospace(format!(
                     "Descriptor Ring:  {}/{}",
-                    last_frame.descriptors.used(),
-                    last_frame.descriptors.capacity(),
+                    memory_stats.descriptor_heap_used, memory_stats.descriptor_heap_capacity
                 ));
+
+                if !memory_stats.errors.is_empty() {
+                    ui.separator();
+                    ui.colored_label(Color32::RED, "Errors:");
+                    for error in memory_stats.errors.iter() {
+                        ui.monospace(format!(" - {error:?}"));
+                    }
+                } else if !memory_stats.warnings.is_empty() {
+                    ui.separator();
+                    ui.colored_label(Color32::YELLOW, "Warnings:");
+                    for warning in memory_stats.warnings.iter() {
+                        ui.monospace(format!(" - {warning:?}"));
+                    }
+                }
             });
 
             let size_pixels = size * ui.ctx().pixels_per_point();
@@ -271,9 +293,13 @@ impl Scene {
 
     #[profiling::function]
     fn render(&mut self, delta_time: f32, resolution: (u32, u32)) {
-        let cmd = &self.renderer.gpu.frame().command_list;
-        let mut cmd_tfx =
-            CommandList::from_native_command_list(&self.renderer, cmd.command_list.clone());
+        let mut cmd_guard = self
+            .renderer
+            .gpu
+            .frame()
+            .stream
+            .acquire_cmd(&self.renderer.gpu);
+        let cmd = &mut *cmd_guard;
 
         {
             let ext = self.renderer.externs.get_mut();
@@ -285,9 +311,9 @@ impl Scene {
             ext.view.derive_matrices(resolution);
             self.scene.main_view.culling_frustum = self.camera.culling_frustum.clone();
         }
-        self.renderer.globals.scopes.frame.bind(&mut cmd_tfx);
-        self.renderer.globals.scopes.view.bind(&mut cmd_tfx);
-        self.renderer.globals.scopes.chunk_model.bind(&mut cmd_tfx);
+        self.renderer.globals.scopes.frame.bind(cmd);
+        self.renderer.globals.scopes.view.bind(cmd);
+        self.renderer.globals.scopes.chunk_model.bind(cmd);
 
         {
             let _scope = self.renderer.gpu.frame().profiler.scope(cmd, "Scene");
@@ -303,7 +329,7 @@ impl Scene {
             // for (_entity, render_object) in self.world.query::<&DynamicRenderObject>().iter() {
             //     self.renderer.objects.read()[render_object.handle]
             //         .renderer
-            //         .submit(&mut cmd_tfx, RenderStage::GenerateGbuffer);
+            //         .submit(cmd, RenderStage::GenerateGbuffer);
             // }
             self.scene.frame_packet.reset();
             let vis = &ViewVisibility {
@@ -344,7 +370,7 @@ impl Scene {
                         continue;
                     };
                     render_object.renderer.submit(
-                        &mut cmd_tfx,
+                        cmd,
                         RenderStage::GenerateGbuffer,
                         view_node,
                         submit_node.key,
@@ -492,7 +518,7 @@ impl Scene {
 //                 continue;
 //             };
 //             render_object.renderer.submit(
-//                 &mut cmd_tfx,
+//                 cmd,
 //                 RenderStage::GenerateGbuffer,
 //                 view_node,
 //                 submit_node.key,

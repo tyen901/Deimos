@@ -77,16 +77,16 @@ macro_rules! local_extern_container {
     ($($name:ident: $t:ident),*) => {
         /// Containers holding localized externs that allows for overriding externs for individual command lists
         pub struct LocalExternContainer {
-            parent: Arc<Renderer>,
+            base: BaseExternSource,
             $(
             pub $name: Option<Box<$t>>,
             )*
         }
 
         impl LocalExternContainer {
-            pub const fn new(parent: Arc<Renderer>) -> Self {
+            pub const fn new(base: BaseExternSource) -> Self {
                 Self {
-                    parent,
+                    base,
                     $(
                         $name: None,
                     )*
@@ -96,16 +96,17 @@ macro_rules! local_extern_container {
 
         impl ExternAccessor for LocalExternContainer {
             fn get_value_ptr(&self, index: ExternIndex, offset: usize) -> Option<(*const (), TypeId)> {
-                let base_externs = &self.parent.externs;
                 match index {
                     $(
                         ExternIndex::$t => {
-                            self.$name.as_ref()
-                                .unwrap_or(&base_externs.$name)
-                                .get_field_ptr(offset)
+                            if let Some(e) = self.$name.as_ref() {
+                                e.get_field_ptr(offset)
+                            } else {
+                                self.base.get_value_ptr(index, offset)
+                            }
                         }
                     )*
-                    _ => base_externs.get_value_ptr(index, offset),
+                    _ => self.base.get_value_ptr(index, offset),
                 }
             }
         }

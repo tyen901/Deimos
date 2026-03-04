@@ -1,16 +1,17 @@
 use std::{sync::atomic::AtomicU64, time::Duration};
 
 use d3d12::ext::GpuFence;
+use parking_lot::Mutex;
 
 use crate::gpu::{
     alloc::{descriptors::DescriptorRing, ring::UploadRing},
-    native_command_list::NativeCommandList,
     profiler::FrameProfiler,
+    stream::FrameCommandStream,
 };
 
 /// Represents a frame in flight.
 pub struct FrameContext {
-    pub command_list: NativeCommandList,
+    pub stream: FrameCommandStream,
     fence_value: AtomicU64,
 
     pub upload: UploadRing,
@@ -26,7 +27,8 @@ impl FrameContext {
         let mb = 1024 * 1024;
         Ok(Self {
             upload: UploadRing::new(device, 64 * mb)?,
-            command_list: NativeCommandList::new(device, d3d12::CommandListType::Direct)?,
+            stream: FrameCommandStream::new(device.clone()),
+            // command_list: NativeCommandList::new(device, d3d12::CommandListType::Direct)?,
             fence_value: AtomicU64::new(0),
             descriptors: DescriptorRing::new(
                 device,

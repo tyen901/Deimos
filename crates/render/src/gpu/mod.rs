@@ -12,6 +12,7 @@ pub mod command_list;
 pub mod frame;
 pub mod native_command_list;
 pub mod render_target;
+pub mod stream;
 pub mod swapchain;
 
 use std::{
@@ -31,7 +32,7 @@ use gpu_allocator::{
     d3d12::{ID3D12DeviceVersion, ResourceStateOrBarrierLayout},
 };
 use itertools::Itertools;
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
 use swapchain::Swapchain;
 use windows::{
     Win32::{
@@ -45,11 +46,14 @@ use windows::{
     core::Interface,
 };
 
-use crate::gpu::{
-    alloc::{descriptors::DescriptorHeapAllocator, resource::OwnedResource},
-    frame::FrameContext,
-    native_command_list::{CommandListRing, NativeCommandList},
-    pipeline_cache::PipelineCache,
+use crate::{
+    gpu::{
+        alloc::{descriptors::DescriptorHeapAllocator, resource::OwnedResource},
+        frame::FrameContext,
+        native_command_list::{AsyncCommandListRing, NativeCommandList},
+        pipeline_cache::PipelineCache,
+    },
+    tfx::externs::BaseExternSource,
 };
 
 pub struct Gpu {
@@ -60,17 +64,21 @@ pub struct Gpu {
     pub allocator: Mutex<gpu_allocator::d3d12::Allocator>,
     pub queue: d3d12::CommandQueue,
 
+    // TODO(cohae): This (more or less) belongs in renderer
     pub pipeline_cache: Mutex<PipelineCache>,
 
     pub(crate) frames: [FrameContext; Self::FRAMES_IN_FLIGHT],
     pub(crate) frame_index: AtomicUsize,
     pub(crate) frame_fence: GpuFence,
 
-    cmd_ring: CommandListRing,
+    cmd_ring: AsyncCommandListRing,
     pub resource_heap: Mutex<DescriptorHeapAllocator>,
 
     /// List of resources to be destroyed after the frame is finished.
     bin: Mutex<Vec<(Box<dyn Any + Send>, u8)>>,
+
+    // TODO(cohae): This belongs in renderer
+    pub extern_source: RwLock<BaseExternSource>,
 }
 
 unsafe impl Sync for Gpu {}
@@ -152,7 +160,7 @@ impl Gpu {
 
         let window_size = window.size();
         Ok(Self {
-            cmd_ring: CommandListRing::new(&device, queue.clone(), 4)?,
+            cmd_ring: AsyncCommandListRing::new(&device, queue.clone(), 4)?,
             resource_heap: Mutex::new(DescriptorHeapAllocator::new(
                 &device,
                 d3d12::DescriptorHeapType::CbvSrvUav,
@@ -172,6 +180,7 @@ impl Gpu {
             allocator: Mutex::new(allocator),
             frame_index: AtomicUsize::new(0),
             bin: Mutex::new(Vec::new()),
+            extern_source: RwLock::new(BaseExternSource::None),
         })
     }
 
@@ -232,11 +241,6 @@ impl Gpu {
             .collect_vec();
 
         frame
-            .command_list
-            .begin()
-            .expect("frame command list begin");
-
-        frame
     }
 
     pub fn frame_index(&self) -> usize {
@@ -254,18 +258,15 @@ impl Gpu {
     /// Signal the frame fence and increments the frame index
     ///
     /// Should be called after submitting the current frame's commandlist
-    pub fn end_frame(&self) {
+    pub fn end_frame(self: &Arc<Self>) {
         let frame_index = self.frame_index.load(std::sync::atomic::Ordering::Relaxed);
         let frame = &self.frames[frame_index % Self::FRAMES_IN_FLIGHT];
 
-        frame
-            .profiler
-            .resolve_query_data(&frame.command_list.command_list);
+        frame.stream.acquire_cmd(self).scope(|cmd| {
+            frame.profiler.resolve_query_data(cmd);
+        });
 
-        frame.command_list.end().expect("frame command list end");
-
-        self.queue
-            .execute_command_lists(std::slice::from_ref(&frame.command_list.command_list));
+        frame.stream.submit(&self.queue);
         frame.signal(&self.frame_fence, &self.queue);
         self.cmd_ring.advance().expect("advance command ring");
 
@@ -324,16 +325,62 @@ impl Gpu {
         }
     }
 
-    pub fn get_memory_stats(&self) -> DXGI_QUERY_VIDEO_MEMORY_INFO {
-        unsafe {
-            let mut memory_info = DXGI_QUERY_VIDEO_MEMORY_INFO::default();
-            self.adapter
-                .QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &mut memory_info)
-                .unwrap();
+    pub fn memory_stats(&self) -> MemoryStats {
+        let allocator_report = self.allocator.lock().generate_report();
+        let resource_heap = self.resource_heap.lock();
 
-            memory_info
+        let mut r = MemoryStats {
+            num_allocations: allocator_report.allocations.len(),
+            allocator_used: allocator_report.total_allocated_bytes,
+            allocator_capacity: allocator_report.total_capacity_bytes,
+            descriptor_heap_used: resource_heap.used(),
+            descriptor_heap_capacity: resource_heap.capacity(),
+            descriptor_ring_used: self.previous_frame().descriptors.used(),
+            descriptor_ring_capacity: self.previous_frame().descriptors.capacity(),
+            num_upload_ring_allocations: self.previous_frame().upload.num_allocations(),
+            upload_ring_used: self.previous_frame().upload.used(),
+            upload_ring_capacity: self.previous_frame().upload.capacity(),
+            errors: MemoryReportCategories::empty(),
+            warnings: MemoryReportCategories::empty(),
+        };
+
+        let descriptor_heap_used_ratio =
+            r.descriptor_heap_used as f64 / r.descriptor_heap_capacity as f64;
+        let descriptor_ring_used_ratio =
+            r.descriptor_ring_used as f64 / r.descriptor_ring_capacity as f64;
+        let upload_ring_used_ratio = r.upload_ring_used as f64 / r.upload_ring_capacity as f64;
+
+        if descriptor_heap_used_ratio >= 1.0 {
+            r.errors |= MemoryReportCategories::DESCRIPTOR_HEAP;
+        } else if descriptor_heap_used_ratio >= 0.8 {
+            r.warnings |= MemoryReportCategories::DESCRIPTOR_HEAP;
         }
+
+        if descriptor_ring_used_ratio >= 1.0 {
+            r.errors |= MemoryReportCategories::DESCRIPTOR_RING;
+        } else if descriptor_ring_used_ratio >= 0.8 {
+            r.warnings |= MemoryReportCategories::DESCRIPTOR_RING;
+        }
+
+        if upload_ring_used_ratio >= 1.0 {
+            r.errors |= MemoryReportCategories::UPLOAD_RING;
+        } else if upload_ring_used_ratio >= 0.8 {
+            r.warnings |= MemoryReportCategories::UPLOAD_RING;
+        }
+
+        r
     }
+
+    // pub fn get_memory_stats(&self) -> DXGI_QUERY_VIDEO_MEMORY_INFO {
+    //     unsafe {
+    //         let mut memory_info = DXGI_QUERY_VIDEO_MEMORY_INFO::default();
+    //         self.adapter
+    //             .QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &mut memory_info)
+    //             .unwrap();
+
+    //         memory_info
+    //     }
+    // }
 }
 
 impl std::ops::Deref for Gpu {
@@ -341,5 +388,35 @@ impl std::ops::Deref for Gpu {
 
     fn deref(&self) -> &Self::Target {
         &self.device
+    }
+}
+
+pub struct MemoryStats {
+    pub num_allocations: usize,
+    pub allocator_used: u64,
+    pub allocator_capacity: u64,
+
+    pub descriptor_heap_used: usize,
+    pub descriptor_heap_capacity: usize,
+
+    pub descriptor_ring_used: usize,
+    pub descriptor_ring_capacity: usize,
+
+    pub num_upload_ring_allocations: usize,
+    pub upload_ring_used: usize,
+    pub upload_ring_capacity: usize,
+
+    pub warnings: MemoryReportCategories,
+    pub errors: MemoryReportCategories,
+}
+
+bitflags::bitflags! {
+    #[derive(Debug, Clone, Copy)]
+    pub struct MemoryReportCategories: u8 {
+        const ALLOCATOR = 1 << 0;
+        const DESCRIPTOR_HEAP = 1 << 1;
+
+        const DESCRIPTOR_RING = 1 << 2;
+        const UPLOAD_RING = 1 << 3;
     }
 }

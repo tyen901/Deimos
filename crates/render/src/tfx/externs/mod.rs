@@ -1,14 +1,17 @@
 pub mod container;
 pub mod definitions;
 mod macros;
-use std::{any::TypeId, fmt::Debug};
+use std::{any::TypeId, fmt::Debug, sync::Arc};
 
 pub use container::*;
 pub use definitions::*;
 use deimos_data::tfx::ExternIndex;
 use glam::{Mat4, Vec4};
 
-use crate::asset::{Handle, texture::Texture};
+use crate::{
+    asset::{Handle, texture::Texture},
+    renderer::Renderer,
+};
 
 trait Extern {
     // fn get_field<T: Sized + 'static>(&self, offset: usize) -> Option<&T> {
@@ -213,5 +216,20 @@ impl ExternDefault for f32 {
 impl ExternDefault for u32 {
     fn extern_default() -> Self {
         0
+    }
+}
+
+#[derive(Clone)]
+pub enum BaseExternSource {
+    None,
+    Renderer(Arc<Renderer>),
+}
+
+impl ExternAccessor for BaseExternSource {
+    fn get_value_ptr(&self, index: ExternIndex, offset: usize) -> Option<(*const (), TypeId)> {
+        match self {
+            Self::None => None,
+            Self::Renderer(renderer) => renderer.externs.get_value_ptr(index, offset),
+        }
     }
 }

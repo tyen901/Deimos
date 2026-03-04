@@ -859,6 +859,7 @@ dependencies = [
  "ahash",
  "anyhow",
  "assert-offset",
+ "bitflags 2.11.0",
  "bumpalo",
  "bytemuck",
  "chroma-dbg 0.1.1",

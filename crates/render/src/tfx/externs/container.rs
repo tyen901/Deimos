@@ -1,11 +1,8 @@
-use std::{any::TypeId, sync::Arc};
+use std::any::TypeId;
 
-use crate::{
-    renderer::Renderer,
-    tfx::externs::{
-        Extern, ExternAccessor,
-        macros::{extern_container, local_extern_container},
-    },
+use crate::tfx::externs::{
+    BaseExternSource, Extern, ExternAccessor,
+    macros::{extern_container, local_extern_container},
 };
 use deimos_data::{hash::fnv1, tfx::ExternIndex};
 use glam::Vec4;

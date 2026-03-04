@@ -68,7 +68,7 @@ struct CommandListSlot {
     fence_value: u64,
 }
 
-pub struct CommandListRing {
+pub struct AsyncCommandListRing {
     queue: d3d12::CommandQueue,
     fence: d3d12::Fence,
     fence_event: d3d12::Event,
@@ -78,7 +78,7 @@ pub struct CommandListRing {
     head: Mutex<usize>,
 }
 
-impl CommandListRing {
+impl AsyncCommandListRing {
     pub fn new(
         device: &d3d12::Device,
         queue: d3d12::CommandQueue,

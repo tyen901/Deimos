@@ -39,6 +39,7 @@ tiger-pkg.workspace = true
 tracing.workspace = true
 uuid = "1.21.0"
 windows.workspace = true
+bitflags = "2.11.0"
 
 [features]
 tracy = []

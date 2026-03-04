@@ -5,7 +5,10 @@ use deimos_data::tfx::{FixedFunctionState, PrimitiveType, ShaderStage};
 use tiger_pkg::TagHash;
 
 use crate::{
-    gpu::alloc::{descriptors::ResourceView, ring::UploadRing},
+    gpu::{
+        alloc::{descriptors::ResourceView, ring::UploadRing},
+        native_command_list::NativeCommandList,
+    },
     renderer::Renderer,
     tfx::externs::LocalExternContainer,
 };
@@ -14,10 +17,9 @@ use super::Gpu;
 
 pub struct CommandList {
     parent: Arc<Gpu>,
-    pub(crate) cmd: GraphicsCommandList,
+    pub(crate) cmd: NativeCommandList,
 
-    pub state: FixedFunctionState,
-    pub state_override: FixedFunctionState,
+    pub state: CommandListState,
     pub(super) current_blend_state: usize,
     pub(super) current_depth_state: usize,
     pub(super) current_rasterizer_state: usize,
@@ -25,14 +27,7 @@ pub struct CommandList {
     pub(super) current_input_layout: usize,
     pub(super) current_input_topology: usize,
     pub(super) current_stencil_ref: u32,
-    pub(super) depth_mode: DepthMode,
     pub(super) bound_technique: TagHash,
-    pub(crate) resources_vs: StageResources,
-    pub(crate) resources_ps: StageResources,
-    pub(crate) resources_cs: StageResources,
-    pub(crate) resources_ds: StageResources,
-    pub(crate) resources_hs: StageResources,
-    pub(crate) resources_gs: StageResources,
 
     pub externs: LocalExternContainer,
 }
@@ -52,12 +47,12 @@ impl CommandList {
     //     )
     // }
 
-    pub fn from_native_command_list(renderer: &Arc<Renderer>, cmd: GraphicsCommandList) -> Self {
+    pub fn from_native_command_list(gpu: &Arc<Gpu>, cmd: NativeCommandList) -> Self {
         Self {
-            parent: renderer.gpu.clone(),
+            externs: LocalExternContainer::new(gpu.extern_source.read().clone()),
+            parent: gpu.clone(),
             cmd,
-            state: FixedFunctionState::default(),
-            state_override: FixedFunctionState::default(),
+            state: CommandListState::default(),
 
             current_blend_state: usize::MAX,
             current_depth_state: usize::MAX,
@@ -66,17 +61,12 @@ impl CommandList {
             current_depth_bias: usize::MAX,
             current_input_topology: usize::MAX,
             current_stencil_ref: 0,
-            depth_mode: DepthMode::Reverse,
             bound_technique: TagHash::NONE,
-            resources_vs: StageResources::default(),
-            resources_ps: StageResources::default(),
-            resources_cs: StageResources::default(),
-            resources_ds: StageResources::default(),
-            resources_hs: StageResources::default(),
-            resources_gs: StageResources::default(),
-
-            externs: LocalExternContainer::new(renderer.clone()),
         }
+    }
+
+    pub fn into_inner(self) -> NativeCommandList {
+        self.cmd
     }
 
     // pub fn new_sublist(&self) -> Self {
@@ -118,16 +108,16 @@ impl CommandList {
 
     pub const fn flush_states(&mut self) {
         self.reset_states();
-        if let Some(blend) = self.state.blend_state() {
+        if let Some(blend) = self.state.ffstate.blend_state() {
             self.set_blend_state(blend);
         }
-        if let Some(depth_stencil) = self.state.depth_stencil_state() {
+        if let Some(depth_stencil) = self.state.ffstate.depth_stencil_state() {
             self.set_depth_stencil_state(depth_stencil);
         }
-        if let Some(rasterizer) = self.state.rasterizer_state() {
+        if let Some(rasterizer) = self.state.ffstate.rasterizer_state() {
             self.set_rasterizer_state(rasterizer);
         }
-        if let Some(depth_bias) = self.state.depth_bias_state() {
+        if let Some(depth_bias) = self.state.ffstate.depth_bias_state() {
             self.set_depth_bias(depth_bias);
         }
     }
@@ -137,8 +127,8 @@ impl CommandList {
     }
 
     pub fn set_depth_mode(&mut self, mode: DepthMode) {
-        if self.depth_mode != mode {
-            self.depth_mode = mode;
+        if self.state.depth_mode != mode {
+            self.state.depth_mode = mode;
             let mut d = usize::MAX;
             std::mem::swap(&mut d, &mut self.current_depth_state);
             self.set_depth_stencil_state(d);
@@ -242,12 +232,12 @@ impl CommandList {
 
     pub const fn resources(&mut self, stage: ShaderStage) -> &mut StageResources {
         match stage {
-            ShaderStage::Vertex => &mut self.resources_vs,
-            ShaderStage::Pixel => &mut self.resources_ps,
-            ShaderStage::Compute => &mut self.resources_cs,
-            ShaderStage::Domain => &mut self.resources_ds,
-            ShaderStage::Hull => &mut self.resources_hs,
-            ShaderStage::Geometry => &mut self.resources_gs,
+            ShaderStage::Vertex => &mut self.state.resources_vs,
+            ShaderStage::Pixel => &mut self.state.resources_ps,
+            ShaderStage::Compute => &mut self.state.resources_cs,
+            ShaderStage::Domain => &mut self.state.resources_ds,
+            ShaderStage::Hull => &mut self.state.resources_hs,
+            ShaderStage::Geometry => &mut self.state.resources_gs,
         }
     }
 
@@ -306,7 +296,7 @@ pub enum DepthMode {
     Reverse,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct StageResources {
     pub srvs: [Option<ResourceView>; 32],
     pub cbvs: [Option<d3d12::GpuVirtualAddress>; 16],
@@ -320,78 +310,32 @@ macro_rules! cmd_event_span {
     };
 }
 
-// pub trait ContextExt {
-//     fn set_shader_resource<'a>(
-//         &self,
-//         stage: ShaderStage,
-//         slot: u32,
-//         srv: impl Into<Option<&'a d3d11::ShaderResourceView>>,
-//     );
-//     fn set_sampler<'a>(
-//         &self,
-//         stage: ShaderStage,
-//         slot: u32,
-//         sampler: impl Into<Option<&'a d3d11::SamplerState>>,
-//     );
+#[derive(Clone)]
+pub struct CommandListState {
+    pub ffstate: FixedFunctionState,
+    pub ffstate_override: FixedFunctionState,
+    pub(super) depth_mode: DepthMode,
+    pub(crate) resources_vs: StageResources,
+    pub(crate) resources_ps: StageResources,
+    pub(crate) resources_cs: StageResources,
+    pub(crate) resources_ds: StageResources,
+    pub(crate) resources_hs: StageResources,
+    pub(crate) resources_gs: StageResources,
+}
 
-//     fn set_constant_buffer<'a>(
-//         &self,
-//         stage: ShaderStage,
-//         slot: u32,
-//         cbuffer: impl Into<Option<&'a d3d11::Buffer>>,
-//     );
-// }
+impl Default for CommandListState {
+    fn default() -> Self {
+        Self {
+            ffstate: FixedFunctionState::default(),
+            ffstate_override: FixedFunctionState::default(),
 
-// // Convenience methods for setting resources by stage
-// impl ContextExt for d3d11::DeviceContext {
-//     #[inline(always)]
-//     fn set_shader_resource<'a>(
-//         &self,
-//         stage: ShaderStage,
-//         slot: u32,
-//         srv: impl Into<Option<&'a d3d11::ShaderResourceView>>,
-//     ) {
-//         (match stage {
-//             ShaderStage::Pixel => DeviceContext::pixel_set_shader_resources,
-//             ShaderStage::Vertex => DeviceContext::vertex_set_shader_resources,
-//             ShaderStage::Geometry => DeviceContext::geometry_set_shader_resources,
-//             ShaderStage::Hull => DeviceContext::hull_set_shader_resources,
-//             ShaderStage::Compute => DeviceContext::compute_set_shader_resources,
-//             ShaderStage::Domain => DeviceContext::domain_set_shader_resources,
-//         })(self, slot, &[srv.into()]);
-//     }
-
-//     #[inline(always)]
-//     fn set_sampler<'a>(
-//         &self,
-//         stage: ShaderStage,
-//         slot: u32,
-//         sampler: impl Into<Option<&'a d3d11::SamplerState>>,
-//     ) {
-//         (match stage {
-//             ShaderStage::Pixel => DeviceContext::pixel_set_samplers,
-//             ShaderStage::Vertex => DeviceContext::vertex_set_samplers,
-//             ShaderStage::Geometry => DeviceContext::geometry_set_samplers,
-//             ShaderStage::Hull => DeviceContext::hull_set_samplers,
-//             ShaderStage::Compute => DeviceContext::compute_set_samplers,
-//             ShaderStage::Domain => DeviceContext::domain_set_samplers,
-//         })(self, slot, &[sampler.into()]);
-//     }
-
-//     #[inline(always)]
-//     fn set_constant_buffer<'a>(
-//         &self,
-//         stage: ShaderStage,
-//         slot: u32,
-//         cbuffer: impl Into<Option<&'a d3d11::Buffer>>,
-//     ) {
-//         (match stage {
-//             ShaderStage::Pixel => DeviceContext::pixel_set_constant_buffers,
-//             ShaderStage::Vertex => DeviceContext::vertex_set_constant_buffers,
-//             ShaderStage::Geometry => DeviceContext::geometry_set_constant_buffers,
-//             ShaderStage::Hull => DeviceContext::hull_set_constant_buffers,
-//             ShaderStage::Compute => DeviceContext::compute_set_constant_buffers,
-//             ShaderStage::Domain => DeviceContext::domain_set_constant_buffers,
-//         })(self, slot, &[cbuffer.into()]);
-//     }
-// }
+            depth_mode: DepthMode::Reverse,
+            resources_vs: StageResources::default(),
+            resources_ps: StageResources::default(),
+            resources_cs: StageResources::default(),
+            resources_ds: StageResources::default(),
+            resources_hs: StageResources::default(),
+            resources_gs: StageResources::default(),
+        }
+    }
+}

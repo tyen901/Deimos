@@ -57,6 +57,8 @@ impl App {
     pub fn new(sdl: Rc<sdl3::Sdl>, window: Rc<Window>, args: AppArgs) -> anyhow::Result<Self> {
         let gpu = Arc::new(Gpu::create(&window).context("Failed to create GPU")?);
         let renderer = Arc::new(Renderer::new(gpu.clone()));
+        *gpu.extern_source.write() =
+            deimos_render::tfx::externs::BaseExternSource::Renderer(renderer.clone());
         // Renderer::set_instance(renderer.clone());
 
         let mut gui = Gui::new(&gpu, sdl.clone(), window.clone())?;
@@ -125,13 +127,11 @@ impl App {
 
         let frame = self.gpu.begin_frame();
 
-        let cmd = &frame.command_list;
+        self.gui.draw_ui(&self.shared_state);
 
-        {
-            let _scope = cmd.event_scope_str("scene");
+        frame.stream.acquire_cmd(&self.gpu).scope(|cmd| {
+            let _scope = cmd.event_scope_str("UI");
             let (back_buffer_handle, back_buffer) = self.gpu.swapchain.lock().get_back_buffer();
-
-            self.gui.draw_ui(&self.shared_state);
 
             cmd.resource_barriers(&[ResourceBarrier::transition(
                 &back_buffer,
@@ -161,7 +161,7 @@ impl App {
                 ResourceStates::RENDER_TARGET,
                 ResourceStates::PRESENT,
             )]);
-        }
+        });
 
         self.gpu.end_frame();
         self.gpu.present(self.shared_state.config.read().vsync);

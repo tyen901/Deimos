@@ -129,9 +129,9 @@ impl Default for SubmitNodeContainer {
     fn default() -> Self {
         let mut r = Self(std::array::from_fn(|_| Vec::new()));
 
-        r.ensure_capacity(RenderStage::DepthPrepass, 4096);
-        r.ensure_capacity(RenderStage::GenerateGbuffer, 4096);
-        r.ensure_capacity(RenderStage::ShadowGenerate, 4096);
+        r.ensure_capacity(RenderStage::DepthPrepass, 28_800);
+        r.ensure_capacity(RenderStage::GenerateGbuffer, 28_800);
+        r.ensure_capacity(RenderStage::ShadowGenerate, 28_800);
         r.ensure_capacity(RenderStage::Transparents, 4096);
 
         r
