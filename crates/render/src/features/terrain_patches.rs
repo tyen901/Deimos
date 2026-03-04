@@ -137,6 +137,7 @@ impl TerrainPatchesRenderer {
         render_stage: RenderStage,
         group_index: usize,
     ) {
+        // cmd.enable_smart_technique_binding();
         // gpu_event!(renderer.gpu, format!("terrain_patch {}", self.hash));
         // gpu_span!();
 

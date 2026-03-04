@@ -151,6 +151,10 @@ impl Technique {
     /// Make sure to set any necessary states (input layout, etc.) before calling this method, as these need to be compiled into the PSO
     #[profiling::function]
     pub fn bind(&self, cmd: &mut CommandList) {
+        if cmd.set_bound_technique(self.tag) {
+            return;
+        }
+
         if self.data.bind_mode != TechniqueBindMode::VertexPixel {
             error!("{:?} bind mode not implemented", self.data.bind_mode);
             return;

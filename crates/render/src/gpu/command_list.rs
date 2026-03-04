@@ -28,6 +28,7 @@ pub struct CommandList {
     pub(super) current_input_topology: usize,
     pub(super) current_stencil_ref: u32,
     pub(super) bound_technique: TagHash,
+    smart_rebind: bool,
 
     pub externs: LocalExternContainer,
 }
@@ -61,6 +62,7 @@ impl CommandList {
             current_depth_bias: usize::MAX,
             current_input_topology: usize::MAX,
             current_stencil_ref: 0,
+            smart_rebind: false,
             bound_technique: TagHash::NONE,
         }
     }
@@ -154,16 +156,6 @@ impl CommandList {
 
     pub const fn set_depth_bias(&mut self, index: usize) {
         self.current_depth_bias = index;
-    }
-
-    /// Returns true if the given technique is already bound
-    pub fn set_bound_technique(&mut self, index: TagHash) -> bool {
-        if self.bound_technique != index {
-            self.bound_technique = index;
-            false
-        } else {
-            true
-        }
     }
 
     pub const fn set_input_layout(&mut self, index: usize) {
@@ -284,6 +276,26 @@ impl CommandList {
     ) {
         if let Some(slot_mut) = self.resources(stage).cbvs.get_mut(slot as usize) {
             *slot_mut = buffer_address;
+        }
+    }
+
+    /// Rebinds techniques even if they are already bound
+    pub const fn disable_smart_technique_binding(&mut self) {
+        self.smart_rebind = false;
+    }
+
+    /// Skips rebinding techniques that are already bound
+    pub const fn enable_smart_technique_binding(&mut self) {
+        self.smart_rebind = true;
+    }
+
+    /// Returns true if the given technique is already bound and should not be rebound
+    pub fn set_bound_technique(&mut self, index: TagHash) -> bool {
+        if self.bound_technique != index {
+            self.bound_technique = index;
+            false
+        } else {
+            self.smart_rebind
         }
     }
 }
