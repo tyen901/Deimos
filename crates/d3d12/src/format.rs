@@ -336,6 +336,171 @@ impl Format {
             | Self::Yuy2 => None,
         }
     }
+
+    #[allow(clippy::match_same_arms)]
+    pub fn bpp(&self) -> u32 {
+        match self {
+            Self::R32g32b32a32Typeless
+            | Self::R32g32b32a32Float
+            | Self::R32g32b32a32Uint
+            | Self::R32g32b32a32Sint => 128,
+            Self::R32g32b32Typeless
+            | Self::R32g32b32Float
+            | Self::R32g32b32Uint
+            | Self::R32g32b32Sint => 96,
+            Self::R16g16b16a16Typeless
+            | Self::R16g16b16a16Float
+            | Self::R16g16b16a16Unorm
+            | Self::R16g16b16a16Uint
+            | Self::R16g16b16a16Snorm
+            | Self::R16g16b16a16Sint
+            | Self::R32g32Typeless
+            | Self::R32g32Float
+            | Self::R32g32Uint
+            | Self::R32g32Sint
+            | Self::R32g8x24Typeless
+            | Self::D32FloatS8x24Uint
+            | Self::R32FloatX8x24Typeless
+            | Self::X32TypelessG8x24Uint
+            | Self::Y416
+            | Self::Y210
+            | Self::Y216 => 64,
+            Self::R10g10b10a2Typeless
+            | Self::R10g10b10a2Unorm
+            | Self::R10g10b10a2Uint
+            | Self::R11g11b10Float
+            | Self::R8g8b8a8Typeless
+            | Self::R8g8b8a8Unorm
+            | Self::R8g8b8a8UnormSrgb
+            | Self::R8g8b8a8Uint
+            | Self::R8g8b8a8Snorm
+            | Self::R8g8b8a8Sint
+            | Self::R16g16Typeless
+            | Self::R16g16Float
+            | Self::R16g16Unorm
+            | Self::R16g16Uint
+            | Self::R16g16Snorm
+            | Self::R16g16Sint
+            | Self::R32Typeless
+            | Self::D32Float
+            | Self::R32Float
+            | Self::R32Uint
+            | Self::R32Sint
+            | Self::R24g8Typeless
+            | Self::D24UnormS8Uint
+            | Self::R24UnormX8Typeless
+            | Self::X24TypelessG8Uint
+            | Self::R9g9b9e5Sharedexp
+            | Self::R8g8B8g8Unorm
+            | Self::G8r8G8b8Unorm
+            | Self::B8g8r8a8Unorm
+            | Self::B8g8r8x8Unorm
+            | Self::R10g10b10XrBiasA2Unorm
+            | Self::B8g8r8a8Typeless
+            | Self::B8g8r8a8UnormSrgb
+            | Self::B8g8r8x8Typeless
+            | Self::B8g8r8x8UnormSrgb
+            | Self::Ayuv
+            | Self::Y410
+            | Self::Yuy2 => 32,
+            Self::P010 | Self::P016 => 24,
+            Self::R8g8Typeless
+            | Self::R8g8Unorm
+            | Self::R8g8Uint
+            | Self::R8g8Snorm
+            | Self::R8g8Sint
+            | Self::R16Typeless
+            | Self::R16Float
+            | Self::D16Unorm
+            | Self::R16Unorm
+            | Self::R16Uint
+            | Self::R16Snorm
+            | Self::R16Sint
+            | Self::B5g6r5Unorm
+            | Self::B5g5r5a1Unorm
+            | Self::A8p8
+            | Self::B4g4r4a4Unorm => 16,
+            Self::Nv12 | Self::Opaque420 | Self::Nv11 => 12,
+            Self::R8Typeless
+            | Self::R8Unorm
+            | Self::R8Uint
+            | Self::R8Snorm
+            | Self::R8Sint
+            | Self::A8Unorm
+            | Self::Ai44
+            | Self::Ia44
+            | Self::P8 => 8,
+            Self::R1Unorm => 1,
+            Self::Bc1Typeless
+            | Self::Bc1Unorm
+            | Self::Bc1UnormSrgb
+            | Self::Bc4Typeless
+            | Self::Bc4Unorm
+            | Self::Bc4Snorm => 4,
+            Self::Bc2Typeless
+            | Self::Bc2Unorm
+            | Self::Bc2UnormSrgb
+            | Self::Bc3Typeless
+            | Self::Bc3Unorm
+            | Self::Bc3UnormSrgb
+            | Self::Bc5Typeless
+            | Self::Bc5Unorm
+            | Self::Bc5Snorm
+            | Self::Bc6hTypeless
+            | Self::Bc6hUf16
+            | Self::Bc6hSf16
+            | Self::Bc7Typeless
+            | Self::Bc7Unorm
+            | Self::Bc7UnormSrgb => 8,
+            u => panic!("{u:?}"),
+        }
+    }
+
+    pub fn calculate_pitch(&self, width: u32, height: u32) -> (usize, usize) {
+        match self {
+            Self::Bc1Typeless
+            | Self::Bc1Unorm
+            | Self::Bc1UnormSrgb
+            | Self::Bc4Typeless
+            | Self::Bc4Unorm
+            | Self::Bc4Snorm => {
+                let nbw = ((width as i64 + 3) / 4).clamp(1, i64::MAX) as usize;
+                let nbh = ((height as i64 + 3) / 4).clamp(1, i64::MAX) as usize;
+
+                let pitch = nbw * 8;
+                (pitch, pitch * nbh)
+            }
+            Self::Bc2Typeless
+            | Self::Bc2Unorm
+            | Self::Bc2UnormSrgb
+            | Self::Bc3Typeless
+            | Self::Bc3Unorm
+            | Self::Bc3UnormSrgb
+            | Self::Bc5Typeless
+            | Self::Bc5Unorm
+            | Self::Bc5Snorm
+            | Self::Bc6hTypeless
+            | Self::Bc6hUf16
+            | Self::Bc6hSf16
+            | Self::Bc7Typeless
+            | Self::Bc7Unorm
+            | Self::Bc7UnormSrgb => {
+                let nbw = ((width as i64 + 3) / 4).clamp(1, i64::MAX) as usize;
+                let nbh = ((height as i64 + 3) / 4).clamp(1, i64::MAX) as usize;
+
+                let pitch = nbw * 16;
+                (pitch, pitch * nbh)
+            }
+            _ => {
+                let pitch = (width * self.bpp()).div_ceil(8) as usize;
+                (pitch, height as usize * pitch)
+            }
+        }
+    }
+
+    pub fn buffer_element_count(&self, size_in_bytes: u64) -> u64 {
+        (size_in_bytes * 8).div_ceil(self.bpp() as u64)
+    }
 }
 
 impl From<Format> for DXGI_FORMAT {

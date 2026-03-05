@@ -103,6 +103,7 @@ impl TerrainPatchesRenderer {
                 ImmutableBuffer::new(
                     &renderer.gpu,
                     "terrain_patch_constants",
+                    d3d12::Format::R32g32b32a32Uint,
                     bytemuck::cast_slice(&[scope_terrain]),
                 )
             })

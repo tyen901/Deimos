@@ -160,6 +160,7 @@ impl StaticModelRenderer {
         let instance_buffer = ImmutableBuffer::new(
             &renderer.gpu,
             "static_geometry::instance_buffer",
+            d3d12::Format::R32Uint,
             &instance_data,
         )?;
 

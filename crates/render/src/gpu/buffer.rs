@@ -162,7 +162,12 @@ pub struct ImmutableBuffer {
 }
 
 impl ImmutableBuffer {
-    pub fn new(gpu: &Arc<Gpu>, name: &str, data: &[u8]) -> anyhow::Result<Self> {
+    pub fn new(
+        gpu: &Arc<Gpu>,
+        name: &str,
+        view_format: d3d12::Format,
+        data: &[u8],
+    ) -> anyhow::Result<Self> {
         let resource_desc = D3D12_RESOURCE_DESC {
             Dimension: D3D12_RESOURCE_DIMENSION_BUFFER,
             Width: data.len() as u64,
@@ -225,8 +230,8 @@ impl ImmutableBuffer {
             name,
             resource.resource(),
             &d3d12::ShaderResourceViewDesc::buffer(
-                d3d12::Format::R32g32b32a32Uint,
-                0..(data.len() as u64 / 16),
+                view_format,
+                0..view_format.buffer_element_count(data.len() as u64),
                 0,
                 BufferSrvFlags::empty(),
             ),
