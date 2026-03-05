@@ -31,6 +31,8 @@ pub struct CommandList {
     smart_rebind: bool,
 
     pub externs: LocalExternContainer,
+
+    tag: Option<u64>,
 }
 
 impl Deref for CommandList {
@@ -64,7 +66,18 @@ impl CommandList {
             current_stencil_ref: 0,
             smart_rebind: false,
             bound_technique: TagHash::NONE,
+
+            tag: None,
         }
+    }
+
+    pub const fn with_tag(mut self, tag: u64) -> Self {
+        self.tag = Some(tag);
+        self
+    }
+
+    pub const fn tag(&self) -> Option<u64> {
+        self.tag
     }
 
     pub fn into_inner(self) -> NativeCommandList {
@@ -86,7 +99,7 @@ impl CommandList {
     //     new
     // }
 
-    pub fn gpu(&self) -> &Gpu {
+    pub const fn gpu(&self) -> &Arc<Gpu> {
         &self.parent
     }
 

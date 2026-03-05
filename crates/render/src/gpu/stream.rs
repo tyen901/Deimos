@@ -1,100 +1,128 @@
-// use std::sync::atomic::AtomicU64;
-
-// use parking_lot::Mutex;
-
-// use crate::gpu::{command_list::CommandList, native_command_list::NativeCommandList};
-
 use std::{
     mem::ManuallyDrop,
     ops::{Deref, DerefMut},
     sync::Arc,
 };
 
+use deimos_core::job::SCHEDULER;
 use parking_lot::Mutex;
 
-use crate::gpu::{Gpu, command_list::CommandList, native_command_list::NativeCommandList};
+use crate::gpu::{
+    Gpu,
+    command_list::{CommandList, CommandListState},
+    native_command_list::NativeCommandList,
+};
 
 pub struct FrameCommandStream {
-    segments: Mutex<Vec<NativeCommandList>>,
+    segments: Mutex<Vec<Option<NativeCommandList>>>,
     pool: CommandListPool,
+
+    cached_cmd_state: Mutex<CommandListState>,
 }
 
 impl FrameCommandStream {
-    pub const fn new(device: d3d12::Device) -> Self {
+    pub fn new(device: d3d12::Device) -> Self {
         Self {
             segments: Mutex::new(vec![]),
             pool: CommandListPool::new(device),
+            cached_cmd_state: Mutex::new(CommandListState::default()),
         }
     }
 
-    // fn close_active(&mut self) {
-    //     if let Some(slot) = self.active_slot.take() {
-    //         slot.cmd.close().unwrap();
-    //         self.segments.push((slot.cmd.clone(), slot));
-    //     }
-    // }
+    pub fn begin_parallel(&self, cmd: &mut CommandList) -> Arc<ParallelCommandBlock> {
+        let num_workers = SCHEDULER.num_workers();
 
-    // pub fn begin_parallel(&mut self, n: usize) -> ParallelBlock {
-    //     todo!()
-    //     // self.close_active();
+        let mut cmd_state = self.cached_cmd_state.lock();
+        *cmd_state = cmd.cmd_state().clone();
 
-    //     // let workers = (0..n)
-    //     //     .map(|_| {
-    //     //         let slot = self.ring.acquire_open().unwrap();
-    //     //         let mut cmd = CommandList::from_ring_slot(&slot);
-    //     //         pass.apply(&mut cmd);
-    //     //         (cmd, slot)
-    //     //     })
-    //     //     .collect();
+        let first_slot;
+        {
+            let mut segments = self.segments.lock();
+            first_slot = segments.len();
+            segments.extend((0..num_workers).map(|_| None));
+        }
+        let workers = (0..num_workers)
+            .map(|_| {
+                let c = self.pool.acquire();
+                c.begin().expect("beginning cmd during begin_parallel");
+                let mut cmd = CommandList::from_native_command_list(cmd.gpu(), c);
+                cmd.restore_cmd_state(&cmd_state);
+                Some(cmd)
+            })
+            .collect();
 
-    //     // ParallelBlock { workers }
-    // }
+        let mut new_cmd = self.acquire_cmd_inner(cmd.gpu());
+        new_cmd.restore_cmd_state(&cmd_state);
+        std::mem::swap(cmd, &mut new_cmd);
+        let old_cmd = new_cmd;
 
-    // pub fn end_parallel(&mut self, mut block: ParallelBlock) {
-    //     todo!()
-    //     // for (worker_cmd, slot) in block.workers.drain(..) {
-    //     //     worker_cmd.cmd.close().unwrap();
-    //     //     // Re-borrow the raw d3d12 list for the segment vec
-    //     //     self.segments.push((slot.cmd.clone(), slot));
-    //     // }
+        let slot = old_cmd
+            .tag()
+            .expect("begin_parallel linear command list needs a slot tag");
+        self.release_cmd(old_cmd, slot as usize);
 
-    //     // // Open a fresh active segment
-    //     // let slot = self.ring.acquire_open().unwrap();
-    //     // self.active_slot = Some(slot);
-    // }
+        Arc::new(ParallelCommandBlock {
+            workers: Mutex::new(workers),
+            first_slot,
+        })
+    }
+
+    pub fn end_parallel(&self, block: Arc<ParallelCommandBlock>) {
+        let mut segments = self.segments.lock();
+        for (i, worker_cmd) in block.workers.lock().drain(..).enumerate() {
+            let worker_cmd = worker_cmd.expect("parallel block is missing a command list");
+            worker_cmd
+                .cmd
+                .end()
+                .expect("end_parallel: end command list");
+            segments[block.first_slot + i] = Some(worker_cmd.into_inner());
+        }
+    }
 
     pub fn submit(&self, queue: &d3d12::CommandQueue) {
-        // self.close_active();
-
         let native_lists: Vec<d3d12::GraphicsCommandList> = self
             .segments
             .lock()
             .iter()
-            .map(|c| c.command_list.clone())
+            .enumerate()
+            .map(|(slot, c)| {
+                c.as_ref().map_or_else(
+                    || panic!("encountered an unclosed command list in command stream slot {slot}"),
+                    |c| c.command_list.clone(),
+                )
+            })
             .collect();
 
         queue.execute_command_lists(&native_lists);
 
-        for cmd in self.segments.lock().drain(..) {
+        for cmd in self.segments.lock().drain(..).flatten() {
             self.pool.release(cmd);
         }
     }
 
     pub fn acquire_cmd<'a>(&'a self, gpu: &Arc<Gpu>) -> StreamCommandListGuard<'a> {
-        let c = self.pool.acquire();
-        c.begin().expect("beginning cmd during acquire");
-
-        let cmd = CommandList::from_native_command_list(gpu, c);
+        let cmd = self.acquire_cmd_inner(gpu);
         StreamCommandListGuard {
             stream: self,
             cmd: ManuallyDrop::new(cmd),
         }
     }
 
-    fn release_cmd(&self, cmd: CommandList) {
+    fn acquire_cmd_inner(&self, gpu: &Arc<Gpu>) -> CommandList {
+        let c = self.pool.acquire();
+        c.begin().expect("beginning cmd during acquire");
+
+        let mut segments = self.segments.lock();
+        let slot = segments.len();
+        segments.push(None);
+
+        CommandList::from_native_command_list(gpu, c).with_tag(slot as u64)
+    }
+
+    fn release_cmd(&self, cmd: CommandList, slot: usize) {
         let c = cmd.into_inner();
         c.end().expect("closing cmd during release");
-        self.segments.lock().push(c);
+        self.segments.lock()[slot] = Some(c);
     }
 }
 
@@ -114,8 +142,11 @@ impl<'a> StreamCommandListGuard<'a> {
 
 impl<'a> Drop for StreamCommandListGuard<'a> {
     fn drop(&mut self) {
-        self.stream
-            .release_cmd(unsafe { ManuallyDrop::take(&mut self.cmd) });
+        let cmd = unsafe { ManuallyDrop::take(&mut self.cmd) };
+        let slot = cmd
+            .tag()
+            .expect("StreamCommandListGuard command list needs a slot tag");
+        self.stream.release_cmd(cmd, slot as usize);
     }
 }
 
@@ -128,6 +159,62 @@ impl<'a> Deref for StreamCommandListGuard<'a> {
 }
 
 impl<'a> DerefMut for StreamCommandListGuard<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.cmd
+    }
+}
+
+pub struct ParallelCommandBlock {
+    workers: Mutex<Vec<Option<CommandList>>>,
+    first_slot: usize,
+}
+
+impl ParallelCommandBlock {
+    pub fn cmd<'a>(&'a self) -> ParallelCommandGuard<'a> {
+        let worker = potassium::current_worker_index()
+            .expect("ParallelCommandBlock::cmd can only be called from a potassium job!");
+
+        let cmd = self.workers.lock()[worker]
+            .take()
+            .expect("cmd is missing from worker slot?");
+
+        ParallelCommandGuard {
+            block: self,
+            cmd: ManuallyDrop::new(cmd),
+        }
+    }
+
+    fn release(&self, cmd: CommandList) {
+        let worker = potassium::current_worker_index()
+            .expect("ParallelCommandBlock::release can only be called from a potassium job!");
+
+        let slot = &mut self.workers.lock()[worker];
+        assert!(slot.is_none(), "released slot already has a cmd");
+        *slot = Some(cmd);
+    }
+}
+
+pub struct ParallelCommandGuard<'a> {
+    block: &'a ParallelCommandBlock,
+    cmd: ManuallyDrop<CommandList>,
+}
+
+impl<'a> Drop for ParallelCommandGuard<'a> {
+    fn drop(&mut self) {
+        let cmd = unsafe { ManuallyDrop::take(&mut self.cmd) };
+        self.block.release(cmd);
+    }
+}
+
+impl<'a> Deref for ParallelCommandGuard<'a> {
+    type Target = CommandList;
+
+    fn deref(&self) -> &Self::Target {
+        &self.cmd
+    }
+}
+
+impl<'a> DerefMut for ParallelCommandGuard<'a> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.cmd
     }

@@ -1,11 +1,14 @@
 use std::{sync::Arc, time::Instant};
 
+use deimos_core::job::SCHEDULER;
 use deimos_data::tfx::RenderStage;
 use deimos_render::{
     camera::Camera,
     ecs::{populate_submit_nodes, s_extract_frame_packet},
+    gpu::stream::ParallelCommandBlock,
     renderer::{Renderer, packet::FramePacket, scene::SceneRenderer},
     tfx::{externs::get_global_channel_name, view::ShadedView},
+    util::range::RangeChunks,
     visibility::ViewVisibility,
 };
 use egui::{
@@ -292,12 +295,8 @@ impl Scene {
 
     #[profiling::function]
     fn render(&mut self, delta_time: f32, resolution: (u32, u32)) {
-        let mut cmd_guard = self
-            .renderer
-            .gpu
-            .frame()
-            .stream
-            .acquire_cmd(&self.renderer.gpu);
+        let stream = &self.renderer.gpu.frame().stream;
+        let mut cmd_guard = stream.acquire_cmd(&self.renderer.gpu);
         let cmd = &mut *cmd_guard;
 
         {
@@ -351,12 +350,62 @@ impl Scene {
                 populate_submit_nodes(&mut self.scene, vis);
             }
 
-            let render_objects = self.renderer.objects.read();
             for view in &self.scene.frame_packet.views {
-                // let context = TempSubmitContext {
-                //     renderer: self.renderer.clone(),
-                //     frame_packet: &self.scene.frame_packet,
-                // };
+                let block = stream.begin_parallel(cmd);
+                let context = TempSubmitContext {
+                    renderer: self.renderer.clone(),
+                    block: block.clone(),
+                    frame_packet: &self.scene.frame_packet,
+                };
+
+                let range = 0..view
+                    .submit_node_blocks
+                    .block(RenderStage::GenerateGbuffer)
+                    .len();
+
+                let mut job_handles = vec![];
+                for chunk in RangeChunks::new(range, 128) {
+                    let ctx = context.clone();
+                    let h = SCHEDULER
+                        .job_builder("scene_submit_parallel")
+                        .spawn(move || {
+                            let ctx = ctx;
+                            let mut cmd = ctx.block.cmd();
+                            let render_objects = ctx.renderer.objects.read();
+
+                            let frame_packet = unsafe { &*ctx.frame_packet };
+                            let view = &frame_packet.views[0];
+                            for submit_node in
+                                &view.submit_node_blocks.block(RenderStage::GenerateGbuffer)[chunk]
+                            {
+                                let view_node = &view.view_nodes[submit_node.view_node];
+                                let frame_node =
+                                    &frame_packet.per_frame_nodes[view_node.frame_node];
+                                let Some(render_object) = render_objects.get(frame_node.object)
+                                else {
+                                    error!(
+                                        "Render object with handle {:?} not found",
+                                        frame_node.object
+                                    );
+                                    continue;
+                                };
+                                render_object.renderer.submit(
+                                    &mut cmd,
+                                    RenderStage::GenerateGbuffer,
+                                    view_node,
+                                    submit_node.key,
+                                );
+                            }
+                        });
+                    job_handles.push(h);
+                }
+
+                let sync_job = SCHEDULER
+                    .job_builder("scene_submit_parallel_sync")
+                    .dependencies(job_handles)
+                    .spawn(|| {});
+
+                sync_job.wait();
 
                 // submit_node_block_range(
                 //     context.clone(),
@@ -365,28 +414,29 @@ impl Scene {
                 //         .block(RenderStage::GenerateGbuffer)
                 //         .len(),
                 // );
+                stream.end_parallel(block);
 
                 // self.renderer.gpu.frame().cmd_pool.apply(
                 //     &cmd_tfx,
                 //     std::slice::from_ref(self.renderer.gpu.frame().descriptors.heap()),
                 // );
-                for submit_node in view.submit_node_blocks.block(RenderStage::GenerateGbuffer) {
-                    let view_node = &view.view_nodes[submit_node.view_node];
-                    let frame_node = &self.scene.frame_packet.per_frame_nodes[view_node.frame_node];
-                    let Some(render_object) = render_objects.get(frame_node.object) else {
-                        error!(
-                            "Render object with handle {:?} not found",
-                            frame_node.object
-                        );
-                        continue;
-                    };
-                    render_object.renderer.submit(
-                        cmd,
-                        RenderStage::GenerateGbuffer,
-                        view_node,
-                        submit_node.key,
-                    );
-                }
+                // for submit_node in view.submit_node_blocks.block(RenderStage::GenerateGbuffer) {
+                //     let view_node = &view.view_nodes[submit_node.view_node];
+                //     let frame_node = &self.scene.frame_packet.per_frame_nodes[view_node.frame_node];
+                //     let Some(render_object) = render_objects.get(frame_node.object) else {
+                //         error!(
+                //             "Render object with handle {:?} not found",
+                //             frame_node.object
+                //         );
+                //         continue;
+                //     };
+                //     render_object.renderer.submit(
+                //         cmd,
+                //         RenderStage::GenerateGbuffer,
+                //         view_node,
+                //         submit_node.key,
+                //     );
+                // }
             }
 
             self.scene
@@ -491,13 +541,14 @@ impl Scene {
     }
 }
 
-// #[derive(Clone)]
-// struct TempSubmitContext {
-//     renderer: Arc<Renderer>,
-//     frame_packet: *const FramePacket,
-// }
+#[derive(Clone)]
+struct TempSubmitContext {
+    renderer: Arc<Renderer>,
+    block: Arc<ParallelCommandBlock>,
+    frame_packet: *const FramePacket,
+}
 
-// unsafe impl Send for TempSubmitContext {}
+unsafe impl Send for TempSubmitContext {}
 
 // const RANGE_GRANULARITY: usize = 128;
 // fn submit_node_block_range(ctx: TempSubmitContext, range: Range<usize>) {
