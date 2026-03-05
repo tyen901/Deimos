@@ -40,6 +40,7 @@ tracing.workspace = true
 uuid = "1.21.0"
 windows.workspace = true
 bitflags = "2.11.0"
+bit_field = "0.10.3"
 
 [features]
 tracy = []

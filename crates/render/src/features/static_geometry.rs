@@ -1,6 +1,7 @@
 use std::{f32, io::Write, ops::Deref};
 
 use anyhow::Context;
+use bit_field::BitField;
 use bytemuck::{Pod, Zeroable};
 use deimos_data::tfx::{
     RenderStage, ShaderStage,
@@ -51,7 +52,7 @@ impl Deref for SpecialMesh {
 
 pub struct StaticModel {
     pub model: SStaticMesh,
-    pub materials: Vec<Handle<Technique>>,
+    pub materials_by_group: Vec<Handle<Technique>>,
     pub hash: TagHash,
     pub subscribed_stages: RenderStageSubscription,
     buffers: Vec<ModelBuffers>,
@@ -62,7 +63,7 @@ impl StaticModel {
     #[profiling::function]
     pub fn load(renderer: &Renderer, hash: TagHash) -> anyhow::Result<Self> {
         let model = package_manager().read_tag_struct::<SStaticMesh>(hash)?;
-        let materials = model
+        let materials_by_group = model
             .techniques
             .iter()
             .map(|&tag| renderer.asset_manager.load(tag))
@@ -111,7 +112,7 @@ impl StaticModel {
         Ok(Self {
             hash,
             model,
-            materials,
+            materials_by_group,
             buffers,
             special_meshes,
             subscribed_stages,
@@ -221,7 +222,8 @@ impl StaticModelRenderer {
                 cmd.set_input_layout(group.input_layout_index as usize);
                 cmd.set_input_topology(part.primitive_type);
 
-                if let Some(technique) = &self.model.materials.get(i).and_then(|h| h.get()) {
+                if let Some(technique) = &self.model.materials_by_group.get(i).and_then(|h| h.get())
+                {
                     technique.bind(cmd);
                 } else {
                     continue;
@@ -260,6 +262,49 @@ impl StaticModelRenderer {
                     0,
                 );
             }
+        }
+    }
+
+    #[profiling::function]
+    pub fn render_group(&self, cmd: &mut CommandList, stage: RenderStage, group_index: usize) {
+        cmd.enable_smart_technique_binding();
+        // self.unk_cb1.bind(cmd, ShaderStage::Vertex, 1);
+        self.instance_id_buffer.bind_single(cmd, 2);
+        self.instance_buffer.bind_srv(cmd, ShaderStage::Vertex, 2);
+
+        let is_opaque = matches!(
+            stage,
+            RenderStage::ShadowGenerate | RenderStage::DepthPrepass | RenderStage::GenerateGbuffer
+        );
+
+        if is_opaque {
+            let opaque_meshes = &self.model.model.opaque_meshes;
+            let group = &opaque_meshes.mesh_groups[group_index];
+            let part = &opaque_meshes.parts[group.part_index as usize];
+            let buffers = &self.model.buffers[part.buffer_index as usize];
+            if buffers.bind(cmd).is_none() {
+                return;
+            }
+
+            cmd.set_input_layout(group.input_layout_index as usize);
+            cmd.set_input_topology(part.primitive_type);
+
+            if let Some(technique) = &self
+                .model
+                .materials_by_group
+                .get(group_index)
+                .and_then(|h| h.get())
+            {
+                technique.bind(cmd);
+            } else {
+                return;
+            }
+
+            cmd.draw_indexed_instanced(
+                part.index_range(),
+                0..self.visible_instance_ids.len() as u32,
+                0,
+            );
         }
     }
 
@@ -451,29 +496,6 @@ impl StaticInstancesRenderer {
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
 
-        // // Janky JSON representation of model bounds
-        // println!("{{");
-        // for (i, m) in models.iter().enumerate() {
-        //     println!("\"{i}\": {{");
-        //     print!("  \"total_bounds\": ");
-        //     print_aabb(&m.bounds);
-        //     println!(",");
-        //     println!("  \"bounds\": [");
-        //     for (i, b) in m.transforms.iter().map(|(_, b)| b).enumerate() {
-        //         print!("    ");
-        //         print_aabb(b);
-        //         if i != m.transforms.len() - 1 {
-        //             println!(",");
-        //         } else {
-        //             println!();
-        //         }
-        //     }
-        //     println!("  ]");
-        //     println!("}},");
-        // }
-        // println!("}}");
-        // panic!("done");
-
         // let mut groups_by_stage_sorted_by_technique: HashMap<
         //     RenderStage,
         //     Vec<(TagHash, usize, usize)>,
@@ -564,17 +586,36 @@ impl FeatureRenderer for StaticInstancesRenderer {
 
         // TODO(cohae): Quite a bit faster already, but causes inconsistencies without sorting :(
         let per_view_container = Mutex::new(SubmitNodeContainer::default());
-        self.models.par_iter().enumerate().for_each(|(i, model)| {
-            if model.is_visible(visibility) {
-                per_view_container.lock().broadcast(
-                    model.model.subscribed_stages,
-                    SubmitNode {
-                        key: i as u64,
-                        view_node,
-                    },
-                );
-            }
-        });
+        self.models
+            .par_iter()
+            .enumerate()
+            .for_each(|(model_index, model)| {
+                if model.is_visible(visibility) {
+                    let opaque_meshes = &model.model.model.opaque_meshes;
+                    for (group_index, group, _part) in opaque_meshes
+                        .mesh_groups
+                        .iter()
+                        .enumerate()
+                        .map(|(i, g)| (i, g, &opaque_meshes.parts[g.part_index as usize]))
+                        .filter(|(_, _g, p)| p.lod_category.is_highest_detail())
+                    {
+                        if let Some(technique) = &model.model.materials_by_group.get(group_index) {
+                            let key = StaticSubmitKey {
+                                technique: technique.hash().0,
+                                model_index: model_index as u16,
+                                group_index: group_index as u16,
+                            };
+                            per_view_container.lock().push(
+                                group.render_stage,
+                                SubmitNode {
+                                    key: key.to_u64(),
+                                    view_node,
+                                },
+                            );
+                        }
+                    }
+                }
+            });
 
         let per_view_container = per_view_container.into_inner();
         for stage in deimos_data::tfx::RenderStage::iter() {
@@ -582,7 +623,7 @@ impl FeatureRenderer for StaticInstancesRenderer {
             block.extend_from_slice(per_view_container.block(stage));
 
             // TODO(cohae): submit nodes don't like being unsorted yet it seems
-            block.sort_by_key(|a| (a.view_node, a.key));
+            block.sort_by_key(|a| a.key);
         }
     }
 
@@ -590,106 +631,12 @@ impl FeatureRenderer for StaticInstancesRenderer {
         &self,
         cmd: &mut CommandList,
         stage: RenderStage,
-        view_node: &RenderPerViewNode,
+        _view_node: &RenderPerViewNode,
         submit_key: u64,
     ) {
-        self.models[submit_key as usize].render_all(cmd, stage);
-        // for model in self.models.iter() {
-        // model.render_all(cmd, stage);
-        // }
+        let key = StaticSubmitKey::from_u64(submit_key);
 
-        // let Some(groups_sorted_by_technique) = self.groups_by_stage_sorted_by_technique.get(&stage)
-        // else {
-        //     // Special meshes are rendered single-threaded for now
-        //     for (model, _visible) in self.models.iter().filter(|(_, v)| *v) {
-        //         model.render_all(cmd, stage);
-        //     }
-        //     return;
-        // };
-
-        // let initial_state = Arc::new(GpuState::backup(cmd));
-
-        // // Equally divide groups_sorted_by_technique into X ranges for parallel processing
-        // // let mut job_ranges = vec![];
-        // let job_count = 6;
-        // let node_count = groups_sorted_by_technique.len();
-        // let nodes_per_job = node_count / job_count;
-        // let mut last_end = 0;
-        // let mut jobs_scheduled = 0;
-        // for _i in 0..job_count {
-        //     let node_start = last_end;
-        //     let mut node_end = (node_start + nodes_per_job).min(node_count);
-
-        //     if node_start >= node_count || node_end == 0 {
-        //         break;
-        //     }
-
-        //     let last_technique = groups_sorted_by_technique[node_end - 1].0;
-        //     // Extend node_end to include all groups with the same technique hash
-        //     loop {
-        //         if node_end < node_count && groups_sorted_by_technique[node_end].0 == last_technique
-        //         {
-        //             node_end += 1;
-        //         } else {
-        //             break;
-        //         }
-        //     }
-
-        //     last_end = node_end;
-        //     let range = node_start..node_end;
-        //     // job_ranges.push(node_start..node_end);
-
-        //     let groups_sorted_by_technique = groups_sorted_by_technique.clone();
-        //     let initial_state = initial_state.clone();
-        //     let p_models = &self.models as *const _ as u64;
-        //     Renderer::instance()
-        //         .cmd_pool
-        //         .queue_job(Box::new(move |job_cmd: &mut CommandList| {
-        //             // Safety: p_models is valid for the lifetime of this closure
-        //             // TODO(cohae): need a better way to pass self.models to the job
-        //             let p_models = p_models as *const Vec<(StaticModelRenderer, bool)>;
-        //             let models = unsafe { &*p_models };
-        //             initial_state.restore(job_cmd);
-        //             for (_technique_hash, model_index, group_index) in
-        //                 &groups_sorted_by_technique[range.clone()]
-        //             {
-        //                 let (model, visible) = &models[*model_index];
-        //                 if *visible {
-        //                     model.render_group(job_cmd, stage, *group_index);
-        //                 }
-        //             }
-        //         }));
-        //     jobs_scheduled += 1;
-        // }
-
-        // for cmd_result in Renderer::instance()
-        //     .cmd_pool
-        //     .collect_results(jobs_scheduled)
-        // {
-        //     cmd.execute_command_list(&cmd_result, true);
-        // }
-
-        // let initial_state = Arc::new(GpuState::backup(cmd));
-        // let command_lists = job_ranges
-        //     .par_iter()
-        //     .map(|range| {
-        //         let mut cmd = cmd.new_sublist();
-        //         initial_state.restore(&mut cmd);
-        //         for (_technique_hash, model_index, group_index) in
-        //             &groups_sorted_by_technique[range.clone()]
-        //         {
-        //             let (model, visible) = &self.models[*model_index];
-        //             if *visible {
-        //                 model.render_group(&mut cmd, stage, *group_index);
-        //             }
-        //         }
-
-        //         cmd
-        //     })
-        //     .collect::<Vec<_>>();
-        // for command_list in command_lists {
-        //     cmd.execute_command_list(&command_list.finish_command_list(false).unwrap(), true);
-        // }
+        self.models[key.model_index as usize].render_group(cmd, stage, key.group_index as usize);
     }
 
     fn subscribed_stages(&self) -> RenderStageSubscription {
@@ -697,17 +644,30 @@ impl FeatureRenderer for StaticInstancesRenderer {
     }
 }
 
-fn print_vec4(v: Vec4) {
-    print!(
-        r#"{{ "x": {}, "y": {}, "z": {}, "w": {} }}"#,
-        v.x, v.y, v.z, v.w
-    );
+#[repr(C, packed)]
+#[derive(Clone, Copy)]
+pub struct StaticSubmitKey {
+    pub technique: u32,
+    pub model_index: u16,
+    pub group_index: u16,
 }
 
-fn print_aabb(aabb: &AxisAlignedBBox) {
-    print!(r#"{{ "min": "#);
-    print_vec4(aabb.min);
-    print!(", \"max\": ");
-    print_vec4(aabb.max);
-    print!(" }}");
+impl StaticSubmitKey {
+    pub fn from_u64(k: u64) -> Self {
+        Self {
+            technique: k.get_bits(32..64) as u32,
+            model_index: k.get_bits(16..32) as u16,
+            group_index: k.get_bits(0..16) as u16,
+        }
+    }
+
+    pub fn to_u64(self) -> u64 {
+        let mut k = 0u64;
+
+        k.set_bits(0..16, self.group_index as u64);
+        k.set_bits(16..32, self.model_index as u64);
+        k.set_bits(32..64, self.technique as u64);
+
+        k
+    }
 }
