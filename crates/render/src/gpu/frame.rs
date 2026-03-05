@@ -26,14 +26,14 @@ impl FrameContext {
     ) -> anyhow::Result<Self> {
         let mb = 1024 * 1024;
         Ok(Self {
-            upload: UploadRing::new(device, 64 * mb)?,
+            upload: UploadRing::new(device, 8 * mb)?,
             stream: FrameCommandStream::new(device.clone()),
             // command_list: NativeCommandList::new(device, d3d12::CommandListType::Direct)?,
             fence_value: AtomicU64::new(0),
             descriptors: DescriptorRing::new(
                 device,
                 d3d12::DescriptorHeapType::CbvSrvUav,
-                512_000,
+                128_000,
                 true,
             )?,
             profiler: FrameProfiler::new(device, allocator)?,
