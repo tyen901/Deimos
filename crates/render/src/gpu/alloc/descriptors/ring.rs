@@ -9,7 +9,7 @@ pub struct DescriptorRing {
     cpu_handle_base: d3d12::CpuDescriptorHandle,
     gpu_handle_base: d3d12::GpuDescriptorHandle,
 
-    num_descriptors: usize,
+    capacity: usize,
     head: AtomicUsize,
 }
 
@@ -40,7 +40,7 @@ impl DescriptorRing {
             gpu_handle_base: descriptor_heap.gpu_descriptor_handle_for_heap_start(),
             increment_size: device.descriptor_handle_increment_size(heap_type),
             descriptor_heap,
-            num_descriptors: size,
+            capacity: size,
             head: AtomicUsize::new(0),
         })
     }
@@ -53,11 +53,11 @@ impl DescriptorRing {
         let start = self
             .head
             .fetch_add(num_descriptors, std::sync::atomic::Ordering::Relaxed);
-        if start + num_descriptors > self.num_descriptors {
+        if start + num_descriptors > self.capacity {
             panic!(
                 "DescriptorRing out of descriptors ({}/{} descriptors)",
                 start + num_descriptors,
-                self.num_descriptors
+                self.capacity
             );
         }
 
@@ -95,7 +95,7 @@ impl DescriptorRing {
     }
 
     pub const fn capacity(&self) -> usize {
-        self.num_descriptors
+        self.capacity
     }
 }
 

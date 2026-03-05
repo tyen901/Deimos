@@ -257,7 +257,7 @@ impl Scene {
                 ));
                 ui.monospace(format!(
                     "Descriptor Ring:  {}/{}",
-                    memory_stats.descriptor_heap_used, memory_stats.descriptor_heap_capacity
+                    memory_stats.descriptor_ring_used, memory_stats.descriptor_ring_capacity
                 ));
 
                 if !memory_stats.errors.is_empty() {

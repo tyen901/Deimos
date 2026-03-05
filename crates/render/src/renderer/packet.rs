@@ -123,18 +123,22 @@ impl SubmitNodeContainer {
             block.reserve(additional);
         }
     }
+
+    pub fn with_capacity(capacity: usize) -> Self {
+        let mut r = Self(std::array::from_fn(|_| Vec::new()));
+
+        r.ensure_capacity(RenderStage::DepthPrepass, capacity);
+        r.ensure_capacity(RenderStage::GenerateGbuffer, capacity);
+        r.ensure_capacity(RenderStage::ShadowGenerate, capacity);
+        r.ensure_capacity(RenderStage::Transparents, capacity);
+
+        r
+    }
 }
 
 impl Default for SubmitNodeContainer {
     fn default() -> Self {
-        let mut r = Self(std::array::from_fn(|_| Vec::new()));
-
-        r.ensure_capacity(RenderStage::DepthPrepass, 28_800);
-        r.ensure_capacity(RenderStage::GenerateGbuffer, 28_800);
-        r.ensure_capacity(RenderStage::ShadowGenerate, 28_800);
-        r.ensure_capacity(RenderStage::Transparents, 4096);
-
-        r
+        Self::with_capacity(28_800)
     }
 }
 

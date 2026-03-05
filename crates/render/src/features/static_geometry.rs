@@ -17,7 +17,10 @@ use deimos_data::tfx::{
 use glam::{Mat4, Vec3, Vec4};
 use itertools::Itertools;
 use parking_lot::Mutex;
-use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{
+    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelBridge,
+    ParallelIterator,
+};
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::TagHash;
 use tiger_pkg::package_manager;
@@ -31,6 +34,7 @@ use crate::{
         packet::{RenderPerViewNode, SubmitNode, SubmitNodeContainer},
     },
     tfx::technique::Technique,
+    util::range::RangeChunks,
     visibility::{ViewVisibility, bvh::Bvh},
 };
 
@@ -572,57 +576,59 @@ impl FeatureRenderer for StaticInstancesRenderer {
         visibility: &ViewVisibility,
         submit_node_blocks: &mut SubmitNodeContainer,
     ) {
-        // for (i, model) in self.models.iter().enumerate() {
-        //     if model.is_visible(visibility) {
-        //         submit_node_blocks.broadcast(
-        //             model.model.subscribed_stages,
-        //             SubmitNode {
-        //                 key: i as u64,
-        //                 view_node,
-        //             },
-        //         );
-        //     }
-        // }
-
-        // TODO(cohae): Quite a bit faster already, but causes inconsistencies without sorting :(
-        let per_view_container = Mutex::new(SubmitNodeContainer::default());
-        self.models
-            .par_iter()
-            .enumerate()
-            .for_each(|(model_index, model)| {
-                if model.is_visible(visibility) {
-                    let opaque_meshes = &model.model.model.opaque_meshes;
-                    for (group_index, group, _part) in opaque_meshes
-                        .mesh_groups
-                        .iter()
-                        .enumerate()
-                        .map(|(i, g)| (i, g, &opaque_meshes.parts[g.part_index as usize]))
-                        .filter(|(_, _g, p)| p.lod_category.is_highest_detail())
-                    {
-                        if let Some(technique) = &model.model.materials_by_group.get(group_index) {
-                            let key = StaticSubmitKey {
-                                technique: technique.hash().0,
-                                model_index: model_index as u16,
-                                group_index: group_index as u16,
-                            };
-                            per_view_container.lock().push(
-                                group.render_stage,
-                                SubmitNode {
-                                    key: key.to_u64(),
-                                    view_node,
-                                },
-                            );
+        // Build per-worker SubmitNodeContainer in parallel using fold/reduce to avoid a global lock.
+        let per_view_container = (0..self.models.len())
+            .into_par_iter()
+            .with_min_len(1024)
+            .fold(
+                || SubmitNodeContainer::with_capacity(5 * 128),
+                |mut local_container, model_index| {
+                    let model = &self.models[model_index];
+                    if model.is_visible(visibility) {
+                        let opaque_meshes = &model.model.model.opaque_meshes;
+                        for (group_index, group, _part) in opaque_meshes
+                            .mesh_groups
+                            .iter()
+                            .enumerate()
+                            .map(|(i, g)| (i, g, &opaque_meshes.parts[g.part_index as usize]))
+                            .filter(|(_, _g, p)| p.lod_category.is_highest_detail())
+                        {
+                            if let Some(technique) =
+                                &model.model.materials_by_group.get(group_index)
+                            {
+                                let key = StaticSubmitKey {
+                                    technique: technique.hash().0,
+                                    model_index: model_index as u16,
+                                    group_index: group_index as u16,
+                                };
+                                local_container.push(
+                                    group.render_stage,
+                                    SubmitNode {
+                                        key: key.to_u64(),
+                                        view_node,
+                                    },
+                                );
+                            }
                         }
                     }
+                    local_container
+                },
+            )
+            .reduce(SubmitNodeContainer::default, |mut a, b| {
+                // Merge b into a by extending each stage's vec.
+                for stage in deimos_data::tfx::RenderStage::iter() {
+                    let src = b.block(stage);
+                    if !src.is_empty() {
+                        a.block_mut(stage).extend_from_slice(src);
+                    }
                 }
+                a
             });
 
-        let per_view_container = per_view_container.into_inner();
+        // Merge the final per_view_container into the provided submit_node_blocks and sort per-stage.
         for stage in deimos_data::tfx::RenderStage::iter() {
             let block = submit_node_blocks.block_mut(stage);
             block.extend_from_slice(per_view_container.block(stage));
-
-            // TODO(cohae): submit nodes don't like being unsorted yet it seems
             block.sort_by_key(|a| a.key);
         }
     }
