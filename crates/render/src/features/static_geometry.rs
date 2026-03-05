@@ -550,23 +550,9 @@ impl FeatureRenderer for StaticInstancesRenderer {
         visibility: &ViewVisibility,
         submit_node_blocks: &mut SubmitNodeContainer,
     ) {
-        for (i, model) in self.models.iter().enumerate() {
-            if model.is_visible(visibility) {
-                submit_node_blocks.broadcast(
-                    model.model.subscribed_stages,
-                    SubmitNode {
-                        key: i as u64,
-                        view_node,
-                    },
-                );
-            }
-        }
-
-        // TODO(cohae): Quite a bit faster already, but causes bugs :(
-        // let per_view_container = Mutex::new(SubmitNodeContainer::default());
-        // self.models.par_iter().enumerate().for_each(|(i, model)| {
+        // for (i, model) in self.models.iter().enumerate() {
         //     if model.is_visible(visibility) {
-        //         per_view_container.lock().broadcast(
+        //         submit_node_blocks.broadcast(
         //             model.model.subscribed_stages,
         //             SubmitNode {
         //                 key: i as u64,
@@ -574,14 +560,30 @@ impl FeatureRenderer for StaticInstancesRenderer {
         //             },
         //         );
         //     }
-        // });
-
-        // let per_view_container = per_view_container.into_inner();
-        // for stage in deimos_data::tfx::RenderStage::iter() {
-        //     submit_node_blocks
-        //         .block_mut(stage)
-        //         .extend_from_slice(per_view_container.block(stage));
         // }
+
+        // TODO(cohae): Quite a bit faster already, but causes inconsistencies without sorting :(
+        let per_view_container = Mutex::new(SubmitNodeContainer::default());
+        self.models.par_iter().enumerate().for_each(|(i, model)| {
+            if model.is_visible(visibility) {
+                per_view_container.lock().broadcast(
+                    model.model.subscribed_stages,
+                    SubmitNode {
+                        key: i as u64,
+                        view_node,
+                    },
+                );
+            }
+        });
+
+        let per_view_container = per_view_container.into_inner();
+        for stage in deimos_data::tfx::RenderStage::iter() {
+            let block = submit_node_blocks.block_mut(stage);
+            block.extend_from_slice(per_view_container.block(stage));
+
+            // TODO(cohae): submit nodes don't like being unsorted yet it seems
+            block.sort_by_key(|a| (a.view_node, a.key));
+        }
     }
 
     fn submit(

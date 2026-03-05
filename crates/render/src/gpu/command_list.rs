@@ -1,7 +1,8 @@
 use std::{ops::Deref, sync::Arc};
 
-use d3d12::GraphicsCommandList;
+use d3d12::CpuDescriptorHandle;
 use deimos_data::tfx::{FixedFunctionState, PrimitiveType, ShaderStage};
+use smallvec::SmallVec;
 use tiger_pkg::TagHash;
 
 use crate::{
@@ -9,7 +10,6 @@ use crate::{
         alloc::{descriptors::ResourceView, ring::UploadRing},
         native_command_list::NativeCommandList,
     },
-    renderer::Renderer,
     tfx::externs::LocalExternContainer,
 };
 
@@ -19,13 +19,13 @@ pub struct CommandList {
     parent: Arc<Gpu>,
     pub(crate) cmd: NativeCommandList,
 
-    pub state: CommandListState,
+    state: CommandListState,
     pub(super) current_blend_state: usize,
     pub(super) current_depth_state: usize,
     pub(super) current_rasterizer_state: usize,
     pub(super) current_depth_bias: usize,
     pub(super) current_input_layout: usize,
-    pub(super) current_input_topology: usize,
+    // pub(super) current_input_topology: usize,
     pub(super) current_stencil_ref: u32,
     pub(super) bound_technique: TagHash,
     smart_rebind: bool,
@@ -60,7 +60,7 @@ impl CommandList {
             current_input_layout: usize::MAX,
             current_rasterizer_state: usize::MAX,
             current_depth_bias: usize::MAX,
-            current_input_topology: usize::MAX,
+            // current_input_topology: usize::MAX,
             current_stencil_ref: 0,
             smart_rebind: false,
             bound_technique: TagHash::NONE,
@@ -104,7 +104,7 @@ impl CommandList {
         self.current_input_layout = usize::MAX;
         self.current_rasterizer_state = usize::MAX;
         self.current_depth_bias = usize::MAX;
-        self.current_input_topology = usize::MAX;
+        // self.current_input_topology = usize::MAX;
         self.bound_technique = TagHash::NONE;
     }
 
@@ -166,8 +166,8 @@ impl CommandList {
         self.current_input_layout
     }
 
-    /// Applies a one-time state override
-    pub const fn apply_state(&mut self, states: &FixedFunctionState) {
+    /// Applies a one-time fixed function state override
+    pub const fn apply_ffstate(&mut self, states: &FixedFunctionState) {
         if let Some(u) = states.blend_state() {
             self.set_blend_state(u);
         }
@@ -183,16 +183,16 @@ impl CommandList {
     }
 
     pub fn set_input_topology(&mut self, topology: PrimitiveType) {
-        if self.current_input_topology != topology as usize {
-            self.cmd.ia_set_primitive_topology(match topology {
-                PrimitiveType::PointList => d3d12::PrimitiveTopology::PointList,
-                PrimitiveType::LineList => d3d12::PrimitiveTopology::LineList,
-                PrimitiveType::LineStrip => d3d12::PrimitiveTopology::LineStrip,
-                PrimitiveType::Triangles => d3d12::PrimitiveTopology::TriangleList,
-                PrimitiveType::TriangleStrip => d3d12::PrimitiveTopology::TriangleStrip,
-            });
-            self.current_input_topology = topology as usize;
-        }
+        // if self.current_input_topology != topology as usize {
+        self.cmd.ia_set_primitive_topology(match topology {
+            PrimitiveType::PointList => d3d12::PrimitiveTopology::PointList,
+            PrimitiveType::LineList => d3d12::PrimitiveTopology::LineList,
+            PrimitiveType::LineStrip => d3d12::PrimitiveTopology::LineStrip,
+            PrimitiveType::Triangles => d3d12::PrimitiveTopology::TriangleList,
+            PrimitiveType::TriangleStrip => d3d12::PrimitiveTopology::TriangleStrip,
+        });
+        //     self.current_input_topology = topology as usize;
+        // }
     }
 
     #[deprecated(note = "This method bypasses the pipeline state, use set_input_topology instead")]
@@ -200,27 +200,27 @@ impl CommandList {
         self.cmd.ia_set_primitive_topology(topology);
     }
 
-    // pub fn input_assembler_set_primitive_topology_tfx(&self, topology: PrimitiveType) {
-    //     self.input_assembler_set_primitive_topology(match topology {
-    //         PrimitiveType::PointList => d3d11::PrimitiveTopology::PointList,
-    //         PrimitiveType::LineList => d3d11::PrimitiveTopology::LineList,
-    //         PrimitiveType::LineStrip => d3d11::PrimitiveTopology::LineStrip,
-    //         PrimitiveType::Triangles => d3d11::PrimitiveTopology::TriangleList,
-    //         PrimitiveType::TriangleStrip => d3d11::PrimitiveTopology::TriangleStrip,
-    //     });
-    // }
+    pub fn om_set_render_targets(
+        &mut self,
+        render_target_descriptors: &[CpuDescriptorHandle],
+        depth_stencil_descriptor: Option<CpuDescriptorHandle>,
+    ) {
+        self.state.output.rtvs = render_target_descriptors.iter().copied().collect();
+        self.state.output.dsv = depth_stencil_descriptor;
 
-    // pub fn set_input_layout(&self, id: usize) {
-    //     if let Some(layout) = self
-    //         .parent
-    //         .global_states
-    //         .input_layouts
-    //         .get(id)
-    //         .and_then(|l| l.clone())
-    //     {
-    //         self.input_assembler_set_input_layout(&layout);
-    //     }
-    // }
+        self.cmd
+            .om_set_render_targets(render_target_descriptors, false, depth_stencil_descriptor);
+    }
+
+    pub fn set_scissor_rects(&mut self, rects: &[d3d12::Rect]) {
+        self.state.output.scissor_rects = rects.iter().cloned().collect();
+        self.cmd.set_scissor_rects(rects);
+    }
+
+    pub fn set_viewports(&mut self, viewports: &[d3d12::Viewport]) {
+        self.state.output.viewports = viewports.iter().cloned().collect();
+        self.cmd.set_viewports(viewports);
+    }
 
     pub const fn resources(&mut self, stage: ShaderStage) -> &mut StageResources {
         match stage {
@@ -298,6 +298,19 @@ impl CommandList {
             self.smart_rebind
         }
     }
+
+    pub fn restore_cmd_state(&mut self, new_state: &CommandListState) {
+        let om = &new_state.output;
+        self.cmd.om_set_render_targets(&om.rtvs, false, om.dsv);
+        self.cmd.set_viewports(&om.viewports);
+        self.cmd.set_scissor_rects(&om.scissor_rects);
+
+        self.state = new_state.clone();
+    }
+
+    pub fn cmd_state(&self) -> &CommandListState {
+        &self.state
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -326,6 +339,7 @@ macro_rules! cmd_event_span {
 pub struct CommandListState {
     pub ffstate: FixedFunctionState,
     pub ffstate_override: FixedFunctionState,
+    output: OutputState,
     pub(super) depth_mode: DepthMode,
     pub(crate) resources_vs: StageResources,
     pub(crate) resources_ps: StageResources,
@@ -341,6 +355,7 @@ impl Default for CommandListState {
             ffstate: FixedFunctionState::default(),
             ffstate_override: FixedFunctionState::default(),
 
+            output: OutputState::default(),
             depth_mode: DepthMode::Reverse,
             resources_vs: StageResources::default(),
             resources_ps: StageResources::default(),
@@ -350,4 +365,13 @@ impl Default for CommandListState {
             resources_gs: StageResources::default(),
         }
     }
+}
+
+#[derive(Default, Clone)]
+pub struct OutputState {
+    pub rtvs: SmallVec<[CpuDescriptorHandle; 4]>,
+    pub dsv: Option<CpuDescriptorHandle>,
+
+    pub viewports: SmallVec<[d3d12::Viewport; 4]>,
+    pub scissor_rects: SmallVec<[d3d12::Rect; 4]>,
 }

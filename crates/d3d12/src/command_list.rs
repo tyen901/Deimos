@@ -64,12 +64,10 @@ impl GraphicsCommandList {
 
     /// Creates a new event scope with the given name. The event will automatically end when the returned RAII guard is dropped.
     #[must_use]
-    pub fn event_scope_str(&self, name: impl AsRef<str>) -> EventGuard<'_> {
+    pub fn event_scope_str(&self, name: impl AsRef<str>) -> EventGuard {
         // self.begin_event_str(name);
         // TODO(cohae): This cause a lot of debug layer noise since Microsoft doesn't want us using Unicode/Ansi markers, so we should see if we can construct PIX blobs at some point
-        EventGuard {
-            /* this: self */ _marker: std::marker::PhantomData,
-        }
+        EventGuard {}
     }
 
     pub fn begin_query(&self, query_heap: &QueryHeap, query_type: QueryType, index: u32) {
@@ -209,22 +207,6 @@ impl GraphicsCommandList {
         }
     }
 
-    pub fn set_scissor_rects(&self, rects: &[Rect]) {
-        unsafe {
-            self.0
-                .RSSetScissorRects(transmute::<&[Rect], &[windows::Win32::Foundation::RECT]>(
-                    rects,
-                ));
-        }
-    }
-
-    pub fn set_viewports(&self, viewports: &[Viewport]) {
-        unsafe {
-            self.0
-                .RSSetViewports(transmute::<&[Viewport], &[D3D12_VIEWPORT]>(viewports));
-        }
-    }
-
     pub fn ia_set_primitive_topology(&self, topology: PrimitiveTopology) {
         unsafe {
             self.0.IASetPrimitiveTopology(topology.into());
@@ -269,6 +251,22 @@ impl GraphicsCommandList {
                 rts_single_handle_to_descriptor_range,
                 depth_stencil_descriptor.as_ref().map(|d| d as *const _),
             );
+        }
+    }
+
+    pub fn set_scissor_rects(&self, rects: &[Rect]) {
+        unsafe {
+            self.0
+                .RSSetScissorRects(transmute::<&[Rect], &[windows::Win32::Foundation::RECT]>(
+                    rects,
+                ));
+        }
+    }
+
+    pub fn set_viewports(&self, viewports: &[Viewport]) {
+        unsafe {
+            self.0
+                .RSSetViewports(transmute::<&[Viewport], &[D3D12_VIEWPORT]>(viewports));
         }
     }
 
@@ -405,12 +403,11 @@ impl VertexBufferView {
     }
 }
 
-pub struct EventGuard<'a> {
+pub struct EventGuard {
     // this: &'a GraphicsCommandList,
-    _marker: std::marker::PhantomData<&'a ()>,
 }
 
-impl Drop for EventGuard<'_> {
+impl Drop for EventGuard {
     fn drop(&mut self) {
         // self.this.end_event();
     }

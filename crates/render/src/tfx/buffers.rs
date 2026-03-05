@@ -4,6 +4,7 @@ use anyhow::Context;
 
 use crate::gpu::{
     Gpu,
+    command_list::CommandList,
     render_target::{DepthBuffer, RenderTarget},
 };
 
@@ -67,7 +68,7 @@ impl Gbuffer {
         cmd.clear_depth_stencil_view(self.depth.cpu_handle(), d3d12::ClearFlags::DEPTH, 0.0, 0);
     }
 
-    pub fn bind(&self, cmd: &d3d12::GraphicsCommandList) {
+    pub fn bind(&self, cmd: &mut CommandList) {
         cmd.om_set_render_targets(
             &[
                 self.albedo.cpu_handle(),
@@ -75,7 +76,6 @@ impl Gbuffer {
                 self.rt3.cpu_handle(),
                 self.rt4.cpu_handle(),
             ],
-            false,
             Some(self.depth.cpu_handle()),
         );
 

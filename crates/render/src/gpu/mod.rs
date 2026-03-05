@@ -52,6 +52,7 @@ use crate::{
         frame::FrameContext,
         native_command_list::{AsyncCommandListRing, NativeCommandList},
         pipeline_cache::PipelineCache,
+        profiler::ScopeGuard,
     },
     tfx::externs::BaseExternSource,
 };
@@ -307,6 +308,14 @@ impl Gpu {
             .try_lock_for(Duration::from_secs(5))
             .expect("Failed to acquire bin lock")
             .push((Box::new(resource), 4));
+    }
+
+    pub fn profiler_scope(
+        &self,
+        command_list: &d3d12::GraphicsCommandList,
+        name: &'static str,
+    ) -> ScopeGuard<'_> {
+        self.frame().profiler.scope(command_list, name)
     }
 
     // #[profiling::function]

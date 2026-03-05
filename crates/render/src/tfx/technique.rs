@@ -160,10 +160,10 @@ impl Technique {
 
         if full_rebind {
             let fixed_function_state = cmd
-                .state
+                .cmd_state()
                 .ffstate
                 .select(&self.data.states)
-                .select(&cmd.state.ffstate_override);
+                .select(&cmd.cmd_state().ffstate_override);
 
             let pipeline_key = PipelineKey {
                 vertex_shader: self.data.shader_vertex.shader,

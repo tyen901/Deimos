@@ -4,7 +4,6 @@ use deimos_data::tfx::RenderStage;
 use deimos_render::{
     camera::Camera,
     ecs::{populate_submit_nodes, s_extract_frame_packet},
-    gpu::command_list::CommandList,
     renderer::{Renderer, packet::FramePacket, scene::SceneRenderer},
     tfx::{externs::get_global_channel_name, view::ShadedView},
     visibility::ViewVisibility,
@@ -311,12 +310,14 @@ impl Scene {
             ext.view.derive_matrices(resolution);
             self.scene.main_view.culling_frustum = self.camera.culling_frustum.clone();
         }
+
         self.renderer.globals.scopes.frame.bind(cmd);
         self.renderer.globals.scopes.view.bind(cmd);
         self.renderer.globals.scopes.chunk_model.bind(cmd);
 
         {
-            let _scope = self.renderer.gpu.frame().profiler.scope(cmd, "Scene");
+            let _event = cmd.event_scope_str("Scene");
+            let _scope = self.renderer.gpu.profiler_scope(cmd, "scene");
             self.scene
                 .main_view
                 .gbuffer
@@ -337,8 +338,18 @@ impl Scene {
                 position: self.camera.position,
                 world_to_projective: self.camera.world_to_projective,
             };
-            s_extract_frame_packet(&self.world, &mut self.scene, vis);
-            populate_submit_nodes(&mut self.scene, vis);
+
+            {
+                let _scope = self.renderer.gpu.profiler_scope(cmd, "extract_frame");
+                s_extract_frame_packet(&self.world, &mut self.scene, vis);
+            }
+            {
+                let _scope = self
+                    .renderer
+                    .gpu
+                    .profiler_scope(cmd, "populate_submit_nodes");
+                populate_submit_nodes(&mut self.scene, vis);
+            }
 
             let render_objects = self.renderer.objects.read();
             for view in &self.scene.frame_packet.views {
