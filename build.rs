@@ -24,12 +24,5 @@ fn main() {
         _ = std::fs::create_dir_all(&out_dir);
         let sdl3_dll = std::path::Path::new("lib/SDL3.dll");
         std::fs::copy(sdl3_dll, out_dir.join("SDL3.dll")).expect("Failed to copy SDL3.dll");
-
-        let dxil_spirv_c_shared_dll = std::path::Path::new("lib/dxil-spirv-c-shared.dll");
-        std::fs::copy(
-            dxil_spirv_c_shared_dll,
-            out_dir.join("dxil-spirv-c-shared.dll"),
-        )
-        .expect("Failed to copy dxil-spirv-c-shared.dll");
     }
 }
