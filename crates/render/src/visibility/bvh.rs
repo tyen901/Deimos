@@ -44,7 +44,7 @@ impl Bvh {
         while let Some(idx) = stack.pop() {
             let node = &self.nodes[idx as usize];
 
-            if !vis.is_visible_quick(&node.aabb) {
+            if !vis.is_visible(&node.aabb) {
                 continue;
             }
 
