@@ -17,6 +17,7 @@ pub struct FrameCommandStream {
     segments: Mutex<Vec<Option<NativeCommandList>>>,
     pool: CommandListPool,
 
+    active_linear: Mutex<Option<d3d12::GraphicsCommandList>>,
     cached_cmd_state: Mutex<CommandListState>,
 }
 
@@ -25,6 +26,7 @@ impl FrameCommandStream {
         Self {
             segments: Mutex::new(vec![]),
             pool: CommandListPool::new(device),
+            active_linear: Mutex::new(None),
             cached_cmd_state: Mutex::new(CommandListState::default()),
         }
     }
@@ -60,6 +62,7 @@ impl FrameCommandStream {
             .tag()
             .expect("begin_parallel linear command list needs a slot tag");
         self.release_cmd(old_cmd, slot as usize);
+        *self.active_linear.lock() = Some(cmd.cmd.command_list.clone());
 
         Arc::new(ParallelCommandBlock {
             workers: Mutex::new(workers),
@@ -80,6 +83,7 @@ impl FrameCommandStream {
     }
 
     pub fn submit(&self, queue: &d3d12::CommandQueue) {
+        *self.active_linear.lock() = None;
         let native_lists: Vec<d3d12::GraphicsCommandList> = self
             .segments
             .lock()
@@ -102,6 +106,7 @@ impl FrameCommandStream {
 
     pub fn acquire_cmd<'a>(&'a self, gpu: &Arc<Gpu>) -> StreamCommandListGuard<'a> {
         let cmd = self.acquire_cmd_inner(gpu);
+        *self.active_linear.lock() = Some(cmd.cmd.command_list.clone());
         StreamCommandListGuard {
             stream: self,
             cmd: ManuallyDrop::new(cmd),
@@ -123,6 +128,11 @@ impl FrameCommandStream {
         let c = cmd.into_inner();
         c.end().expect("closing cmd during release");
         self.segments.lock()[slot] = Some(c);
+        *self.active_linear.lock() = None;
+    }
+
+    pub fn active_linear_cmd(&self) -> Option<d3d12::GraphicsCommandList> {
+        self.active_linear.lock().clone()
     }
 }
 

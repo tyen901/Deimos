@@ -53,6 +53,7 @@ use crate::{
         native_command_list::{AsyncCommandListRing, NativeCommandList},
         pipeline_cache::PipelineCache,
         profiler::ScopeGuard,
+        stream::FrameCommandStream,
     },
     tfx::externs::BaseExternSource,
 };
@@ -310,12 +311,12 @@ impl Gpu {
             .push((Box::new(resource), 4));
     }
 
-    pub fn profiler_scope(
-        &self,
-        command_list: &d3d12::GraphicsCommandList,
+    pub fn profiler_scope<'a>(
+        &'a self,
+        stream: &'a FrameCommandStream,
         name: &'static str,
-    ) -> ScopeGuard<'_> {
-        self.frame().profiler.scope(command_list, name)
+    ) -> ScopeGuard<'a> {
+        self.frame().profiler.scope(stream, name)
     }
 
     // #[profiling::function]

@@ -316,7 +316,7 @@ impl Scene {
 
         {
             let _event = cmd.event_scope_str("Scene");
-            let _scope = self.renderer.gpu.profiler_scope(cmd, "scene");
+            let _scope = self.renderer.gpu.profiler_scope(stream, "scene");
             self.scene
                 .main_view
                 .gbuffer
@@ -339,17 +339,21 @@ impl Scene {
             };
 
             {
-                let _scope = self.renderer.gpu.profiler_scope(cmd, "extract_frame");
+                let _scope = self.renderer.gpu.profiler_scope(stream, "extract_frame");
                 s_extract_frame_packet(&self.world, &mut self.scene, vis);
             }
             {
                 let _scope = self
                     .renderer
                     .gpu
-                    .profiler_scope(cmd, "populate_submit_nodes");
+                    .profiler_scope(stream, "populate_submit_nodes");
                 populate_submit_nodes(&mut self.scene, vis);
             }
 
+            let _scope = self
+                .renderer
+                .gpu
+                .profiler_scope(stream, "submit_gbuffer_generation");
             for view in &self.scene.frame_packet.views {
                 let block = stream.begin_parallel(cmd);
                 let context = TempSubmitContext {

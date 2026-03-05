@@ -1,7 +1,9 @@
-use std::{ffi::c_void, time::Instant};
+use std::{ffi::c_void, sync::Arc, time::Instant};
 
 use anyhow::Context;
 use parking_lot::Mutex;
+
+use crate::gpu::stream::FrameCommandStream;
 
 struct PendingProfilerSpan {
     name: &'static str,
@@ -231,17 +233,26 @@ impl FrameProfiler {
         output
     }
 
-    pub fn scope(
-        &self,
-        command_list: &d3d12::GraphicsCommandList,
+    pub fn scope<'a>(
+        &'a self,
+        stream: &'a FrameCommandStream,
         name: &'static str,
-    ) -> ScopeGuard<'_> {
+    ) -> ScopeGuard<'a> {
         let mut state = self.state.lock();
+        let Some(cmd) = stream.active_linear_cmd() else {
+            error!("FrameProfiler::scope needs an active linear CMD!");
+            return ScopeGuard {
+                profiler: self,
+                stream,
+                pending_span_index: usize::MAX,
+            };
+        };
+
         if state.pending_spans.len() as u32 >= Self::MAX_PROFILER_SPANS {
             warn!("Exceeded maximum number of profiler spans");
             return ScopeGuard {
                 profiler: self,
-                cmd: command_list.clone(),
+                stream,
                 pending_span_index: usize::MAX,
             };
         }
@@ -261,10 +272,10 @@ impl FrameProfiler {
             depth,
         });
 
-        command_list.end_query(&self.heap, d3d12::QueryType::Timestamp, start_query_index);
+        cmd.end_query(&self.heap, d3d12::QueryType::Timestamp, start_query_index);
         ScopeGuard {
             profiler: self,
-            cmd: command_list.clone(),
+            stream,
             pending_span_index,
         }
     }
@@ -272,13 +283,18 @@ impl FrameProfiler {
 
 pub struct ScopeGuard<'a> {
     profiler: &'a FrameProfiler,
-    cmd: d3d12::GraphicsCommandList,
+    stream: &'a FrameCommandStream,
     pending_span_index: usize,
 }
 
 impl Drop for ScopeGuard<'_> {
     fn drop(&mut self) {
         let mut state = self.profiler.state.lock();
+        let Some(cmd) = self.stream.active_linear_cmd() else {
+            error!("ScopeGuard::drop needs an active linear CMD!");
+            return;
+        };
+
         if self.pending_span_index >= state.pending_spans.len() {
             warn!("Invalid profiler scope guard index");
             return;
@@ -286,7 +302,7 @@ impl Drop for ScopeGuard<'_> {
 
         let pending_span = &mut state.pending_spans[self.pending_span_index];
         pending_span.end_time = Instant::now();
-        self.cmd.end_query(
+        cmd.end_query(
             &self.profiler.heap,
             d3d12::QueryType::Timestamp,
             pending_span.end_query_index,
