@@ -1,6 +1,8 @@
 use anyhow::Context;
+use bitflags::bitflags;
 use deimos_data::tfx::ExternIndex;
 use int_enum::IntEnum;
+use static_assertions::const_assert;
 
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, IntEnum)]
@@ -231,6 +233,123 @@ impl Opcode {
             Self::Unknown0x49 | Self::Unknown0x57 | Self::Unknown0x5a | Self::Unknown0x5e => 2,
         }
     }
+
+    /// Returns the size of the opcode in bytes, including the opcode itself.
+    pub const fn data_source(&self) -> ExpressionDataSource {
+        match self {
+            Self::Add
+            | Self::Add_
+            | Self::Subtract
+            | Self::Multiply
+            | Self::Multiply_
+            | Self::Divide
+            | Self::IsZero
+            | Self::Min
+            | Self::Max
+            | Self::LessThan
+            | Self::Dot
+            | Self::Merge1_3
+            | Self::Merge2_2
+            | Self::Merge3_1
+
+            | Self::Cubic
+            | Self::Unknown0x10
+            | Self::Unknown0x11
+            | Self::Unknown0x12
+            | Self::Lerp
+            | Self::LerpSaturated
+            | Self::MultiplyAdd
+            | Self::Clamp
+            | Self::Unknown0x17
+            | Self::Abs
+            | Self::Signum
+            | Self::Floor
+            | Self::Ceil
+            | Self::Round
+            | Self::Frac
+            | Self::Unknown0x1E
+            | Self::Unknown0x1F
+            | Self::Negate
+            | Self::VectorRotationsSin
+            | Self::VectorRotationsCos
+            | Self::VectorRotationsSinCos
+            | Self::Splat
+            | Self::Saturate
+            | Self::Triangle
+            | Self::Jitter
+            | Self::Wander
+            | Self::Rand
+            | Self::RandSmooth
+            | Self::Unknown0x25
+            | Self::Unknown0x26
+            | Self::TransformVec4
+            | Self::Unknown0x24
+            | Self::Unknown0x2C
+            | Self::Unknown0x2D
+            // | Opcode::CompareLess
+            // | Opcode::CompareLessEqual
+            // | Opcode::CompareGreater
+            // | Opcode::CompareGreaterEqual
+            // | Opcode::CompareEqual
+            // | Opcode::CompareNotEqual
+            // | Opcode::CompareNotZeroTernary
+            | Self::Unknown0x3B
+            | Self::Unknown0x3D
+            | Self::Unknown0x3F
+            | Self::Unknown0x41
+            | Self::Permute
+            | Self::PopSamplerState
+            | Self::PopOutputMat4
+            | Self::PopTextureView
+            | Self::PopUav
+            => ExpressionDataSource::STACK,
+
+            Self::PopOutput => ExpressionDataSource::empty(),
+            Self::PushFromOutput => ExpressionDataSource::OUTPUT,
+
+            Self::PushTemp => ExpressionDataSource::TEMP,
+            Self::PopTemp => ExpressionDataSource::STACK,
+
+             Self::PushSamplerState => ExpressionDataSource::empty(),
+
+            Self::PushConstVec4
+            | Self::LerpConstant
+            | Self::Spline8Const
+            | Self::LerpConstantSaturated
+            | Self::Spline4Const
+            | Self::Spline8ChainConst
+            | Self::Gradient4Const => ExpressionDataSource::CONSTANTS,
+
+            Self::PushTexTilingParams
+            | Self::PushTexTileLayerCount
+            | Self::PushTexDimensions => ExpressionDataSource::CONSTANTS,
+
+            Self::PushExternInputFloat
+            | Self::PushExternInputVec4
+            | Self::PushExternInputMat4
+            | Self::PushExternInputTextureView
+            | Self::PushExternInputU32
+            | Self::PushExternInputUav
+            | Self::Unknown0x63
+            => ExpressionDataSource::EXTERN,
+
+            Self::PushGlobalChannelVector=> ExpressionDataSource::GLOBAL_CHANNEL,
+            Self::PushObjectChannelVector => ExpressionDataSource::OBJECT_CHANNEL,
+
+            Self::ExtReturn => ExpressionDataSource::empty(),
+
+            // Unknowns
+            Self::Unknown0x50
+            | Self::Unknown0x5f
+            | Self::Unknown0x64
+            | Self::Unknown0x65
+            | Self::Unknown0x66
+            | Self::Unknown0x67
+            | Self::Unknown0x49 | Self::Unknown0x57 | Self::Unknown0x5a | Self::Unknown0x5e
+            => ExpressionDataSource::UNKNOWN,
+
+        }
+    }
 }
 
 pub struct OpcodeIterator<'a> {
@@ -335,6 +454,17 @@ pub fn get_texture_externs_from_bytecode(
     Ok(result)
 }
 
+pub fn get_data_access_from_bytecode(data: &[u8]) -> anyhow::Result<ExpressionDataSource> {
+    let opcodes = OpcodeIterator::new(data);
+    let mut access = ExpressionDataSource::empty();
+    for op in opcodes {
+        let (op, _) = op?;
+        access |= op.data_source();
+    }
+
+    Ok(access)
+}
+
 // FooBar -> foo_bar
 pub fn pascal_to_snake(v: &str) -> String {
     let mut result = String::new();
@@ -346,3 +476,21 @@ pub fn pascal_to_snake(v: &str) -> String {
     }
     result
 }
+
+bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct ExpressionDataSource : u8 {
+        const STACK = 1 << 0;
+        const TEMP = 1 << 1;
+        const OUTPUT = 1 << 2;
+        const CONSTANTS = 1 << 3;
+
+        const EXTERN = 1 << 4;
+        const GLOBAL_CHANNEL = 1 << 5;
+        const OBJECT_CHANNEL = 1 << 6;
+
+        const UNKNOWN = 1 << 7;
+    }
+}
+
+const_assert!(ExternIndex::COUNT <= 128);

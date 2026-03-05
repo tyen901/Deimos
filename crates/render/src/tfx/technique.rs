@@ -151,63 +151,63 @@ impl Technique {
     /// Make sure to set any necessary states (input layout, etc.) before calling this method, as these need to be compiled into the PSO
     #[profiling::function]
     pub fn bind(&self, cmd: &mut CommandList) {
-        if cmd.set_bound_technique(self.tag) {
-            return;
-        }
+        let full_rebind = !cmd.is_technique_smart_bound(self.tag);
 
         if self.data.bind_mode != TechniqueBindMode::VertexPixel {
             error!("{:?} bind mode not implemented", self.data.bind_mode);
             return;
         }
 
-        let fixed_function_state = cmd
-            .state
-            .ffstate
-            .select(&self.data.states)
-            .select(&cmd.state.ffstate_override);
+        if full_rebind {
+            let fixed_function_state = cmd
+                .state
+                .ffstate
+                .select(&self.data.states)
+                .select(&cmd.state.ffstate_override);
 
-        let pipeline_key = PipelineKey {
-            vertex_shader: self.data.shader_vertex.shader,
-            pixel_shader: self.data.shader_pixel.shader,
-            fixed_function_state,
-            input_layout: cmd.get_input_layout() as u8,
-        };
+            let pipeline_key = PipelineKey {
+                vertex_shader: self.data.shader_vertex.shader,
+                pixel_shader: self.data.shader_pixel.shader,
+                fixed_function_state,
+                input_layout: cmd.get_input_layout() as u8,
+            };
+
+            match self.gpu.pipeline_cache.lock().get_or_create(
+                pipeline_key,
+                &self.root_signature,
+                &[
+                    Format::R8g8b8a8Unorm,
+                    Format::R10g10b10a2Unorm,
+                    Format::R8g8b8a8Unorm,
+                    Format::R32g32Float,
+                ],
+                Some(Format::D32FloatS8x24Uint),
+            ) {
+                Ok(pipeline) => {
+                    cmd.set_pipeline_state(&pipeline.pso);
+                    cmd.set_root_signature(&self.root_signature);
+                    cmd.set_descriptor_heaps(std::slice::from_ref(
+                        cmd.gpu().frame().descriptors.heap(),
+                    ));
+                }
+                Err(err) => {
+                    error!("Failed to create pipeline: {}", err);
+                    return;
+                }
+            }
+        }
 
         let descriptor_range = cmd
             .gpu()
             .frame()
             .descriptors
             .allocate(self.descriptor_count);
-
-        match self.gpu.pipeline_cache.lock().get_or_create(
-            pipeline_key,
-            &self.root_signature,
-            &[
-                Format::R8g8b8a8Unorm,
-                Format::R10g10b10a2Unorm,
-                Format::R8g8b8a8Unorm,
-                Format::R32g32Float,
-            ],
-            Some(Format::D32FloatS8x24Uint),
-        ) {
-            Ok(pipeline) => {
-                cmd.set_pipeline_state(&pipeline.pso);
-                cmd.set_root_signature(&self.root_signature);
-                cmd.set_descriptor_heaps(std::slice::from_ref(
-                    cmd.gpu().frame().descriptors.heap(),
-                ));
-                for &param in self.descriptor_table_parameters.iter() {
-                    cmd.set_graphics_root_descriptor_table(param, descriptor_range.gpu_handle(0));
-                }
-            }
-            Err(err) => {
-                error!("Failed to create pipeline: {}", err);
-                return;
-            }
+        for &param in self.descriptor_table_parameters.iter() {
+            cmd.set_graphics_root_descriptor_table(param, descriptor_range.gpu_handle(0));
         }
 
         for stage in [&self.stage_vertex, &self.stage_pixel] {
-            stage.bind(cmd, &descriptor_range);
+            stage.bind(cmd, &descriptor_range, full_rebind);
         }
     }
 }
@@ -249,6 +249,7 @@ impl TechniqueStage {
         };
 
         let core = DynamicCore::new(asset_manager, stage.core, shader_stage)?;
+
         Ok(Self {
             core,
             visibility: shader_stage.shader_visibility(),
@@ -258,8 +259,14 @@ impl TechniqueStage {
         })
     }
 
-    pub fn bind(&self, cmd: &mut CommandList, descriptor_range: &DescriptorRange) {
-        if let Err(e) = self.core.prepare(cmd) {
+    #[profiling::function]
+    pub fn bind(
+        &self,
+        cmd: &mut CommandList,
+        descriptor_range: &DescriptorRange,
+        full_rebind: bool,
+    ) {
+        if full_rebind && let Err(e) = self.core.prepare(cmd) {
             error!("Failed to prepare technique: {}", e);
             return;
         }

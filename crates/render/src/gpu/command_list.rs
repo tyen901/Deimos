@@ -290,7 +290,7 @@ impl CommandList {
     }
 
     /// Returns true if the given technique is already bound and should not be rebound
-    pub fn set_bound_technique(&mut self, index: TagHash) -> bool {
+    pub fn is_technique_smart_bound(&mut self, index: TagHash) -> bool {
         if self.bound_technique != index {
             self.bound_technique = index;
             false

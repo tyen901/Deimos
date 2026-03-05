@@ -7,15 +7,16 @@ use deimos_data::{
 };
 use glam::Vec4;
 use itertools::Itertools;
+use parking_lot::Mutex;
 use tiger_pkg::{TagHash, package_manager};
 
 use crate::{
     asset::{AssetManager, Handle, texture::Texture},
     gpu::command_list::CommandList,
     tfx::expression_vm::{
-        self,
+        self, disassemble,
         interpreter::InterpreterState,
-        opcodes::{Opcode, OpcodeIterator},
+        opcodes::{ExpressionDataSource, Opcode, OpcodeIterator, get_data_access_from_bytecode},
     },
 };
 
@@ -42,6 +43,8 @@ pub struct DynamicCore {
 
     initial_constants: Vec<Vec4>,
     cbuffer_size: usize,
+
+    pub data_sources: ExpressionDataSource,
 }
 
 impl DynamicCore {
@@ -57,6 +60,7 @@ impl DynamicCore {
             textures: Vec::new(),
             initial_constants: Vec::new(),
             cbuffer_size: 0,
+            data_sources: ExpressionDataSource::empty(),
         };
 
         let mut resources = DynamicCoreResources::extract(&core.data, stage)?;
@@ -86,6 +90,9 @@ impl DynamicCore {
 
         core.data.bytecode =
             filter_bytecode_assignments(&core.data.bytecode).context("filtering bytecode")?;
+
+        core.data_sources = get_data_access_from_bytecode(&core.data.bytecode)
+            .context("getting data access from bytecode")?;
 
         core.initial_constants = if core.data.constant_buffer.is_some() {
             let entry = package_manager()

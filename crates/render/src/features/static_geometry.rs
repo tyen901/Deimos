@@ -190,7 +190,7 @@ impl StaticModelRenderer {
 
     #[profiling::function]
     pub fn render_all(&self, cmd: &mut CommandList, stage: RenderStage) {
-        // cmd.enable_smart_technique_binding();
+        cmd.enable_smart_technique_binding();
         // self.unk_cb1.bind(cmd, ShaderStage::Vertex, 1);
         self.instance_id_buffer.bind_single(cmd, 2);
         self.instance_buffer.bind_srv(cmd, ShaderStage::Vertex, 2);
@@ -200,6 +200,7 @@ impl StaticModelRenderer {
             RenderStage::ShadowGenerate | RenderStage::DepthPrepass | RenderStage::GenerateGbuffer
         );
 
+        let mut bound_buffer_index = None;
         if is_opaque {
             let opaque_meshes = &self.model.model.opaque_meshes;
             for (i, group, part) in opaque_meshes
@@ -209,10 +210,13 @@ impl StaticModelRenderer {
                 .map(|(i, g)| (i, g, &opaque_meshes.parts[g.part_index as usize]))
                 .filter(|(_, g, p)| g.render_stage == stage && p.lod_category.is_highest_detail())
             {
-                let buffers = &self.model.buffers[part.buffer_index as usize];
-                if buffers.bind(cmd).is_none() {
-                    continue;
+                if bound_buffer_index != Some(part.buffer_index) {
+                    let buffers = &self.model.buffers[part.buffer_index as usize];
+                    if buffers.bind(cmd).is_none() {
+                        continue;
+                    }
                 }
+                bound_buffer_index = Some(part.buffer_index);
 
                 cmd.set_input_layout(group.input_layout_index as usize);
                 cmd.set_input_topology(part.primitive_type);
