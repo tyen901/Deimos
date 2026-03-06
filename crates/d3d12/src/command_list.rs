@@ -64,7 +64,7 @@ impl GraphicsCommandList {
 
     /// Creates a new event scope with the given name. The event will automatically end when the returned RAII guard is dropped.
     #[must_use]
-    pub fn event_scope_str(&self, name: impl AsRef<str>) -> EventGuard {
+    pub fn event_scope_str(&self, _name: impl AsRef<str>) -> EventGuard {
         // self.begin_event_str(name);
         // TODO(cohae): This cause a lot of debug layer noise since Microsoft doesn't want us using Unicode/Ansi markers, so we should see if we can construct PIX blobs at some point
         EventGuard {}

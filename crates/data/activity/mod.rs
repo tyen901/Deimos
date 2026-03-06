@@ -44,7 +44,7 @@ pub struct SActivity {
 }
 
 #[derive(Debug)]
-#[tiger_type(id = 0x8080AD49, size = 0x48)]
+#[tiger_type(id = 0x8080AD31, size = 0x48)]
 pub struct SUnk80808924 {
     pub location_name: FnvHash,
     pub activity_name: FnvHash,

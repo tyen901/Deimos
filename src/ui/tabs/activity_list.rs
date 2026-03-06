@@ -30,6 +30,7 @@ pub struct ActivityListTab {
 impl ActivityListTab {
     pub fn new(shared_state: &Arc<SharedState>) -> Self {
         let mut destination_nodes = HashMap::<String, Vec<ActivityTreeNode>>::default();
+        let mut expedition_nodes = vec![];
 
         let mut all_nodes = HashMap::default();
 
@@ -56,11 +57,18 @@ impl ActivityListTab {
                 title: activity.to_string(),
                 tag,
             };
-            let _kind = leaf.kind();
+            let kind = leaf.kind();
             destination_nodes
                 .entry(destination.to_string())
                 .or_default()
                 .push(leaf.clone());
+
+            match kind {
+                Some(ActivityKind::Expedition) => {
+                    expedition_nodes.push(leaf);
+                }
+                _ => {}
+            }
         }
 
         let destination_nodes = destination_nodes
@@ -83,33 +91,13 @@ impl ActivityListTab {
                 title: String::new(),
                 children: vec![
                     ActivityTreeNode::Branch {
+                        title: "Expeditions".to_string(),
+                        children: expedition_nodes,
+                    },
+                    ActivityTreeNode::Branch {
                         title: format!("{} Packages", GoogleMaterialSymbols::Package2),
                         children: destination_nodes,
                     },
-                    // ActivityTreeNode::Branch {
-                    //     title: "Crucible".to_string(),
-                    //     children: crucible_nodes,
-                    // },
-                    // ActivityTreeNode::Branch {
-                    //     title: "Gambit".to_string(),
-                    //     children: gambit_nodes,
-                    // },
-                    // ActivityTreeNode::Branch {
-                    //     title: "Raids".to_string(),
-                    //     children: raid_nodes,
-                    // },
-                    // ActivityTreeNode::Branch {
-                    //     title: "Dungeons".to_string(),
-                    //     children: dungeon_nodes,
-                    // },
-                    // ActivityTreeNode::Branch {
-                    //     title: "Strikes".to_string(),
-                    //     children: strike_nodes,
-                    // },
-                    // ActivityTreeNode::Branch {
-                    //     title: "Patrol".to_string(),
-                    //     children: patrol_nodes,
-                    // },
                 ],
             },
             all_nodes,
@@ -118,7 +106,7 @@ impl ActivityListTab {
         }
     }
 
-    pub fn ui(&mut self, ui: &mut egui::Ui) -> TabResult {
+    pub fn ui(&self, ui: &mut egui::Ui) -> TabResult {
         let mut result = TabResult::Continue;
         self.node_children_ui(ui, &self.root_node, 0, &mut result);
         result
@@ -257,21 +245,7 @@ impl ActivityTreeNode {
         let title = self.title();
 
         let kind = match title.to_lowercase().as_str() {
-            v if v.starts_with("crucible") => ActivityKind::Crucible,
-            v if v.starts_with("raid") || v.contains("raid_") => ActivityKind::Raid,
-            v if v.starts_with("iron_banner") => ActivityKind::IronBanner,
-            v if v.starts_with("trials") => ActivityKind::Trials,
-            v if v.starts_with("gambit") => ActivityKind::Gambit,
-            v if v.starts_with("dungeon") => ActivityKind::Dungeon,
-            v if v.starts_with("mission_") => ActivityKind::Mission,
-            v if v.starts_with("quest") => ActivityKind::Quest,
-            v if v.starts_with("strike") => ActivityKind::Strike,
-            v if v.starts_with("exotic") => ActivityKind::Exotic,
-            v if v.contains("freeroam") => ActivityKind::Patrol,
-            "patrol" => ActivityKind::Patrol,
-            v if v.contains("_ls_a") || v.contains("_ls_b") || v.contains("_ls_c") => {
-                ActivityKind::LostSector
-            }
+            v if v.starts_with("exp_") || v.starts_with("expedition") => ActivityKind::Expedition,
             _ => return None,
         };
 
@@ -301,29 +275,18 @@ impl ActivityTreeNode {
         self.color().gamma_multiply(1.7)
     }
 
-    fn bg_color(&self) -> Color32 {
-        let c = self.color();
-        if c == Color32::WHITE {
-            Color32::TRANSPARENT
-        } else {
-            c.gamma_multiply(0.33)
-        }
-    }
+    // fn bg_color(&self) -> Color32 {
+    //     let c = self.color();
+    //     if c == Color32::WHITE {
+    //         Color32::TRANSPARENT
+    //     } else {
+    //         c.gamma_multiply(0.33)
+    //     }
+    // }
 }
 
 enum ActivityKind {
-    Crucible,
-    Raid,
-    IronBanner,
-    Trials,
-    Gambit,
-    Dungeon,
-    Mission,
-    Quest,
-    Strike,
-    Exotic,
-    Patrol,
-    LostSector,
+    Expedition,
 }
 
 impl ActivityKind {
@@ -346,17 +309,7 @@ impl ActivityKind {
 
     const fn color(&self) -> Color32 {
         match self {
-            Self::Crucible => Color32::from_rgb(145, 37, 29),
-            Self::Raid => Color32::WHITE,
-            Self::IronBanner => Color32::WHITE,
-            Self::Trials => Color32::from_rgb(198, 159, 99),
-            Self::Gambit => Color32::from_rgb(57, 119, 94),
-            Self::Dungeon => Color32::from_rgb(104, 85, 72),
-            Self::Patrol => Color32::WHITE,
-            Self::LostSector => Color32::from_rgb(80, 73, 159),
-            Self::Strike => Color32::from_rgb(57, 100, 128),
-            Self::Exotic => Color32::from_rgb(191, 153, 65),
-            Self::Quest | Self::Mission => Color32::from_rgb(38, 68, 127),
+            Self::Expedition => Color32::WHITE,
         }
     }
 }
