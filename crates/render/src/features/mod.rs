@@ -11,9 +11,9 @@ use crate::{
     gpu::command_list::CommandList,
     renderer::{
         Renderer,
-        packet::{RenderPerViewNode, SubmitNode, SubmitNodeContainer},
+        packet::{RenderPerViewNode, SubmitNodeContainer},
     },
-    visibility::{ViewVisibility, frustum::Frustum},
+    visibility::ViewVisibility,
 };
 
 pub trait FeatureRenderer: Send {

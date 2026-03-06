@@ -18,12 +18,7 @@ use deimos_data::{
     strings::{StringContainer, StringContainerShared},
     tag::WideHash,
 };
-use deimos_render::{
-    asset::{index_buffer::IndexBuffer, texture::Texture, vertex_buffer::VertexBuffer},
-    gpu::Gpu,
-    renderer::Renderer,
-    util::fps_histogram::FrametimeHistogram,
-};
+use deimos_render::{gpu::Gpu, renderer::Renderer, util::fps_histogram::FrametimeHistogram};
 use parking_lot::RwLock;
 use sdl3::video::Window;
 use tiger_parse::TigerReadable;

@@ -19,8 +19,8 @@ pub struct STextureHeader {
     pub tile_count: u16,
 
     pub unk2c: u8,
-    #[deprecated(note = "Value is wrong. Use `mip_count` method to calculate mip count")]
-    pub mip_count_broken: u8,
+    // #[deprecated(note = "Value is wrong. Use `mip_count` method to calculate mip count")]
+    mip_count_broken: u8,
     pub unk2e: [u8; 10],
     pub unk38: u32,
 

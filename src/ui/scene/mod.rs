@@ -7,7 +7,10 @@ use deimos_render::{
     ecs::{populate_submit_nodes, s_extract_frame_packet},
     gpu::stream::ParallelCommandBlock,
     renderer::{Renderer, packet::FramePacket, scene::SceneRenderer},
-    tfx::{externs::get_global_channel_name, view::ShadedView},
+    tfx::{
+        externs::{self, get_global_channel_name},
+        view::ShadedView,
+    },
     util::range::RangeChunks,
     visibility::ViewVisibility,
 };
@@ -25,6 +28,7 @@ pub mod controller;
 pub struct Scene {
     renderer: Arc<Renderer>,
     scene: SceneRenderer,
+    start_time: Instant,
 
     // Camera/view
     camera: Camera,
@@ -47,6 +51,7 @@ impl Scene {
         Ok(Self {
             scene: SceneRenderer::new(renderer.clone())?,
             renderer: renderer.clone(),
+            start_time: Instant::now(),
             camera,
             controller: CameraController::new_first_person(),
             world: World::new(),
@@ -301,6 +306,22 @@ impl Scene {
 
         {
             let ext = self.renderer.externs.get_mut();
+
+            *ext.frame = externs::Frame {
+                game_time: self.start_time.elapsed().as_secs_f32(),
+                render_time: self.start_time.elapsed().as_secs_f32(),
+                delta_game_time: delta_time,
+                unk10: 0.5, // misc.time_of_day,
+                exposure_time: 0.016666668,
+                exposure_scale: 1.0,          // view.settings().exposure_scale,
+                exposure_illum_relative: 1.0, // view.settings().exposure_illum_relative,
+                // specular_tint_lookup: global_tex.specular_tint_lookup.view.clone().into(),
+                // specular_lobe_lookup: global_tex.specular_lobe_lookup.view.clone().into(),
+                // specular_lobe_3d_lookup: global_tex.specular_lobe_3d_lookup.view.clone().into(),
+                // iridescence_lookup: global_tex.iridescence_lookup.view.clone().into(),
+                ..*ext.frame.clone()
+            };
+
             self.camera.aspect_ratio = resolution.0 as f32 / resolution.1 as f32;
             self.controller.update_rotation(&mut self.camera);
             self.camera.update();
