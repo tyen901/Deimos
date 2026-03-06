@@ -7,14 +7,13 @@ use deimos_data::{
 };
 use glam::Vec4;
 use itertools::Itertools;
-use parking_lot::Mutex;
 use tiger_pkg::{TagHash, package_manager};
 
 use crate::{
     asset::{AssetManager, Handle, texture::Texture},
     gpu::command_list::CommandList,
     tfx::expression_vm::{
-        self, disassemble,
+        self,
         interpreter::InterpreterState,
         opcodes::{ExpressionDataSource, Opcode, OpcodeIterator, get_data_access_from_bytecode},
     },

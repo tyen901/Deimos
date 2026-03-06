@@ -1,4 +1,4 @@
-use std::{ffi::c_void, sync::Arc, time::Instant};
+use std::{ffi::c_void, time::Instant};
 
 use anyhow::Context;
 use parking_lot::Mutex;

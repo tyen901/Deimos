@@ -1,17 +1,10 @@
-use std::{
-    io::{Cursor, Seek, SeekFrom},
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use anyhow::Context;
 use deimos_data::{
     map::{ComponentData, SComponentDataListPtr},
     pattern::SPattern,
-    tfx::{
-        TfxFeatureRenderer,
-        features::{dynamic::SDynamicModelComponent, statics::SUnk808082D5},
-        geometry::AxisAlignedBBox,
-    },
+    tfx::{TfxFeatureRenderer, features::statics::SUnk808082D5},
 };
 use deimos_ecs::transform::Transform;
 use deimos_render::{
@@ -19,9 +12,8 @@ use deimos_render::{
     features::{static_geometry::StaticInstancesRenderer, terrain_patches::TerrainPatchesRenderer},
     renderer::{Renderer, object::RenderObject},
 };
-use glam::Vec4Swizzles;
 use itertools::Itertools;
-use tiger_parse::{PackageManagerExt, TigerReadable};
+use tiger_parse::PackageManagerExt;
 use tiger_pkg::{TagHash, package_manager};
 
 use crate::world::{UnimplementedTigerComponent, UnimplementedTigerComponents};

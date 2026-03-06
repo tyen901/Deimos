@@ -242,14 +242,8 @@ impl ActivityListTab {
 
 #[derive(Clone)]
 enum ActivityTreeNode {
-    Leaf {
-        title: String,
-        tag: TagHash,
-    },
-    Branch {
-        title: String,
-        children: Vec<Self>,
-    },
+    Leaf { title: String, tag: TagHash },
+    Branch { title: String, children: Vec<Self> },
 }
 
 impl ActivityTreeNode {

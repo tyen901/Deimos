@@ -1,7 +1,6 @@
 use std::{sync::atomic::AtomicU64, time::Duration};
 
 use d3d12::ext::GpuFence;
-use parking_lot::Mutex;
 
 use crate::gpu::{
     alloc::{descriptors::DescriptorRing, ring::UploadRing},

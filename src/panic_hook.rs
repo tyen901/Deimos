@@ -5,7 +5,7 @@ use nu_ansi_term::{Color, Style};
 
 pub fn hook(panic: &PanicHookInfo<'_>) {
     let message = if let Some(s) = panic.payload().downcast_ref::<&str>() {
-        Some(s.to_string())
+        Some((*s).to_string())
     } else {
         panic.payload().downcast_ref::<String>().cloned()
     };

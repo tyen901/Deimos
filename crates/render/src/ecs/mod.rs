@@ -1,5 +1,4 @@
 use deimos_data::tfx::geometry::AxisAlignedBBox;
-use hecs::World;
 
 use crate::{
     ecs::render_objects::StaticRenderObject,

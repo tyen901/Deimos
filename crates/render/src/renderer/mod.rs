@@ -5,13 +5,12 @@ pub mod scene;
 
 use std::sync::Arc;
 
-use itertools::Itertools;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::RwLock;
 use slotmap::SlotMap;
 
 use crate::{
     asset::AssetManager,
-    gpu::{Gpu, native_command_list::NativeCommandList},
+    gpu::Gpu,
     renderer::{
         globals::RenderGlobals,
         object::{RenderObject, RenderObjectHandle},

@@ -44,14 +44,12 @@ impl Texture {
             package_manager()
                 .read_tag(texture_header_ref)
                 .context("Failed to read texture data")?
-                
         };
 
         if load_full_mip && texture.large_buffer.is_some() {
             let ab = package_manager()
                 .read_tag(texture_header_ref)
-                .context("Failed to read large texture buffer")?
-                ;
+                .context("Failed to read large texture buffer")?;
 
             texture_data.extend(ab);
         }

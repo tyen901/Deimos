@@ -16,10 +16,8 @@ use deimos_data::tfx::{
 };
 use glam::{Mat4, Vec3, Vec4};
 use itertools::Itertools;
-use parking_lot::Mutex;
 use rayon::iter::{
-    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelBridge,
-    ParallelIterator,
+    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
 };
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::TagHash;
@@ -34,7 +32,6 @@ use crate::{
         packet::{RenderPerViewNode, SubmitNode, SubmitNodeContainer},
     },
     tfx::technique::Technique,
-    util::range::RangeChunks,
     visibility::{ViewVisibility, bvh::Bvh},
 };
 

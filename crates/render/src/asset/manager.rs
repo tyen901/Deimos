@@ -5,10 +5,8 @@ use std::{
 };
 
 use ahash::HashMap;
-use deimos_core::job::SCHEDULER;
 use deimos_data::tag::WideHash;
 use parking_lot::Mutex;
-use potassium::Priority;
 use tiger_pkg::TagHash;
 use uuid::Uuid;
 

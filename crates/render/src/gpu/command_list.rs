@@ -321,7 +321,7 @@ impl CommandList {
         self.state = new_state.clone();
     }
 
-    pub fn cmd_state(&self) -> &CommandListState {
+    pub const fn cmd_state(&self) -> &CommandListState {
         &self.state
     }
 }

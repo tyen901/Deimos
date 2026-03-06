@@ -7,10 +7,7 @@ use deimos_render::{
     ecs::{populate_submit_nodes, s_extract_frame_packet},
     gpu::stream::ParallelCommandBlock,
     renderer::{Renderer, packet::FramePacket, scene::SceneRenderer},
-    tfx::{
-        externs::{self, get_global_channel_name},
-        view::ShadedView,
-    },
+    tfx::externs::{self, get_global_channel_name},
     util::range::RangeChunks,
     visibility::ViewVisibility,
 };

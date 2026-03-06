@@ -12,7 +12,7 @@ pub fn initialize_package_manager<'a>(
     suggested_path: impl Into<Option<&'a str>>,
 ) -> anyhow::Result<()> {
     let game_path = if let Some(path) = &suggested_path.into() {
-        path.to_string()
+        (*path).to_string()
     } else {
         let Some(steamapp) = game_detector::steam::get_all_apps()
             .context("Failed to enumerate Steam apps")?

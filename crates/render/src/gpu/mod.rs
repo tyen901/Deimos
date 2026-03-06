@@ -39,8 +39,7 @@ use windows::{
         Foundation::HWND,
         Graphics::Dxgi::{
             CreateDXGIFactory2, DXGI_CREATE_FACTORY_DEBUG, DXGI_CREATE_FACTORY_FLAGS,
-            DXGI_MEMORY_SEGMENT_GROUP_LOCAL, DXGI_QUERY_VIDEO_MEMORY_INFO, IDXGIAdapter3,
-            IDXGIFactory4,
+            IDXGIAdapter3, IDXGIFactory4,
         },
     },
     core::Interface,

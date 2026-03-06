@@ -22,7 +22,7 @@ impl Plane {
     }
 
     pub fn normalized(&self) -> Self {
-        Plane(self.0 / self.xyz().length())
+        Self(self.0 / self.xyz().length())
     }
 
     pub fn get_signed_distance(&self, point: Vec3A) -> f32 {
