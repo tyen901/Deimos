@@ -2,20 +2,20 @@ use tiger_parse::{tiger_type, ResourcePointer, ResourcePointerWithClass};
 
 use crate::{map::SComponentDataListPtr, tag::Tag};
 
-#[tiger_type(id = 0x8080BD3F)]
+#[tiger_type(id = 0x8080BAAD)]
 pub struct SPattern {
     pub file_size: u64,
     pub components: Vec<SComponentRef>,
 }
 
-#[tiger_type(id = 0x8080BD34)]
+#[tiger_type(id = 0x8080BAA2)]
 pub struct SComponentRef {
     pub unk0: Tag<SComponent>,
     pub unk4: u32,
     pub unk8: u32,
 }
 
-#[tiger_type(id = 0x8080BD73, size = 0x88)]
+#[tiger_type(id = 0x8080BADB, size = 0x88)]
 pub struct SComponent {
     pub file_size: u64,
     // cohae: This field isn't a list, but it uses the same layout as ComponentDataListPtr

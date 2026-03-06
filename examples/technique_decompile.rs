@@ -16,7 +16,9 @@ fn main() -> anyhow::Result<()> {
         anyhow::bail!("Invalid technique tag hash: {}", hash);
     };
 
-    deimos_core::initialize_package_manager(None)?;
+    deimos_core::initialize_package_manager(Some(
+        "/run/media/luca/Deep Stone Crypt/Steam/steamapps/common/RimWorld/",
+    ))?;
 
     let tech: STechnique = package_manager()
         .read_tag_struct(hash)
@@ -39,7 +41,7 @@ fn main() -> anyhow::Result<()> {
 
         println!("\t// Decompiled assignments:");
         match DecompilerState::new(&shader.core.bytecode)
-            .with_ansi(true)
+            .with_ansi(false)
             .evaluate(&shader.core.bytecode_constants)
         {
             Ok(o) => {

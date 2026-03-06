@@ -2,7 +2,7 @@ use glam::{Mat4, Vec4};
 use tiger_parse::tiger_type;
 use tiger_pkg::TagHash;
 
-#[tiger_type(id = 0x8FFFFFFF, size = 0x1D8)]
+#[tiger_type(id = 0x80807F3C, size = 0x1D8)]
 #[derive(Debug, Clone)]
 pub struct SCubemapComponent {
     pub unk0: u64,

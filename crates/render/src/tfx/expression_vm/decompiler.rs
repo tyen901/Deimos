@@ -388,8 +388,11 @@ impl<'a> DecompilerState<'a> {
                     self.stack_pointer -= 2;
                     set_top!(format!("<fun>clamp<reset>({value}, {min}, {max})"));
                 }
-                Opcode::Floor => {
-                    set_top!(format!("<fun>floor<reset>({cached_top})"));
+                Opcode::Abs => {
+                    set_top!(format!("<fun>abs<reset>({cached_top})"));
+                }
+                Opcode::Signum => {
+                    set_top!(format!("<fun>signum<reset>({cached_top})"));
                 }
                 Opcode::Ceil => {
                     set_top!(format!("<fun>ceil<reset>({cached_top})"));

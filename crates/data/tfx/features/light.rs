@@ -11,7 +11,7 @@ use crate::{
 };
 
 #[derive(Clone, Debug)]
-#[tiger_type(id = 0x8FFFFFFF)]
+#[tiger_type(id = 0x8080854B)]
 pub struct SLightCollection {
     pub file_size: u64,
     pub unk8: u64,
@@ -24,7 +24,7 @@ pub struct SLightCollection {
 }
 
 #[derive(Clone, Debug)]
-#[tiger_type(id = 0x8FFFFFFF, size = 256)]
+#[tiger_type(id = 0x80808556, size = 256)]
 pub struct SLight {
     pub unk0: Vec4,
     pub unk10: Vec4,
@@ -50,7 +50,7 @@ pub struct SLight {
     pub unkd4: [u32; 7],
 }
 
-#[tiger_type(id = 0x8FFFFFFF, size = 0x120)]
+#[tiger_type(id = 0x80808557, size = 0x120)]
 pub struct SShadowingLight {
     pub unk0: Vec4,
     pub unk10: Vec4,
