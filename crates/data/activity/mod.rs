@@ -4,7 +4,7 @@ use tiger_pkg::TagHash;
 use crate::tag::{Tag, WideHash};
 
 #[derive(Debug)]
-#[tiger_type(id = 0x8080B568)]
+#[tiger_type(id = 0x8080B383)]
 pub struct SDestination {
     pub file_size: u64,
     pub location_name: FnvHash,
@@ -26,7 +26,7 @@ pub struct SDestination {
 }
 
 #[derive(Debug)]
-#[tiger_type(id = 0x8080B56B, size = 0x104)]
+#[tiger_type(id = 0x8080B386, size = 0x104)]
 pub struct SActivity {
     pub file_size: u64,
     pub location_name: FnvHash,
@@ -44,7 +44,7 @@ pub struct SActivity {
 }
 
 #[derive(Debug)]
-#[tiger_type(id = 0x8080AD31, size = 0x48)]
+#[tiger_type(id = 0x8080AB3E, size = 0x48)]
 pub struct SUnk80808924 {
     pub location_name: FnvHash,
     pub activity_name: FnvHash,
@@ -85,7 +85,7 @@ pub struct SUnk80808926 {
 }
 
 #[derive(Debug)]
-#[tiger_type(id = 0x8080B64E)]
+#[tiger_type(id = 0x8080B463)]
 pub struct SUnk80808948 {
     pub location_name: FnvHash,
     pub activity_name: FnvHash,
@@ -96,7 +96,7 @@ pub struct SUnk80808948 {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_type(id = 0x8080B566)]
+#[tiger_type(id = 0x8080B381)]
 pub struct SUnk80808e89 {
     pub file_size: u64,
     pub unk8: u64,
@@ -107,14 +107,14 @@ pub struct SUnk80808e89 {
 }
 
 #[derive(Debug, Clone)]
-#[tiger_type(id = 0x8080B5D3)]
+#[tiger_type(id = 0x8080B3EA)]
 pub struct SUnk80808ebe {
     pub file_size: u64,
     pub entity_resources: Vec<Tag<Unk80808943>>,
 }
 
 #[derive(Debug, Clone)]
-#[tiger_type(id = 0x8080AD8B, size = 0x24)]
+#[tiger_type(id = 0x8080AB82, size = 0x24)]
 pub struct Unk80808943 {
     pub file_size: u64,
     #[tiger(offset = 0x20)]
