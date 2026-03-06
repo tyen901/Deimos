@@ -3,6 +3,7 @@ use std::rc::Rc;
 use app::App;
 use clap::Parser;
 use cli::AppArgs;
+use deimos_core::job::SCHEDULER;
 use itertools::Itertools;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 
@@ -27,6 +28,11 @@ extern crate tracing;
 //     tracy_client::ProfiledAllocator::new(std::alloc::System, 100);
 
 fn main() -> anyhow::Result<()> {
+    rayon::ThreadPoolBuilder::new()
+        .thread_name(|i| format!("rayon-pool-{i}"))
+        .num_threads(SCHEDULER.num_workers())
+        .build_global()?;
+
     fix_windows_console();
     std::panic::set_hook(Box::new(panic_hook::hook));
     tracing_subscriber::fmt()

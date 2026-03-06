@@ -271,41 +271,52 @@ impl TechniqueStage {
             return;
         }
 
-        for slot in &self.root_cbuffer_slots {
-            if let Some(va) =
-                cmd.get_shader_constant_buffer_view(self.core.stage, slot.register as u32)
-            {
-                cmd.set_graphics_root_constant_buffer_view(slot.rs_slot as u32, va);
-            } else {
-                // error!(
-                //     "Missing constant buffer view for register {} ({}:{:?})",
-                //     slot.register, technique.tag, self.core.stage
-                // );
-                cmd.set_graphics_root_constant_buffer_view(
-                    slot.rs_slot as u32,
-                    d3d12::GpuVirtualAddress::NULL,
-                );
+        {
+            profiling::scope!("set cbvs");
+
+            for slot in &self.root_cbuffer_slots {
+                if let Some(va) =
+                    cmd.get_shader_constant_buffer_view(self.core.stage, slot.register as u32)
+                {
+                    cmd.set_graphics_root_constant_buffer_view(slot.rs_slot as u32, va);
+                } else {
+                    // error!(
+                    //     "Missing constant buffer view for register {} ({}:{:?})",
+                    //     slot.register, technique.tag, self.core.stage
+                    // );
+                    cmd.set_graphics_root_constant_buffer_view(
+                        slot.rs_slot as u32,
+                        d3d12::GpuVirtualAddress::NULL,
+                    );
+                }
             }
         }
-        for slot in &self.root_texture_slots {
-            if let Some(tex) = cmd.get_shader_resource_view(self.core.stage, slot.register as u32) {
-                cmd.gpu().copy_descriptors_simple(
-                    1,
-                    tex.cpu_handle(),
-                    descriptor_range.cpu_handle(slot.descriptor_offset as usize),
-                    d3d12::DescriptorHeapType::CbvSrvUav,
-                );
-            } else {
-                // error!(
-                //     "Missing texture view for register {} ({}:{:?})",
-                //     slot.register, technique.tag, self.core.stage
-                // );
-                cmd.gpu().copy_descriptors_simple(
-                    1,
-                    cmd.gpu().resource_heap.lock().null().cpu_handle(),
-                    descriptor_range.cpu_handle(slot.descriptor_offset as usize),
-                    d3d12::DescriptorHeapType::CbvSrvUav,
-                );
+
+        {
+            profiling::scope!("set srvs");
+
+            for slot in &self.root_texture_slots {
+                if let Some(tex) =
+                    cmd.get_shader_resource_view(self.core.stage, slot.register as u32)
+                {
+                    cmd.gpu().copy_descriptors_simple(
+                        1,
+                        tex.cpu_handle(),
+                        descriptor_range.cpu_handle(slot.descriptor_offset as usize),
+                        d3d12::DescriptorHeapType::CbvSrvUav,
+                    );
+                } else {
+                    // error!(
+                    //     "Missing texture view for register {} ({}:{:?})",
+                    //     slot.register, technique.tag, self.core.stage
+                    // );
+                    cmd.gpu().copy_descriptors_simple(
+                        1,
+                        cmd.gpu().resource_heap.lock().null().cpu_handle(),
+                        descriptor_range.cpu_handle(slot.descriptor_offset as usize),
+                        d3d12::DescriptorHeapType::CbvSrvUav,
+                    );
+                }
             }
         }
     }

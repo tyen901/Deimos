@@ -16,9 +16,7 @@ use deimos_data::tfx::{
 };
 use glam::{Mat4, Vec3, Vec4};
 use itertools::Itertools;
-use rayon::iter::{
-    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
-};
+use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::TagHash;
 use tiger_pkg::package_manager;
@@ -134,6 +132,7 @@ pub struct StaticModelRenderer {
     constants_dirty: bool,
 
     bvh: Bvh,
+    precomputed_submit_nodes: Vec<(RenderStage, SubmitNode)>,
 }
 
 #[repr(C)]
@@ -176,6 +175,32 @@ impl StaticModelRenderer {
         let group_bounds = bounds.iter().cloned().sum();
         let bvh = Bvh::build(&bounds);
 
+        let mut precomputed_submit_nodes = vec![];
+
+        let opaque_meshes = &model.model.opaque_meshes;
+        for (group_index, group, _part) in opaque_meshes
+            .mesh_groups
+            .iter()
+            .enumerate()
+            .map(|(i, g)| (i, g, &opaque_meshes.parts[g.part_index as usize]))
+            .filter(|(_, _, p)| p.lod_category.is_highest_detail())
+        {
+            if let Some(technique) = model.materials_by_group.get(group_index) {
+                let key = StaticSubmitKey {
+                    technique: technique.hash().0,
+                    model_index: 0, // fixed up in the StaticInstancesRenderer
+                    group_index: group_index as u16,
+                };
+                precomputed_submit_nodes.push((
+                    group.render_stage,
+                    SubmitNode {
+                        key: key.to_u64(),
+                        view_node: 0, // fixed up at submit time
+                    },
+                ));
+            }
+        }
+
         trace!(instances = transforms.len(), model_hash=%model_hash, "Loading model");
         Ok(Self {
             // unk_cb1: ConstantBuffer::create(gpu, Some(&Vec4::ZERO))?, // Offsets instance buffer data
@@ -188,6 +213,7 @@ impl StaticModelRenderer {
             transforms,
             identifier,
             constants_dirty: true,
+            precomputed_submit_nodes,
         })
     }
 
@@ -455,7 +481,7 @@ impl StaticModelRenderer {
             return false;
         }
 
-        self.bvh.is_visible(visibility)
+        self.bvh.has_visible_leaves(visibility)
     }
 }
 
@@ -470,7 +496,7 @@ pub struct StaticInstancesRenderer {
 impl StaticInstancesRenderer {
     pub fn load(renderer: &Renderer, instances_hash: TagHash) -> anyhow::Result<Self> {
         let instances: SStaticMeshInstances = package_manager().read_tag_struct(instances_hash)?;
-        let models = instances
+        let mut models = instances
             .instance_groups
             .par_iter()
             .map(|group| {
@@ -498,38 +524,16 @@ impl StaticInstancesRenderer {
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
 
-        // let mut groups_by_stage_sorted_by_technique: HashMap<
-        //     RenderStage,
-        //     Vec<(TagHash, usize, usize)>,
-        // > = HashMap::default();
-        // for (model_index, (model, _visible)) in models.iter().enumerate() {
-        //     for (group_index, (group, technique)) in model
-        //         .model
-        //         .model
-        //         .opaque_meshes
-        //         .mesh_groups
-        //         .iter()
-        //         .zip(model.model.materials.iter())
-        //         .enumerate()
-        //     {
-        //         let part = &model.model.model.opaque_meshes.parts[group.part_index as usize];
-        //         if part.lod_category.is_highest_detail() {
-        //             groups_by_stage_sorted_by_technique
-        //                 .entry(group.render_stage)
-        //                 .or_default()
-        //                 .push((technique.hash(), model_index, group_index));
-        //         }
-        //     }
-        // }
-
-        // for (_stage, groups_sorted_by_technique) in groups_by_stage_sorted_by_technique.iter_mut() {
-        //     groups_sorted_by_technique.sort_unstable_by_key(|k| k.0);
-        // }
-
-        // let groups_by_stage_sorted_by_technique = groups_by_stage_sorted_by_technique
-        //     .into_iter()
-        //     .map(|(k, v)| (k, Arc::new(v)))
-        //     .collect();
+        models
+            .iter_mut()
+            .enumerate()
+            .for_each(|(model_index, model)| {
+                for (_, node) in &mut model.precomputed_submit_nodes {
+                    let mut key = StaticSubmitKey::from_u64(node.key);
+                    key.model_index = model_index as u16;
+                    node.key = key.to_u64();
+                }
+            });
 
         Ok(Self {
             subscribed_stages: models
@@ -574,60 +578,24 @@ impl FeatureRenderer for StaticInstancesRenderer {
         visibility: &ViewVisibility,
         submit_node_blocks: &mut SubmitNodeContainer,
     ) {
-        // Build per-worker SubmitNodeContainer in parallel using fold/reduce to avoid a global lock.
-        let per_view_container = (0..self.models.len())
+        let visible_indices: Vec<usize> = (0..self.models.len())
             .into_par_iter()
-            .with_min_len(1024)
-            .fold(
-                || SubmitNodeContainer::with_capacity(5 * 128),
-                |mut local_container, model_index| {
-                    let model = &self.models[model_index];
-                    if model.is_visible(visibility) {
-                        let opaque_meshes = &model.model.model.opaque_meshes;
-                        for (group_index, group, _part) in opaque_meshes
-                            .mesh_groups
-                            .iter()
-                            .enumerate()
-                            .map(|(i, g)| (i, g, &opaque_meshes.parts[g.part_index as usize]))
-                            .filter(|(_, _g, p)| p.lod_category.is_highest_detail())
-                        {
-                            if let Some(technique) =
-                                &model.model.materials_by_group.get(group_index)
-                            {
-                                let key = StaticSubmitKey {
-                                    technique: technique.hash().0,
-                                    model_index: model_index as u16,
-                                    group_index: group_index as u16,
-                                };
-                                local_container.push(
-                                    group.render_stage,
-                                    SubmitNode {
-                                        key: key.to_u64(),
-                                        view_node,
-                                    },
-                                );
-                            }
-                        }
-                    }
-                    local_container
-                },
-            )
-            .reduce(SubmitNodeContainer::default, |mut a, b| {
-                // Merge b into a by extending each stage's vec.
-                for stage in deimos_data::tfx::RenderStage::iter() {
-                    let src = b.block(stage);
-                    if !src.is_empty() {
-                        a.block_mut(stage).extend_from_slice(src);
-                    }
-                }
-                a
-            });
+            .filter(|&i| self.models[i].is_visible(visibility))
+            .collect();
 
-        // Merge the final per_view_container into the provided submit_node_blocks and sort per-stage.
-        for stage in deimos_data::tfx::RenderStage::iter() {
-            let block = submit_node_blocks.block_mut(stage);
-            block.extend_from_slice(per_view_container.block(stage));
-            block.sort_by_key(|a| a.key);
+        for model_index in &visible_indices {
+            let model = &self.models[*model_index];
+            for &(stage, mut node) in &model.precomputed_submit_nodes {
+                node.view_node = view_node;
+                submit_node_blocks.push(stage, node);
+            }
+        }
+
+        {
+            profiling::scope!("sort stages");
+            for stage in RenderStage::iter() {
+                submit_node_blocks.block_mut(stage).sort_by_key(|a| a.key);
+            }
         }
     }
 

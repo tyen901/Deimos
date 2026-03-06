@@ -1,4 +1,5 @@
 use deimos_data::tfx::geometry::AxisAlignedBBox;
+use smallvec::SmallVec;
 
 use crate::visibility::ViewVisibility;
 
@@ -33,30 +34,31 @@ impl Bvh {
     }
 
     #[profiling::function]
-    pub fn is_visible(&self, vis: &ViewVisibility) -> bool {
+    pub fn has_visible_leaves(&self, vis: &ViewVisibility) -> bool {
         if self.nodes.is_empty() {
             return false;
         }
 
-        let mut stack = Vec::with_capacity(64);
+        let mut stack = SmallVec::<[u32; 64]>::new();
         stack.push(0u32);
 
         while let Some(idx) = stack.pop() {
             let node = &self.nodes[idx as usize];
 
-            if !vis.is_visible(&node.aabb) {
-                continue;
-            }
-
             match node.data {
-                NodeData::Leaf => return true,
                 NodeData::Internal { right_child } => {
-                    stack.push(right_child);
-                    stack.push(idx + 1);
+                    if vis.is_visible_quick(&node.aabb) {
+                        stack.push(right_child);
+                        stack.push(idx + 1);
+                    }
+                }
+                NodeData::Leaf => {
+                    if vis.is_visible(&node.aabb) {
+                        return true;
+                    }
                 }
             }
         }
-
         false
     }
 

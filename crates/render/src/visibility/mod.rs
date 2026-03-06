@@ -37,6 +37,9 @@ impl ViewVisibility {
         for corner in &corners {
             let world_pos = corner.extend(1.0);
             let clip_pos = self.world_to_projective * world_pos;
+            if clip_pos.w <= 0.0 {
+                return true;
+            }
             let ndc_pos = clip_pos.truncate() / clip_pos.w;
 
             min_ndc = min_ndc.min(ndc_pos);
