@@ -48,10 +48,7 @@ impl Camera {
 
     pub fn update(&mut self) {
         self.fov_y += 10.0;
-        let mut real_far = 250.0;
-        std::mem::swap(&mut real_far, &mut self.far);
         self.culling_frustum = Frustum::from_camera(self);
-        std::mem::swap(&mut real_far, &mut self.far);
         self.fov_y -= 10.0;
 
         self.world_to_camera = self.view_matrix();
