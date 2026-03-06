@@ -88,6 +88,7 @@ impl VertexBuffer {
         })
     }
 
+    #[profiling::function]
     pub fn bind_single(&self, cmd: &d3d12::GraphicsCommandList, slot: u32) {
         cmd.ia_set_vertex_buffers(
             slot,

@@ -153,7 +153,10 @@ impl Technique {
     pub fn bind(&self, cmd: &mut CommandList) {
         let full_rebind = !cmd.is_technique_smart_bound(self.tag);
 
-        if self.data.bind_mode != TechniqueBindMode::VertexPixel {
+        if !matches!(
+            self.data.bind_mode,
+            TechniqueBindMode::VertexOnly | TechniqueBindMode::VertexPixel
+        ) {
             error!("{:?} bind mode not implemented", self.data.bind_mode);
             return;
         }
@@ -271,13 +274,13 @@ impl TechniqueStage {
             return;
         }
 
+        let resources = cmd.resources(self.core.stage);
+
         {
             profiling::scope!("set cbvs");
 
             for slot in &self.root_cbuffer_slots {
-                if let Some(va) =
-                    cmd.get_shader_constant_buffer_view(self.core.stage, slot.register as u32)
-                {
+                if let Some(va) = resources.get_shader_constant_buffer_view(slot.register as u32) {
                     cmd.set_graphics_root_constant_buffer_view(slot.rs_slot as u32, va);
                 } else {
                     // error!(
@@ -296,9 +299,7 @@ impl TechniqueStage {
             profiling::scope!("set srvs");
 
             for slot in &self.root_texture_slots {
-                if let Some(tex) =
-                    cmd.get_shader_resource_view(self.core.stage, slot.register as u32)
-                {
+                if let Some(tex) = resources.get_shader_resource_view(slot.register as u32) {
                     cmd.gpu().copy_descriptors_simple(
                         1,
                         tex.cpu_handle(),

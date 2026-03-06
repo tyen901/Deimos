@@ -23,6 +23,7 @@ pub struct CachedPipeline {
 pub struct PipelineCache {
     render_states: RenderStates,
     bytecode_cache: HashMap<TagHash, Arc<[u8]>>,
+    empty_bytecode: Arc<[u8]>,
     storage: HashMap<PipelineKey, CachedPipeline>,
 
     device: d3d12::Device,
@@ -33,6 +34,7 @@ impl PipelineCache {
         Self {
             render_states: RenderStates::new(&device).expect("Failed to load render states"),
             bytecode_cache: HashMap::default(),
+            empty_bytecode: Arc::from([]),
             storage: HashMap::default(),
             device,
         }
@@ -74,19 +76,21 @@ impl PipelineCache {
             ..Default::default()
         };
 
+        let mut desc = GraphicsPipelineStateDesc::new(root_signature)
+            .with_vs(&vs)
+            .with_input_layout(input_layout.as_slice())
+            .with_primitive_topology(d3d12::PrimitiveTopology2::Triangle)
+            .with_blend_state(blend_state.clone())
+            .with_dsv_format(dsv_format.unwrap_or_default())
+            .with_depth_stencil_state(depth_state);
+
+        if !ps.is_empty() {
+            desc = desc.with_rtv_formats(rtv_formats).with_ps(&ps);
+        }
+
         let pipeline = self
             .device
-            .create_graphics_pipeline_state(
-                &GraphicsPipelineStateDesc::new(root_signature)
-                    .with_vs(&vs)
-                    .with_ps(&ps)
-                    .with_input_layout(input_layout.as_slice())
-                    .with_primitive_topology(d3d12::PrimitiveTopology2::Triangle)
-                    .with_blend_state(blend_state.clone())
-                    .with_rtv_formats(rtv_formats)
-                    .with_dsv_format(dsv_format.unwrap_or_default())
-                    .with_depth_stencil_state(depth_state),
-            )
+            .create_graphics_pipeline_state(&desc)
             .context("create_graphics_pipeline_state")?;
 
         pipeline.set_debug_name(format!("vs_{}_ps_{}", key.vertex_shader, key.pixel_shader));
@@ -98,6 +102,10 @@ impl PipelineCache {
 
     #[profiling::function]
     pub fn get_or_load_bytecode(&mut self, hash: TagHash) -> anyhow::Result<Arc<[u8]>> {
+        if hash.is_none() {
+            return Ok(self.empty_bytecode.clone());
+        }
+
         match self.bytecode_cache.entry(hash) {
             Entry::Occupied(entry) => Ok(entry.into_mut().clone()),
             Entry::Vacant(entry) => {

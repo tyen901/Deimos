@@ -235,15 +235,12 @@ impl CommandList {
         self.cmd.set_viewports(viewports);
     }
 
-    pub const fn resources(&mut self, stage: ShaderStage) -> &mut StageResources {
-        match stage {
-            ShaderStage::Vertex => &mut self.state.resources_vs,
-            ShaderStage::Pixel => &mut self.state.resources_ps,
-            ShaderStage::Compute => &mut self.state.resources_cs,
-            ShaderStage::Domain => &mut self.state.resources_ds,
-            ShaderStage::Hull => &mut self.state.resources_hs,
-            ShaderStage::Geometry => &mut self.state.resources_gs,
-        }
+    pub const fn resources(&self, stage: ShaderStage) -> &StageResources {
+        &self.state.resources[stage as usize - 1]
+    }
+
+    pub const fn resources_mut(&mut self, stage: ShaderStage) -> &mut StageResources {
+        &mut self.state.resources[stage as usize - 1]
     }
 
     pub fn get_shader_resource_view(
@@ -276,7 +273,7 @@ impl CommandList {
         slot: u32,
         resource: Option<ResourceView>,
     ) {
-        if let Some(slot_mut) = self.resources(stage).srvs.get_mut(slot as usize) {
+        if let Some(slot_mut) = self.resources_mut(stage).srvs.get_mut(slot as usize) {
             *slot_mut = resource;
         }
     }
@@ -287,7 +284,7 @@ impl CommandList {
         slot: u32,
         buffer_address: Option<d3d12::GpuVirtualAddress>,
     ) {
-        if let Some(slot_mut) = self.resources(stage).cbvs.get_mut(slot as usize) {
+        if let Some(slot_mut) = self.resources_mut(stage).cbvs.get_mut(slot as usize) {
             *slot_mut = buffer_address;
         }
     }
@@ -312,6 +309,7 @@ impl CommandList {
         }
     }
 
+    #[profiling::function]
     pub fn restore_cmd_state(&mut self, new_state: &CommandListState) {
         let om = &new_state.output;
         self.cmd.om_set_render_targets(&om.rtvs, false, om.dsv);
@@ -340,6 +338,16 @@ pub struct StageResources {
     pub cbvs: [Option<d3d12::GpuVirtualAddress>; 16],
 }
 
+impl StageResources {
+    pub fn get_shader_resource_view(&self, slot: u32) -> Option<ResourceView> {
+        self.srvs.get(slot as usize).cloned().flatten()
+    }
+
+    pub fn get_shader_constant_buffer_view(&self, slot: u32) -> Option<d3d12::GpuVirtualAddress> {
+        self.cbvs.get(slot as usize).cloned().flatten()
+    }
+}
+
 #[macro_export]
 macro_rules! cmd_event_span {
     ($cmd:ident, $name:expr) => {
@@ -354,12 +362,14 @@ pub struct CommandListState {
     pub ffstate_override: FixedFunctionState,
     output: OutputState,
     pub(super) depth_mode: DepthMode,
-    pub(crate) resources_vs: StageResources,
-    pub(crate) resources_ps: StageResources,
-    pub(crate) resources_cs: StageResources,
-    pub(crate) resources_ds: StageResources,
-    pub(crate) resources_hs: StageResources,
-    pub(crate) resources_gs: StageResources,
+
+    resources: [StageResources; 6],
+    // pub(crate) resources_vs: StageResources,
+    // pub(crate) resources_ps: StageResources,
+    // pub(crate) resources_cs: StageResources,
+    // pub(crate) resources_ds: StageResources,
+    // pub(crate) resources_hs: StageResources,
+    // pub(crate) resources_gs: StageResources,
 }
 
 impl Default for CommandListState {
@@ -370,12 +380,14 @@ impl Default for CommandListState {
 
             output: OutputState::default(),
             depth_mode: DepthMode::Reverse,
-            resources_vs: StageResources::default(),
-            resources_ps: StageResources::default(),
-            resources_cs: StageResources::default(),
-            resources_ds: StageResources::default(),
-            resources_hs: StageResources::default(),
-            resources_gs: StageResources::default(),
+
+            resources: std::array::from_fn(|_| StageResources::default()),
+            // resources_vs: StageResources::default(),
+            // resources_ps: StageResources::default(),
+            // resources_cs: StageResources::default(),
+            // resources_ds: StageResources::default(),
+            // resources_hs: StageResources::default(),
+            // resources_gs: StageResources::default(),
         }
     }
 }

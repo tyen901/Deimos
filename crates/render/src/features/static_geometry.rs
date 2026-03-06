@@ -336,43 +336,6 @@ impl StaticModelRenderer {
         }
     }
 
-    // #[profiling::function]
-    // pub fn render_group(&self, cmd: &mut CommandList, stage: RenderStage, group: usize) {
-    //     // self.unk_cb1.bind(cmd, ShaderStage::Vertex, 1);
-    //     // self.instance_buffer.bind(cmd, ShaderStage::Vertex, 2);
-    //     self.instance_id_buffer.bind_single(cmd, 2);
-
-    //     let i = group;
-    //     let group = &self.model.model.opaque_meshes.mesh_groups[i];
-    //     if group.render_stage != stage {
-    //         return;
-    //     }
-    //     let part = &self.model.model.opaque_meshes.parts[group.part_index as usize];
-    //     if !part.lod_category.is_highest_detail() {
-    //         return;
-    //     }
-
-    //     let buffers = &self.model.buffers[part.buffer_index as usize];
-    //     if buffers.bind(cmd).is_none() {
-    //         return;
-    //     }
-
-    //     cmd.set_input_layout(group.input_layout_index as usize);
-    //     cmd.set_input_topology(part.primitive_type);
-
-    //     if let Some(technique) = &self.model.materials.get(i).and_then(|h| h.get()) {
-    //         technique.bind(cmd);
-    //     } else {
-    //         return;
-    //     }
-
-    //     cmd.draw_indexed_instanced(
-    //         part.index_range(),
-    //         0..self.visible_instance_ids.len() as u32,
-    //         0,
-    //     );
-    // }
-
     #[profiling::function]
     fn generate_constants(
         model: &SStaticMeshData,
