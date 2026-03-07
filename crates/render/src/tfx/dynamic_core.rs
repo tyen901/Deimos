@@ -39,6 +39,7 @@ pub struct DynamicCore {
 
     pub samplers: Vec<d3d12::StaticSamplerDesc>,
     pub textures: Vec<(u32, ResolvedTextureSource)>,
+    has_dynamic_textures: bool,
 
     initial_constants: Vec<Vec4>,
     cbuffer_size: usize,
@@ -60,6 +61,7 @@ impl DynamicCore {
             initial_constants: Vec::new(),
             cbuffer_size: 0,
             data_sources: ExpressionDataSource::empty(),
+            has_dynamic_textures: false,
         };
 
         let mut resources = DynamicCoreResources::extract(&core.data, stage)?;
@@ -76,6 +78,7 @@ impl DynamicCore {
                     extern_index,
                     offset,
                 } => {
+                    core.has_dynamic_textures = true;
                     core.textures.push((
                         slot,
                         ResolvedTextureSource::Dynamic {
@@ -180,6 +183,23 @@ impl DynamicCore {
         }
 
         Ok(())
+    }
+
+    pub fn all_textures_loaded(&self) -> bool {
+        self.textures.iter().all(|(_, tex)| {
+            if let ResolvedTextureSource::Static(handle) = tex {
+                handle.is_loaded()
+            } else {
+                true
+            }
+        })
+    }
+
+    /// Does this dynamic core resolve dynamic textures?
+    ///
+    /// **Note: Techniques may have manually bound textures that aren't referenced by the dynamic core (eg. terrain dyemap)**
+    pub const fn has_dynamic_textures(&self) -> bool {
+        self.has_dynamic_textures
     }
 }
 

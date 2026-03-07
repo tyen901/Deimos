@@ -1,6 +1,6 @@
 use windows::Win32::Graphics::Direct3D12::*;
 
-use crate::{CpuDescriptorHandle, GpuDescriptorHandle};
+use crate::{verify_ffi_type, CpuDescriptorHandle, GpuDescriptorHandle};
 
 #[repr(transparent)]
 #[derive(Clone)]
@@ -24,3 +24,4 @@ pub enum DescriptorHeapType {
     Rtv = D3D12_DESCRIPTOR_HEAP_TYPE_RTV.0,
     Dsv = D3D12_DESCRIPTOR_HEAP_TYPE_DSV.0,
 }
+verify_ffi_type!(DescriptorHeapType, D3D12_DESCRIPTOR_HEAP_TYPE);

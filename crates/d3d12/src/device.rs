@@ -287,7 +287,27 @@ impl Device {
                 num_descriptors,
                 dst_descriptor_range_start.into(),
                 src_descriptor_range_start.into(),
-                D3D12_DESCRIPTOR_HEAP_TYPE(heap_type as i32),
+                heap_type.into(),
+            );
+        }
+    }
+
+    pub fn copy_descriptor_range(
+        &self,
+        num_descriptors: u32,
+        src_descriptor_range_start: CpuDescriptorHandle,
+        dst_descriptor_range_start: CpuDescriptorHandle,
+        heap_type: DescriptorHeapType,
+    ) {
+        unsafe {
+            self.0.CopyDescriptors(
+                1,
+                [dst_descriptor_range_start].as_ptr().cast(),
+                Some([num_descriptors].as_ptr()),
+                1,
+                [src_descriptor_range_start].as_ptr().cast(),
+                Some([num_descriptors].as_ptr()),
+                heap_type.into(),
             );
         }
     }
