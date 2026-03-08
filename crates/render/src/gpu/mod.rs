@@ -39,7 +39,8 @@ use windows::{
         Foundation::HWND,
         Graphics::Dxgi::{
             CreateDXGIFactory2, DXGI_CREATE_FACTORY_DEBUG, DXGI_CREATE_FACTORY_FLAGS,
-            IDXGIAdapter3, IDXGIFactory4,
+            DXGI_MEMORY_SEGMENT_GROUP_LOCAL, DXGI_QUERY_VIDEO_MEMORY_INFO, IDXGIAdapter3,
+            IDXGIFactory4,
         },
     },
     core::Interface,
@@ -335,13 +336,11 @@ impl Gpu {
     }
 
     pub fn memory_stats(&self) -> MemoryStats {
-        let allocator_report = self.allocator.lock().generate_report();
+        let d3d12_stats = self.d3d12_memory_stats();
         let resource_heap = self.resource_heap.lock();
 
         let mut r = MemoryStats {
-            num_allocations: allocator_report.allocations.len(),
-            allocator_used: allocator_report.total_allocated_bytes,
-            allocator_capacity: allocator_report.total_capacity_bytes,
+            total_bytes_used: d3d12_stats.CurrentUsage,
             descriptor_heap_used: resource_heap.used(),
             descriptor_heap_capacity: resource_heap.capacity(),
             descriptor_ring_used: self.previous_frame().descriptors.used(),
@@ -380,16 +379,16 @@ impl Gpu {
         r
     }
 
-    // pub fn get_memory_stats(&self) -> DXGI_QUERY_VIDEO_MEMORY_INFO {
-    //     unsafe {
-    //         let mut memory_info = DXGI_QUERY_VIDEO_MEMORY_INFO::default();
-    //         self.adapter
-    //             .QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &mut memory_info)
-    //             .unwrap();
+    pub fn d3d12_memory_stats(&self) -> DXGI_QUERY_VIDEO_MEMORY_INFO {
+        unsafe {
+            let mut memory_info = DXGI_QUERY_VIDEO_MEMORY_INFO::default();
+            self.adapter
+                .QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &mut memory_info)
+                .unwrap();
 
-    //         memory_info
-    //     }
-    // }
+            memory_info
+        }
+    }
 }
 
 impl std::ops::Deref for Gpu {
@@ -401,9 +400,7 @@ impl std::ops::Deref for Gpu {
 }
 
 pub struct MemoryStats {
-    pub num_allocations: usize,
-    pub allocator_used: u64,
-    pub allocator_capacity: u64,
+    pub total_bytes_used: u64,
 
     pub descriptor_heap_used: usize,
     pub descriptor_heap_capacity: usize,

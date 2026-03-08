@@ -181,7 +181,7 @@ impl Scene {
             );
 
             let memory_stats = self.renderer.gpu.memory_stats();
-            let mut vram_text = format_bytes(memory_stats.allocator_used as usize);
+            let mut vram_text = format_bytes(memory_stats.total_bytes_used as usize);
             let mut vram_color = Color32::GREEN;
             if !memory_stats.errors.is_empty() {
                 vram_text = format!("{} {}", GoogleMaterialSymbols::Error, vram_text);
@@ -253,10 +253,10 @@ impl Scene {
             )
             .on_hover_ui(|ui| {
                 ui.style_mut().spacing.item_spacing = vec2(0.0, 0.0);
-                ui.monospace(format!("{} allocations", memory_stats.num_allocations));
+                // ui.monospace(format!("{} allocations", memory_stats.num_allocations));
                 ui.monospace(format!(
-                    "Capacity:  {}",
-                    format_bytes(memory_stats.allocator_capacity as usize)
+                    "Bytes Allocated: {}",
+                    format_bytes(memory_stats.total_bytes_used as usize)
                 ));
                 ui.monospace(format!(
                     "Descriptor Heap: {}/{} ({:.0}%)",
@@ -310,6 +310,8 @@ impl Scene {
 
     #[profiling::function]
     pub fn render(&mut self, delta_time: f32, resolution: (u32, u32)) {
+        let stream = &self.renderer.gpu.frame().stream;
+        let _scope = self.renderer.gpu.profiler_scope(stream, "Scene::render");
         if let Err(e) = self
             .scene_renderer
             .main_view
@@ -318,9 +320,9 @@ impl Scene {
             error!("Failed to resize main view: {e:?}");
         }
 
-        let stream = &self.renderer.gpu.frame().stream;
         let mut cmd_guard = stream.acquire_cmd(&self.renderer.gpu);
         let cmd = &mut *cmd_guard;
+        let _event = cmd.event_scope_str("Scene::render");
 
         {
             let ext = self.renderer.externs.get_mut();
@@ -354,8 +356,6 @@ impl Scene {
         self.renderer.globals.scopes.chunk_model.bind(cmd);
 
         {
-            let _event = cmd.event_scope_str("Scene::render");
-            let _scope = self.renderer.gpu.profiler_scope(stream, "Scene::render");
             self.scene_renderer
                 .main_view
                 .gbuffer

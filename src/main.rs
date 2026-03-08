@@ -3,7 +3,6 @@ use std::rc::Rc;
 use app::App;
 use clap::Parser;
 use cli::AppArgs;
-use deimos_core::job::SCHEDULER;
 use itertools::Itertools;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 
