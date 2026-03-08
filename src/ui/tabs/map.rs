@@ -3,6 +3,7 @@ use std::sync::Arc;
 use deimos_render::{camera::Camera, renderer::Renderer};
 use egui::{Color32, Rect, Vec2, vec2};
 use glam::Vec3;
+use google_material_symbols::GoogleMaterialSymbols;
 use tiger_pkg::TagHash;
 
 use crate::{
@@ -18,6 +19,8 @@ pub struct MapTab {
     pub name: String,
     load_task: Task<hecs::World>,
     scene: Box<Scene>,
+
+    errored: bool,
 }
 
 impl MapTab {
@@ -40,6 +43,7 @@ impl MapTab {
             scene: Box::new(
                 Scene::new(renderer, camera)?.with_controller(CameraController::new_first_person()),
             ),
+            errored: false,
         })
     }
 
@@ -52,6 +56,7 @@ impl MapTab {
                 }
                 Err(_e) => {
                     error!("Failed to load map: unknown error");
+                    self.errored = true;
                 }
             }
         }
@@ -67,6 +72,31 @@ impl MapTab {
                 "Loading...",
                 egui::FontId::proportional(24.0),
                 Color32::GRAY,
+            );
+        } else if self.errored {
+            let (_, rect) = ui.allocate_space(ui.available_size_before_wrap());
+            ui.painter()
+                .rect_filled(rect, 0, Color32::from_rgb(28, 14, 14));
+            ui.painter().text(
+                rect.center(),
+                egui::Align2::CENTER_CENTER,
+                GoogleMaterialSymbols::Error,
+                egui::FontId::proportional(96.0),
+                Color32::DARK_RED,
+            );
+            ui.painter().text(
+                rect.center() + vec2(0.0, 48.0),
+                egui::Align2::CENTER_TOP,
+                "Map load failed",
+                egui::FontId::proportional(24.0),
+                Color32::DARK_RED,
+            );
+            ui.painter().text(
+                rect.center() + vec2(0.0, 82.0),
+                egui::Align2::CENTER_TOP,
+                "See logs for error information",
+                egui::FontId::proportional(16.0),
+                Color32::DARK_RED,
             );
         } else {
             self.scene.show(ui, egui_d3d12, ui.available_size());

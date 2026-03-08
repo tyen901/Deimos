@@ -63,11 +63,8 @@ impl ActivityListTab {
                 .or_default()
                 .push(leaf.clone());
 
-            match kind {
-                Some(ActivityKind::Expedition) => {
-                    expedition_nodes.push(leaf);
-                }
-                _ => {}
+            if matches!(kind, Some(ActivityKind::Expedition)) {
+                expedition_nodes.push(leaf);
             }
         }
 
@@ -91,7 +88,7 @@ impl ActivityListTab {
                 title: String::new(),
                 children: vec![
                     ActivityTreeNode::Branch {
-                        title: "Expeditions".to_string(),
+                        title: format!("{} Expeditions", GoogleMaterialSymbols::Explore),
                         children: expedition_nodes,
                     },
                     ActivityTreeNode::Branch {
