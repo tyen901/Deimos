@@ -1,3 +1,5 @@
+use std::u64;
+
 use deimos_data::tfx::{
     RenderStage, ShaderStage, TfxScopeBits,
     features::dynamic::{
@@ -15,7 +17,10 @@ use crate::{
     asset::Handle,
     features::FeatureRenderer,
     gpu::command_list::CommandList,
-    renderer::Renderer,
+    renderer::{
+        Renderer,
+        packet::{RenderPerFrameNode, RenderPerViewNode, SubmitNode, SubmitNodeContainer},
+    },
     tfx::{expression_vm::interpreter::TempObjectChannels, technique::Technique},
 };
 
@@ -40,8 +45,6 @@ pub struct DynamicModel {
 
     pub hash: TagHash,
 
-    // pub cb: ConstantBuffer<RigidModel>,
-    pub constants: RigidModelConstants,
     pub channels: TempObjectChannels,
     pub transform: Mat4,
 }
@@ -123,15 +126,6 @@ impl DynamicModel {
             mesh_stages,
             part_techniques,
             hash,
-            constants: RigidModelConstants {
-                mesh_to_world: Mat4::default(),
-                position_scale: Vec4::ZERO,
-                position_offset: Vec4::ZERO,
-                texcoord0_scale_offset: Vec4::ZERO,
-                dynamic_sh_ao_values: Vec4::ZERO,
-            },
-            // cb: ConstantBuffer::create(&renderer.gpu, None)
-            //     .context("Failed to create constant buffer")?,
             channels: TempObjectChannels::default(),
             transform: Mat4::IDENTITY,
         }))
@@ -199,27 +193,6 @@ impl DynamicModel {
     ) where
         F: FnMut(&Self, &mut CommandList, &SDynamicMesh, &SDynamicMeshPart),
     {
-        let rigid_model_cb = match cmd.gpu().frame().upload.alloc::<RigidModelConstants>() {
-            Ok(o) => o,
-            Err(e) => {
-                error!("Failed to allocate rigid model constants: {e:?}");
-                return;
-            }
-        };
-
-        rigid_model_cb.write(&self.constants);
-
-        cmd.set_shader_constant_buffer_view(
-            ShaderStage::Vertex,
-            1,
-            Some(rigid_model_cb.virtual_address()),
-        );
-        cmd.set_shader_constant_buffer_view(
-            ShaderStage::Pixel,
-            1,
-            Some(rigid_model_cb.virtual_address()),
-        );
-
         for (mesh, subscribed_stages, mesh_buffers, mesh_techniques) in multizip((
             self.model.meshes.iter(),
             self.mesh_stages.iter(),
@@ -285,15 +258,50 @@ impl DynamicModel {
 }
 
 impl FeatureRenderer for DynamicModel {
-    fn extract(&mut self, _renderer: &Renderer, data: &dyn std::any::Any) {
-        let (obj_local_to_world, permutation) = *data
-            .downcast_ref::<(Mat4, usize)>()
-            .expect("Invalid extracted data type");
-        self.transform = obj_local_to_world;
-        self.permutation = permutation;
+    // fn extract(&mut self, _renderer: &Renderer, data: &dyn std::any::Any) {
+    //     let (obj_local_to_world, permutation) = *data
+    //         .downcast_ref::<(Mat4, usize)>()
+    //         .expect("Invalid extracted data type");
+    //     self.transform = obj_local_to_world;
+    //     self.permutation = permutation;
 
-        self.constants = RigidModelConstants {
-            mesh_to_world: obj_local_to_world,
+    //     self.constants = RigidModelConstants {
+    //         mesh_to_world: obj_local_to_world,
+    //         position_scale: self.model.model_scale,
+    //         position_offset: self.model.model_offset,
+    //         texcoord0_scale_offset: Vec4::new(
+    //             self.model.texcoord_scale.x,
+    //             self.model.texcoord_scale.y,
+    //             self.model.texcoord_offset.x,
+    //             self.model.texcoord_offset.y,
+    //         ),
+    //         dynamic_sh_ao_values: Vec4::new(0.0, 0.0, 0.0, 0.8),
+    //     };
+    // }
+
+    // fn prepare(&mut self, _renderer: &Renderer) {}
+
+    // fn submit(&self, cmd: &mut CommandList, stage: RenderStage) {
+    //     profiling::scope!("DynamicModel::draw");
+
+    //     self.draw_wrapped(cmd, stage, u16::MAX, |_model, cmd, _mesh, part| {
+    //         cmd.draw_indexed_instanced(part.index_range(), 0..1, 0);
+    //     });
+    // }
+
+    fn prepare_per_frame(&self, cmd: &mut CommandList, frame_node: &RenderPerFrameNode) {
+        let data = unsafe { frame_node.data::<DynamicObjectData>() }
+            .expect("DynamicModel was extracted with no data!");
+
+        let rigid_model_cb = match cmd.gpu().frame().upload.alloc::<RigidModelConstants>() {
+            Ok(o) => o,
+            Err(e) => {
+                error!("Failed to allocate rigid model constants: {e:?}");
+                return;
+            }
+        };
+        rigid_model_cb.write(&RigidModelConstants {
+            mesh_to_world: data.local_to_world,
             position_scale: self.model.model_scale,
             position_offset: self.model.model_offset,
             texcoord0_scale_offset: Vec4::new(
@@ -303,17 +311,46 @@ impl FeatureRenderer for DynamicModel {
                 self.model.texcoord_offset.y,
             ),
             dynamic_sh_ao_values: Vec4::new(0.0, 0.0, 0.0, 0.8),
-        };
+        });
+
+        data.cbuffer_gpuva = rigid_model_cb.virtual_address();
     }
 
-    fn prepare(&mut self, _renderer: &Renderer) {}
+    #[profiling::function]
+    fn submit(
+        &self,
+        cmd: &mut CommandList,
+        stage: RenderStage,
+        frame_node: &RenderPerFrameNode,
+        _view_node: &RenderPerViewNode,
+        _submit_key: u64,
+    ) {
+        cmd.disable_smart_technique_binding();
+        let data = unsafe { frame_node.data::<DynamicObjectData>() }
+            .expect("DynamicModel was extracted with no data!");
 
-    fn submit(&self, cmd: &mut CommandList, stage: RenderStage) {
-        profiling::scope!("DynamicModel::draw");
+        cmd.set_shader_constant_buffer_view(ShaderStage::Vertex, 1, Some(data.cbuffer_gpuva));
+        cmd.set_shader_constant_buffer_view(ShaderStage::Pixel, 1, Some(data.cbuffer_gpuva));
 
         self.draw_wrapped(cmd, stage, u16::MAX, |_model, cmd, _mesh, part| {
             cmd.draw_indexed_instanced(part.index_range(), 0..1, 0);
         });
+    }
+
+    fn populate_submit_node_blocks(
+        &self,
+        _renderer: &Renderer,
+        view_node: usize,
+        _visibility: &crate::visibility::ViewVisibility,
+        submit_node_blocks: &mut SubmitNodeContainer,
+    ) {
+        submit_node_blocks.broadcast(
+            self.subscribed_stages,
+            SubmitNode {
+                view_node,
+                key: u64::MAX,
+            },
+        );
     }
 
     fn subscribed_stages(&self) -> RenderStageSubscription {
@@ -382,4 +419,13 @@ pub struct RigidModelConstants {
     position_offset: Vec4,        // c5
     texcoord0_scale_offset: Vec4, // c6
     dynamic_sh_ao_values: Vec4,   // c7
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct DynamicObjectData {
+    pub local_to_world: Mat4,
+    pub permutation: usize,
+
+    pub cbuffer_gpuva: d3d12::GpuVirtualAddress,
 }

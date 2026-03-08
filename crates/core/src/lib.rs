@@ -2,7 +2,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use anyhow::Context;
 use tiger_pkg::PackageManager;
-use tracing::{error, info};
+use tracing::info;
 pub mod config;
 pub mod job;
 
@@ -19,8 +19,7 @@ pub fn initialize_package_manager<'a>(
             .into_iter()
             .find(|a| a.appid == MARATHON_APP_ID)
         else {
-            error!("Failed to find Marathon app in Steam library. If you don't have Marathon installed through Steam, then you can specify the path to the game directory using the --gamedir/-g argument.");
-            return Ok(());
+            panic!("Failed to find Marathon app in Steam library. If you don't have Marathon installed through Steam, then you can specify the path to the game directory using the --gamedir/-g argument.");
         };
 
         info!("Found Marathon installation at '{}'", steamapp.game_path);
@@ -34,7 +33,7 @@ pub fn initialize_package_manager<'a>(
             tiger_pkg::GameVersion::Marathon(tiger_pkg::MarathonVersion::MarathonAlpha),
             None,
         )
-        .context("Failed to initialize package manager")?,
+        .expect("Failed to initialize package manager"),
     );
     tiger_pkg::initialize_package_manager(&pm);
     Ok(())

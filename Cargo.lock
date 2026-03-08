@@ -716,6 +716,7 @@ version = "0.0.0"
 dependencies = [
  "bitflags 2.11.0",
  "bon",
+ "bytemuck",
  "int-enum",
  "static_assertions",
  "thiserror 2.0.18",

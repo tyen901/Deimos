@@ -1,4 +1,4 @@
-// pub mod rigid_model;
+pub mod rigid_model;
 mod shared;
 pub mod static_geometry;
 pub mod terrain_patches;
@@ -9,20 +9,39 @@ use crate::{
     gpu::command_list::CommandList,
     renderer::{
         Renderer,
-        packet::{RenderPerViewNode, SubmitNodeContainer},
+        packet::{RenderPerFrameNode, RenderPerViewNode, SubmitNodeContainer},
     },
     visibility::ViewVisibility,
 };
 
 pub trait FeatureRenderer: Send {
-    fn extract(&mut self, renderer: &Renderer, view_node: &RenderPerViewNode);
+    // fn extract_per_frame(&mut self, renderer: &Renderer, frame_node: &RenderPerFrameNode);
 
-    fn prepare(&mut self, renderer: &Renderer, view_node: &RenderPerViewNode);
+    // fn extract_per_view(
+    //     &mut self,
+    //     renderer: &Renderer,
+    //     frame_node: &RenderPerFrameNode,
+    //     view_node: &RenderPerViewNode,
+    // );
+
+    fn prepare_per_frame(&self, cmd: &mut CommandList, frame_node: &RenderPerFrameNode) {
+        _ = (cmd, frame_node);
+    }
+
+    fn prepare_per_view(
+        &self,
+        cmd: &mut CommandList,
+        frame_node: &RenderPerFrameNode,
+        view_node: &RenderPerViewNode,
+    ) {
+        _ = (cmd, frame_node, view_node);
+    }
 
     fn submit(
         &self,
         cmd: &mut CommandList,
         stage: RenderStage,
+        frame_node: &RenderPerFrameNode,
         view_node: &RenderPerViewNode,
         submit_key: u64,
     );

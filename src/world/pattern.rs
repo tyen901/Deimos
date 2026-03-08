@@ -1,19 +1,30 @@
-use std::sync::Arc;
+use std::{
+    io::{Cursor, Seek, SeekFrom},
+    sync::Arc,
+};
 
 use anyhow::Context;
 use deimos_data::{
     map::{ComponentData, SComponentDataListPtr},
     pattern::SPattern,
-    tfx::{TfxFeatureRenderer, features::statics::SUnk808082D5},
+    tfx::{
+        TfxFeatureRenderer,
+        features::{dynamic::SDynamicModelComponent, statics::SUnk808082D5},
+        geometry::AxisAlignedBBox,
+    },
 };
 use deimos_ecs::transform::Transform;
 use deimos_render::{
-    ecs::render_objects::StaticRenderObject,
-    features::{static_geometry::StaticInstancesRenderer, terrain_patches::TerrainPatchesRenderer},
+    ecs::render_objects::{DynamicRenderObject, StaticRenderObject},
+    features::{
+        rigid_model::DynamicModel, static_geometry::StaticInstancesRenderer,
+        terrain_patches::TerrainPatchesRenderer,
+    },
     renderer::{Renderer, object::RenderObject},
 };
+use glam::Vec4Swizzles;
 use itertools::Itertools;
-use tiger_parse::PackageManagerExt;
+use tiger_parse::{PackageManagerExt, TigerReadable};
 use tiger_pkg::{TagHash, package_manager};
 
 use crate::world::{UnimplementedTigerComponent, UnimplementedTigerComponents};
@@ -101,31 +112,31 @@ pub fn spawn_pattern_from_header(
 
         match component.unk10.resource_type {
             0x80808673 => {
-                // let mut cur = Cursor::new(package_manager().read_tag(component.taghash())?);
-                // cur.seek(SeekFrom::Start(component.unk18.offset))?;
-                // let model: SDynamicModelComponent = TigerReadable::read_ds(&mut cur)?;
+                let mut cur = Cursor::new(package_manager().read_tag(component.taghash())?);
+                cur.seek(SeekFrom::Start(component.unk18.offset))?;
+                let model: SDynamicModelComponent = TigerReadable::read_ds(&mut cur)?;
 
-                // // if let Some(permutations) = PermutationConfig::from_model(&model) {
-                // //     world.insert_one(entity, permutations)?;
-                // // }
+                // if let Some(permutations) = PermutationConfig::from_model(&model) {
+                //     world.insert_one(entity, permutations)?;
+                // }
 
-                // let model = DynamicModel::load(
-                //     renderer,
-                //     model.model_hash,
-                //     model.technique_map,
-                //     model.techniques,
-                // )?;
-                // world.insert_one(
-                //     entity,
-                //     AxisAlignedBBox::from_center_extents(
-                //         model.model.model_offset.xyz(),
-                //         model.model.model_scale.xyz() * 2.0,
-                //     ),
-                // )?;
+                let model = DynamicModel::load(
+                    renderer,
+                    model.model_hash,
+                    model.technique_map,
+                    model.techniques,
+                )?;
+                world.insert_one(
+                    entity,
+                    AxisAlignedBBox::from_center_extents(
+                        model.model.model_offset.xyz(),
+                        model.model.model_scale.xyz() * 2.0,
+                    ),
+                )?;
 
-                // let obj =
-                //     renderer.add_object(RenderObject::new(TfxFeatureRenderer::RigidObject, model));
-                // world.insert_one(entity, DynamicRenderObject::new(renderer, obj))?;
+                let obj =
+                    renderer.add_object(RenderObject::new(TfxFeatureRenderer::RigidObject, model));
+                world.insert_one(entity, DynamicRenderObject::new(renderer, obj))?;
             }
             // 0x80808412 => {
             //     let mut cur = Cursor::new(package_manager().read_tag(component.taghash())?);

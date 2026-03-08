@@ -27,7 +27,7 @@ use crate::{
     gpu::{buffer::ImmutableBuffer, command_list::CommandList},
     renderer::{
         Renderer,
-        packet::{RenderPerViewNode, SubmitNode, SubmitNodeContainer},
+        packet::{RenderPerFrameNode, RenderPerViewNode, SubmitNode, SubmitNodeContainer},
     },
     tfx::technique::Technique,
     visibility::{ViewVisibility, bvh::Bvh},
@@ -518,21 +518,6 @@ impl FeatureRenderer for StaticInstancesRenderer {
     //     true
     // }
 
-    fn extract(&mut self, _renderer: &Renderer, _view_node: &RenderPerViewNode) {}
-
-    fn prepare(&mut self, _renderer: &Renderer, _view_node: &RenderPerViewNode) {
-        // let ctx = renderer.gpu.context();
-        // for (model, _visible) in self.models.iter_mut().filter(|(_, visible)| *visible) {
-        //     model.prepare_write_instance_ids(&ctx);
-        //     if model.constants_dirty {
-        //         model.update_constants(
-        //             &renderer.gpu.context(), /*, renderer.ao.read().as_ref() */
-        //         );
-        //         model.constants_dirty = false;
-        //     }
-        // }
-    }
-
     #[profiling::function]
     fn populate_submit_node_blocks(
         &self,
@@ -566,6 +551,7 @@ impl FeatureRenderer for StaticInstancesRenderer {
         &self,
         cmd: &mut CommandList,
         stage: RenderStage,
+        _frame_node: &RenderPerFrameNode,
         _view_node: &RenderPerViewNode,
         submit_key: u64,
     ) {

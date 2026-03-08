@@ -5,7 +5,7 @@ use windows::Win32::Graphics::Direct3D12::{
 };
 
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, bytemuck::Zeroable, bytemuck::Pod, PartialEq, Eq)]
 pub struct GpuVirtualAddress(pub(crate) u64);
 
 impl GpuVirtualAddress {

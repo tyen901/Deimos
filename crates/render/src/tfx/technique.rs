@@ -167,7 +167,7 @@ impl Technique {
         if let Some(static_descriptor_heap) = &technique.static_descriptor_heap {
             for stage in technique.all_stages() {
                 while !stage.core.all_textures_loaded() {
-                    rayon::yield_now();
+                    rayon::yield_local();
                     // potassium::yield_job();
                 }
 

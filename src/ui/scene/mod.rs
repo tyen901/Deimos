@@ -368,6 +368,35 @@ impl Scene {
                 populate_submit_nodes(&mut self.scene, vis);
             }
 
+            {
+                let _scope = self
+                    .renderer
+                    .gpu
+                    .profiler_scope(stream, "prepare_per_frame");
+
+                let frame_packet = &self.scene.frame_packet;
+                let render_objects = self.renderer.objects.read();
+
+                for frame_node in &frame_packet.per_frame_nodes {
+                    let obj = &render_objects[frame_node.object];
+                    obj.renderer.prepare_per_frame(cmd, frame_node);
+                }
+            }
+
+            {
+                let _scope = self.renderer.gpu.profiler_scope(stream, "prepare_per_view");
+
+                let frame_packet = &self.scene.frame_packet;
+                let render_objects = self.renderer.objects.read();
+                for view in &self.scene.frame_packet.views {
+                    for view_node in &view.view_nodes {
+                        let frame_node = &frame_packet.per_frame_nodes[view_node.frame_node];
+                        let obj = &render_objects[frame_node.object];
+                        obj.renderer.prepare_per_view(cmd, frame_node, view_node);
+                    }
+                }
+            }
+
             let _scope = self
                 .renderer
                 .gpu
@@ -414,6 +443,7 @@ impl Scene {
                                 render_object.renderer.submit(
                                     &mut cmd,
                                     RenderStage::GenerateGbuffer,
+                                    frame_node,
                                     view_node,
                                     submit_node.key,
                                 );

@@ -282,8 +282,12 @@ impl CommandList {
         &mut self,
         stage: ShaderStage,
         slot: u32,
-        buffer_address: Option<d3d12::GpuVirtualAddress>,
+        mut buffer_address: Option<d3d12::GpuVirtualAddress>,
     ) {
+        if buffer_address == Some(d3d12::GpuVirtualAddress::NULL) {
+            buffer_address = None;
+        }
+
         if let Some(slot_mut) = self.resources_mut(stage).cbvs.get_mut(slot as usize) {
             *slot_mut = buffer_address;
         }

@@ -166,8 +166,11 @@ pub struct RenderPerFrameNode {
 }
 
 impl RenderPerFrameNode {
-    pub fn data<T: Pod + 'static>(&self) -> Option<&T> {
-        unsafe { self.data.map(|ptr| &*(ptr.as_ptr().cast::<T>())) }
+    /// # Safety
+    /// Callers must ensure that the data type used is the same as/compatible with the data type in the node
+    #[allow(clippy::mut_from_ref)]
+    pub unsafe fn data<T: Pod + 'static>(&self) -> Option<&mut T> {
+        unsafe { self.data.map(|ptr| &mut *(ptr.as_ptr().cast::<T>())) }
     }
 }
 
@@ -182,8 +185,11 @@ pub struct RenderPerViewNode {
 }
 
 impl RenderPerViewNode {
-    pub fn data<T: Pod + 'static>(&self) -> Option<&T> {
-        unsafe { self.data.map(|ptr| &*(ptr.as_ptr().cast::<T>())) }
+    /// # Safety
+    /// Callers must ensure that the data type used is the same as/compatible with the data type in the node
+    #[allow(clippy::mut_from_ref)]
+    pub unsafe fn data<T: Pod + 'static>(&self) -> Option<&mut T> {
+        unsafe { self.data.map(|ptr| &mut *(ptr.as_ptr().cast::<T>())) }
     }
 }
 

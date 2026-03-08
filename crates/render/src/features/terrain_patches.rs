@@ -19,7 +19,7 @@ use crate::{
     gpu::{buffer::ImmutableBuffer, command_list::CommandList},
     renderer::{
         Renderer,
-        packet::{RenderPerViewNode, SubmitNode, SubmitNodeContainer},
+        packet::{RenderPerFrameNode, RenderPerViewNode, SubmitNode, SubmitNodeContainer},
     },
     tfx::technique::Technique,
     visibility::ViewVisibility,
@@ -204,14 +204,11 @@ impl FeatureRenderer for TerrainPatchesRenderer {
     //         .aabb_intersecting(&self.terrain.bounds)
     // }
 
-    fn extract(&mut self, _renderer: &Renderer, _view_node: &RenderPerViewNode) {}
-
-    fn prepare(&mut self, _renderer: &Renderer, _view_node: &RenderPerViewNode) {}
-
     fn submit(
         &self,
         cmd: &mut CommandList,
         stage: RenderStage,
+        _frame_node: &RenderPerFrameNode,
         _view_node: &RenderPerViewNode,
         submit_key: u64,
     ) {
