@@ -11,7 +11,7 @@ use crate::gpu::{
 pub struct RenderTarget {
     pub resource: OwnedResource,
     size: (u32, u32),
-    dsv_heap: d3d12::DescriptorHeap,
+    rtv_heap: d3d12::DescriptorHeap,
     srv: ResourceView,
     gpu: Arc<Gpu>,
 
@@ -75,7 +75,7 @@ impl RenderTarget {
         Ok(Self {
             gpu: gpu.clone(),
             resource,
-            dsv_heap: rtv_heap,
+            rtv_heap,
             srv,
             size: (width, height),
 
@@ -88,11 +88,11 @@ impl RenderTarget {
     }
 
     pub fn cpu_handle(&self) -> d3d12::CpuDescriptorHandle {
-        self.dsv_heap.cpu_descriptor_handle_for_heap_start()
+        self.rtv_heap.cpu_descriptor_handle_for_heap_start()
     }
 
     pub fn gpu_handle(&self) -> d3d12::GpuDescriptorHandle {
-        self.dsv_heap.gpu_descriptor_handle_for_heap_start()
+        self.rtv_heap.gpu_descriptor_handle_for_heap_start()
     }
 
     pub const fn srv(&self) -> ResourceView {

@@ -259,7 +259,7 @@ impl<P: ModelProvider> ModelListBase<P> {
                                 )
                                 .clicked()
                             {
-                                pkg_to_clear = Some(*pkg_id);
+                                pkg_to_clear = Some(self.current_package);
                                 self.current_package = *pkg_id;
                             }
                         }
@@ -632,10 +632,10 @@ enum PackageSorting {
 impl PackageSorting {
     fn sort_package_ids<P: ModelProvider>(&self, provider: &P, packages: &mut [u16]) {
         match self {
-            PackageSorting::Id => packages.sort_by_key(|id| *id),
-            PackageSorting::Name => packages
+            Self::Id => packages.sort_by_key(|id| *id),
+            Self::Name => packages
                 .sort_by_cached_key(|id| (package_manager().package_paths[id].name.clone(), *id)),
-            PackageSorting::Count => {
+            Self::Count => {
                 packages.sort_by_cached_key(|id| provider.num_models(*id));
                 packages.reverse();
             }
