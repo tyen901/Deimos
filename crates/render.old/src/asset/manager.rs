@@ -6,17 +6,17 @@ use tiger_pkg::TagHash;
 use uuid::Uuid;
 
 use crate::{
-    asset::{
-        index_buffer::{load_index_buffer, IndexBuffer},
-        technique::Technique,
-        vertex_buffer::{load_vertex_buffer, VertexBuffer},
-    },
     Gpu,
+    asset::{
+        index_buffer::{IndexBuffer, load_index_buffer},
+        technique::Technique,
+        vertex_buffer::{VertexBuffer, load_vertex_buffer},
+    },
 };
 
 use super::{
-    handle::{Handle, UntypedHandle},
     Asset,
+    handle::{Handle, UntypedHandle},
 };
 
 // Asynchronous asset manager. Allows taking a handle to an ArcShift<Option<T>> (where T: Asset), which will be populated with the asset once it is loaded.

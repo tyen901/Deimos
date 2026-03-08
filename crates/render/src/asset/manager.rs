@@ -160,7 +160,7 @@ fn load_asset(
                 }
                 Err(e) => {
                     // TODO(cohae): Some more transparent error handling would perhaps be nice? Right now this just leaves the handle without data.
-                    error!("Failed to load texture: {:?}", e);
+                    error!("Failed to load texture {}: {:?}", request.tag, e);
                 }
             }
         }
@@ -169,7 +169,7 @@ fn load_asset(
                 request.handle.update(o.into());
             }
             Err(e) => {
-                error!("Failed to load vertex buffer: {:?}", e);
+                error!("Failed to load vertex buffer {}: {:?}", request.tag, e);
             }
         },
         IndexBuffer::ASSET_TYPE => match IndexBuffer::load(gpu, request.tag) {
@@ -177,7 +177,7 @@ fn load_asset(
                 request.handle.update(o.into());
             }
             Err(e) => {
-                error!("Failed to load index buffer: {:?}", e);
+                error!("Failed to load index buffer {}: {:?}", request.tag, e);
             }
         },
         Technique::ASSET_TYPE => match Technique::load(&asset_manager, gpu, request.tag) {
@@ -185,7 +185,7 @@ fn load_asset(
                 request.handle.update(o.into());
             }
             Err(e) => {
-                error!("Failed to load technique: {:?}", e);
+                error!("Failed to load technique {}: {:?}", request.tag, e);
             }
         },
         u => {

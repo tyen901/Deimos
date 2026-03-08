@@ -1,9 +1,8 @@
-use std::{sync::Arc, time::Instant};
+use std::sync::Arc;
 
 use anyhow::Context;
 use d3d12::{
     DeviceChild, ResourceBarrier, ResourceStates, ShaderResourceViewDesc, TextureCopyLocation,
-    ext::GpuFenceWaiter,
 };
 use deimos_data::{
     tag::WideHash,

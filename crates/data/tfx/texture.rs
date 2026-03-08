@@ -47,10 +47,8 @@ impl STextureHeader {
     pub const fn dimension(&self) -> d3d12::ResourceDimension {
         if self.depth > 1 {
             d3d12::ResourceDimension::Texture3D
-        } else if self.height > 1 {
-            d3d12::ResourceDimension::Texture2D
         } else {
-            d3d12::ResourceDimension::Texture1D
+            d3d12::ResourceDimension::Texture2D
         }
     }
 }

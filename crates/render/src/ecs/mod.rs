@@ -37,7 +37,7 @@ pub fn s_extract_frame_packet(
             continue;
         }
 
-        let bounds = bounds.map_or(AxisAlignedBBox::EVERYTHING, |b| b.clone());
+        let bounds = bounds.map_or(AxisAlignedBBox::EVERYTHING, |b| *b);
         let frame_node = frame_packet.push_frame_node::<()>(
             static_render_object.handle(),
             bounds.sphere(),

@@ -101,7 +101,7 @@ impl<P: ModelProvider> ModelListBase<P> {
         }
     }
 
-    const THUMBNAIL_QUOTA: usize = 2;
+    const THUMBNAIL_QUOTA: usize = 1;
     fn render_thumbnails(&mut self, egui_ctx: &egui::Context) {
         let Some(entries) = self.provider.package_mut(self.current_package) else {
             return;
