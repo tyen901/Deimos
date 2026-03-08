@@ -17,7 +17,7 @@ use crate::{
         pipeline_cache::PipelineKey,
     },
     renderer::globals::get_scope_samplers,
-    tfx::dynamic_core::{DynamicCore, ResolvedTextureSource, TextureSource},
+    tfx::dynamic_core::{DynamicCore, ResolvedTextureSource},
 };
 
 pub struct Technique {
@@ -94,9 +94,15 @@ impl Technique {
                         };
                         debug_assert!(descriptor_offset <= 0xff);
                         debug_assert!(resource.lower_bound <= 0xff);
+
+                        let is_static = stage.core.textures.iter().any(|(slot, src)| {
+                            *slot == resource.lower_bound
+                                && matches!(src, ResolvedTextureSource::Static(_))
+                        });
                         stage.root_texture_slots.push(TechniqueResourceSlot {
                             descriptor_offset: descriptor_offset as u8,
                             register: resource.lower_bound as u8,
+                            is_static,
                         });
                         descriptor_offset += 1;
                         local_ranges.push(range);
@@ -138,7 +144,7 @@ impl Technique {
 
         let root_signature = gpu.create_root_signature(&root_signature_raw)?;
 
-        let mut technique = Self {
+        let technique = Self {
             tag: hash,
             gpu: gpu.clone(),
             root_signature,
@@ -147,21 +153,18 @@ impl Technique {
             data,
             descriptor_table_parameters,
             descriptor_count,
-            static_descriptor_heap: None,
+            static_descriptor_heap: (descriptor_count > 0).then(|| {
+                gpu.create_descriptor_heap(
+                    d3d12::DescriptorHeapType::CbvSrvUav,
+                    descriptor_count as u32,
+                    false,
+                    0,
+                )
+                .expect("failed to create static descriptor heap")
+            }),
         };
 
-        let create_static_heap = technique
-            .all_stages()
-            .iter()
-            .all(|stage| !stage.core.has_dynamic_textures() && !stage.has_manual_textures);
-        if create_static_heap {
-            let static_heap = gpu.create_descriptor_heap(
-                d3d12::DescriptorHeapType::CbvSrvUav,
-                descriptor_count as u32,
-                true,
-                0,
-            )?;
-
+        if let Some(static_descriptor_heap) = &technique.static_descriptor_heap {
             for stage in technique.all_stages() {
                 while !stage.core.all_textures_loaded() {
                     rayon::yield_now();
@@ -169,11 +172,9 @@ impl Technique {
                 }
 
                 stage
-                    .copy_static_descriptors(gpu, &static_heap)
+                    .copy_static_descriptors(gpu, static_descriptor_heap)
                     .context("copying static descriptors")?;
             }
-
-            technique.static_descriptor_heap = Some(static_heap);
         }
 
         Ok(technique)
@@ -230,20 +231,6 @@ impl Technique {
             }
         }
 
-        // if let Some(static_heap) = self.static_descriptor_heap.as_ref() {
-        //     cmd.set_descriptor_heaps(std::slice::from_ref(static_heap));
-
-        //     for &param in self.descriptor_table_parameters.iter() {
-        //         cmd.set_graphics_root_descriptor_table(
-        //             param,
-        //             static_heap.gpu_descriptor_handle_for_heap_start(),
-        //         );
-        //     }
-
-        //     for stage in self.all_stages() {
-        //         stage.bind(cmd, full_rebind);
-        //     }
-        // } else {
         cmd.set_descriptor_heaps(std::slice::from_ref(cmd.gpu().frame().descriptors.heap()));
 
         let descriptor_range = cmd
@@ -251,15 +238,22 @@ impl Technique {
             .frame()
             .descriptors
             .allocate(self.descriptor_count);
+        if let Some(static_descriptor_heap) = &self.static_descriptor_heap {
+            cmd.gpu().copy_descriptor_range(
+                self.descriptor_count as u32,
+                static_descriptor_heap.cpu_descriptor_handle_for_heap_start(),
+                descriptor_range.cpu_handle(0),
+                d3d12::DescriptorHeapType::CbvSrvUav,
+            );
+        }
+
         for &param in self.descriptor_table_parameters.iter() {
             cmd.set_graphics_root_descriptor_table(param, descriptor_range.gpu_handle(0));
         }
 
         for stage in self.all_stages() {
-            stage.bind(cmd, full_rebind);
-            stage.copy_descriptors(cmd, &descriptor_range);
+            stage.bind(cmd, &descriptor_range, full_rebind);
         }
-        // }
     }
 
     pub const fn all_stages(&self) -> [&TechniqueStage; 2] {
@@ -288,6 +282,7 @@ pub struct TechniqueCbufferSlot {
 pub struct TechniqueResourceSlot {
     pub register: u8,
     pub descriptor_offset: u8,
+    is_static: bool,
 }
 
 impl TechniqueStage {
@@ -332,7 +327,12 @@ impl TechniqueStage {
     }
 
     #[profiling::function]
-    pub fn bind(&self, cmd: &mut CommandList, full_rebind: bool) {
+    pub fn bind(
+        &self,
+        cmd: &mut CommandList,
+        descriptor_range: &DescriptorRange,
+        full_rebind: bool,
+    ) {
         if full_rebind && let Err(e) = self.core.prepare(cmd) {
             error!("Failed to prepare technique: {}", e);
             return;
@@ -354,12 +354,9 @@ impl TechniqueStage {
                 );
             }
         }
-    }
 
-    #[profiling::function]
-    pub fn copy_descriptors(&self, cmd: &mut CommandList, descriptor_range: &DescriptorRange) {
-        let resources = cmd.resources(self.core.stage);
-        for slot in &self.root_texture_slots {
+        // Filter out static texture slots, as we already copied those from the static descriptor heap
+        for slot in self.root_texture_slots.iter().filter(|s| !s.is_static) {
             if let Some(tex) = resources.get_shader_resource_view(slot.register as u32) {
                 cmd.gpu().copy_descriptors_simple(
                     1,
@@ -399,14 +396,18 @@ impl TechniqueStage {
                 continue;
             };
 
-            let ResolvedTextureSource::Static(h) = source else {
-                anyhow::bail!("can't copy static descriptors for dynamic texture slots");
+            let handle = match source {
+                ResolvedTextureSource::Static(handle) => handle
+                    .get()
+                    .context("texture hasn't been loaded yet")?
+                    .srv
+                    .cpu_handle(),
+                ResolvedTextureSource::Dynamic { .. } => gpu.resource_heap.lock().null_texture2d,
             };
 
-            let tex = h.get().context("texture hasn't been loaded yet")?;
             gpu.copy_descriptors_simple(
                 1,
-                tex.srv.cpu_handle(),
+                handle,
                 descriptor_heap
                     .cpu_descriptor_handle_for_heap_start()
                     .offset(slot.descriptor_offset as usize, increment_size),
