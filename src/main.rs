@@ -30,7 +30,7 @@ extern crate tracing;
 fn main() -> anyhow::Result<()> {
     rayon::ThreadPoolBuilder::new()
         .thread_name(|i| format!("rayon-pool-{i}"))
-        .num_threads(SCHEDULER.num_workers())
+        // .num_threads(SCHEDULER.num_workers())
         .build_global()?;
 
     fix_windows_console();

@@ -359,7 +359,7 @@ impl FeatureRenderer for DynamicModel {
         if self
             .part_techniques
             .iter()
-            .any(|v| v.iter().any(|t| !t.is_loaded()))
+            .any(|v| v.iter().any(|t| !is_technique_loaded(t)))
         {
             return false;
         }
