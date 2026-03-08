@@ -295,13 +295,6 @@ impl Scene {
 
             let size_pixels = size * ui.ctx().pixels_per_point();
             let resolution = (size_pixels.x as u32, size_pixels.y as u32);
-            if let Err(e) = self
-                .scene_renderer
-                .main_view
-                .resize(&self.renderer.gpu, resolution)
-            {
-                error!("Failed to resize main view: {e:?}");
-            }
 
             self.controller.update(&mut self.camera, ui, &r, delta_time);
 
@@ -317,6 +310,14 @@ impl Scene {
 
     #[profiling::function]
     pub fn render(&mut self, delta_time: f32, resolution: (u32, u32)) {
+        if let Err(e) = self
+            .scene_renderer
+            .main_view
+            .resize(&self.renderer.gpu, resolution)
+        {
+            error!("Failed to resize main view: {e:?}");
+        }
+
         let stream = &self.renderer.gpu.frame().stream;
         let mut cmd_guard = stream.acquire_cmd(&self.renderer.gpu);
         let cmd = &mut *cmd_guard;
@@ -618,7 +619,7 @@ impl Scene {
         });
     }
 
-    pub fn output_srv(&self) -> ResourceView {
+    pub const fn output_srv(&self) -> ResourceView {
         self.scene_renderer.main_view.gbuffer.albedo.srv()
     }
 
@@ -628,7 +629,7 @@ impl Scene {
         self.scene_renderer.main_view.gbuffer.albedo.take()
     }
 
-    pub fn focus_on(&mut self, position: Vec3) {
+    pub const fn focus_on(&mut self, position: Vec3) {
         match &mut self.controller {
             CameraController::Orbit { target, .. } => {
                 *target = position;

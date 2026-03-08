@@ -118,7 +118,10 @@ impl<P: ModelProvider> ModelListBase<P> {
 
                     self.thumbnail_scene.set_world(world);
                     self.thumbnail_scene.focus_fit_ortho(&bb);
-                    match self.thumbnail_scene.render_to_texture((512, 512)) {
+                    match self
+                        .thumbnail_scene
+                        .render_to_texture(Self::THUMBNAIL_RESOLUTION)
+                    {
                         Ok(o) => {
                             entry.thumbnail = Some(o);
                         }
@@ -149,6 +152,7 @@ impl<P: ModelProvider> ModelListBase<P> {
         }
     }
 
+    const THUMBNAIL_RESOLUTION: (u32, u32) = (384, 384);
     fn render_live_preview(&mut self, hash: TagHash, _hover_vector: Vec2) {
         let Some(entries) = self.provider.package_mut(self.current_package) else {
             return;
@@ -167,7 +171,8 @@ impl<P: ModelProvider> ModelListBase<P> {
                 CameraController::DEFAULT_YAW_PITCH
                     + egui_to_glam_vec2(self.hover_vector) * glam::vec2(-15.0, 15.0),
             );
-            self.thumbnail_scene.render(1.0 / 60.0, (512, 512));
+            self.thumbnail_scene
+                .render(1.0 / 60.0, Self::THUMBNAIL_RESOLUTION);
             entry.thumbnail_world = Some(self.thumbnail_scene.take_world());
         }
     }
