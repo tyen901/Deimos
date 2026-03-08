@@ -4,7 +4,7 @@ use glam::{vec3, Vec3, Vec4, Vec4Swizzles};
 use tiger_parse::tiger_type;
 
 #[tiger_type]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct AxisAlignedBBox {
     pub min: Vec4,
     pub max: Vec4,

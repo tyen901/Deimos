@@ -1,6 +1,8 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
 
-use alkahest_data::{pattern::SPattern, tfx::common::AxisAlignedBBox};
+use deimos_data::{pattern::SPattern, tfx::geometry::AxisAlignedBBox};
+use deimos_ecs::transform::Transform;
+use deimos_render::renderer::Renderer;
 use egui::Ui;
 use tiger_parse::{PackageManagerExt, TigerReadable};
 use tiger_pkg::{TagHash, package_manager};
@@ -8,10 +10,7 @@ use tiger_pkg::{TagHash, package_manager};
 use super::TabResult;
 use crate::{
     ui::tabs::model_list::{ModelEntry, ModelListBase, ModelProvider},
-    world::{
-        pattern::{spawn_pattern, spawn_pattern_from_header},
-        transform::Transform,
-    },
+    world::pattern::{spawn_pattern, spawn_pattern_from_header},
 };
 
 pub struct EntityListTab {
@@ -19,24 +18,25 @@ pub struct EntityListTab {
 }
 
 impl EntityListTab {
-    pub fn new() -> Self {
+    pub fn new(renderer: &Arc<Renderer>) -> Self {
         Self {
-            base: ModelListBase::new(EntityModelProvider::new()),
+            base: ModelListBase::new(renderer, EntityModelProvider::new(renderer.clone())),
         }
     }
 
-    pub fn ui(&mut self, ui: &mut Ui, egui_d3d11: &mut egui_d3d11::D3D11Renderer) -> TabResult {
+    pub fn ui(&mut self, ui: &mut Ui, egui_d3d11: &mut egui_d3d12::D3D12Renderer) -> TabResult {
         self.base.ui(ui, egui_d3d11)
     }
 }
 
 struct EntityModelProvider {
+    renderer: Arc<Renderer>,
     package_keys: Vec<u16>,
     packages: BTreeMap<u16, (Vec<ModelEntry>, usize)>,
 }
 
 impl EntityModelProvider {
-    fn new() -> Self {
+    fn new(renderer: Arc<Renderer>) -> Self {
         let packages: BTreeMap<u16, _> = package_manager()
             .package_paths
             .keys()
@@ -55,6 +55,7 @@ impl EntityModelProvider {
             .collect();
 
         Self {
+            renderer,
             package_keys: packages.keys().cloned().collect(),
             packages,
         }
@@ -93,7 +94,7 @@ impl ModelProvider for EntityModelProvider {
         hash: TagHash,
         world: &mut hecs::World,
     ) -> anyhow::Result<hecs::Entity> {
-        spawn_pattern(world, hash, None, None)
+        spawn_pattern(&self.renderer, world, hash, None, None)
     }
 
     fn load_package(&mut self, pkg_id: u16) {
@@ -114,6 +115,7 @@ impl ModelProvider for EntityModelProvider {
                     Ok(pattern) => {
                         let mut world = hecs::World::new();
                         if let Err(e) = spawn_pattern_from_header(
+                            &self.renderer,
                             &mut world,
                             &pattern,
                             None,

@@ -5,7 +5,7 @@ use deimos_ecs::{permutations::PermutationConfig, transform::Transform};
 use crate::{
     ecs::render_objects::{DynamicRenderObject, StaticRenderObject},
     features::rigid_model::DynamicObjectData,
-    renderer::{packet::ViewPacket, scene::SceneRenderer},
+    renderer::{Renderer, packet::ViewPacket, scene::SceneRenderer},
     visibility::ViewVisibility,
 };
 
@@ -131,4 +131,20 @@ pub fn populate_submit_nodes(scene: &mut SceneRenderer, visibility: &ViewVisibil
             );
         }
     }
+}
+
+pub fn s_are_all_objects_loaded(world: &hecs::World, renderer: &Renderer) -> bool {
+    for (_entity, static_render_object) in world.query::<&StaticRenderObject>().iter() {
+        if !renderer.is_object_loaded(static_render_object.handle()) {
+            return false;
+        }
+    }
+
+    for (_entity, render_object) in world.query::<&DynamicRenderObject>().iter() {
+        if !renderer.is_object_loaded(render_object.handle()) {
+            return false;
+        }
+    }
+
+    true
 }

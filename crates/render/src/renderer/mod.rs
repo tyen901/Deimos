@@ -55,4 +55,11 @@ impl Renderer {
     pub fn remove_object(&self, handle: RenderObjectHandle) {
         self.objects.write().remove(handle);
     }
+
+    pub fn is_object_loaded(&self, handle: RenderObjectHandle) -> bool {
+        self.objects
+            .read()
+            .get(handle)
+            .is_some_and(|o| o.renderer.is_loaded())
+    }
 }

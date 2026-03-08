@@ -356,61 +356,23 @@ impl FeatureRenderer for DynamicModel {
     fn subscribed_stages(&self) -> RenderStageSubscription {
         self.subscribed_stages
     }
+
+    fn is_loaded(&self) -> bool {
+        if self
+            .part_techniques
+            .iter()
+            .any(|v| v.iter().any(|t| !t.is_loaded()))
+        {
+            return false;
+        }
+
+        if self.techniques.iter().any(|t| !t.is_loaded()) {
+            return false;
+        }
+
+        true
+    }
 }
-
-// impl FeatureRenderer for DynamicModel {
-//     fn visibility_test(&mut self, camera: &crate::camera::Camera) -> bool {
-//         let bounds = AxisAlignedBBox::from_center_extents(
-//             self.model.model_offset.xyz(),
-//             self.model.model_scale.xyz() * 2.0,
-//         )
-//         .transformed(self.transform);
-
-//         camera.is_visible(&bounds)
-//     }
-
-//     fn extract_and_prepare(&mut self, renderer: &Renderer, extracted_data: &dyn Any) {
-//         let (obj_local_to_world, permutation) = extracted_data
-//             .downcast_ref::<(CompactTransform, usize)>()
-//             .expect("Invalid extracted data type")
-//             .clone();
-//         self.transform = obj_local_to_world.to_mat4();
-//         self.permutation = permutation;
-
-//         self.cb
-//             .write(
-//                 &renderer.gpu.context(),
-//                 &RigidModel {
-//                     mesh_to_world: obj_local_to_world.to_mat4(),
-//                     position_scale: self.model.model_scale,
-//                     position_offset: self.model.model_offset,
-//                     texcoord0_scale_offset: Vec4::new(
-//                         self.model.texcoord_scale.x,
-//                         self.model.texcoord_scale.y,
-//                         self.model.texcoord_offset.x,
-//                         self.model.texcoord_offset.y,
-//                     ),
-//                     dynamic_sh_ao_values: Vec4::new(0.0, 0.0, 0.0, 0.8),
-//                 },
-//             )
-//             .unwrap();
-
-//         self.channels.position = obj_local_to_world.translation().extend(0.0);
-//     }
-
-//     // #[profiling::function]
-//     fn submit(&self, cmd: &mut CommandList, stage: RenderStage) {
-//         profiling::scope!("DynamicModel::draw");
-
-//         self.draw_wrapped(cmd, stage, u16::MAX, |_model, cmd, _mesh, part| {
-//             cmd.draw_indexed(part.index_count, part.index_start, 0);
-//         });
-//     }
-
-//     fn subscribed_stages(&self) -> RenderStageSubscription {
-//         self.subscribed_stages
-//     }
-// }
 
 #[repr(C)]
 pub struct RigidModelConstants {

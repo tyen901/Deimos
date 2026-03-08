@@ -6,19 +6,13 @@ use google_material_symbols::GoogleMaterialSymbols;
 use crate::{
     app::SharedState,
     ui::{
-        tabs::{Tab, TabResult, activity_list::ActivityListTab, map_list::MapListTab},
+        tabs::{
+            Tab, TabResult, activity_list::ActivityListTab, entity_list::EntityListTab,
+            map_list::MapListTab,
+        },
         util::UiExt,
     },
 };
-
-// use super::{Tab, TabResult, entity_list::EntityListTab, map_list::MapListTab};
-// use crate::{
-//     app::SharedState,
-//     ui::{
-//         tabs::{activity_list::ActivityListTab, static_list::StaticListTab},
-//         util::UiExt,
-//     },
-// };
 
 pub struct HomeTab;
 
@@ -59,7 +53,9 @@ impl HomeTab {
                 .d_button(format!("{} ENTITIES", GoogleMaterialSymbols::ChessPawn))
                 .clicked()
             {
-                // result = TabResult::Open(Tab::EntityList(Box::new(EntityListTab::new())));
+                result = TabResult::Open(Tab::EntityList(Box::new(EntityListTab::new(
+                    &shared_state.renderer,
+                ))));
             }
             if uis[0]
                 .d_button(format!("{} STATICS", GoogleMaterialSymbols::Landscape))

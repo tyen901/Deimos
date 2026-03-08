@@ -1,5 +1,16 @@
-use alkahest_data::tfx::common::AxisAlignedBBox;
-use alkahest_render::{Renderer, camera::Camera};
+use std::sync::Arc;
+
+use deimos_data::tfx::geometry::AxisAlignedBBox;
+use deimos_ecs::permutations::{self, OPTION_KEY_INVALID, PermutationConfig};
+use deimos_render::{
+    camera::{Camera, CameraProjection},
+    ecs::{
+        render_objects::{DynamicRenderObject, StaticRenderObject},
+        s_are_all_objects_loaded,
+    },
+    gpu::render_target::RenderTarget,
+    renderer::Renderer,
+};
 use egui::{
     Color32, CornerRadius, FontId, Pos2, Rect, RichText, Sense, TextStyle, Ui, Vec2, Widget,
     scroll_area::ScrollSource, vec2,
@@ -9,18 +20,12 @@ use hecs::Entity;
 use tiger_pkg::{TagHash, package_manager};
 
 use super::TabResult;
-use crate::{
-    ui::{
-        scene::{
-            Scene,
-            controller::{CameraController, egui_to_glam_vec2},
-        },
-        util::UiExt,
+use crate::ui::{
+    scene::{
+        Scene,
+        controller::{CameraController, egui_to_glam_vec2},
     },
-    world::{
-        permutations::{self, OPTION_KEY_INVALID, PermutationConfig},
-        render_objects::{DynamicRenderObject, StaticRenderObject, s_are_all_objects_loaded},
-    },
+    util::UiExt,
 };
 
 pub struct ModelListBase<P: ModelProvider> {
@@ -42,12 +47,12 @@ pub struct ModelListBase<P: ModelProvider> {
 }
 
 impl<P: ModelProvider> ModelListBase<P> {
-    pub fn new(provider: P) -> Self {
+    pub fn new(renderer: &Arc<Renderer>, provider: P) -> Self {
         let mut thumbnail_scene = Scene::new(
-            Renderer::instance().clone(),
+            renderer,
             Camera {
                 max_ortho_width: 1.0,
-                projection: alkahest_render::camera::CameraProjection::Orthographic,
+                projection: CameraProjection::Orthographic,
                 near: 0.1,
                 far: 250.0,
                 ..Default::default()
@@ -56,19 +61,21 @@ impl<P: ModelProvider> ModelListBase<P> {
         .unwrap()
         .with_controller(CameraController::new_orbit(Vec3::ZERO, 25.0));
 
-        {
-            let view_settings = thumbnail_scene.view.settings_mut();
-            view_settings.autoexposure = false;
-            view_settings.exposure_scale = 0.250;
-            view_settings.bloom = false;
-        }
+        // {
+        //     let view_settings = thumbnail_scene.view.settings_mut();
+        //     view_settings.autoexposure = false;
+        //     view_settings.exposure_scale = 0.250;
+        //     view_settings.bloom = false;
+        // }
 
-        let mut scene = Scene::new(Renderer::instance().clone(), Camera::default()).unwrap();
-        *scene.view.settings_mut() = thumbnail_scene.view.settings().clone();
-        scene.camera.far = 100_000.0;
+        let mut scene = Scene::new(renderer, Camera::default())
+            .unwrap()
+            .with_controller(CameraController::new_orbit(Vec3::ZERO, 2.5));
+        // *scene.view.settings_mut() = thumbnail_scene.view.settings().clone();
+        // scene.camera.far = 100_000.0;
 
         let apply_scene_configuration = |scene: &mut Scene| {
-            scene.set_global_channel_by_name("global_ambient_intensity", Vec4::splat(5.0));
+            // scene.set_global_channel_by_name("global_ambient_intensity", Vec4::splat(5.0));
         };
 
         apply_scene_configuration(&mut scene);
@@ -101,7 +108,7 @@ impl<P: ModelProvider> ModelListBase<P> {
 
         for entry in entries.iter_mut().filter(|e| e.thumbnail.is_none()) {
             if let Some(world) = entry.thumbnail_world.take() {
-                if s_are_all_objects_loaded(&world, Renderer::instance()) {
+                if s_are_all_objects_loaded(&world, &self.scene.scene_renderer.parent) {
                     let bb = world
                         .query::<&AxisAlignedBBox>()
                         .iter()
@@ -112,7 +119,7 @@ impl<P: ModelProvider> ModelListBase<P> {
                     self.thumbnail_scene.set_world(world);
                     self.thumbnail_scene.focus_fit_ortho(&bb);
                     self.thumbnail_scene.render(1.0 / 60.0, (512, 512));
-                    match self.thumbnail_scene.copy_output_as_texture() {
+                    match self.thumbnail_scene.render_to_texture() {
                         Ok(o) => {
                             entry.thumbnail = Some(o);
                         }
@@ -165,7 +172,7 @@ impl<P: ModelProvider> ModelListBase<P> {
         }
     }
 
-    pub fn ui(&mut self, ui: &mut Ui, egui_d3d11: &mut egui_d3d11::D3D11Renderer) -> TabResult {
+    pub fn ui(&mut self, ui: &mut Ui, egui_d3d11: &mut egui_d3d12::D3D12Renderer) -> TabResult {
         self.provider.load_package(self.current_package);
         self.render_thumbnails(ui.ctx());
 
@@ -334,7 +341,7 @@ impl<P: ModelProvider> ModelListBase<P> {
                 }
 
                 // egui::CentralPanel::default().show_inside(ui, |ui| {
-                self.scene.show(ui, ui.available_size(), egui_d3d11);
+                self.scene.show(ui, egui_d3d11, ui.available_size());
                 // });
             });
 
@@ -434,7 +441,7 @@ impl<P: ModelProvider> ModelListBase<P> {
                                 );
                             }
 
-                            if let Some(thumbnail) = model.thumbnail.clone() {
+                            if let Some(thumbnail) = model.thumbnail.as_ref().map(|r| r.srv()) {
                                 let srv = if let Some(hover_pos) = card_response.hover_pos() {
                                     ui.ctx().request_repaint();
                                     *card_hover_vector = (hover_pos - card_image_rect.center())
@@ -447,14 +454,14 @@ impl<P: ModelProvider> ModelListBase<P> {
                                         // Use the existing thumbnail until we render the live one next frame
                                         thumbnail.clone()
                                     } else {
-                                        thumbnail_scene.output_srv().clone()
+                                        thumbnail_scene.output_srv()
                                     }
                                 } else {
-                                    thumbnail.clone()
+                                    thumbnail
                                 };
 
                                 let tid = egui_d3d11.textures_mut().allocate_dx_temporary(
-                                    srv,
+                                    srv.cpu_handle(),
                                     Some(egui::TextureFilter::Linear),
                                     true,
                                 );
@@ -467,7 +474,7 @@ impl<P: ModelProvider> ModelListBase<P> {
                             } else {
                                 ui.d_paint_spinner_at(Rect::from_center_size(
                                     card_image_rect.center(),
-                                    vec2(64.0, 64.0),
+                                    vec2(128.0, 128.0),
                                 ));
                             }
 
@@ -536,7 +543,7 @@ impl<P: ModelProvider> ModelListBase<P> {
                             })
                             .unwrap_or(AxisAlignedBBox::from_center_extents(Vec3::ZERO, Vec3::ONE));
 
-                        self.scene.focus_on(bb.center());
+                        self.scene.focus_on(bb.centroid());
                     }
                     Err(err) => {
                         error!("Failed to load model: {err}");
@@ -567,7 +574,7 @@ pub trait ModelProvider {
 pub struct ModelEntry {
     pub hash: TagHash,
     pub thumbnail_world: Option<hecs::World>,
-    pub thumbnail: Option<d3d11::ShaderResourceView>,
+    pub thumbnail: Option<RenderTarget>,
 }
 
 impl ModelEntry {

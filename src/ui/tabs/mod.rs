@@ -1,10 +1,10 @@
 pub mod activity;
 pub mod activity_list;
-// pub mod entity_list;
+pub mod entity_list;
 pub mod home;
 pub mod map;
 pub mod map_list;
-// pub mod model_list;
+pub mod model_list;
 pub mod settings;
 // pub mod static_list;
 // pub mod tag_lookup;
@@ -18,14 +18,14 @@ use google_material_symbols::GoogleMaterialSymbols;
 use home::HomeTab;
 
 use crate::ui::tabs::{
-    activity::ActivityTab, activity_list::ActivityListTab, map::MapTab, map_list::MapListTab,
-    settings::SettingsTab,
+    activity::ActivityTab, activity_list::ActivityListTab, entity_list::EntityListTab, map::MapTab,
+    map_list::MapListTab, settings::SettingsTab,
 };
 
 pub enum Tab {
     Home,
     Settings,
-    // EntityList(Box<EntityListTab>),
+    EntityList(Box<EntityListTab>),
     // StaticList(Box<StaticListTab>),
     MapList(MapListTab),
     Map(MapTab),
@@ -43,8 +43,11 @@ impl Tab {
     /// Returns an arbitrary key that's unique for the corresponding tab type. Tabs with only 1 instance return 0
     pub const fn key(&self) -> u64 {
         match self {
-            Self::Home | Self::Settings | Self::MapList(_) | Self::ActivityList(_) => 0,
-            // Tab::EntityList(_) => 0,
+            Self::Home
+            | Self::Settings
+            | Self::MapList(_)
+            | Self::ActivityList(_)
+            | Tab::EntityList(_) => 0,
             // Tab::StaticList(_) => 0,
             Self::Map(tab) => tab.tag.0 as u64,
             Self::Activity(tab) => tab.tag.0 as u64,
@@ -59,7 +62,7 @@ impl Display for Tab {
         let s = match self {
             Self::Settings => GoogleMaterialSymbols::Settings.to_string(),
             Self::Home => format!("{} Home", GoogleMaterialSymbols::Home),
-            // Tab::EntityList(_) => format!("{} Entities", GoogleMaterialSymbols::ChessPawn),
+            Tab::EntityList(_) => format!("{} Entities", GoogleMaterialSymbols::ChessPawn),
             // Tab::StaticList(_) => format!("{} Statics", GoogleMaterialSymbols::Landscape),
             Self::MapList(_) => format!("{} Maps", GoogleMaterialSymbols::Map),
             Self::Map(tab) => format!("{} ({})", tab.name, tab.tag),
@@ -102,10 +105,11 @@ impl<'a> egui_dock::TabViewer for TabViewer<'a> {
                     }
                     Tab::Settings => {
                         SettingsTab::ui(ui, self.shared_state);
-                    } // Tab::EntityList(tab) => {
-                    //     let res = tab.ui(ui, self.egui_d3d11);
-                    //     self.process_result(res);
-                    // }
+                    }
+                    Tab::EntityList(tab) => {
+                        let res = tab.ui(ui, self.egui_d3d12);
+                        self.process_result(res);
+                    }
                     // Tab::StaticList(tab) => {
                     //     let res = tab.ui(ui, self.egui_d3d11);
                     //     self.process_result(res);

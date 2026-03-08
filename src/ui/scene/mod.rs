@@ -1,11 +1,13 @@
 use std::{sync::Arc, time::Instant};
 
 use deimos_core::job::SCHEDULER;
-use deimos_data::tfx::{FeatureRendererSubscription, RenderStage};
+use deimos_data::tfx::{FeatureRendererSubscription, RenderStage, geometry::AxisAlignedBBox};
 use deimos_render::{
     camera::Camera,
     ecs::{populate_submit_nodes, s_extract_frame_packet},
-    gpu::stream::ParallelCommandBlock,
+    gpu::{
+        alloc::descriptors::ResourceView, render_target::RenderTarget, stream::ParallelCommandBlock,
+    },
     renderer::{Renderer, packet::FramePacket, scene::SceneRenderer},
     tfx::externs::{self, get_global_channel_name},
     util::range::RangeChunks,
@@ -15,8 +17,10 @@ use egui::{
     Color32, FontId, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2, Widget, load::SizedTexture,
     vec2,
 };
+use glam::Vec3;
 use google_material_symbols::GoogleMaterialSymbols;
 use hecs::World;
+use tracing::instrument::WithCollector;
 
 use crate::ui::{
     scene::controller::CameraController,
@@ -27,13 +31,14 @@ pub mod controller;
 
 pub struct Scene {
     renderer: Arc<Renderer>,
-    scene: SceneRenderer,
+    pub scene_renderer: SceneRenderer,
     start_time: Instant,
 
     // Camera/view
     camera: Camera,
-    controller: CameraController,
+    pub controller: CameraController,
     subscribed_features: FeatureRendererSubscription,
+    pub render_mode: RenderMode,
 
     // World
     pub world: World,
@@ -50,12 +55,13 @@ pub struct Scene {
 impl Scene {
     pub fn new(renderer: &Arc<Renderer>, camera: Camera) -> anyhow::Result<Self> {
         Ok(Self {
-            scene: SceneRenderer::new(renderer.clone())?,
+            scene_renderer: SceneRenderer::new(renderer.clone())?,
             renderer: renderer.clone(),
             start_time: Instant::now(),
             camera,
             controller: CameraController::new_first_person(),
             subscribed_features: FeatureRendererSubscription::all(),
+            render_mode: RenderMode::Lookdev,
             world: World::new(),
             frametimes: Vec::new(),
             last_frame_time: Instant::now(),
@@ -124,7 +130,12 @@ impl Scene {
             let r = ui
                 .image(SizedTexture {
                     id: egui_d3d12.textures_mut().allocate_dx_temporary(
-                        self.scene.main_view.gbuffer.albedo.srv().cpu_handle(),
+                        self.scene_renderer
+                            .main_view
+                            .gbuffer
+                            .albedo
+                            .srv()
+                            .cpu_handle(),
                         None,
                         false,
                     ),
@@ -284,7 +295,11 @@ impl Scene {
 
             let size_pixels = size * ui.ctx().pixels_per_point();
             let resolution = (size_pixels.x as u32, size_pixels.y as u32);
-            if let Err(e) = self.scene.main_view.resize(&self.renderer.gpu, resolution) {
+            if let Err(e) = self
+                .scene_renderer
+                .main_view
+                .resize(&self.renderer.gpu, resolution)
+            {
                 error!("Failed to resize main view: {e:?}");
             }
 
@@ -301,7 +316,7 @@ impl Scene {
     }
 
     #[profiling::function]
-    fn render(&mut self, delta_time: f32, resolution: (u32, u32)) {
+    pub fn render(&mut self, delta_time: f32, resolution: (u32, u32)) {
         let stream = &self.renderer.gpu.frame().stream;
         let mut cmd_guard = stream.acquire_cmd(&self.renderer.gpu);
         let cmd = &mut *cmd_guard;
@@ -330,7 +345,7 @@ impl Scene {
             ext.view.world_to_camera = self.camera.world_to_camera;
             ext.view.camera_to_projective = self.camera.camera_to_projective;
             ext.view.derive_matrices(resolution);
-            self.scene.main_view.culling_frustum = self.camera.culling_frustum.clone();
+            self.scene_renderer.main_view.culling_frustum = self.camera.culling_frustum.clone();
         }
 
         self.renderer.globals.scopes.frame.bind(cmd);
@@ -340,12 +355,12 @@ impl Scene {
         {
             let _event = cmd.event_scope_str("Scene");
             let _scope = self.renderer.gpu.profiler_scope(stream, "scene");
-            self.scene
+            self.scene_renderer
                 .main_view
                 .gbuffer
                 .transition(cmd, d3d12::ResourceStates::RENDER_TARGET);
-            self.scene.main_view.gbuffer.clear(cmd);
-            self.scene.main_view.gbuffer.bind(cmd);
+            self.scene_renderer.main_view.gbuffer.clear(cmd);
+            self.scene_renderer.main_view.gbuffer.bind(cmd);
 
             // s_extract_render_objects(&self.world, &self.renderer);
 
@@ -354,7 +369,7 @@ impl Scene {
             //         .renderer
             //         .submit(cmd, RenderStage::GenerateGbuffer);
             // }
-            self.scene.frame_packet.reset();
+            self.scene_renderer.frame_packet.reset();
             let vis = &ViewVisibility {
                 culling_frustum: self.camera.culling_frustum.clone(),
                 position: self.camera.position,
@@ -363,7 +378,12 @@ impl Scene {
 
             {
                 let _scope = self.renderer.gpu.profiler_scope(stream, "extract_frame");
-                s_extract_frame_packet(&self.world, &mut self.scene, vis, self.subscribed_features);
+                s_extract_frame_packet(
+                    &self.world,
+                    &mut self.scene_renderer,
+                    vis,
+                    self.subscribed_features,
+                );
             }
 
             {
@@ -371,7 +391,7 @@ impl Scene {
                     .renderer
                     .gpu
                     .profiler_scope(stream, "populate_submit_nodes");
-                populate_submit_nodes(&mut self.scene, vis);
+                populate_submit_nodes(&mut self.scene_renderer, vis);
             }
 
             {
@@ -380,7 +400,7 @@ impl Scene {
                     .gpu
                     .profiler_scope(stream, "prepare_per_frame");
 
-                let frame_packet = &self.scene.frame_packet;
+                let frame_packet = &self.scene_renderer.frame_packet;
                 let render_objects = self.renderer.objects.read();
 
                 for frame_node in &frame_packet.per_frame_nodes {
@@ -392,9 +412,9 @@ impl Scene {
             {
                 let _scope = self.renderer.gpu.profiler_scope(stream, "prepare_per_view");
 
-                let frame_packet = &self.scene.frame_packet;
+                let frame_packet = &self.scene_renderer.frame_packet;
                 let render_objects = self.renderer.objects.read();
-                for view in &self.scene.frame_packet.views {
+                for view in &self.scene_renderer.frame_packet.views {
                     for view_node in &view.view_nodes {
                         let frame_node = &frame_packet.per_frame_nodes[view_node.frame_node];
                         let obj = &render_objects[frame_node.object];
@@ -407,12 +427,12 @@ impl Scene {
                 .renderer
                 .gpu
                 .profiler_scope(stream, "submit_gbuffer_generation");
-            for view in &self.scene.frame_packet.views {
+            for view in &self.scene_renderer.frame_packet.views {
                 let block = stream.begin_parallel(cmd);
                 let context = TempSubmitContext {
                     renderer: self.renderer.clone(),
                     block: block.clone(),
-                    frame_packet: &self.scene.frame_packet,
+                    frame_packet: &self.scene_renderer.frame_packet,
                 };
 
                 let range = 0..view
@@ -497,7 +517,7 @@ impl Scene {
                 // }
             }
 
-            self.scene
+            self.scene_renderer
                 .main_view
                 .gbuffer
                 .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
@@ -540,7 +560,7 @@ impl Scene {
             self.show_channel_editor = !self.show_channel_editor;
         }
 
-        // self.render_mode.ui(ui);
+        self.render_mode.ui(ui);
         self.subscribed_features.show_input(ui);
     }
 
@@ -555,7 +575,7 @@ impl Scene {
         // let automated_ids = s_get_all_global_channel_ids(&self.world);
         egui::ScrollArea::vertical().show(ui, |ui| {
             ui.heading("Global Channels");
-            for (i, channel) in self.scene.global_channels.iter_mut().enumerate() {
+            for (i, channel) in self.scene_renderer.global_channels.iter_mut().enumerate() {
                 let Some(channel_id) = self.renderer.externs.global_ids.get(i) else {
                     continue;
                 };
@@ -597,6 +617,47 @@ impl Scene {
             }
         });
     }
+
+    pub fn output_srv(&self) -> ResourceView {
+        self.scene_renderer.main_view.gbuffer.albedo.srv()
+    }
+
+    pub fn render_to_texture(&self) -> anyhow::Result<RenderTarget> {
+        anyhow::bail!("render_to_texture isn't implemented yet")
+        // let texture = self
+        //     .renderer
+        //     .gpu
+        //     .create_texture2d(&self.surface.get_desc(), None)?;
+        // self.renderer
+        //     .gpu
+        //     .context()
+        //     .copy_resource(&self.surface, &texture);
+        // Ok(self
+        //     .renderer
+        //     .gpu
+        //     .create_shader_resource_view(&texture, None)?)
+    }
+
+    pub fn focus_on(&mut self, position: Vec3) {
+        match &mut self.controller {
+            CameraController::Orbit { target, .. } => {
+                *target = position;
+            }
+            CameraController::FirstPerson { .. } => {
+                self.camera.position = position;
+            }
+        }
+    }
+
+    pub fn focus_fit_ortho(&mut self, aabb: &AxisAlignedBBox) {
+        match &mut self.controller {
+            CameraController::Orbit { target, .. } => {
+                *target = aabb.centroid();
+                self.camera.max_ortho_width = aabb.extents().length() * 0.75;
+            }
+            CameraController::FirstPerson { .. } => {}
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -607,6 +668,95 @@ struct TempSubmitContext {
 }
 
 unsafe impl Send for TempSubmitContext {}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RenderMode {
+    Lookdev,
+    Shaded,
+    ShadedNoSun,
+    ShadingOnly,
+    // Matcap,
+
+    // Material:
+    Albedo,
+    Smoothness,
+    Metalness,
+    AmbientOcclusion,
+    Emission,
+    EmissionIntensity,
+    Transmission,
+    IridescenceId,
+
+    // Geometry:
+    DepthEdges,
+    WorldNormal,
+    Overdraw,
+
+    // Lighting:
+    LightDiffuse,
+    LightSpecular,
+}
+
+impl RenderMode {
+    /// Returns true if the render mode UI changed the value
+    pub fn ui(&mut self, ui: &mut Ui) -> bool {
+        ui.style_mut()
+            .text_styles
+            .insert(TextStyle::Button, FontId::proportional(16.0));
+
+        let mut changed = false;
+        egui::ComboBox::from_id_salt("Render Mode")
+            .height(400.0)
+            .selected_text(format!("{} {:?}", GoogleMaterialSymbols::EvShadow, self))
+            .show_ui(ui, |ui| {
+                ui.style_mut()
+                    .text_styles
+                    .insert(TextStyle::Button, FontId::proportional(16.0));
+                ui.style_mut().spacing.button_padding = Vec2::new(8.0, 2.0);
+                ui.style_mut().spacing.item_spacing = Vec2::ZERO;
+
+                macro_rules! mode {
+                    ($ui:ident, $variant:expr, $name:literal) => {
+                        if $ui.selectable_label(*self == $variant, $name).clicked() {
+                            *self = $variant;
+                            changed = true;
+                        }
+                    };
+                }
+
+                mode!(ui, RenderMode::Lookdev, "Lookdev");
+                mode!(ui, RenderMode::Shaded, "Shaded");
+                mode!(ui, RenderMode::ShadedNoSun, "Shaded (No sun)");
+                mode!(
+                    ui,
+                    RenderMode::ShadingOnly,
+                    "Shading Only (No atmosphere, no sun)"
+                );
+                // mode!(ui, RenderMode::Matcap, "Matcap");
+
+                ui.section_separator("Material:");
+                mode!(ui, RenderMode::Albedo, "Albedo");
+                mode!(ui, RenderMode::Smoothness, "Smoothness");
+                mode!(ui, RenderMode::Metalness, "Metalness");
+                mode!(ui, RenderMode::AmbientOcclusion, "Ambient Occlusion");
+                mode!(ui, RenderMode::Emission, "Emission");
+                mode!(ui, RenderMode::EmissionIntensity, "Emission Intensity");
+                mode!(ui, RenderMode::Transmission, "Transmission");
+                mode!(ui, RenderMode::IridescenceId, "Iridescence ID");
+
+                ui.section_separator("Geometry:");
+                mode!(ui, RenderMode::DepthEdges, "Depth Edges");
+                mode!(ui, RenderMode::WorldNormal, "World Normal");
+                mode!(ui, RenderMode::Overdraw, "Overdraw");
+
+                ui.section_separator("Lighting:");
+                mode!(ui, RenderMode::LightDiffuse, "Diffuse Light");
+                mode!(ui, RenderMode::LightSpecular, "Specular Light");
+            });
+
+        changed
+    }
+}
 
 impl ExternalDataWidgetExt for FeatureRendererSubscription {
     fn show_input(&mut self, ui: &mut Ui) -> egui::Response {
