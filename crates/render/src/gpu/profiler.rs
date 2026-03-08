@@ -1,9 +1,9 @@
-use std::{ffi::c_void, time::Instant};
+use std::{ffi::c_void, sync::Arc, time::Instant};
 
 use anyhow::Context;
 use parking_lot::Mutex;
 
-use crate::gpu::stream::FrameCommandStream;
+use crate::gpu::{Gpu, stream::FrameCommandStream};
 
 struct PendingProfilerSpan {
     name: &'static str,
@@ -235,24 +235,26 @@ impl FrameProfiler {
 
     pub fn scope<'a>(
         &'a self,
+        gpu: &Arc<Gpu>,
         stream: &'a FrameCommandStream,
         name: &'static str,
     ) -> ScopeGuard<'a> {
         let mut state = self.state.lock();
-        let Some(cmd) = stream.active_linear_cmd() else {
-            error!("FrameProfiler::scope needs an active linear CMD!");
-            return ScopeGuard {
-                profiler: self,
-                stream,
-                pending_span_index: usize::MAX,
-            };
-        };
+        // let Some(cmd) = stream.active_linear_cmd() else {
+        //     error!("FrameProfiler::scope({name:?}) needs an active linear CMD!");
+        //     return ScopeGuard {
+        //         profiler: self,
+        //         stream,
+        //         pending_span_index: usize::MAX,
+        //     };
+        // };
 
         if state.pending_spans.len() as u32 >= Self::MAX_PROFILER_SPANS {
             warn!("Exceeded maximum number of profiler spans");
             return ScopeGuard {
                 profiler: self,
                 stream,
+                gpu: gpu.clone(),
                 pending_span_index: usize::MAX,
             };
         }
@@ -272,10 +274,20 @@ impl FrameProfiler {
             depth,
         });
 
-        cmd.end_query(&self.heap, d3d12::QueryType::Timestamp, start_query_index);
+        if let Some(cmd) = stream.active_linear_cmd() {
+            cmd.end_query(&self.heap, d3d12::QueryType::Timestamp, start_query_index);
+        } else {
+            stream.acquire_cmd(gpu).end_query(
+                &self.heap,
+                d3d12::QueryType::Timestamp,
+                start_query_index,
+            );
+        }
+
         ScopeGuard {
             profiler: self,
             stream,
+            gpu: gpu.clone(),
             pending_span_index,
         }
     }
@@ -283,6 +295,7 @@ impl FrameProfiler {
 
 pub struct ScopeGuard<'a> {
     profiler: &'a FrameProfiler,
+    gpu: Arc<Gpu>,
     stream: &'a FrameCommandStream,
     pending_span_index: usize,
 }
@@ -290,10 +303,6 @@ pub struct ScopeGuard<'a> {
 impl Drop for ScopeGuard<'_> {
     fn drop(&mut self) {
         let mut state = self.profiler.state.lock();
-        let Some(cmd) = self.stream.active_linear_cmd() else {
-            error!("ScopeGuard::drop needs an active linear CMD!");
-            return;
-        };
 
         if self.pending_span_index >= state.pending_spans.len() {
             warn!("Invalid profiler scope guard index");
@@ -302,11 +311,19 @@ impl Drop for ScopeGuard<'_> {
 
         let pending_span = &mut state.pending_spans[self.pending_span_index];
         pending_span.end_time = Instant::now();
-        cmd.end_query(
-            &self.profiler.heap,
-            d3d12::QueryType::Timestamp,
-            pending_span.end_query_index,
-        );
+        if let Some(cmd) = self.stream.active_linear_cmd() {
+            cmd.end_query(
+                &self.profiler.heap,
+                d3d12::QueryType::Timestamp,
+                pending_span.end_query_index,
+            );
+        } else {
+            self.stream.acquire_cmd(&self.gpu).end_query(
+                &self.profiler.heap,
+                d3d12::QueryType::Timestamp,
+                pending_span.end_query_index,
+            );
+        }
         state.scope_depth = state.scope_depth.saturating_sub(1);
     }
 }

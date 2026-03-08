@@ -25,7 +25,7 @@ use std::{
 use anyhow::Context;
 use d3d12::{
     CommandQueueDesc, D3D12GetDebugInterface, DxgiUsage, ID3D12Debug, SwapChainDesc, SwapEffect,
-    ext::GpuFence,
+    ext::{GpuFence, GpuFenceWaiter},
 };
 use gpu_allocator::{
     AllocationSizes, AllocatorDebugSettings,
@@ -275,7 +275,7 @@ impl Gpu {
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     }
 
-    pub fn cmd_scope<F>(&self, func: F) -> anyhow::Result<()>
+    pub fn cmd_scope<F>(&self, func: F) -> anyhow::Result<Arc<GpuFenceWaiter>>
     where
         F: FnOnce(&NativeCommandList) -> anyhow::Result<()>,
     {
@@ -311,11 +311,11 @@ impl Gpu {
     }
 
     pub fn profiler_scope<'a>(
-        &'a self,
+        self: &'a Arc<Self>,
         stream: &'a FrameCommandStream,
         name: &'static str,
     ) -> ScopeGuard<'a> {
-        self.frame().profiler.scope(stream, name)
+        self.frame().profiler.scope(self, stream, name)
     }
 
     // #[profiling::function]
