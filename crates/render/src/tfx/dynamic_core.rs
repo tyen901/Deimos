@@ -253,7 +253,7 @@ impl DynamicCoreResources {
                 address_u: sampler.address_u,
                 address_v: sampler.address_v,
                 address_w: sampler.address_w,
-                mip_lod_bias: sampler.mip_lod_bias,
+                mip_lod_bias: sampler.mip_lod_bias.min(0.0),
                 max_anisotropy: sampler.max_anisotropy,
                 comparison_func: sampler.comparison_func,
                 border_color: d3d12::D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK,
