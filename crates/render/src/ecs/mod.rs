@@ -1,5 +1,5 @@
 use d3d12::GpuVirtualAddress;
-use deimos_data::tfx::geometry::AxisAlignedBBox;
+use deimos_data::tfx::{FeatureRendererSubscription, geometry::AxisAlignedBBox};
 use deimos_ecs::{permutations::PermutationConfig, transform::Transform};
 
 use crate::{
@@ -15,12 +15,16 @@ pub fn s_extract_frame_packet(
     world: &hecs::World,
     scene: &mut SceneRenderer,
     visibility: &ViewVisibility,
+    features: FeatureRendererSubscription,
 ) {
     let SceneRenderer {
         frame_packet,
         main_view,
+        parent: renderer,
         ..
     } = scene;
+
+    let render_objects = renderer.objects.read();
 
     let views = [&main_view];
     frame_packet.insert_view(0, main_view.culling_frustum.clone());
@@ -29,6 +33,10 @@ pub fn s_extract_frame_packet(
         .query::<(&StaticRenderObject, Option<&AxisAlignedBBox>)>()
         .iter()
     {
+        if !features.is_subscribed(render_objects[static_render_object.handle()].feature_type) {
+            continue;
+        }
+
         let bounds = bounds.map_or(AxisAlignedBBox::EVERYTHING, |b| b.clone());
         let frame_node = frame_packet.push_frame_node::<()>(
             static_render_object.handle(),
@@ -52,6 +60,10 @@ pub fn s_extract_frame_packet(
         )>()
         .iter()
     {
+        if !features.is_subscribed(render_objects[render_object.handle()].feature_type) {
+            continue;
+        }
+
         let transform = transform.copied().unwrap_or_default();
         let permutation = if let Some(permutation) = permutations {
             permutation
@@ -75,7 +87,7 @@ pub fn s_extract_frame_packet(
         );
 
         for (view_id, _v) in views.iter().enumerate() {
-            if visibility.is_visible_quick(&bounds) {
+            if visibility.is_visible(&bounds) {
                 frame_packet.push_view_node::<()>(view_id, frame_node, None);
             }
         }

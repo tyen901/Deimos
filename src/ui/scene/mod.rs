@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Instant};
 
 use deimos_core::job::SCHEDULER;
-use deimos_data::tfx::RenderStage;
+use deimos_data::tfx::{FeatureRendererSubscription, RenderStage};
 use deimos_render::{
     camera::Camera,
     ecs::{populate_submit_nodes, s_extract_frame_packet},
@@ -18,7 +18,10 @@ use egui::{
 use google_material_symbols::GoogleMaterialSymbols;
 use hecs::World;
 
-use crate::ui::{scene::controller::CameraController, util::format_bytes};
+use crate::ui::{
+    scene::controller::CameraController,
+    util::{ExternalDataWidgetExt, UiExt, format_bytes},
+};
 
 pub mod controller;
 
@@ -30,6 +33,7 @@ pub struct Scene {
     // Camera/view
     camera: Camera,
     controller: CameraController,
+    subscribed_features: FeatureRendererSubscription,
 
     // World
     pub world: World,
@@ -51,6 +55,7 @@ impl Scene {
             start_time: Instant::now(),
             camera,
             controller: CameraController::new_first_person(),
+            subscribed_features: FeatureRendererSubscription::all(),
             world: World::new(),
             frametimes: Vec::new(),
             last_frame_time: Instant::now(),
@@ -358,8 +363,9 @@ impl Scene {
 
             {
                 let _scope = self.renderer.gpu.profiler_scope(stream, "extract_frame");
-                s_extract_frame_packet(&self.world, &mut self.scene, vis);
+                s_extract_frame_packet(&self.world, &mut self.scene, vis, self.subscribed_features);
             }
+
             {
                 let _scope = self
                     .renderer
@@ -535,7 +541,7 @@ impl Scene {
         }
 
         // self.render_mode.ui(ui);
-        // self.view.subscribed_features.show_input(ui);
+        self.subscribed_features.show_input(ui);
     }
 
     fn show_channel_editor(&mut self, ui: &mut Ui) {
@@ -602,42 +608,64 @@ struct TempSubmitContext {
 
 unsafe impl Send for TempSubmitContext {}
 
-// const RANGE_GRANULARITY: usize = 128;
-// fn submit_node_block_range(ctx: TempSubmitContext, range: Range<usize>) {
-//     if range.len() > RANGE_GRANULARITY {
-//         let middle = range.len() / 2;
-//         let range1 = range.start..range.start + middle;
-//         let range2 = range.start + middle..range.end;
-//         let ctx2 = ctx.clone();
-//         rayon::join(
-//             || submit_node_block_range(ctx, range1),
-//             || submit_node_block_range(ctx2, range2),
-//         );
-//     } else {
-//         let render_objects = ctx.renderer.objects.read();
-//         let cmd = ctx.renderer.gpu.frame().cmd_pool.acquire();
-//         let mut cmd_tfx =
-//             CommandList::from_native_command_list(&ctx.renderer, cmd.command_list.clone());
+impl ExternalDataWidgetExt for FeatureRendererSubscription {
+    fn show_input(&mut self, ui: &mut Ui) -> egui::Response {
+        ui.style_mut()
+            .text_styles
+            .insert(TextStyle::Button, FontId::proportional(16.0));
 
-//         let frame_packet = unsafe { &*ctx.frame_packet };
-//         let view = &frame_packet.views[0];
-//         for submit_node in &view.submit_node_blocks.block(RenderStage::GenerateGbuffer)[range] {
-//             let view_node = &view.view_nodes[submit_node.view_node];
-//             let frame_node = &frame_packet.per_frame_nodes[view_node.frame_node];
-//             let Some(render_object) = render_objects.get(frame_node.object) else {
-//                 error!(
-//                     "Render object with handle {:?} not found",
-//                     frame_node.object
-//                 );
-//                 continue;
-//             };
-//             render_object.renderer.submit(
-//                 cmd,
-//                 RenderStage::GenerateGbuffer,
-//                 view_node,
-//                 submit_node.key,
-//             );
-//         }
-//         ctx.renderer.gpu.frame().cmd_pool.release(cmd);
-//     }
-// }
+        egui::ComboBox::from_id_salt("Feature Renderers")
+            .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
+            .height(400.0)
+            .selected_text(format!(
+                "{} Enabled Features",
+                GoogleMaterialSymbols::CheckBox
+            ))
+            .show_ui(ui, |ui| {
+                ui.style_mut()
+                    .text_styles
+                    .insert(TextStyle::Button, FontId::proportional(16.0));
+                ui.style_mut().spacing.button_padding = Vec2::new(8.0, 2.0);
+                ui.style_mut().spacing.item_spacing = Vec2::ZERO;
+
+                let ctrl = ui.input(|i| i.modifiers.ctrl);
+                let alt = ui.input(|i| i.modifiers.alt);
+                macro_rules! feature {
+                    ($ui:ident, $flag:expr, $name:literal) => {
+                        if $ui.selectable_label(self.contains($flag), $name).clicked() {
+                            if ctrl {
+                                *self = Self::empty();
+                                self.insert($flag);
+                            } else if alt {
+                                *self = Self::all();
+                                self.remove($flag);
+                            } else if self.contains($flag) {
+                                self.remove($flag);
+                            } else {
+                                self.insert($flag);
+                            }
+                        }
+                    };
+                }
+
+                feature!(ui, Self::CHUNKED_INSTANCE_OBJECTS, "Static Objects");
+                feature!(ui, Self::TERRAIN_PATCH, "Terrain Patches");
+                feature!(ui, Self::RIGID_OBJECT, "Rigid Objects");
+                feature!(ui, Self::SKY_TRANSPARENT, "Sky Transparents");
+                feature!(ui, Self::SPEEDTREE_TREES, "Decorators");
+                feature!(ui, Self::DYNAMIC_DECALS, "Dynamic Decals");
+                feature!(ui, Self::ROAD_DECALS, "Road Decals");
+                feature!(ui, Self::WATER, "Water");
+                ui.add_enabled_ui(false, |ui| {
+                    feature!(ui, Self::LENS_FLARES, "Lens Flares");
+                    feature!(ui, Self::PARTICLES, "Particles");
+                });
+
+                ui.section_separator("Lighting");
+                feature!(ui, Self::CUBEMAPS, "Cubemaps");
+                feature!(ui, Self::CHUNKED_LIGHTS, "Chunked Lights");
+                feature!(ui, Self::DEFERRED_LIGHTS, "Deferred Lights");
+            })
+            .response
+    }
+}
