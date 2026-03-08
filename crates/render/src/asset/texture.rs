@@ -1,8 +1,9 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
 
 use anyhow::Context;
 use d3d12::{
     DeviceChild, ResourceBarrier, ResourceStates, ShaderResourceViewDesc, TextureCopyLocation,
+    ext::GpuFenceWaiter,
 };
 use deimos_data::{
     tag::WideHash,
@@ -137,7 +138,7 @@ impl Texture {
             upload_buffer.resource().unmap(0);
         }
 
-        gpu.cmd_scope(|cmd| {
+        let upload_fence = gpu.cmd_scope(|cmd| {
             cmd.resource_barriers(&[ResourceBarrier::transition(
                 resource.resource(),
                 0,
@@ -197,6 +198,11 @@ impl Texture {
             resource.resource(),
             &srv_desc,
         );
+
+        // TODO(cohae): This won't wait when called from the main thread (not that it should be)
+        if rayon::current_thread_index().is_some() || potassium::current_worker_index().is_some() {
+            upload_fence.wait_for_next(None)?;
+        }
 
         Ok(Self {
             gpu: gpu.clone(),

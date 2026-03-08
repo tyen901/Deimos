@@ -46,4 +46,10 @@ impl ModelBuffers {
 
         Some(())
     }
+
+    pub fn is_loaded(&self) -> bool {
+        self.index_buffer.is_loaded()
+            && self.vertex0_buffer.is_loaded()
+            && self.vertex1_buffer.as_ref().map_or(true, |v| v.is_loaded())
+    }
 }

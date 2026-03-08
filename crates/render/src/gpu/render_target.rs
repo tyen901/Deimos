@@ -132,6 +132,18 @@ impl RenderTarget {
 
         Ok(())
     }
+
+    pub fn take(&mut self) -> anyhow::Result<Self> {
+        let new = Self::new(
+            &self.gpu,
+            &self.name,
+            self.format,
+            self.view_format,
+            self.size,
+        )?;
+
+        Ok(std::mem::replace(self, new))
+    }
 }
 
 pub struct DepthBuffer {

@@ -59,12 +59,17 @@ impl GpuFenceWaiter {
     pub fn new(device: &Device) -> Result<Self> {
         Ok(Self {
             fence: GpuFence::new(device)?,
-            value: AtomicU64::new(0),
+            value: AtomicU64::new(1),
         })
     }
 
-    pub fn wait(&self, timeout: Option<Duration>) -> Result<()> {
+    pub fn wait_for_previous(&self, timeout: Option<Duration>) -> Result<()> {
         self.fence.wait(self.value.load(Ordering::Relaxed), timeout)
+    }
+
+    pub fn wait_for_next(&self, timeout: Option<Duration>) -> Result<()> {
+        self.fence
+            .wait(self.value.load(Ordering::Relaxed) + 1, timeout)
     }
 
     pub fn signal(&self, queue: &CommandQueue) {

@@ -153,29 +153,31 @@ impl Technique {
             data,
             descriptor_table_parameters,
             descriptor_count,
-            static_descriptor_heap: (descriptor_count > 0).then(|| {
-                gpu.create_descriptor_heap(
-                    d3d12::DescriptorHeapType::CbvSrvUav,
-                    descriptor_count as u32,
-                    false,
-                    0,
-                )
-                .expect("failed to create static descriptor heap")
-            }),
+            static_descriptor_heap: None,
+            // TODO(cohae): Weirdly enough this causes an OOM issue when loading a lot of entities in the entity view
+            // static_descriptor_heap: (descriptor_count > 0).then(|| {
+            //     gpu.create_descriptor_heap(
+            //         d3d12::DescriptorHeapType::CbvSrvUav,
+            //         descriptor_count as u32,
+            //         false,
+            //         0,
+            //     )
+            //     .expect("failed to create static descriptor heap")
+            // }),
         };
 
-        if let Some(static_descriptor_heap) = &technique.static_descriptor_heap {
-            for stage in technique.all_stages() {
-                while !stage.core.all_textures_loaded() {
-                    rayon::yield_local();
-                    // potassium::yield_job();
-                }
+        // if let Some(static_descriptor_heap) = &technique.static_descriptor_heap {
+        //     for stage in technique.all_stages() {
+        //         while !stage.core.all_textures_loaded() {
+        //             rayon::yield_local();
+        //             // potassium::yield_job();
+        //         }
 
-                stage
-                    .copy_static_descriptors(gpu, static_descriptor_heap)
-                    .context("copying static descriptors")?;
-            }
-        }
+        //         stage
+        //             .copy_static_descriptors(gpu, static_descriptor_heap)
+        //             .context("copying static descriptors")?;
+        //     }
+        // }
 
         Ok(technique)
     }
@@ -258,6 +260,12 @@ impl Technique {
 
     pub const fn all_stages(&self) -> [&TechniqueStage; 2] {
         [&self.stage_vertex, &self.stage_pixel]
+    }
+
+    pub fn is_loaded(&self) -> bool {
+        self.all_stages()
+            .iter()
+            .all(|s| s.core.all_textures_loaded())
     }
 }
 
@@ -356,7 +364,8 @@ impl TechniqueStage {
         }
 
         // Filter out static texture slots, as we already copied those from the static descriptor heap
-        for slot in self.root_texture_slots.iter().filter(|s| !s.is_static) {
+        for slot in self.root_texture_slots.iter() {
+            // .filter(|s| !s.is_static) {
             if let Some(tex) = resources.get_shader_resource_view(slot.register as u32) {
                 cmd.gpu().copy_descriptors_simple(
                     1,

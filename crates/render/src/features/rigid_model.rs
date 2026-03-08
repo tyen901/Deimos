@@ -1,5 +1,3 @@
-use std::u64;
-
 use deimos_data::tfx::{
     RenderStage, ShaderStage, TfxScopeBits,
     features::dynamic::{
@@ -14,7 +12,7 @@ use tiger_pkg::TagHash;
 use tiger_pkg::package_manager;
 
 use crate::{
-    asset::Handle,
+    asset::{Handle, handle::is_technique_loaded},
     features::FeatureRenderer,
     gpu::command_list::CommandList,
     renderer::{
@@ -366,7 +364,11 @@ impl FeatureRenderer for DynamicModel {
             return false;
         }
 
-        if self.techniques.iter().any(|t| !t.is_loaded()) {
+        if self.techniques.iter().any(|t| !is_technique_loaded(t)) {
+            return false;
+        }
+
+        if self.mesh_buffers.iter().any(|m| !m.is_loaded()) {
             return false;
         }
 

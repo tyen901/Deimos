@@ -1,8 +1,11 @@
-use d3d12::Event;
+use d3d12::{Event, ext::GpuFenceWaiter};
 use parking_lot::Mutex;
 use std::{
     ops::Deref,
-    sync::atomic::{AtomicBool, AtomicU64, Ordering},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
 };
 
 pub struct NativeCommandList {
@@ -65,6 +68,7 @@ impl Deref for NativeCommandList {
 }
 struct CommandListSlot {
     command_list: NativeCommandList,
+    fence_waiter: Arc<GpuFenceWaiter>,
     fence_value: u64,
 }
 
@@ -93,6 +97,7 @@ impl AsyncCommandListRing {
                 Ok(CommandListSlot {
                     command_list,
                     fence_value: 0,
+                    fence_waiter: Arc::new(GpuFenceWaiter::new(device)?),
                 })
             })
             .collect::<anyhow::Result<Box<[_]>>>()?;
@@ -120,6 +125,7 @@ impl AsyncCommandListRing {
         self.queue
             .execute_command_lists(std::slice::from_ref(&previous_slot.command_list));
         self.queue.signal(&self.fence, fence_value)?;
+        previous_slot.fence_waiter.signal(&self.queue);
         previous_slot.fence_value = fence_value;
 
         // Advance to next slot and wait for it to be ready (if necessary)
@@ -131,7 +137,7 @@ impl AsyncCommandListRing {
         Ok(())
     }
 
-    pub fn submit<F>(&self, f: F) -> anyhow::Result<()>
+    pub fn submit<F>(&self, f: F) -> anyhow::Result<Arc<GpuFenceWaiter>>
     where
         F: FnOnce(&NativeCommandList) -> anyhow::Result<()>,
     {
@@ -141,7 +147,7 @@ impl AsyncCommandListRing {
 
         f(&slot.command_list)?;
 
-        Ok(())
+        Ok(slot.fence_waiter.clone())
     }
 
     fn wait_for(&self, fence_value: u64) -> anyhow::Result<()> {

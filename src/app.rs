@@ -123,42 +123,45 @@ impl App {
         self.frametime_histogram.push(delta_time);
 
         let frame = self.gpu.begin_frame();
+        {
+            let _scope = self.gpu.profiler_scope(&frame.stream, "App::render");
+            self.gui.draw_ui(&self.shared_state);
 
-        self.gui.draw_ui(&self.shared_state);
+            frame.stream.acquire_cmd(&self.gpu).scope(|cmd| {
+                let _event_scope = cmd.event_scope_str("App::render::ui");
+                let _profiler_scope = self.gpu.profiler_scope(&frame.stream, "App::render::ui");
+                let (back_buffer_handle, back_buffer) = self.gpu.swapchain.lock().get_back_buffer();
 
-        frame.stream.acquire_cmd(&self.gpu).scope(|cmd| {
-            let _scope = cmd.event_scope_str("UI");
-            let (back_buffer_handle, back_buffer) = self.gpu.swapchain.lock().get_back_buffer();
+                cmd.resource_barriers(&[ResourceBarrier::transition(
+                    &back_buffer,
+                    0,
+                    ResourceStates::PRESENT,
+                    ResourceStates::RENDER_TARGET,
+                )]);
 
-            cmd.resource_barriers(&[ResourceBarrier::transition(
-                &back_buffer,
-                0,
-                ResourceStates::PRESENT,
-                ResourceStates::RENDER_TARGET,
-            )]);
+                cmd.clear_render_target_view(back_buffer_handle, &[0.0, 0.0, 0.0, 1.0]);
+                cmd.om_set_render_targets(&[back_buffer_handle], None);
+                cmd.set_viewports(&[d3d12::Viewport::builder()
+                    .width(self.window.size_in_pixels().0 as f32)
+                    .height(self.window.size_in_pixels().1 as f32)
+                    .build()]);
+                cmd.set_scissor_rects(&[d3d12::Rect::builder()
+                    .bottom(2160)
+                    .right(3840)
+                    .top(0)
+                    .left(0)
+                    .build()]);
 
-            cmd.clear_render_target_view(back_buffer_handle, &[0.0, 0.0, 0.0, 1.0]);
-            cmd.om_set_render_targets(&[back_buffer_handle], None);
-            cmd.set_viewports(&[d3d12::Viewport::builder()
-                .width(self.window.size_in_pixels().0 as f32)
-                .height(self.window.size_in_pixels().1 as f32)
-                .build()]);
-            cmd.set_scissor_rects(&[d3d12::Rect::builder()
-                .bottom(2160)
-                .right(3840)
-                .top(0)
-                .left(0)
-                .build()]);
+                self.gui.render(&self.gpu, cmd);
 
-            self.gui.render(&self.gpu, cmd);
-
-            cmd.resource_barriers(&[ResourceBarrier::transition(
-                &back_buffer,
-                0,
-                ResourceStates::RENDER_TARGET,
-                ResourceStates::PRESENT,
-            )]);
-        });
+                cmd.resource_barriers(&[ResourceBarrier::transition(
+                    &back_buffer,
+                    0,
+                    ResourceStates::RENDER_TARGET,
+                    ResourceStates::PRESENT,
+                )]);
+            });
+        }
 
         self.gpu.end_frame();
         self.gpu.present(self.shared_state.config.read().vsync);

@@ -15,7 +15,7 @@ pub enum CameraController {
 }
 
 impl CameraController {
-    pub const DEFAULT_YAW_PITCH: Vec2 = Vec2::new(220.0, 25.0);
+    pub const DEFAULT_YAW_PITCH: Vec2 = Vec2::new(220.0, 35.0);
     pub const fn new_orbit(target: Vec3, distance: f32) -> Self {
         Self::Orbit {
             target,

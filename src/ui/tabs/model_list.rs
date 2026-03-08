@@ -101,25 +101,24 @@ impl<P: ModelProvider> ModelListBase<P> {
         }
     }
 
+    const THUMBNAIL_QUOTA: usize = 2;
     fn render_thumbnails(&mut self, egui_ctx: &egui::Context) {
         let Some(entries) = self.provider.package_mut(self.current_package) else {
             return;
         };
 
+        let mut quota = Self::THUMBNAIL_QUOTA;
         for entry in entries.iter_mut().filter(|e| e.thumbnail.is_none()) {
             if let Some(world) = entry.thumbnail_world.take() {
                 if s_are_all_objects_loaded(&world, &self.scene.scene_renderer.parent) {
-                    let bb = world
-                        .query::<&AxisAlignedBBox>()
-                        .iter()
-                        .next()
-                        .map(|(_, bb)| *bb)
-                        .unwrap_or(AxisAlignedBBox::from_center_extents(Vec3::ZERO, Vec3::ONE));
+                    let bb = world.query::<&AxisAlignedBBox>().iter().next().map_or_else(
+                        || AxisAlignedBBox::from_center_extents(Vec3::ZERO, Vec3::ONE),
+                        |(_, bb)| *bb,
+                    );
 
                     self.thumbnail_scene.set_world(world);
                     self.thumbnail_scene.focus_fit_ortho(&bb);
-                    self.thumbnail_scene.render(1.0 / 60.0, (512, 512));
-                    match self.thumbnail_scene.render_to_texture() {
+                    match self.thumbnail_scene.render_to_texture((512, 512)) {
                         Ok(o) => {
                             entry.thumbnail = Some(o);
                         }
@@ -128,7 +127,10 @@ impl<P: ModelProvider> ModelListBase<P> {
                         }
                     }
                     entry.thumbnail_world = Some(self.thumbnail_scene.take_world());
-                    break;
+                    quota -= 1;
+                    if quota == 0 {
+                        break;
+                    }
                 } else {
                     entry.thumbnail_world = Some(world);
                 }
@@ -155,12 +157,10 @@ impl<P: ModelProvider> ModelListBase<P> {
             return;
         };
         if let Some(world) = entry.thumbnail_world.take() {
-            let bb = world
-                .query::<&AxisAlignedBBox>()
-                .iter()
-                .next()
-                .map(|(_, bb)| *bb)
-                .unwrap_or(AxisAlignedBBox::from_center_extents(Vec3::ZERO, Vec3::ONE));
+            let bb = world.query::<&AxisAlignedBBox>().iter().next().map_or_else(
+                || AxisAlignedBBox::from_center_extents(Vec3::ZERO, Vec3::ONE),
+                |(_, bb)| *bb,
+            );
             self.thumbnail_scene.set_world(world);
             self.thumbnail_scene.focus_fit_ortho(&bb);
             self.thumbnail_scene.controller.set_yaw_pitch(
@@ -184,7 +184,7 @@ impl<P: ModelProvider> ModelListBase<P> {
         ui.style_mut()
             .text_styles
             .insert(TextStyle::Button, FontId::proportional(16.0));
-        ui.style_mut().spacing.button_padding = Vec2::new(8.0, 4.0);
+        ui.style_mut().spacing.button_padding = Vec2::new(4.0, 2.0);
 
         egui::SidePanel::left(format!("{}_packages_list", self.provider.name())).show_inside(
             ui,
@@ -197,6 +197,8 @@ impl<P: ModelProvider> ModelListBase<P> {
                             ui.style_mut()
                                 .text_styles
                                 .insert(TextStyle::Button, FontId::proportional(16.0));
+                            ui.style_mut().spacing.button_padding = Vec2::new(8.0, 2.0);
+                            ui.style_mut().spacing.item_spacing = Vec2::ZERO;
 
                             let mut clicked = ui
                                 .selectable_value(
@@ -349,7 +351,7 @@ impl<P: ModelProvider> ModelListBase<P> {
             ui.horizontal(|ui| {
                 ui.checkbox(&mut self.hide_empty, "Hide empty");
                 ui.separator();
-                egui::Slider::new(&mut self.zoom, 0.1f32..=1.5f32)
+                egui::Slider::new(&mut self.zoom, 0.2f32..=1.4f32)
                     .text("Zoom")
                     .show_value(true)
                     .step_by(0.1)
@@ -390,7 +392,7 @@ impl<P: ModelProvider> ModelListBase<P> {
                             ..
                         } = self;
 
-                        ui.spacing_mut().item_spacing = vec2(16.0, 16.0);
+                        ui.spacing_mut().item_spacing = vec2(8.0, 8.0) * self.zoom;
                         for model in entries {
                             if self.hide_empty && model.is_empty() {
                                 continue;
@@ -419,13 +421,28 @@ impl<P: ModelProvider> ModelListBase<P> {
                                 },
                                 Color32::BLACK,
                             );
-                            card_painter.text(
-                                card_rect.left_bottom() + vec2(8.0, -5.0),
-                                egui::Align2::LEFT_BOTTOM,
-                                model.hash.to_string(),
-                                FontId::proportional(16.0),
-                                ui.visuals().text_color(),
-                            );
+                            if self.zoom >= 0.30 {
+                                card_painter.text(
+                                    card_rect.left_bottom() + vec2(8.0, -5.0),
+                                    egui::Align2::LEFT_BOTTOM,
+                                    model.hash.to_string(),
+                                    if self.zoom >= 0.40 {
+                                        FontId::proportional(16.0)
+                                    } else {
+                                        FontId::proportional(12.0)
+                                    },
+                                    ui.visuals().text_color(),
+                                );
+                            } else {
+                                card_painter.text(
+                                    card_rect.left_bottom() + vec2(8.0, -7.0),
+                                    egui::Align2::LEFT_BOTTOM,
+                                    model.hash.entry_index().to_string(),
+                                    FontId::proportional(14.0),
+                                    ui.visuals().text_color().gamma_multiply(0.6),
+                                );
+                            }
+
                             let option_count = model.option_count();
                             if option_count >= 1 {
                                 card_painter.text(
@@ -452,7 +469,7 @@ impl<P: ModelProvider> ModelListBase<P> {
                                     if *hovered_tag != model.hash {
                                         *hovered_tag = model.hash;
                                         // Use the existing thumbnail until we render the live one next frame
-                                        thumbnail.clone()
+                                        thumbnail
                                     } else {
                                         thumbnail_scene.output_srv()
                                     }
@@ -463,7 +480,7 @@ impl<P: ModelProvider> ModelListBase<P> {
                                 let tid = egui_d3d11.textures_mut().allocate_dx_temporary(
                                     srv.cpu_handle(),
                                     Some(egui::TextureFilter::Linear),
-                                    true,
+                                    false, // TODO(cohae): we're currently copying albedo which is fully transparent (technically)
                                 );
                                 card_painter.image(
                                     tid,

@@ -353,8 +353,8 @@ impl Scene {
         self.renderer.globals.scopes.chunk_model.bind(cmd);
 
         {
-            let _event = cmd.event_scope_str("Scene");
-            let _scope = self.renderer.gpu.profiler_scope(stream, "scene");
+            let _event = cmd.event_scope_str("Scene::render");
+            let _scope = self.renderer.gpu.profiler_scope(stream, "Scene::render");
             self.scene_renderer
                 .main_view
                 .gbuffer
@@ -622,20 +622,10 @@ impl Scene {
         self.scene_renderer.main_view.gbuffer.albedo.srv()
     }
 
-    pub fn render_to_texture(&self) -> anyhow::Result<RenderTarget> {
-        anyhow::bail!("render_to_texture isn't implemented yet")
-        // let texture = self
-        //     .renderer
-        //     .gpu
-        //     .create_texture2d(&self.surface.get_desc(), None)?;
-        // self.renderer
-        //     .gpu
-        //     .context()
-        //     .copy_resource(&self.surface, &texture);
-        // Ok(self
-        //     .renderer
-        //     .gpu
-        //     .create_shader_resource_view(&texture, None)?)
+    pub fn render_to_texture(&mut self, resolution: (u32, u32)) -> anyhow::Result<RenderTarget> {
+        self.render(1.0 / 60.0, resolution);
+
+        self.scene_renderer.main_view.gbuffer.albedo.take()
     }
 
     pub fn focus_on(&mut self, position: Vec3) {

@@ -240,14 +240,6 @@ impl FrameProfiler {
         name: &'static str,
     ) -> ScopeGuard<'a> {
         let mut state = self.state.lock();
-        // let Some(cmd) = stream.active_linear_cmd() else {
-        //     error!("FrameProfiler::scope({name:?}) needs an active linear CMD!");
-        //     return ScopeGuard {
-        //         profiler: self,
-        //         stream,
-        //         pending_span_index: usize::MAX,
-        //     };
-        // };
 
         if state.pending_spans.len() as u32 >= Self::MAX_PROFILER_SPANS {
             warn!("Exceeded maximum number of profiler spans");
