@@ -6,6 +6,7 @@ use static_assertions::assert_eq_size;
 use windows::Win32::Graphics::Direct3D12::*;
 
 use crate::{
+    pix::{pix3_begin_event_blob, pix_color},
     verify_ffi_type, CpuDescriptorHandle, DescriptorHeap, Format, GpuDescriptorHandle,
     GpuVirtualAddress, PipelineState, PrimitiveTopology, QueryHeap, QueryType, Resource,
     ResourceBarrier, Result, RootSignature, TextureCopyLocation,
@@ -64,11 +65,16 @@ impl GraphicsCommandList {
 
     /// Creates a new event scope with the given name. The event will automatically end when the returned RAII guard is dropped.
     #[must_use]
-    pub fn event_scope_str(&self, name: impl AsRef<str>) -> EventGuard {
-        // TODO(cohae): This cause a lot of debug layer noise since Microsoft doesn't want us using Unicode/Ansi markers, so we should see if we can construct PIX blobs at some point
-        #[cfg(feature = "event_scope_str")]
-        self.begin_event_str(name);
-        EventGuard { this: self.clone() }
+    pub fn event_scope(&self, name: impl AsRef<str>, (r, g, b): (u8, u8, u8)) -> EventGuard {
+        #[cfg(feature = "pix")]
+        self.begin_event_raw(
+            EventMetadata::Pix3Blob,
+            &pix3_begin_event_blob(pix_color(r, g, b), name.as_ref()),
+        );
+        EventGuard {
+            #[cfg(feature = "pix")]
+            this: self.clone(),
+        }
     }
 
     pub fn begin_query(&self, query_heap: &QueryHeap, query_type: QueryType, index: u32) {
@@ -405,12 +411,13 @@ impl VertexBufferView {
 }
 
 pub struct EventGuard {
+    #[cfg(feature = "pix")]
     this: GraphicsCommandList,
 }
 
 impl Drop for EventGuard {
     fn drop(&mut self) {
-        #[cfg(feature = "event_scope_str")]
+        #[cfg(feature = "pix")]
         self.this.end_event();
     }
 }

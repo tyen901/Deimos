@@ -32,6 +32,8 @@ pub use dsv::*;
 mod heap;
 pub use heap::*;
 
+pub(crate) mod pix;
+
 mod rasterizer;
 pub use rasterizer::*;
 

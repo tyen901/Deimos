@@ -326,7 +326,7 @@ impl Scene {
 
         let mut cmd_guard = stream.acquire_cmd(&self.renderer.gpu);
         let cmd = &mut *cmd_guard;
-        let _event = cmd.event_scope_str("Scene::render");
+        let _event = cmd.event_scope("Scene::render", (255, 255, 255));
 
         {
             let ext = self.renderer.externs.get_mut();

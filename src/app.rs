@@ -128,7 +128,7 @@ impl App {
             self.gui.draw_ui(&self.shared_state);
 
             frame.stream.acquire_cmd(&self.gpu).scope(|cmd| {
-                let _event_scope = cmd.event_scope_str("App::render::ui");
+                let _event_scope = cmd.event_scope("App::render::ui", (255, 0, 255));
                 let _profiler_scope = self.gpu.profiler_scope(&frame.stream, "App::render::ui");
                 let (back_buffer_handle, back_buffer) = self.gpu.swapchain.lock().get_back_buffer();
 
