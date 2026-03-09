@@ -12,6 +12,8 @@ d3d12 = { path = "../d3d12" }
 ahash = "0.8.12"
 anyhow.workspace = true
 assert-offset = "0.1"
+bit_field = "0.10.3"
+bitflags = "2.11.0"
 bumpalo = { version = "3.20.2", features = ["allocator-api2"] }
 bytemuck = { version = "1", features = ["derive"] }
 chroma-dbg = "0.1.1"
@@ -39,8 +41,6 @@ tiger-pkg.workspace = true
 tracing.workspace = true
 uuid = "1.21.0"
 windows.workspace = true
-bitflags = "2.11.0"
-bit_field = "0.10.3"
 
 [features]
 tracy = []

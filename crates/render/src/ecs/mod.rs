@@ -130,6 +130,13 @@ pub fn populate_submit_nodes(scene: &mut SceneRenderer, visibility: &ViewVisibil
                 submit_node_blocks,
             );
         }
+
+        {
+            profiling::scope!("sort stages");
+            for stage in submit_node_blocks.blocks_mut() {
+                stage.sort_by_key(|a| a.key);
+            }
+        }
     }
 }
 

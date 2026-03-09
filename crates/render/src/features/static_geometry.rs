@@ -538,13 +538,6 @@ impl FeatureRenderer for StaticInstancesRenderer {
                 submit_node_blocks.push(stage, node);
             }
         }
-
-        {
-            profiling::scope!("sort stages");
-            for stage in RenderStage::iter() {
-                submit_node_blocks.block_mut(stage).sort_by_key(|a| a.key);
-            }
-        }
     }
 
     fn submit(
