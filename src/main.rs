@@ -1,10 +1,16 @@
-use std::rc::Rc;
+use std::{fs::File, rc::Rc, sync::Mutex};
 
+use anyhow::Context;
 use app::App;
 use clap::Parser;
 use cli::AppArgs;
 use itertools::Itertools;
-use tracing_subscriber::filter::{EnvFilter, LevelFilter};
+use tracing_subscriber::{
+    filter::{EnvFilter, LevelFilter},
+    fmt,
+    layer::SubscriberExt,
+    util::SubscriberInitExt,
+};
 
 mod app;
 mod cli;
@@ -34,15 +40,22 @@ fn main() -> anyhow::Result<()> {
 
     fix_windows_console();
     std::panic::set_hook(Box::new(panic_hook::hook));
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            EnvFilter::builder()
-                .with_default_directive(LevelFilter::INFO.into())
-                .from_env_lossy(),
-        )
-        .pretty()
-        // .with_span_events(FmtSpan::NONE)
+    let log_file = File::create("deimos.log").context("creating log file")?;
+    let filter = EnvFilter::builder()
+        .with_default_directive(LevelFilter::INFO.into())
+        .from_env_lossy();
+
+    let file_layer = fmt::layer()
         .with_file(false)
+        .with_ansi(false)
+        .with_writer(Mutex::new(log_file));
+
+    let stderr_layer = fmt::layer().with_file(false).with_writer(std::io::stderr);
+
+    tracing_subscriber::registry()
+        .with(filter)
+        .with(file_layer)
+        .with(stderr_layer)
         .init();
 
     let args = AppArgs::parse();

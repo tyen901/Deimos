@@ -807,7 +807,7 @@ dependencies = [
  "tiger-pkg",
  "toml 0.9.12+spec-1.1.0",
  "tracing 0.2.0",
- "tracing-subscriber 0.3.0",
+ "tracing-subscriber",
  "tracy-client",
 ]
 
@@ -1722,7 +1722,7 @@ dependencies = [
  "generator",
  "scoped-tls",
  "tracing 0.1.41",
- "tracing-subscriber 0.3.19",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -3009,7 +3009,7 @@ dependencies = [
 [[package]]
 name = "tracing"
 version = "0.2.0"
-source = "git+https://github.com/cohaereo/tracing-lesspretty.git#0678c1ab004d1406a55a5f9f40b84ec0fc92f719"
+source = "git+https://github.com/cohaereo/tracing-lesspretty.git#0e73a624e6c0a07876dc82b86fcb621414219f38"
 dependencies = [
  "pin-project-lite",
  "portable-atomic",
@@ -3031,7 +3031,7 @@ dependencies = [
 [[package]]
 name = "tracing-attributes"
 version = "0.2.0"
-source = "git+https://github.com/cohaereo/tracing-lesspretty.git#0678c1ab004d1406a55a5f9f40b84ec0fc92f719"
+source = "git+https://github.com/cohaereo/tracing-lesspretty.git#0e73a624e6c0a07876dc82b86fcb621414219f38"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3051,7 +3051,7 @@ dependencies = [
 [[package]]
 name = "tracing-core"
 version = "0.2.0"
-source = "git+https://github.com/cohaereo/tracing-lesspretty.git#0678c1ab004d1406a55a5f9f40b84ec0fc92f719"
+source = "git+https://github.com/cohaereo/tracing-lesspretty.git#0e73a624e6c0a07876dc82b86fcb621414219f38"
 dependencies = [
  "once_cell",
  "portable-atomic",
@@ -3070,34 +3070,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tracing-log"
-version = "0.2.0"
-source = "git+https://github.com/cohaereo/tracing-lesspretty.git#0678c1ab004d1406a55a5f9f40b84ec0fc92f719"
-dependencies = [
- "log",
- "once_cell",
- "tracing-core 0.2.0",
-]
-
-[[package]]
-name = "tracing-subscriber"
-version = "0.3.0"
-source = "git+https://github.com/cohaereo/tracing-lesspretty.git#0678c1ab004d1406a55a5f9f40b84ec0fc92f719"
-dependencies = [
- "matchers",
- "nu-ansi-term 0.46.0",
- "once_cell",
- "portable-atomic-util",
- "regex",
- "sharded-slab",
- "smallvec",
- "thread_local",
- "tracing 0.2.0",
- "tracing-core 0.2.0",
- "tracing-log 0.2.0 (git+https://github.com/cohaereo/tracing-lesspretty.git)",
-]
-
-[[package]]
 name = "tracing-subscriber"
 version = "0.3.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3112,7 +3084,7 @@ dependencies = [
  "thread_local",
  "tracing 0.1.41",
  "tracing-core 0.1.33",
- "tracing-log 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tracing-log",
 ]
 
 [[package]]
