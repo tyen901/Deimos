@@ -7,6 +7,7 @@ pub use container::*;
 pub use definitions::*;
 use deimos_data::tfx::ExternIndex;
 use glam::{Mat4, Vec4};
+use gpu_allocator::d3d12::Resource;
 
 use crate::{
     asset::{Handle, texture::Texture},
@@ -64,6 +65,27 @@ impl ExternAccessorExt for &dyn ExternAccessor {
     }
 }
 
+impl<T: ExternAccessor> ExternAccessorExt for T {
+    fn get_extern_value<U: Sized + Clone + ExternValue + 'static>(
+        &self,
+        index: ExternIndex,
+        offset: usize,
+    ) -> Option<U> {
+        let (ptr, typeid) = self.get_value_ptr(index, offset)?;
+        if TypeId::of::<U>() != typeid {
+            error!(
+                "Extern type mismatch for {index:?}+0x{offset:X}: expected {:?} ({}), found {:?}",
+                TypeId::of::<U>(),
+                std::any::type_name::<U>(),
+                typeid
+            );
+            return None;
+        }
+        let value = unsafe { &*ptr.cast::<U>() };
+        Some(value.clone())
+    }
+}
+
 #[derive(Default, Clone)]
 pub enum TextureView {
     #[default]
@@ -73,25 +95,13 @@ pub enum TextureView {
 }
 
 impl TextureView {
-    // pub fn get_srv<F>(&self, f: F)
-    // where
-    //     F: FnOnce(&d3d11::ShaderResourceView),
-    // {
-    //     match self {
-    //         TextureView::Surface(surface) => {
-    //             if let Some(srv) = Renderer::instance().surfaces().get(*surface).srv.as_ref() {
-    //                 f(srv)
-    //             }
-    //         }
-    //         TextureView::Resource(texture) => {
-    //             if let Some(t) = texture.get() {
-    //                 f(&t.view)
-    //             }
-    //         }
-    //         TextureView::Raw(srv) => f(srv),
-    //         TextureView::None => {}
-    //     };
-    // }
+    pub fn get_srv(&self) -> Option<ResourceView> {
+        match self {
+            Self::None => None,
+            Self::View(resource_view) => Some(*resource_view),
+            Self::Resource(handle) => handle.get_ref(|t| t.srv),
+        }
+    }
 
     pub const fn is_none(&self) -> bool {
         matches!(self, Self::None)
@@ -109,11 +119,11 @@ impl Debug for TextureView {
     }
 }
 
-// impl From<SurfaceHandle> for TextureView {
-//     fn from(surface: SurfaceHandle) -> Self {
-//         TextureView::Surface(surface)
-//     }
-// }
+impl From<ResourceView> for TextureView {
+    fn from(value: ResourceView) -> Self {
+        Self::View(value)
+    }
+}
 
 impl From<Handle<Texture>> for TextureView {
     fn from(texture: Handle<Texture>) -> Self {

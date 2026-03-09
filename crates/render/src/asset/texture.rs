@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
 use anyhow::Context;
 use d3d12::{
@@ -57,17 +57,34 @@ impl Texture {
         Ok((texture, texture_data))
     }
 
-    pub fn load(gpu: &Arc<Gpu>, hash: tiger_pkg::TagHash) -> anyhow::Result<Self> {
+    pub fn load_tag(gpu: &Arc<Gpu>, hash: tiger_pkg::TagHash) -> anyhow::Result<Self> {
         let hash = hash.into();
         let _span = debug_span!("Load texture", ?hash).entered();
         let (header, texture_data) = Self::load_data(hash, true)?;
 
-        let resource_desc = d3d12::ResourceDesc::new(header.dimension())
-            .width(header.width as u64)
-            .height(header.height as u32)
-            .depth_or_array_size(header.depth.max(header.array_size))
-            .format(header.format.into())
-            .mip_levels(header.mip_count());
+        Self::load(
+            gpu,
+            &TextureDesc {
+                dimension: header.dimension(),
+                name: format!("texture_tag {hash}").into(),
+                format: header.format.into(),
+                width: header.width as u32,
+                height: header.height as u32,
+                depth: header.depth,
+                array_size: header.array_size,
+                num_mips: header.mip_count(),
+            },
+            &texture_data,
+        )
+    }
+
+    pub fn load(gpu: &Arc<Gpu>, desc: &TextureDesc<'_>, data: &[u8]) -> anyhow::Result<Self> {
+        let resource_desc = d3d12::ResourceDesc::new(desc.dimension)
+            .width(desc.width as u64)
+            .height(desc.height)
+            .depth_or_array_size(desc.depth.max(desc.array_size))
+            .format(desc.format)
+            .mip_levels(desc.num_mips);
 
         let resource = gpu.allocate_resource(&ResourceCreateDesc {
             name: "texture",
@@ -83,7 +100,7 @@ impl Texture {
             resource_type: &gpu_allocator::d3d12::ResourceType::Placed,
         })?;
 
-        let num_subresources = header.mip_count() as u32 * header.array_size as u32;
+        let num_subresources = desc.num_mips as u32 * desc.array_size as u32;
         let footprint = gpu.get_copyable_footprints(&resource_desc, 0, num_subresources, 0)?;
 
         let upload_buffer = gpu.allocate_upload_buffer(footprint.total_bytes)?;
@@ -95,15 +112,15 @@ impl Texture {
             let mut src_offset: usize = 0;
 
             for (subresource_idx, layout) in footprint.layouts.iter().enumerate() {
-                let mip = subresource_idx as u32 % header.mip_count() as u32;
+                let mip = subresource_idx as u32 % desc.num_mips as u32;
 
-                let mip_width = (header.width >> mip).max(1) as u32;
-                let mip_height = (header.height >> mip).max(1) as u32;
-                let mip_depth = (header.depth >> mip).max(1) as u32;
+                let mip_width = (desc.width >> mip).max(1);
+                let mip_height = (desc.height >> mip).max(1);
+                let mip_depth = (desc.depth >> mip).max(1) as u32;
 
-                let (src_row_pitch, _) = header.format.calculate_pitch(mip_width, mip_height);
+                let (src_row_pitch, _) = desc.format.calculate_pitch(mip_width, mip_height);
 
-                let block_height: usize = if header.format.is_compressed() {
+                let block_height: usize = if desc.format.is_compressed() {
                     mip_height.div_ceil(4)
                 } else {
                     mip_height
@@ -124,8 +141,7 @@ impl Texture {
                         let dst_end = dst_start + src_row_pitch;
 
                         dst[dst_start..dst_end].copy_from_slice(
-                            texture_data
-                                .get(src_start..src_end)
+                            data.get(src_start..src_end)
                                 .context("Source slice out of range")?,
                         );
                     }
@@ -137,7 +153,8 @@ impl Texture {
             upload_buffer.resource().unmap(0);
         }
 
-        let upload_fence = gpu.cmd_scope(|cmd| {
+        // let upload_fence =
+        gpu.cmd_scope(|cmd| {
             cmd.resource_barriers(&[ResourceBarrier::transition(
                 resource.resource(),
                 0,
@@ -162,41 +179,28 @@ impl Texture {
             Ok(())
         })?;
 
-        resource
-            .resource()
-            .set_debug_name(format!("texture {hash}"));
-
-        let srv_desc = if header.depth > 1 {
-            ShaderResourceViewDesc::texture_3d(
-                header.format.into(),
-                0,
-                header.mip_count() as u32,
-                0.0,
-            )
-        } else if header.array_size > 1 {
+        let srv_desc = if desc.depth > 1 {
+            ShaderResourceViewDesc::texture_3d(desc.format, 0, desc.num_mips as u32, 0.0)
+        } else if desc.array_size > 1 {
             ShaderResourceViewDesc::texture_2d_array(
-                header.format.into(),
+                desc.format,
                 0,
-                header.mip_count() as u32,
+                desc.num_mips as u32,
                 0.0,
                 0,
-                0..header.array_size as u32,
+                0..desc.array_size as u32,
             )
         } else {
-            ShaderResourceViewDesc::texture_2d(
-                header.format.into(),
-                0,
-                header.mip_count() as u32,
-                0.0,
-                0,
-            )
+            ShaderResourceViewDesc::texture_2d(desc.format, 0, desc.num_mips as u32, 0.0, 0)
         };
 
         let srv = gpu.resource_heap.lock().allocate_srv(
-            format!("texture_srv {}", hash),
+            desc.name.to_string(),
             resource.resource(),
             &srv_desc,
         );
+
+        resource.resource().set_debug_name(&desc.name);
 
         Ok(Self {
             gpu: gpu.clone(),
@@ -213,5 +217,36 @@ impl Texture {
 impl Drop for Texture {
     fn drop(&mut self) {
         self.gpu.resource_heap.lock().free_srv(self.srv);
+    }
+}
+
+pub struct TextureDesc<'a> {
+    pub dimension: d3d12::ResourceDimension,
+    pub name: Cow<'a, str>,
+    pub format: d3d12::Format,
+    pub width: u32,
+    pub height: u32,
+    pub depth: u16,
+    pub array_size: u16,
+    pub num_mips: u16,
+}
+
+impl<'a> TextureDesc<'a> {
+    pub fn texture_2d(
+        name: impl AsRef<str>,
+        format: d3d12::Format,
+        width: u32,
+        height: u32,
+    ) -> Self {
+        Self {
+            dimension: d3d12::ResourceDimension::Texture2D,
+            name: Cow::Owned(name.as_ref().to_string()),
+            format,
+            width,
+            height,
+            depth: 1,
+            array_size: 1,
+            num_mips: 1,
+        }
     }
 }

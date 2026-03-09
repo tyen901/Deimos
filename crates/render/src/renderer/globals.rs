@@ -93,15 +93,15 @@ pub struct GlobalTextures {
 impl GlobalTextures {
     pub fn load(gpu: &Arc<Gpu>, data: &SRenderGlobalsData) -> anyhow::Result<Self> {
         Ok(Self {
-            specular_tint_lookup: Texture::load(gpu, data.unk30.specular_tint_lookup_texture)?,
-            specular_lobe_lookup: Texture::load(gpu, data.unk30.specular_lobe_lookup_texture)?,
-            specular_lobe_3d_lookup: Texture::load(
+            specular_tint_lookup: Texture::load_tag(gpu, data.unk30.specular_tint_lookup_texture)?,
+            specular_lobe_lookup: Texture::load_tag(gpu, data.unk30.specular_lobe_lookup_texture)?,
+            specular_lobe_3d_lookup: Texture::load_tag(
                 gpu,
                 data.unk30.specular_lobe_3d_lookup_texture,
             )?,
-            iridescence_lookup: Texture::load(gpu, data.unk30.iridescence_lookup_texture)?,
-            water_displacement_unk00: Texture::load(gpu, data.unk3c.water_displacement_unk00)?,
-            water_displacement_unk08: Texture::load(gpu, data.unk3c.water_displacement_unk08)?,
+            iridescence_lookup: Texture::load_tag(gpu, data.unk30.iridescence_lookup_texture)?,
+            water_displacement_unk00: Texture::load_tag(gpu, data.unk3c.water_displacement_unk00)?,
+            water_displacement_unk08: Texture::load_tag(gpu, data.unk3c.water_displacement_unk08)?,
         })
     }
 }

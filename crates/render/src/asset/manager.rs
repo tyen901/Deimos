@@ -154,7 +154,7 @@ fn load_asset(
 ) {
     match request.type_id {
         Texture::ASSET_TYPE => {
-            match Texture::load(gpu, request.tag) {
+            match Texture::load_tag(gpu, request.tag) {
                 Ok(o) => {
                     request.handle.update(o.into());
                 }

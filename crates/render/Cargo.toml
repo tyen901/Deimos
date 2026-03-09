@@ -41,6 +41,8 @@ tiger-pkg.workspace = true
 tracing.workspace = true
 uuid = "1.21.0"
 windows.workspace = true
+rand_core = "0.10.0"
+rand_chacha = "0.10.0"
 
 [features]
 tracy = []

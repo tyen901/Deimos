@@ -10,6 +10,7 @@ pub mod alloc;
 pub mod buffer;
 pub mod command_list;
 pub mod frame;
+pub mod magic_textures;
 pub mod native_command_list;
 pub mod render_target;
 pub mod stream;
@@ -50,6 +51,7 @@ use crate::{
     gpu::{
         alloc::{descriptors::DescriptorHeapAllocator, resource::OwnedResource},
         frame::FrameContext,
+        magic_textures::MagicTextureContainer,
         native_command_list::{AsyncCommandListRing, NativeCommandList},
         pipeline_cache::PipelineCache,
         profiler::ScopeGuard,
@@ -81,6 +83,8 @@ pub struct Gpu {
 
     // TODO(cohae): This belongs in renderer
     pub extern_source: RwLock<BaseExternSource>,
+
+    pub magic_textures: MagicTextureContainer,
 }
 
 unsafe impl Sync for Gpu {}
@@ -183,6 +187,7 @@ impl Gpu {
             frame_index: AtomicUsize::new(0),
             bin: Mutex::new(Vec::new()),
             extern_source: RwLock::new(BaseExternSource::None),
+            magic_textures: MagicTextureContainer::default(),
         })
     }
 

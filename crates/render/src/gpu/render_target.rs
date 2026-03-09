@@ -150,7 +150,10 @@ pub struct DepthBuffer {
     pub resource: OwnedResource,
     size: (u32, u32),
     dsv_heap: d3d12::DescriptorHeap,
+    srv: ResourceView,
     gpu: Arc<Gpu>,
+
+    current_state: d3d12::ResourceStates,
 }
 
 impl DepthBuffer {
@@ -162,7 +165,7 @@ impl DepthBuffer {
             resource_desc: d3d12::ResourceDesc::new(d3d12::ResourceDimension::Texture2D)
                 .width(width as u64)
                 .height(height)
-                .format(d3d12::Format::R32FloatX8x24Typeless)
+                .format(d3d12::Format::R32g8x24Typeless)
                 .flags(ResourceFlags::ALLOW_DEPTH_STENCIL)
                 .as_ref(),
             castable_formats: &[],
@@ -191,11 +194,26 @@ impl DepthBuffer {
             rtv_heap.cpu_descriptor_handle_for_heap_start(),
         );
 
+        let srv = gpu.resource_heap.lock().allocate_srv(
+            "depth",
+            resource.resource(),
+            &d3d12::ShaderResourceViewDesc::texture_2d(
+                d3d12::Format::R32g8x24Typeless,
+                0,
+                1,
+                0.0,
+                0,
+            ),
+        );
+
         Ok(Self {
             gpu: gpu.clone(),
             resource,
             dsv_heap: rtv_heap,
+            srv,
             size: (width, height),
+
+            current_state: d3d12::ResourceStates::DEPTH_WRITE,
         })
     }
 
@@ -205,6 +223,22 @@ impl DepthBuffer {
 
     pub fn gpu_handle(&self) -> d3d12::GpuDescriptorHandle {
         self.dsv_heap.gpu_descriptor_handle_for_heap_start()
+    }
+
+    pub fn transition(&mut self, cmd: &d3d12::GraphicsCommandList, state: d3d12::ResourceStates) {
+        if self.current_state != state {
+            cmd.resource_barriers(&[d3d12::ResourceBarrier::transition(
+                self.resource.resource(),
+                0,
+                self.current_state,
+                state,
+            )]);
+            self.current_state = state;
+        }
+    }
+
+    pub const fn srv(&self) -> ResourceView {
+        self.srv
     }
 
     /// Resize the depth buffer.

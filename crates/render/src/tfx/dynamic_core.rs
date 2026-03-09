@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{any::TypeId, sync::Arc};
 
 use anyhow::Context;
 use deimos_data::{
@@ -12,10 +12,15 @@ use tiger_pkg::{TagHash, package_manager};
 use crate::{
     asset::{AssetManager, Handle, texture::Texture},
     gpu::command_list::CommandList,
-    tfx::expression_vm::{
-        self,
-        interpreter::InterpreterState,
-        opcodes::{ExpressionDataSource, Opcode, OpcodeIterator, get_data_access_from_bytecode},
+    tfx::{
+        expression_vm::{
+            self,
+            interpreter::InterpreterState,
+            opcodes::{
+                ExpressionDataSource, Opcode, OpcodeIterator, get_data_access_from_bytecode,
+            },
+        },
+        externs::{ExternAccessorExt, TextureView},
     },
 };
 
@@ -41,8 +46,8 @@ pub struct DynamicCore {
     pub textures: Vec<(u32, ResolvedTextureSource)>,
     has_dynamic_textures: bool,
 
-    initial_constants: Vec<Vec4>,
-    cbuffer_size: usize,
+    pub initial_constants: Vec<Vec4>,
+    pub cbuffer_size: usize,
 
     pub data_sources: ExpressionDataSource,
 }
@@ -174,11 +179,32 @@ impl DynamicCore {
                         .get_ref(|v| cmd.set_shader_resource_view(self.stage, *slot, Some(v.srv)));
                 }
                 ResolvedTextureSource::Dynamic {
-                    extern_index: _,
-                    offset: _,
+                    extern_index,
+                    offset,
                 } => {
-                    // TODO
-                    cmd.set_shader_resource_view(self.stage, *slot, None);
+                    if let Some(view) = cmd
+                        .externs
+                        .get_extern_value::<TextureView>(*extern_index, *offset as usize)
+                        .and_then(|v| v.get_srv())
+                    {
+                        cmd.set_shader_resource_view(self.stage, *slot, Some(view));
+                    } else {
+                        match cmd
+                            .gpu()
+                            .magic_textures
+                            .get_texture(cmd.gpu(), format!("{extern_index:?}->_0x{offset:X}"))
+                        {
+                            Ok(srv) => {
+                                cmd.set_shader_resource_view(self.stage, *slot, Some(srv));
+                            }
+                            Err(e) => {
+                                error!(
+                                    "Failed to create magic texture for {extern_index:?}+0x{offset:X}: {e:?}"
+                                );
+                                cmd.set_shader_resource_view(self.stage, *slot, None);
+                            }
+                        }
+                    }
                 }
             }
         }

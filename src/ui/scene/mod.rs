@@ -11,7 +11,10 @@ use deimos_render::{
         alloc::descriptors::ResourceView, render_target::RenderTarget, stream::ParallelCommandBlock,
     },
     renderer::{Renderer, packet::FramePacket, scene::SceneRenderer},
-    tfx::externs::{self, get_global_channel_name},
+    tfx::{
+        externs::{self, get_global_channel_name},
+        scope::FrameScope,
+    },
     util::range::RangeChunks,
     visibility::ViewVisibility,
 };
@@ -19,7 +22,7 @@ use egui::{
     Color32, FontId, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2, Widget, load::SizedTexture,
     vec2,
 };
-use glam::{Vec3, vec4};
+use glam::{Vec3, Vec4, vec4};
 use google_material_symbols::GoogleMaterialSymbols;
 use hecs::World;
 
@@ -334,8 +337,8 @@ impl Scene {
                 render_time: self.start_time.elapsed().as_secs_f32(),
                 delta_game_time: delta_time,
                 unk10: 0.5, // misc.time_of_day,
-                exposure_time: 0.016666668,
-                exposure_scale: 1.0,          // view.settings().exposure_scale,
+                exposure_time: 1.0 / 60.0,
+                exposure_scale: 0.3,          // view.settings().exposure_scale,
                 exposure_illum_relative: 1.0, // view.settings().exposure_illum_relative,
                 // specular_tint_lookup: global_tex.specular_tint_lookup.view.clone().into(),
                 // specular_lobe_lookup: global_tex.specular_lobe_lookup.view.clone().into(),
@@ -382,6 +385,45 @@ impl Scene {
             ext.view.camera_to_projective = self.camera.camera_to_projective;
             ext.view.derive_matrices(resolution);
             self.scene_renderer.main_view.culling_frustum = self.camera.culling_frustum.clone();
+
+            ext.deferred.deferred_depth = self.scene_renderer.main_view.gbuffer.depth.srv().into();
+
+            let time = self.start_time.elapsed().as_secs_f32();
+            self.renderer
+                .globals
+                .scopes
+                .frame
+                .write_initial_constants(
+                    FrameScope {
+                        game_time: ext.frame.game_time, //self.start_time.elapsed().as_secs_f32(),
+                        render_time: ext.frame.render_time, //self.start_time.elapsed().as_secs_f32(),
+                        delta_game_time: ext.frame.delta_game_time,
+                        exposure_time: ext.frame.exposure_time,
+
+                        // exposure_scale: 1.,
+                        // exposure_illum_relative_glow: 1.,
+                        // exposure_illum_relative: 1.,
+                        // exposure_scale_for_shading: 1.,
+                        exposure_scale: ext.frame.exposure_scale,
+                        exposure_illum_relative_glow: ext.frame.exposure_illum_relative * 16.0,
+                        exposure_scale_for_shading: ext.frame.exposure_scale,
+                        exposure_illum_relative: ext.frame.exposure_illum_relative,
+
+                        random_seed_scales: vec4(
+                            time.mul_add(60.0, 33.75) * 1.258699,
+                            time.mul_add(60.0, 60.0) * 0.9583125,
+                            time.mul_add(60.0, 60.0) * 8.789123,
+                            time.mul_add(60.0, 33.75) * 2.311535,
+                        ),
+                        unk3: vec4(0.5, 0.5, 0.0, 0.0),
+                        unk4: vec4(1.0, 1.0, 0.0, 1.0),
+                        unk5: vec4(0.00, -f32::NAN, 512.00, 0.00),
+                        unk6: Vec4::ONE,
+                    }
+                    .to_array()
+                    .as_ref(),
+                )
+                .expect("failed to copy frame constants");
         }
 
         self.renderer.globals.scopes.frame.bind(cmd);
@@ -393,6 +435,11 @@ impl Scene {
                 .main_view
                 .gbuffer
                 .transition(cmd, d3d12::ResourceStates::RENDER_TARGET);
+            self.scene_renderer
+                .main_view
+                .gbuffer
+                .depth
+                .transition(cmd, d3d12::ResourceStates::DEPTH_WRITE);
             self.scene_renderer.main_view.gbuffer.clear(cmd);
             self.scene_renderer.main_view.gbuffer.bind(cmd);
 
@@ -488,6 +535,12 @@ impl Scene {
                         RenderStage::DecalsAdditive,
                     );
                 }
+
+                self.scene_renderer
+                    .main_view
+                    .gbuffer
+                    .depth
+                    .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
 
                 {
                     self.renderer.globals.scopes.transparent.bind(cmd);

@@ -54,6 +54,7 @@ impl SceneRenderer {
             block: block.clone(),
             frame_packet: &self.frame_packet,
         };
+        cmd.begin_event_str(stage.to_string());
 
         let range = 0..view.submit_node_blocks.block(stage).len();
 
@@ -99,6 +100,8 @@ impl SceneRenderer {
         sync_job.wait();
 
         stream.end_parallel(block);
+
+        cmd.end_event();
     }
 }
 
