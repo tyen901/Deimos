@@ -48,6 +48,10 @@ macro_rules! extern_container {
                     _ => None,
                 }
             }
+
+            fn get_global_channel(&self, index: u8) -> Vec4 {
+                self.globals[index as usize]
+            }
         }
 
         impl Default for ExternContainer {
@@ -108,6 +112,10 @@ macro_rules! local_extern_container {
                     )*
                     _ => self.base.get_value_ptr(index, offset),
                 }
+            }
+
+            fn get_global_channel(&self, index: u8) -> Vec4 {
+                self.base.get_global_channel(index)
             }
         }
     }

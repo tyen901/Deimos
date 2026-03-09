@@ -20,7 +20,6 @@ use egui::{
 use glam::Vec3;
 use google_material_symbols::GoogleMaterialSymbols;
 use hecs::World;
-use tracing::instrument::WithCollector;
 
 use crate::ui::{
     scene::controller::CameraController,
@@ -326,6 +325,7 @@ impl Scene {
 
         {
             let ext = self.renderer.externs.get_mut();
+            ext.globals = self.scene_renderer.global_channels;
 
             *ext.frame = externs::Frame {
                 game_time: self.start_time.elapsed().as_secs_f32(),

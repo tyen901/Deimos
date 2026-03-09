@@ -70,12 +70,12 @@ impl DecompilationResult {
     pub fn pretty_print(&self) -> String {
         let mut r = String::new();
 
-        // if !self.samplers.is_empty() {
-        //     r.push_str("// Samplers\n");
-        //     for (slot, _stage, expr) in &self.samplers {
-        //         r.push_str(&format!("SamplerState s{slot} = {expr};\n"));
-        //     }
-        // }
+        if !self.samplers.is_empty() {
+            r.push_str("// Samplers\n");
+            for (slot, _stage, expr) in &self.samplers {
+                r.push_str(&format!("SamplerState s{slot} = {expr};\n"));
+            }
+        }
 
         if !self.textures.is_empty() {
             r.push_str("\n// Textures\n");
@@ -84,24 +84,24 @@ impl DecompilationResult {
             }
         }
 
-        // if !self.uavs.is_empty() {
-        //     r.push_str("\n// UAVs\n");
-        //     for (slot, _stage, expr) in &self.uavs {
-        //         r.push_str(&format!("RWTexture<float4> t{slot} = {expr};\n"));
-        //     }
-        // }
+        if !self.uavs.is_empty() {
+            r.push_str("\n// UAVs\n");
+            for (slot, _stage, expr) in &self.uavs {
+                r.push_str(&format!("RWTexture<float4> t{slot} = {expr};\n"));
+            }
+        }
 
-        // if !self.cb_expressions.is_empty() {
-        //     r.push_str("\n// Constant buffer\n");
-        //     for (slot, expr, is_float4x4) in &self.cb_expressions {
-        //         let slot_fixed = if *is_float4x4 {
-        //             format!("{slot}..={}", slot + 3)
-        //         } else {
-        //             format!("{slot}")
-        //         };
-        //         r.push_str(&format!("cb0[{slot_fixed}] = {expr};\n"));
-        //     }
-        // }
+        if !self.cb_expressions.is_empty() {
+            r.push_str("\n// Constant buffer\n");
+            for (slot, expr, is_float4x4) in &self.cb_expressions {
+                let slot_fixed = if *is_float4x4 {
+                    format!("{slot}..={}", slot + 3)
+                } else {
+                    format!("{slot}")
+                };
+                r.push_str(&format!("cb0[{slot_fixed}] = {expr};\n"));
+            }
+        }
 
         r
     }

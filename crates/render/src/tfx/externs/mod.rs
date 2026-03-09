@@ -30,6 +30,8 @@ trait Extern {
 
 pub trait ExternAccessor {
     fn get_value_ptr(&self, index: ExternIndex, offset: usize) -> Option<(*const (), TypeId)>;
+
+    fn get_global_channel(&self, index: u8) -> Vec4;
 }
 
 pub trait ExternAccessorExt {
@@ -230,6 +232,13 @@ impl ExternAccessor for BaseExternSource {
         match self {
             Self::None => None,
             Self::Renderer(renderer) => renderer.externs.get_value_ptr(index, offset),
+        }
+    }
+
+    fn get_global_channel(&self, index: u8) -> Vec4 {
+        match self {
+            BaseExternSource::None => Vec4::ONE,
+            BaseExternSource::Renderer(renderer) => renderer.externs.globals[index as usize],
         }
     }
 }

@@ -178,6 +178,7 @@ impl DynamicCore {
                     offset: _,
                 } => {
                     // TODO
+                    cmd.set_shader_resource_view(self.stage, *slot, None);
                 }
             }
         }

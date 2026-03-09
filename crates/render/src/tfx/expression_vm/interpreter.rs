@@ -594,14 +594,12 @@ impl<'a> InterpreterState<'a> {
                     let channel = ptr[1];
 
                     // Direct indexing is safe here, as globals is 256 elements long
-                    // let val = Renderer::instance().externs.globals[channel as usize];
-                    // warn!("TODO: global channels");
-                    let val = match channel {
-                        124 => Vec4::X * 0.1,  // 138 in tfs
-                        125 => Vec4::X * 1.0,  // 139 in tfs
-                        128 => Vec4::X * 10.0, // ????
-                        _ => Vec4::ONE,
+                    let val = if let Some(externs) = self.externs {
+                        externs.get_global_channel(channel)
+                    } else {
+                        Vec4::ONE
                     };
+
                     cached_top = self.push(val)?;
                 }
                 Opcode::PushObjectChannelVector => {
