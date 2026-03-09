@@ -65,7 +65,7 @@ impl Scene {
             camera,
             controller: CameraController::new_first_person(),
             subscribed_features: FeatureRendererSubscription::all(),
-            render_mode: RenderMode::Lookdev,
+            render_mode: RenderMode::Albedo,
             world: World::new(),
             frametimes: Vec::new(),
             last_frame_time: Instant::now(),
@@ -578,15 +578,15 @@ impl Scene {
         //     .0
         //     .on_hover_text("Scene Settings");
 
-        if ui
-            .selectable_label(
-                false, // self.show_surface_viewer,
-                GoogleMaterialSymbols::ImageSearch.to_string(),
-            )
-            .clicked()
-        {
-            // self.show_surface_viewer = !self.show_surface_viewer;
-        }
+        // if ui
+        //     .selectable_label(
+        //         false, // self.show_surface_viewer,
+        //         GoogleMaterialSymbols::ImageSearch.to_string(),
+        //     )
+        //     .clicked()
+        // {
+        //     // self.show_surface_viewer = !self.show_surface_viewer;
+        // }
 
         if ui
             .selectable_label(
@@ -598,7 +598,9 @@ impl Scene {
             self.show_channel_editor = !self.show_channel_editor;
         }
 
-        self.render_mode.ui(ui);
+        ui.add_enabled_ui(false, |ui| {
+            self.render_mode.ui(ui);
+        });
         self.subscribed_features.show_input(ui);
     }
 

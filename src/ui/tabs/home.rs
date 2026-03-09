@@ -57,6 +57,7 @@ impl HomeTab {
                     &shared_state.renderer,
                 ))));
             }
+            uis[0].disable();
             if uis[0]
                 .d_button(format!("{} STATICS", GoogleMaterialSymbols::Landscape))
                 .clicked()
@@ -73,18 +74,18 @@ impl HomeTab {
 
         ui.separator();
 
-        ui.with_layout(
-            egui::Layout::top_down_justified(egui::Align::Center),
-            |ui| {
-                if ui
-                    .d_button(format!("{} Tag Lookup", GoogleMaterialSymbols::Search))
-                    .clicked()
-                {
-                    // self.added_nodes
-                    //     .push(Tab::TagLookup(TagLookupTab::default()));
-                }
-            },
-        );
+        // ui.with_layout(
+        //     egui::Layout::top_down_justified(egui::Align::Center),
+        //     |ui| {
+        //         if ui
+        //             .d_button(format!("{} Tag Lookup", GoogleMaterialSymbols::Search))
+        //             .clicked()
+        //         {
+        //             // self.added_nodes
+        //             //     .push(Tab::TagLookup(TagLookupTab::default()));
+        //         }
+        //     },
+        // );
 
         result
     }
