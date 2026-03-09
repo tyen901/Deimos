@@ -275,14 +275,15 @@ impl Gui {
             .egui_sdl3
             .end_frame(&mut self.sdl.video().unwrap())
             .unwrap();
-        if let Err(e) = self.egui_d3d12.paint(
-            gpu,
-            cmd,
-            output,
-            self.egui_sdl3.context(),
-            self.window.size(),
-        ) {
-            error!("Failed to paint gui: {}", e);
-        }
+
+        self.egui_d3d12
+            .paint(
+                gpu,
+                cmd,
+                output,
+                self.egui_sdl3.context(),
+                self.window.size(),
+            )
+            .expect("failed to paint GUI");
     }
 }

@@ -94,9 +94,7 @@ fn main() -> anyhow::Result<()> {
             }
         }
 
-        if let Err(e) = app.render(&event_pump) {
-            error!("Failed to render frame {}: {e:?}", app.gpu.frame_index());
-        };
+        app.render(&event_pump).expect("failed to render frame");
     }
 
     info!("Application shutting down...");
