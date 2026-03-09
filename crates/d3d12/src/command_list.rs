@@ -66,6 +66,7 @@ impl GraphicsCommandList {
     #[must_use]
     pub fn event_scope_str(&self, name: impl AsRef<str>) -> EventGuard {
         // TODO(cohae): This cause a lot of debug layer noise since Microsoft doesn't want us using Unicode/Ansi markers, so we should see if we can construct PIX blobs at some point
+        #[cfg(feature = "event_scope_str")]
         self.begin_event_str(name);
         EventGuard { this: self.clone() }
     }
@@ -409,6 +410,7 @@ pub struct EventGuard {
 
 impl Drop for EventGuard {
     fn drop(&mut self) {
+        #[cfg(feature = "event_scope_str")]
         self.this.end_event();
     }
 }
