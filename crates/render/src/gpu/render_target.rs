@@ -198,7 +198,7 @@ impl DepthBuffer {
             "depth",
             resource.resource(),
             &d3d12::ShaderResourceViewDesc::texture_2d(
-                d3d12::Format::R32g8x24Typeless,
+                d3d12::Format::R32FloatX8x24Typeless,
                 0,
                 1,
                 0.0,
