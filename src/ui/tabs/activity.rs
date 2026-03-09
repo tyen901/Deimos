@@ -157,11 +157,9 @@ impl ActivityTab {
                 );
             }
             ActivityLoadState::Loaded => {
-                self.scene.show(ui, egui_d3d12, ui.available_size());
                 if let Some(world) = map.world.as_mut() {
                     std::mem::swap(world, &mut self.scene.world);
-                    self.scene
-                        .show(ui, egui_d3d12, ui.available_size_before_wrap());
+                    self.scene.show(ui, egui_d3d12, ui.available_size());
                     std::mem::swap(&mut self.scene.world, world);
                 }
             }
