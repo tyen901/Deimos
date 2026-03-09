@@ -30,7 +30,7 @@ pub fn initialize_package_manager<'a>(
     let pm = Arc::new(
         PackageManager::new(
             PathBuf::from(&game_path).join("packages"),
-            tiger_pkg::GameVersion::Marathon(tiger_pkg::MarathonVersion::MarathonAlpha),
+            tiger_pkg::GameVersion::Marathon(tiger_pkg::MarathonVersion::Marathon),
             None,
         )
         .expect("Failed to initialize package manager"),
