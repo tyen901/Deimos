@@ -8,11 +8,7 @@ use tiger_parse::PackageManagerExt;
 use tiger_pkg::{TagHash, package_manager};
 
 fn main() -> anyhow::Result<()> {
-    let Some(package_dir) = std::env::args().nth(1) else {
-        anyhow::bail!("Usage: scope_decompile <package dir> <scope tag>");
-    };
-
-    let Some(hash) = std::env::args().nth(2) else {
+    let Some(hash) = std::env::args().nth(1) else {
         anyhow::bail!("Usage: scope_decompile <package dir> <scope tag>");
     };
 
@@ -20,7 +16,7 @@ fn main() -> anyhow::Result<()> {
         anyhow::bail!("Invalid scope tag hash: {}", hash);
     };
 
-    deimos_core::initialize_package_manager(Some(package_dir.as_str()))?;
+    deimos_core::initialize_package_manager(None)?;
 
     let scope: SScope = package_manager()
         .read_tag_struct(hash)

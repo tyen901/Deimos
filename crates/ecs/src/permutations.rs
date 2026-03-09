@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use deimos_data::{hash::fnv1, tfx::features::dynamic::SDynamicModelComponent};
-use tracing::{debug, error};
+use tracing::{debug, error, warn};
 
 pub struct PermutationConfig {
     /// Current configuration of key-value pairs
@@ -16,8 +16,8 @@ pub struct PermutationConfig {
 
 impl PermutationConfig {
     pub fn from_model(model: &SDynamicModelComponent) -> Option<Self> {
-        if model.unk408.is_empty() || model.unk418.is_empty() {
-            debug!(
+        if model.unk408.is_empty() && !model.unk418.is_empty() {
+            warn!(
                 "TODO: Handle dynamic model permutations without unk408, dont know what to do \
                  with these yet"
             );

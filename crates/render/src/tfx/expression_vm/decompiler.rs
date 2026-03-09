@@ -622,6 +622,11 @@ impl<'a> DecompilerState<'a> {
                     let unk = ptr[1];
                     cached_top = self.push(format!("unknown0x5e({unk})"))?;
                 }
+                Opcode::PushTexTilingParams => {
+                    let unk1 = ptr[1];
+                    let unk2 = ptr[2];
+                    cached_top = self.push(format!("tex_tiling_params(0x{unk1:X}, 0x{unk2:X})"))?;
+                }
                 u => {
                     anyhow::bail!("Unimplemented opcode: {u:?} / 0x{:02X}", ptr[0]);
                 }

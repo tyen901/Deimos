@@ -4,6 +4,7 @@ use ahash::HashMap;
 use anyhow::Context;
 use d3d12::{D3D12_DEPTH_STENCIL_DESC, DeviceChild, GraphicsPipelineStateDesc};
 use deimos_data::tfx::FixedFunctionState;
+use parking_lot::Mutex;
 use tiger_pkg::{TagHash, package_manager};
 
 use crate::gpu::global_state::RenderStates;

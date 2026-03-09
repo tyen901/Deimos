@@ -326,6 +326,14 @@ impl CommandList {
     pub const fn cmd_state(&self) -> &CommandListState {
         &self.state
     }
+
+    pub const fn set_ffstate(&mut self, ffstate: FixedFunctionState) {
+        self.state.ffstate = ffstate;
+    }
+
+    pub const fn set_ffstate_override(&mut self, ffstate: FixedFunctionState) {
+        self.state.ffstate_override = ffstate;
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

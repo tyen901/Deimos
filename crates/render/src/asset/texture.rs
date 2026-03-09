@@ -198,11 +198,6 @@ impl Texture {
             &srv_desc,
         );
 
-        // TODO(cohae): This won't wait when called from the main thread (not that it should be)
-        if rayon::current_thread_index().is_some() || potassium::current_worker_index().is_some() {
-            upload_fence.wait_for_next(None)?;
-        }
-
         Ok(Self {
             gpu: gpu.clone(),
             resource,

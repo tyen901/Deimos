@@ -64,10 +64,10 @@ impl GraphicsCommandList {
 
     /// Creates a new event scope with the given name. The event will automatically end when the returned RAII guard is dropped.
     #[must_use]
-    pub fn event_scope_str(&self, _name: impl AsRef<str>) -> EventGuard {
-        // self.begin_event_str(name);
+    pub fn event_scope_str(&self, name: impl AsRef<str>) -> EventGuard {
         // TODO(cohae): This cause a lot of debug layer noise since Microsoft doesn't want us using Unicode/Ansi markers, so we should see if we can construct PIX blobs at some point
-        EventGuard {}
+        self.begin_event_str(name);
+        EventGuard { this: self.clone() }
     }
 
     pub fn begin_query(&self, query_heap: &QueryHeap, query_type: QueryType, index: u32) {
@@ -404,12 +404,12 @@ impl VertexBufferView {
 }
 
 pub struct EventGuard {
-    // this: &'a GraphicsCommandList,
+    this: GraphicsCommandList,
 }
 
 impl Drop for EventGuard {
     fn drop(&mut self) {
-        // self.this.end_event();
+        self.this.end_event();
     }
 }
 

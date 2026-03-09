@@ -13,7 +13,7 @@ use deimos_data::{
         geometry::AxisAlignedBBox,
     },
 };
-use deimos_ecs::transform::Transform;
+use deimos_ecs::{permutations::PermutationConfig, transform::Transform};
 use deimos_render::{
     ecs::render_objects::{DynamicRenderObject, StaticRenderObject},
     features::{
@@ -116,9 +116,9 @@ pub fn spawn_pattern_from_header(
                 cur.seek(SeekFrom::Start(component.unk18.offset))?;
                 let model: SDynamicModelComponent = TigerReadable::read_ds(&mut cur)?;
 
-                // if let Some(permutations) = PermutationConfig::from_model(&model) {
-                //     world.insert_one(entity, permutations)?;
-                // }
+                if let Some(permutations) = PermutationConfig::from_model(&model) {
+                    world.insert_one(entity, permutations)?;
+                }
 
                 let model = DynamicModel::load(
                     renderer,
@@ -145,7 +145,9 @@ pub fn spawn_pattern_from_header(
 
             //     for v1 in array {
             //         for v2 in v1.unk30 {
-            //             if let Err(e) = spawn_pattern(world, v2.entity.hash32(), None, None) {
+            //             if let Err(e) =
+            //                 spawn_pattern(renderer, world, v2.entity.hash32(), None, None)
+            //             {
             //                 error!(
             //                     "Failed to spawn nested pattern {:?}/{} in pattern component {}: \
             //                      {:?}",
@@ -161,16 +163,17 @@ pub fn spawn_pattern_from_header(
             0x80804030 => {
                 let data = get_component_data!(SMaterialPermutationsComponent);
 
-                //     if let Ok(mut config) = world.get::<&mut PermutationConfig>(entity) {
-                //         for (key, value) in &data.config {
-                //             config.configuration.insert(*key, *value);
-                //         }
-                //     } else {
-                //         error!(
-                //             "Material permutations component found in map data, but entity does not \
-                //              have a permutation config set?"
-                //         );
-                //     }
+                if let Ok(mut config) = world.get::<&mut PermutationConfig>(entity) {
+                    for (key, value) in &data.config {
+                        config.configuration.insert(*key, *value);
+                    }
+                } else {
+                    debug!(
+                        "Material permutations component found in component {}, but entity does not \
+                             have a permutation config set?",
+                        component.taghash()
+                    );
+                }
             }
             0x80808562 => {
                 let data = get_component_data!(SStaticTerrainPatchesComponent);
@@ -246,28 +249,29 @@ pub fn spawn_pattern_from_header(
             }
             0x80808377 => {
                 let data = get_component_data!(SSkyObjectCollectionComponent);
-                //     let Some(objects) = &*data.objects else {
-                //         continue;
-                //     };
-                //     for obj in &objects.unk8 {
-                //         if obj.unk70 == 5 {
-                //             continue;
-                //         }
+                let Some(objects) = &*data.objects else {
+                    continue;
+                };
+                for obj in &objects.unk8 {
+                    // cohae: Objects with unk70 set to 5 are a solid red? These don't show up in-game
+                    if obj.unk70 == 5 {
+                        continue;
+                    }
 
-                //         let (scale, rotation, translation) =
-                //             obj.transform.to_scale_rotation_translation();
+                    let (scale, rotation, translation) =
+                        obj.transform.to_scale_rotation_translation();
 
-                //         let render_obj = RenderObject::new(
-                //             TfxFeatureRenderer::SkyTransparent,
-                //             DynamicModel::load(obj.model_ref.entity_model, vec![], vec![])?,
-                //         );
+                    let render_obj = RenderObject::new(
+                        TfxFeatureRenderer::SkyTransparent,
+                        DynamicModel::load(renderer, obj.model_ref.entity_model, vec![], vec![])?,
+                    );
 
-                //         // TODO(cohae): Again, spawning new entities for each object is kinda dumb
-                //         world.spawn((
-                //             Transform::new(translation, rotation, scale),
-                //             DynamicRenderObject::new(Renderer::instance().add_object(render_obj)),
-                //         ));
-                //     }
+                    // TODO(cohae): Again, spawning new entities for each object is kinda dumb
+                    world.spawn((
+                        Transform::new(translation, rotation, scale),
+                        DynamicRenderObject::new(renderer, renderer.add_object(render_obj)),
+                    ));
+                }
             }
             0x80808543 => {
                 let data = get_component_data!(SShadowingLightComponent);

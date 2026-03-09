@@ -10,6 +10,7 @@ use glam::{Mat4, Vec4};
 
 use crate::{
     asset::{Handle, texture::Texture},
+    gpu::alloc::descriptors::ResourceView,
     renderer::Renderer,
 };
 
@@ -67,6 +68,7 @@ impl ExternAccessorExt for &dyn ExternAccessor {
 pub enum TextureView {
     #[default]
     None,
+    View(ResourceView),
     Resource(Handle<Texture>),
 }
 
@@ -100,7 +102,7 @@ impl Debug for TextureView {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::None => write!(f, "None"),
-            // TextureView::Surface(surface) => write!(f, "Surface({surface:?})"),
+            Self::View(view) => write!(f, "View({:?})", view.cpu_handle()),
             Self::Resource(texture) => write!(f, "Resource({})", texture.hash()),
             // TextureView::Raw(_) => write!(f, "Raw"),
         }

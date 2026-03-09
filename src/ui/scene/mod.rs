@@ -1,7 +1,9 @@
 use std::{sync::Arc, time::Instant};
 
 use deimos_core::job::SCHEDULER;
-use deimos_data::tfx::{FeatureRendererSubscription, RenderStage, geometry::AxisAlignedBBox};
+use deimos_data::tfx::{
+    FeatureRendererSubscription, FixedFunctionState, RenderStage, geometry::AxisAlignedBBox,
+};
 use deimos_render::{
     camera::Camera,
     ecs::{populate_submit_nodes, s_extract_frame_packet},
@@ -17,7 +19,7 @@ use egui::{
     Color32, FontId, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2, Widget, load::SizedTexture,
     vec2,
 };
-use glam::Vec3;
+use glam::{Vec3, vec4};
 use google_material_symbols::GoogleMaterialSymbols;
 use hecs::World;
 
@@ -342,6 +344,37 @@ impl Scene {
                 ..*ext.frame.clone()
             };
 
+            *ext.transparent = externs::Transparent {
+                // unk00: view.atmosphere.sky_lookup_near.into(),
+                // unk10: view.atmosphere.sky_lookup_far.into(),
+                // unk00: todo!(), // t11, Atmosphere (near?)
+                // unk08: todo!(), // t12, Atmosphere (3x2)
+                // unk10: todo!(), // t13, Atmosphere (far?)
+                // unk18: todo!(), // t14, 3d lightprobe
+                // unk20: self.common.temporary_depth_angle_lookup.view.clone().into(), // t15
+                // unk28: todo!(), // t16, 3d lightprobe
+                // unk30: todo!(), // t17, 3d lightprobe
+                // unk38: todo!(), // t18, 3d lightprobe
+                // unk40: todo!(), // t19, 3d lightprobe
+                // unk48: todo!(), // t20
+                // unk50: todo!(), // t21
+                // unk58: todo!(), // t22
+                // unk60: todo!(), // t23
+                // unk68: todo!(), // t24 (new in marathon)
+                // unk70: todo!(), // t25 (new in marathon)
+                unk80: vec4(0.22882, 0.00, 1.00, 45.00),
+                unk90: vec4(0.00, 0.00, 1.17485, 2.86546),
+                unka0: vec4(0.00, 0.00, 2.10913, 5.14044),
+                unkb0: vec4(0.00, 0.00, 3.46762, 8.41667),
+                unkc0: vec4(0.00, 0.00, 0.00, 0.00),
+
+                // New in marathon
+                unkd0: vec4(0.00, 0.00, 0.00, 0.00),
+                unke0: vec4(0.00, 0.00, 0.00, 0.00),
+
+                ..Default::default()
+            };
+
             self.camera.aspect_ratio = resolution.0 as f32 / resolution.1 as f32;
             self.controller.update_rotation(&mut self.camera);
             self.camera.update();
@@ -424,98 +457,49 @@ impl Scene {
                 }
             }
 
-            let _scope = self
-                .renderer
-                .gpu
-                .profiler_scope(stream, "submit_gbuffer_generation");
             for view in &self.scene_renderer.frame_packet.views {
-                let block = stream.begin_parallel(cmd);
-                let context = TempSubmitContext {
-                    renderer: self.renderer.clone(),
-                    block: block.clone(),
-                    frame_packet: &self.scene_renderer.frame_packet,
-                };
+                {
+                    let _scope = self
+                        .renderer
+                        .gpu
+                        .profiler_scope(stream, "submit_gbuffer_generation");
 
-                let range = 0..view
-                    .submit_node_blocks
-                    .block(RenderStage::GenerateGbuffer)
-                    .len();
-
-                let mut job_handles = vec![];
-                for chunk in RangeChunks::new(range, 128) {
-                    let ctx = context.clone();
-                    let h = SCHEDULER
-                        .job_builder("scene_submit_parallel")
-                        .spawn(move || {
-                            let ctx = ctx;
-                            let mut cmd = ctx.block.cmd();
-                            let render_objects = ctx.renderer.objects.read();
-
-                            let frame_packet = unsafe { &*ctx.frame_packet };
-                            let view = &frame_packet.views[0];
-                            for submit_node in
-                                &view.submit_node_blocks.block(RenderStage::GenerateGbuffer)[chunk]
-                            {
-                                let view_node = &view.view_nodes[submit_node.view_node];
-                                let frame_node =
-                                    &frame_packet.per_frame_nodes[view_node.frame_node];
-                                let Some(render_object) = render_objects.get(frame_node.object)
-                                else {
-                                    error!(
-                                        "Render object with handle {:?} not found",
-                                        frame_node.object
-                                    );
-                                    continue;
-                                };
-                                render_object.renderer.submit(
-                                    &mut cmd,
-                                    RenderStage::GenerateGbuffer,
-                                    frame_node,
-                                    view_node,
-                                    submit_node.key,
-                                );
-                            }
-                        });
-                    job_handles.push(h);
+                    cmd.set_ffstate(FixedFunctionState::new(Some(0), Some(2), Some(2), Some(0)));
+                    cmd.flush_states();
+                    self.scene_renderer.submit_stage(
+                        cmd,
+                        stream,
+                        view,
+                        RenderStage::GenerateGbuffer,
+                    );
                 }
 
-                let sync_job = SCHEDULER
-                    .job_builder("scene_submit_parallel_sync")
-                    .dependencies(job_handles)
-                    .spawn(|| {});
+                {
+                    let _scope = self
+                        .renderer
+                        .gpu
+                        .profiler_scope(stream, "submit_decals_additive");
+                    cmd.set_ffstate(FixedFunctionState::new(Some(8), Some(15), Some(2), Some(1)));
+                    cmd.flush_states();
+                    self.scene_renderer.submit_stage(
+                        cmd,
+                        stream,
+                        view,
+                        RenderStage::DecalsAdditive,
+                    );
+                }
 
-                sync_job.wait();
-
-                // submit_node_block_range(
-                //     context.clone(),
-                //     0..view
-                //         .submit_node_blocks
-                //         .block(RenderStage::GenerateGbuffer)
-                //         .len(),
-                // );
-                stream.end_parallel(block);
-
-                // self.renderer.gpu.frame().cmd_pool.apply(
-                //     &cmd_tfx,
-                //     std::slice::from_ref(self.renderer.gpu.frame().descriptors.heap()),
-                // );
-                // for submit_node in view.submit_node_blocks.block(RenderStage::GenerateGbuffer) {
-                //     let view_node = &view.view_nodes[submit_node.view_node];
-                //     let frame_node = &self.scene.frame_packet.per_frame_nodes[view_node.frame_node];
-                //     let Some(render_object) = render_objects.get(frame_node.object) else {
-                //         error!(
-                //             "Render object with handle {:?} not found",
-                //             frame_node.object
-                //         );
-                //         continue;
-                //     };
-                //     render_object.renderer.submit(
-                //         cmd,
-                //         RenderStage::GenerateGbuffer,
-                //         view_node,
-                //         submit_node.key,
-                //     );
-                // }
+                {
+                    self.renderer.globals.scopes.transparent.bind(cmd);
+                    self.renderer.globals.scopes.transparent_advanced.bind(cmd);
+                    let _scope = self
+                        .renderer
+                        .gpu
+                        .profiler_scope(stream, "submit_transparents");
+                    cmd.set_ffstate(FixedFunctionState::new(Some(8), Some(15), Some(2), Some(1)));
+                    self.scene_renderer
+                        .submit_stage(cmd, stream, view, RenderStage::Transparents);
+                }
             }
 
             self.scene_renderer
@@ -651,15 +635,6 @@ impl Scene {
     }
 }
 
-#[derive(Clone)]
-struct TempSubmitContext {
-    renderer: Arc<Renderer>,
-    block: Arc<ParallelCommandBlock>,
-    frame_packet: *const FramePacket,
-}
-
-unsafe impl Send for TempSubmitContext {}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RenderMode {
     Lookdev,
@@ -715,34 +690,34 @@ impl RenderMode {
                     };
                 }
 
-                mode!(ui, RenderMode::Lookdev, "Lookdev");
-                mode!(ui, RenderMode::Shaded, "Shaded");
-                mode!(ui, RenderMode::ShadedNoSun, "Shaded (No sun)");
+                mode!(ui, Self::Lookdev, "Lookdev");
+                mode!(ui, Self::Shaded, "Shaded");
+                mode!(ui, Self::ShadedNoSun, "Shaded (No sun)");
                 mode!(
                     ui,
-                    RenderMode::ShadingOnly,
+                    Self::ShadingOnly,
                     "Shading Only (No atmosphere, no sun)"
                 );
-                // mode!(ui, RenderMode::Matcap, "Matcap");
+                // mode!(ui, Self::Matcap, "Matcap");
 
                 ui.section_separator("Material:");
-                mode!(ui, RenderMode::Albedo, "Albedo");
-                mode!(ui, RenderMode::Smoothness, "Smoothness");
-                mode!(ui, RenderMode::Metalness, "Metalness");
-                mode!(ui, RenderMode::AmbientOcclusion, "Ambient Occlusion");
-                mode!(ui, RenderMode::Emission, "Emission");
-                mode!(ui, RenderMode::EmissionIntensity, "Emission Intensity");
-                mode!(ui, RenderMode::Transmission, "Transmission");
-                mode!(ui, RenderMode::IridescenceId, "Iridescence ID");
+                mode!(ui, Self::Albedo, "Albedo");
+                mode!(ui, Self::Smoothness, "Smoothness");
+                mode!(ui, Self::Metalness, "Metalness");
+                mode!(ui, Self::AmbientOcclusion, "Ambient Occlusion");
+                mode!(ui, Self::Emission, "Emission");
+                mode!(ui, Self::EmissionIntensity, "Emission Intensity");
+                mode!(ui, Self::Transmission, "Transmission");
+                mode!(ui, Self::IridescenceId, "Iridescence ID");
 
                 ui.section_separator("Geometry:");
-                mode!(ui, RenderMode::DepthEdges, "Depth Edges");
-                mode!(ui, RenderMode::WorldNormal, "World Normal");
-                mode!(ui, RenderMode::Overdraw, "Overdraw");
+                mode!(ui, Self::DepthEdges, "Depth Edges");
+                mode!(ui, Self::WorldNormal, "World Normal");
+                mode!(ui, Self::Overdraw, "Overdraw");
 
                 ui.section_separator("Lighting:");
-                mode!(ui, RenderMode::LightDiffuse, "Diffuse Light");
-                mode!(ui, RenderMode::LightSpecular, "Specular Light");
+                mode!(ui, Self::LightDiffuse, "Diffuse Light");
+                mode!(ui, Self::LightSpecular, "Specular Light");
             });
 
         changed
