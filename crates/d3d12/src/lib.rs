@@ -26,6 +26,9 @@ pub use device::*;
 mod device_child;
 pub use device_child::*;
 
+mod dred;
+pub use dred::*;
+
 mod dsv;
 pub use dsv::*;
 

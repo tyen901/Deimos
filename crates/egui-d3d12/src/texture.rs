@@ -289,7 +289,12 @@ impl TextureAllocator {
         let upload_buffer = self
             .gpu
             .allocate_upload_buffer(footprint.total_bytes)
-            .expect("Failed to allocate upload buffer");
+            .unwrap_or_else(|e| {
+                panic!(
+                    "Failed to allocate {} bytes upload buffer (footprint {footprint:?}): {e:?}",
+                    footprint.total_bytes
+                );
+            });
 
         let mapped_ptr = upload_buffer
             .resource()

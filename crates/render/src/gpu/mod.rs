@@ -25,7 +25,9 @@ use std::{
 
 use anyhow::Context;
 use d3d12::{
-    CommandQueueDesc, D3D12GetDebugInterface, DxgiUsage, ID3D12Debug, SwapChainDesc, SwapEffect,
+    CommandQueueDesc, D3D12GetDebugInterface, DxgiUsage, ID3D12Debug, ID3D12Device4, ID3D12Device5,
+    SwapChainDesc, SwapEffect,
+    error::D3DResultExt,
     ext::{GpuFence, GpuFenceWaiter},
 };
 use gpu_allocator::{
@@ -95,6 +97,7 @@ impl Gpu {
     pub const FRAMES_IN_FLIGHT: usize = 3;
 
     pub fn create(window: &Rc<sdl3::video::Window>) -> anyhow::Result<Self> {
+        d3d12::enable_dred()?;
         if cfg!(debug_assertions) {
             unsafe {
                 let mut debug: Option<ID3D12Debug> = None;
@@ -195,7 +198,11 @@ impl Gpu {
         self: &Arc<Self>,
         desc: &gpu_allocator::d3d12::ResourceCreateDesc<'_>,
     ) -> anyhow::Result<OwnedResource> {
-        let res = self.allocator.lock().create_resource(desc)?;
+        let res = self
+            .allocator
+            .lock()
+            .create_resource(desc)
+            .catch_device_removal(self)?;
 
         let current_state =
             if let ResourceStateOrBarrierLayout::ResourceState(s) = desc.initial_state_or_layout {
@@ -227,6 +234,7 @@ impl Gpu {
 // Frame management
 impl Gpu {
     pub fn begin_frame(&self) -> &FrameContext {
+        d3d12::check_device_removed(self);
         let frame_index = self.frame_index.load(std::sync::atomic::Ordering::Relaxed);
         let frame = &self.frames[frame_index % Self::FRAMES_IN_FLIGHT];
         frame.begin_frame(&self.queue);
@@ -279,6 +287,8 @@ impl Gpu {
 
         self.frame_index
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
+        d3d12::check_device_removed(self);
     }
 
     pub fn cmd_scope<F>(&self, func: F) -> anyhow::Result<Arc<GpuFenceWaiter>>
@@ -291,6 +301,7 @@ impl Gpu {
     #[profiling::function]
     pub fn present(&self, vsync: bool) {
         self.swapchain.lock().present(vsync);
+        d3d12::check_device_removed(self);
     }
 
     pub fn swapchain_resolution(&self) -> (u32, u32) {

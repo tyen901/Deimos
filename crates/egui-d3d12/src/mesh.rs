@@ -76,7 +76,7 @@ impl From<Vertex> for GpuVertex {
 pub fn create_vertex_buffer(gpu: &Arc<Gpu>, mesh: &GpuMesh) -> Result<DynamicBuffer, RenderError> {
     let data: &[u8] = bytemuck::cast_slice(&mesh.vertices);
     let buf = DynamicBuffer::new_upload(gpu, data.len() as u64, "egui_vertex_buffer")
-        .map_err(|_e| RenderError::General("Failed to create vertex buffer"))?;
+        .map_err(|e| RenderError::General(format!("Failed to create vertex buffer: {e:?}")))?;
     buf.write(0, data);
     Ok(buf)
 }
@@ -84,7 +84,7 @@ pub fn create_vertex_buffer(gpu: &Arc<Gpu>, mesh: &GpuMesh) -> Result<DynamicBuf
 pub fn create_index_buffer(gpu: &Arc<Gpu>, mesh: &GpuMesh) -> Result<DynamicBuffer, RenderError> {
     let data: &[u8] = bytemuck::cast_slice(&mesh.indices);
     let buf = DynamicBuffer::new_upload(gpu, data.len() as u64, "egui_index_buffer")
-        .map_err(|_e| RenderError::General("Failed to create index buffer"))?;
+        .map_err(|e| RenderError::General(format!("Failed to create index buffer: {e:?}")))?;
     buf.write(0, data);
     Ok(buf)
 }

@@ -5,6 +5,7 @@ use d3d12::{
     BufferSrvFlags, D3D12_RESOURCE_DESC, D3D12_RESOURCE_DIMENSION_BUFFER,
     D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
     GpuVirtualAddress, ID3D12Resource, Resource, ResourceBarrier, ResourceStates,
+    error::D3DResultExt,
 };
 use deimos_data::tfx::ShaderStage;
 use gpu_allocator::{
@@ -81,16 +82,20 @@ impl DynamicBuffer {
             _ => D3D12_RESOURCE_STATE_COMMON,
         };
 
-        let resource = gpu.allocator.lock().create_resource(&ResourceCreateDesc {
-            name,
-            memory_location: location,
-            resource_category: ResourceCategory::Buffer,
-            resource_desc: &resource_desc,
-            castable_formats: &[],
-            clear_value: None,
-            initial_state_or_layout: ResourceStateOrBarrierLayout::ResourceState(initial_state),
-            resource_type: &ResourceType::Placed,
-        })?;
+        let resource = gpu
+            .allocator
+            .lock()
+            .create_resource(&ResourceCreateDesc {
+                name,
+                memory_location: location,
+                resource_category: ResourceCategory::Buffer,
+                resource_desc: &resource_desc,
+                castable_formats: &[],
+                clear_value: None,
+                initial_state_or_layout: ResourceStateOrBarrierLayout::ResourceState(initial_state),
+                resource_type: &ResourceType::Placed,
+            })
+            .catch_device_removal(gpu)?;
 
         Ok(Self {
             gpu: Arc::clone(gpu),

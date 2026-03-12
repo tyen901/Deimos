@@ -58,7 +58,7 @@ impl<P: ModelProvider> ModelListBase<P> {
                 ..Default::default()
             },
         )
-        .unwrap()
+        .expect("Failed to create thumbnail scene")
         .with_controller(CameraController::new_orbit(Vec3::ZERO, 25.0));
 
         // {

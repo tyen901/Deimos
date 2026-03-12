@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+use crate::{check_device_removed, Device};
+
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Error, Debug)]
@@ -37,3 +39,17 @@ pub enum Error {
 
 // pub(crate) use bail;
 // pub(crate) use validate_input;
+
+pub trait D3DResultExt {
+    fn catch_device_removal(self, device: &Device) -> Self;
+}
+
+impl<T, E> D3DResultExt for std::result::Result<T, E> {
+    fn catch_device_removal(self, device: &Device) -> Self {
+        if self.is_err() {
+            check_device_removed(device);
+        }
+
+        self
+    }
+}
