@@ -171,6 +171,26 @@ impl D3D12Renderer {
 
         cmd.ia_set_primitive_topology(d3d12::PrimitiveTopology::TriangleList);
         for mesh in primitives {
+            //     let texture = self.tex_alloc.get_by_id(mesh.texture_id);
+
+            cmd.set_scissor_rects(&[d3d12::Rect {
+                left: mesh.clip.left() as _,
+                top: mesh.clip.top() as _,
+                right: mesh.clip.right() as _,
+                bottom: mesh.clip.bottom() as _,
+            }]);
+
+            let texture = self.tex_alloc.get_by_id(mesh.texture_id);
+            let Some((cpu_handle, _texture_filter, use_alpha)) = &texture else {
+                continue;
+            };
+
+            if *use_alpha {
+                cmd.set_pipeline_state(&self.pipeline);
+            } else {
+                cmd.set_pipeline_state(&self.pipeline_opaque);
+            }
+
             let vtx = create_vertex_buffer(gpu, &mesh)?;
             let idx = create_index_buffer(gpu, &mesh)?;
 
@@ -182,36 +202,16 @@ impl D3D12Renderer {
             );
             self.buffers[gpu.frame_index() % Gpu::FRAMES_IN_FLIGHT].push((vtx, idx));
 
-            //     let texture = self.tex_alloc.get_by_id(mesh.texture_id);
-
-            cmd.set_scissor_rects(&[d3d12::Rect {
-                left: mesh.clip.left() as _,
-                top: mesh.clip.top() as _,
-                right: mesh.clip.right() as _,
-                bottom: mesh.clip.bottom() as _,
-            }]);
-
-            let texture = self.tex_alloc.get_by_id(mesh.texture_id);
-            let mut use_alpha = true;
-            if let Some((cpu_handle, _texture_filter, texture_uses_alpha)) = &texture {
-                // self.set_sampler_state(cmd, texture_filter.unwrap_or(egui::TextureFilter::Linear))?;
-                use_alpha = *texture_uses_alpha;
-                // cmd.pixel_set_shader_resources(0, &[Some(texture)]);
-                let (dest_handle, gpu_handle) = gpu.frame().descriptors.allocate_one();
-                gpu.copy_descriptors_simple(
-                    1,
-                    *cpu_handle,
-                    dest_handle,
-                    d3d12::DescriptorHeapType::CbvSrvUav,
-                );
-                cmd.set_graphics_root_descriptor_table(0, gpu_handle);
-            }
-
-            if use_alpha {
-                cmd.set_pipeline_state(&self.pipeline);
-            } else {
-                cmd.set_pipeline_state(&self.pipeline_opaque);
-            }
+            // self.set_sampler_state(cmd, texture_filter.unwrap_or(egui::TextureFilter::Linear))?;
+            // cmd.pixel_set_shader_resources(0, &[Some(texture)]);
+            let (dest_handle, gpu_handle) = gpu.frame().descriptors.allocate_one();
+            gpu.copy_descriptors_simple(
+                1,
+                *cpu_handle,
+                dest_handle,
+                d3d12::DescriptorHeapType::CbvSrvUav,
+            );
+            cmd.set_graphics_root_descriptor_table(0, gpu_handle);
 
             cmd.draw_indexed_instanced(0..mesh.indices.len() as _, 0..1, 0);
 

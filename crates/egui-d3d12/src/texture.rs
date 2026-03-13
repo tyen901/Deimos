@@ -305,7 +305,7 @@ impl TextureAllocator {
             for row in 0..texture.height {
                 let src = data.as_ptr().add(row * texture.width * 4);
                 let dst = mapped_ptr.add(row * layout.footprint.row_pitch as usize);
-                dst.copy_from_nonoverlapping(src, layout.footprint.row_pitch as usize);
+                dst.copy_from_nonoverlapping(src, texture.width * 4);
             }
         }
         upload_buffer.resource().unmap(0);
