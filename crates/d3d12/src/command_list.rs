@@ -171,6 +171,9 @@ impl GraphicsCommandList {
         root_parameter_index: u32,
         buffer_location: GpuVirtualAddress,
     ) {
+        if buffer_location == GpuVirtualAddress::NULL {
+            log::error!("Binding NULL to b{root_parameter_index} is undefined behavior! ({buffer_location:?})");
+        }
         unsafe {
             self.0
                 .SetGraphicsRootConstantBufferView(root_parameter_index, buffer_location.0);

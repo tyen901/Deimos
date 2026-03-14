@@ -43,7 +43,7 @@ impl FrameProfiler {
     pub const MAX_PROFILER_SPANS: u32 = 64;
     pub const MAX_PROFILER_QUERIES: u32 = Self::MAX_PROFILER_SPANS * 2;
     /// The maximum number of frames to keep for averaging results.
-    pub const MAX_RESOLVED_FRAMES: usize = 15;
+    pub const MAX_RESOLVED_FRAMES: usize = 60;
 
     pub fn new(
         device: &d3d12::Device,

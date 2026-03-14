@@ -59,7 +59,7 @@ impl SceneRenderer {
         let range = 0..view.submit_node_blocks.block(stage).len();
 
         let mut job_handles = vec![];
-        for chunk in RangeChunks::new(range, 256) {
+        for chunk in RangeChunks::new(range, 64) {
             let ctx = context.clone();
             let h = SCHEDULER
                 .job_builder("scene_submit_parallel")

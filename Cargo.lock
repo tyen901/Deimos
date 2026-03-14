@@ -787,6 +787,7 @@ dependencies = [
  "glam",
  "gpu-allocator",
  "hecs",
+ "inline_tweak",
  "int-enum",
  "itertools 0.14.0",
  "lazy_static",
@@ -1367,6 +1368,12 @@ dependencies = [
  "equivalent",
  "hashbrown 0.16.1",
 ]
+
+[[package]]
+name = "inline_tweak"
+version = "1.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3a3b1226784b8b2521879d94808cea4dae413d40d07da2d42c324ca8f4b5b02"
 
 [[package]]
 name = "inout"

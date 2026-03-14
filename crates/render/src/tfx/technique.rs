@@ -353,12 +353,12 @@ impl TechniqueStage {
                 cmd.set_graphics_root_constant_buffer_view(slot.rs_slot as u32, va);
             } else {
                 // error!(
-                //     "Missing constant buffer view for register {} ({}:{:?})",
-                //     slot.register, technique.tag, self.core.stage
+                //     "Missing constant buffer view for register {} ({:?})",
+                //     slot.register, self.core.stage
                 // );
                 cmd.set_graphics_root_constant_buffer_view(
                     slot.rs_slot as u32,
-                    d3d12::GpuVirtualAddress::NULL,
+                    cmd.gpu().frame().upload.null(),
                 );
             }
         }

@@ -1,6 +1,6 @@
 use std::{ops::Deref, sync::Arc};
 
-use d3d12::CpuDescriptorHandle;
+use d3d12::{CpuDescriptorHandle, GpuVirtualAddress};
 use deimos_data::tfx::{FixedFunctionState, PrimitiveType, ShaderStage};
 use smallvec::SmallVec;
 use tiger_pkg::TagHash;
@@ -356,7 +356,12 @@ impl StageResources {
     }
 
     pub fn get_shader_constant_buffer_view(&self, slot: u32) -> Option<d3d12::GpuVirtualAddress> {
-        self.cbvs.get(slot as usize).cloned().flatten()
+        let va = self.cbvs.get(slot as usize).cloned().flatten();
+        if va == Some(GpuVirtualAddress::NULL) {
+            None
+        } else {
+            va
+        }
     }
 }
 

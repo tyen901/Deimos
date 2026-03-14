@@ -7,19 +7,21 @@ use std::{
     rc::Rc,
     str::FromStr,
     sync::Arc,
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use ahash::HashMap;
 use anyhow::Context;
-use d3d12::{ResourceBarrier, ResourceStates};
+use d3d12::{D3D12_PIPELINE_STATE_SUBOBJECT_TYPE_CACHED_PSO, ResourceBarrier, ResourceStates};
 use deimos_core::job::SCHEDULER;
 use deimos_data::{
     strings::{StringContainer, StringContainerShared},
     tag::WideHash,
 };
 use deimos_render::{gpu::Gpu, renderer::Renderer, util::fps_histogram::FrametimeHistogram};
+use itertools::Itertools;
 use parking_lot::RwLock;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use sdl3::video::Window;
 use tiger_parse::TigerReadable;
 use tiger_pkg::{TagHash, package_manager};
