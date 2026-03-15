@@ -16,6 +16,7 @@ use crate::{
         light::{SLightCollection, SShadowingLight},
         sky_objects::SSkyObjectCollection,
     },
+    umbra::SUmbraTomes,
 };
 
 #[derive(Debug, AssertOffsets)]
@@ -95,7 +96,8 @@ tiger_variant_enum! {
         SMaterialPermutationsComponent,
         SShadowingLightComponent,
         SLightCollectionComponent,
-        SCubemapComponent
+        SCubemapComponent,
+        SUmbraTomeComponent
     }
 }
 
@@ -150,6 +152,11 @@ pub struct SStaticTerrainPatchesComponent {
 #[tiger_type(id = 0x808085AA)]
 pub struct SDecoratorsComponent {
     pub decorators: OptionalTag<SDecorator>,
+}
+
+#[tiger_type(id = 0x808085DE)]
+pub struct SUmbraTomeComponent {
+    pub tag: OptionalTag<SUmbraTomes>,
 }
 
 pub struct SComponentDataNode {

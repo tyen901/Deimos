@@ -5,6 +5,7 @@ use deimos_data::tfx::{
     FeatureRendererSubscription, FixedFunctionState, RenderStage, geometry::AxisAlignedBBox,
 };
 use deimos_render::{
+    asset::texture::{Texture, TextureDesc},
     camera::Camera,
     ecs::{populate_submit_nodes, s_extract_frame_packet},
     gpu::{
@@ -19,12 +20,13 @@ use deimos_render::{
     visibility::ViewVisibility,
 };
 use egui::{
-    Color32, FontId, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2, Widget, load::SizedTexture,
-    vec2,
+    Color32, FontId, Rect, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2, Widget,
+    load::SizedTexture, vec2,
 };
 use glam::{Vec3, Vec4, vec4};
 use google_material_symbols::GoogleMaterialSymbols;
 use hecs::World;
+use umbra::QueryErrorCode;
 
 use crate::ui::{
     scene::controller::CameraController,
@@ -54,6 +56,8 @@ pub struct Scene {
     // UI
     keep_settings_open: bool,
     show_channel_editor: bool,
+
+    umbra_result: QueryErrorCode,
 }
 
 impl Scene {
@@ -71,6 +75,7 @@ impl Scene {
             last_frame_time: Instant::now(),
             keep_settings_open: false,
             show_channel_editor: false,
+            umbra_result: QueryErrorCode::Ok,
         })
     }
 
@@ -215,12 +220,24 @@ impl Scene {
                 egui::UiBuilder::new().max_rect(panel_rect.shrink2(vec2(12.0, 4.0))),
                 |ui| {
                     ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
+                        if self.umbra_result == QueryErrorCode::OutsideScene {
+                            ui.label(
+                                RichText::new(format!(
+                                    "{} Outside Scene",
+                                    GoogleMaterialSymbols::Warning
+                                ))
+                                .color(Color32::YELLOW)
+                                .size(16.0),
+                            );
+                        }
+
                         if self.world.is_empty() {
                             ui.label(
                                 RichText::new(format!(
                                     "{} Scene is empty",
                                     GoogleMaterialSymbols::Warning
                                 ))
+                                .color(Color32::YELLOW)
                                 .size(16.0),
                             );
                         }
@@ -302,6 +319,65 @@ impl Scene {
 
             self.controller.update(&mut self.camera, ui, &r, delta_time);
 
+            // if let Some((_, tome)) = self.world.query::<&umbra::Tome>().iter().next() {
+            //     let mut query = umbra::Query::new(&tome);
+
+            //     let mut vis = umbra::Visibility::default();
+            //     let mut ob = umbra::OcclusionBuffer::default();
+            //     vis.set_output_buffer(&mut ob);
+
+            //     query.query_portal_visibility(
+            //         0,
+            //         &vis,
+            //         &umbra::CameraTransform::new(
+            //             (self.camera.projection_matrix_standard() * self.camera.view_matrix())
+            //                 .to_cols_array_2d(),
+            //             self.camera.position.to_array(),
+            //         ),
+            //         0.0,
+            //         -1.0,
+            //         0,
+            //         1,
+            //         0,
+            //     );
+
+            //     // if false {
+            //     //     let desc = ob.get_desc();
+            //     //     let mut output = vec![64; desc.width as usize * desc.height as usize];
+            //     //     ob.get_buffer(&mut output, &desc);
+
+            //     //     // Flip the image vertically
+            //     //     let mut output_flipped = output.clone();
+            //     //     for y in 0..desc.height {
+            //     //         for x in 0..desc.width {
+            //     //             let index = (y * desc.width + x) as usize;
+            //     //             let flipped_index = ((desc.height - y - 1) * desc.width + x) as usize;
+            //     //             output_flipped[flipped_index] = output[index];
+            //     //         }
+            //     //     }
+
+            //     //     let half_rect = Rect::from_min_max(r.rect.center(), r.rect.max);
+            //     //     let umbra_rect = Rect::from_min_max(half_rect.center(), half_rect.max);
+
+            //     //     if let Ok(texture) = Texture::load(
+            //     //         &self.renderer.gpu,
+            //     //         &TextureDesc::texture_2d("umbra_debug", d3d12::Format::R8Unorm, 64, 64),
+            //     //         &output_flipped,
+            //     //     ) {
+            //     //         egui::Image::new(SizedTexture {
+            //     //             id: egui_d3d12.textures_mut().allocate_dx_temporary(
+            //     //                 texture.srv.cpu_handle(),
+            //     //                 None,
+            //     //                 false,
+            //     //             ),
+            //     //             size: egui::vec2(64.0, 64.0),
+            //     //         })
+            //     //         .paint_at(ui, umbra_rect);
+            //     //     }
+            //     // }
+            // }
+            // ui.painter().image(texture_id, umbra_rect, Rect, tint)
+
             // if r.dragged_by(egui::PointerButton::Middle) {
             //     let delta_adjusted = r.drag_delta() / 4.0;
             //     self.sun_light_angle += delta_adjusted.x;
@@ -327,6 +403,39 @@ impl Scene {
         let mut cmd_guard = stream.acquire_cmd(&self.renderer.gpu);
         let cmd = &mut *cmd_guard;
         let _event = cmd.event_scope("Scene::render", (255, 255, 255));
+
+        let mut occlusion_buffer = None;
+        if let Some((_, tome)) = self.world.query::<&umbra::Tome>().iter().next() {
+            profiling::scope!("umbra_visibility");
+            let _scope = self
+                .renderer
+                .gpu
+                .profiler_scope(stream, "Scene::umbra_visibility");
+            let mut query = umbra::Query::new(&tome);
+
+            let mut vis = umbra::Visibility::default();
+            let mut ob = umbra::OcclusionBuffer::default();
+            vis.set_output_buffer(&mut ob);
+
+            self.umbra_result = query.query_portal_visibility(
+                0,
+                &vis,
+                &umbra::CameraTransform::new(
+                    (self.camera.projection_matrix_standard() * self.camera.view_matrix())
+                        .to_cols_array_2d(),
+                    self.camera.position.to_array(),
+                ),
+                0.0,
+                -1.0,
+                0,
+                1,
+                0,
+            );
+
+            if self.umbra_result == QueryErrorCode::Ok {
+                occlusion_buffer = Some(ob);
+            }
+        }
 
         {
             let ext = self.renderer.externs.get_mut();
@@ -455,6 +564,7 @@ impl Scene {
                 culling_frustum: self.camera.culling_frustum.clone(),
                 position: self.camera.position,
                 world_to_projective: self.camera.world_to_projective,
+                occlusion_buffer,
             };
 
             {

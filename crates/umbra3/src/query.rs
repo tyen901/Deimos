@@ -5,11 +5,34 @@ use umbra3_sys::{
     Umbra_Matrix4x4, Umbra_MatrixFormat_MF_COLUMN_MAJOR, Umbra_OcclusionBuffer,
     Umbra_OcclusionBuffer_BufferDesc, Umbra_OcclusionBuffer_Format_FORMAT_HISTOGRAM_8BPP,
     Umbra_OcclusionBuffer_Format_FORMAT_NDC_FLOAT,
+    Umbra_OcclusionBuffer_VisibilityTestFlags_TEST_FULL_VISIBILITY,
     Umbra_OcclusionBuffer_VisibilityTestResult_OCCLUDED, Umbra_Query, Umbra_Query_init,
     Umbra_Vector3, Umbra_Visibility,
 };
 
 use crate::Tome;
+
+#[repr(C)]
+#[derive(Debug, PartialEq)]
+pub enum QueryErrorCode {
+    Ok = 0,
+    /// Something completely unexpected happened
+    GenericError = 1,
+    /// Not enough memory was available in the Query context to perform the operation
+    OutOfMemory = 2,
+    /// An invalid value was passed in
+    InvalidArgument = 3,
+    /// A tile required to complete the Query was not present in the tome
+    SlotdataUnavailable = 4,
+    /// A query location was found to be outside of the scene boundaries
+    OutsideScene = 5,
+    /// No data was given to the Query
+    NoTome = 6,
+    /// Operation not supported
+    UnsupportedOperation = 7,
+    /// Path does not exist
+    NoPath = 8,
+}
 
 pub struct Query<'a> {
     inner: Box<Umbra_Query>,
@@ -29,6 +52,7 @@ impl<'a> Query<'a> {
         }
     }
 
+    #[must_use]
     #[allow(clippy::too_many_arguments)]
     pub fn query_portal_visibility(
         &mut self,
@@ -40,8 +64,8 @@ impl<'a> Query<'a> {
         job_index: i32,
         num_jobs: i32,
         grid_width: i32,
-    ) {
-        unsafe {
+    ) -> QueryErrorCode {
+        let res = unsafe {
             self.inner.queryPortalVisibility(
                 flags,
                 &visibility.0,
@@ -52,8 +76,10 @@ impl<'a> Query<'a> {
                 job_index,
                 num_jobs,
                 grid_width,
-            );
-        }
+            )
+        };
+
+        unsafe { std::mem::transmute(res) }
     }
 }
 
@@ -62,7 +88,7 @@ pub struct Visibility(Umbra_Visibility);
 impl Visibility {
     pub fn set_output_buffer<'a>(&'a mut self, output_buffer: &'a mut OcclusionBuffer) {
         unsafe {
-            self.0.setOutputBuffer(&mut output_buffer.0);
+            self.0.setOutputBuffer(&mut *output_buffer.0);
         }
     }
 }
@@ -73,7 +99,7 @@ impl Default for Visibility {
     }
 }
 
-pub struct OcclusionBuffer(Umbra_OcclusionBuffer);
+pub struct OcclusionBuffer(Box<Umbra_OcclusionBuffer>);
 
 impl OcclusionBuffer {
     pub fn is_aabb_visible(&self, min: [f32; 3], max: [f32; 3]) -> bool {
@@ -122,7 +148,12 @@ impl OcclusionBuffer {
 
 impl Default for OcclusionBuffer {
     fn default() -> Self {
-        Self(unsafe { Umbra_OcclusionBuffer::new() })
+        let mut boxed = Box::<umbra3_sys::Umbra_OcclusionBuffer>::new_uninit();
+        unsafe {
+            umbra3_sys::Umbra_OcclusionBuffer_OcclusionBuffer(boxed.as_mut_ptr());
+        }
+
+        Self(unsafe { boxed.assume_init() })
     }
 }
 

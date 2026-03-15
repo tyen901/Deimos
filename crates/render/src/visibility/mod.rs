@@ -8,11 +8,21 @@ pub struct ViewVisibility {
     pub position: glam::Vec3,
     pub culling_frustum: frustum::Frustum,
     pub world_to_projective: glam::Mat4,
+    pub occlusion_buffer: Option<umbra::OcclusionBuffer>,
 }
 
 impl ViewVisibility {
     #[profiling::function]
     pub fn is_visible_quick(&self, aabb: &AxisAlignedBBox) -> bool {
+        if let Some(occlusion_buffer) = &self.occlusion_buffer
+            && !occlusion_buffer.is_aabb_visible(
+                aabb.min.truncate().to_array(),
+                aabb.max.truncate().to_array(),
+            )
+        {
+            return false;
+        }
+
         if aabb.contains_point(self.position) {
             return true;
         }
