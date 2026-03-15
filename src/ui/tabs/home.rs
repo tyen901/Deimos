@@ -8,7 +8,7 @@ use crate::{
     ui::{
         tabs::{
             Tab, TabResult, activity_list::ActivityListTab, entity_list::EntityListTab,
-            map_list::MapListTab,
+            map_list::MapListTab, static_list::StaticListTab,
         },
         util::UiExt,
     },
@@ -57,12 +57,13 @@ impl HomeTab {
                     &shared_state.renderer,
                 ))));
             }
-            uis[0].disable();
             if uis[0]
                 .d_button(format!("{} STATICS", GoogleMaterialSymbols::Landscape))
                 .clicked()
             {
-                // result = TabResult::Open(Tab::StaticList(Box::new(StaticListTab::new())));
+                result = TabResult::Open(Tab::StaticList(Box::new(StaticListTab::new(
+                    &shared_state.renderer,
+                ))));
             }
 
             uis[1].heading("2D");

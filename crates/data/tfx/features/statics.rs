@@ -12,7 +12,7 @@ use crate::{
 };
 
 #[derive(Debug)]
-#[tiger_type(id = 0x80808635)]
+#[tiger_type(id = 0x80808635, size = 0xE0)]
 pub struct SStaticMesh {
     pub file_size: u64,
     /// GenerateGbuffer/DepthPrepass/ShadowGenerate
@@ -25,6 +25,10 @@ pub struct SStaticMesh {
     pub unk38: [f32; 6],
     pub unk50: [u32; 4],
     pub unk60: [u32; 4],
+
+    // TODO(cohae): This seems to be mostly right, but needs to be double checked
+    #[tiger(offset = 0xB0)]
+    pub bounds: AxisAlignedBBox,
 }
 
 #[derive(Debug)]

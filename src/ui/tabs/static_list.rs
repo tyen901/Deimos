@@ -1,35 +1,38 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
 
-use alkahest_data::tfx::{TfxFeatureRenderer, features::statics::SStaticMesh};
-use alkahest_render::{
-    Renderer,
-    feature::static_geometry::{StaticMesh, StaticModelRenderer},
-    object::RenderObject,
-};
 use anyhow::Context;
-use egui::Ui;
+use deimos_data::tfx::{
+    TfxFeatureRenderer,
+    features::statics::{SStaticInstanceTransform, SStaticMesh},
+    geometry::AxisAlignedBBox,
+};
+use deimos_ecs::transform::Transform;
+use deimos_render::{
+    ecs::render_objects::{DynamicRenderObject, StaticRenderObject},
+    features::static_instances::{StaticInstancesRenderer, StaticModelRenderer},
+    renderer::{Renderer, object::RenderObject},
+};
+use egui::{Ui, epaint::QuadraticBezierShape};
+use glam::{Quat, Vec3};
 use hecs::Entity;
-use tiger_parse::TigerReadable;
+use tiger_parse::{PackageManagerExt, TigerReadable};
 use tiger_pkg::{TagHash, package_manager};
 
 use super::TabResult;
-use crate::{
-    ui::tabs::model_list::{ModelEntry, ModelListBase, ModelProvider},
-    world::{render_objects::DynamicRenderObject, transform::Transform},
-};
+use crate::ui::tabs::model_list::{ModelEntry, ModelListBase, ModelProvider};
 
 pub struct StaticListTab {
     base: ModelListBase<StaticModelProvider>,
 }
 
 impl StaticListTab {
-    pub fn new() -> Self {
+    pub fn new(renderer: &Arc<Renderer>) -> Self {
         Self {
-            base: ModelListBase::new(StaticModelProvider::new()),
+            base: ModelListBase::new(renderer, StaticModelProvider::new(renderer)),
         }
     }
 
-    pub fn ui(&mut self, ui: &mut Ui, egui_d3d11: &mut egui_d3d11::D3D11Renderer) -> TabResult {
+    pub fn ui(&mut self, ui: &mut Ui, egui_d3d11: &mut egui_d3d12::D3D12Renderer) -> TabResult {
         self.base.ui(ui, egui_d3d11)
     }
 }
@@ -37,10 +40,11 @@ impl StaticListTab {
 struct StaticModelProvider {
     package_keys: Vec<u16>,
     packages: BTreeMap<u16, (Vec<ModelEntry>, usize)>,
+    renderer: Arc<Renderer>,
 }
 
 impl StaticModelProvider {
-    fn new() -> Self {
+    fn new(renderer: &Arc<Renderer>) -> Self {
         let packages: BTreeMap<u16, _> = package_manager()
             .package_paths
             .keys()
@@ -61,6 +65,7 @@ impl StaticModelProvider {
         Self {
             package_keys: packages.keys().cloned().collect(),
             packages,
+            renderer: renderer.clone(),
         }
     }
 }
@@ -93,7 +98,7 @@ impl ModelProvider for StaticModelProvider {
     }
 
     fn load_model(&mut self, hash: TagHash, world: &mut hecs::World) -> anyhow::Result<Entity> {
-        load_static_mesh(hash, world).context("Failed to load static model")
+        load_static_mesh(&self.renderer, hash, world).context("Failed to load static model")
     }
 
     fn load_package(&mut self, pkg_id: u16) {
@@ -111,7 +116,7 @@ impl ModelProvider for StaticModelProvider {
             .filter_map(|(i, _)| {
                 let hash = TagHash::new(pkg_id, i as u16);
                 let mut world = hecs::World::new();
-                match load_static_mesh(hash, &mut world) {
+                match load_static_mesh(&self.renderer, hash, &mut world) {
                     Ok(_entity) => Some(ModelEntry {
                         hash,
                         thumbnail_world: Some(world),
@@ -133,17 +138,34 @@ impl ModelProvider for StaticModelProvider {
     }
 }
 
-fn load_static_mesh(hash: TagHash, world: &mut hecs::World) -> anyhow::Result<Entity> {
-    let mesh = StaticMesh::load(hash).context("Failed to read static mesh tag")?;
-    let model = StaticModelRenderer::new(&Renderer::instance().gpu, mesh)
-        .context("Failed to create static mesh renderer for tag")?;
-    let entity = world.spawn((Transform::default(), model.bounds));
+fn load_static_mesh(
+    renderer: &Arc<Renderer>,
+    hash: TagHash,
+    world: &mut hecs::World,
+) -> anyhow::Result<Entity> {
+    let transform = SStaticInstanceTransform {
+        rotation: Quat::IDENTITY,
+        translation: Vec3::ZERO,
+        scale: 1.0,
+        unk20: [0, 0, 0, 0x3f800000],
+        unk30: [0, 0, 0, 0x3f800000],
+        unk40: [0, 0, 0, 0x3f800000],
+        unk50: [0, 0, 0, 0x3f800000],
+    };
 
-    let obj = Renderer::instance().add_object(RenderObject::new(
+    let data = package_manager().read_tag_struct::<SStaticMesh>(hash)?;
+
+    // TODO(cohae): data.bounds seems to be mostly right, but needs to be double checked
+    let model = StaticModelRenderer::new(renderer, vec![(transform, data.bounds)], hash, 0)
+        .context("Failed to load static model tag")?;
+    let entity = world.spawn((Transform::default(), model.bounds));
+    let model_renderer = StaticInstancesRenderer::new(vec![model]);
+
+    let obj = renderer.add_object(RenderObject::new(
         TfxFeatureRenderer::StaticObjects,
-        Box::new(model),
+        Box::new(model_renderer),
     ));
-    _ = world.insert_one(entity, DynamicRenderObject::new(obj));
+    _ = world.insert_one(entity, StaticRenderObject::new(renderer, obj));
 
     Ok(entity)
 }

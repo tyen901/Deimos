@@ -126,7 +126,7 @@ pub struct StaticModelRenderer {
     model: StaticModel,
     visible_instance_ids: Vec<u32>,
     transforms: Vec<(SStaticInstanceTransform, AxisAlignedBBox)>,
-    bounds: AxisAlignedBBox,
+    pub bounds: AxisAlignedBBox,
     identifier: u64,
 
     constants_dirty: bool,
@@ -457,7 +457,7 @@ pub struct StaticInstancesRenderer {
 }
 
 impl StaticInstancesRenderer {
-    pub fn load(renderer: &Renderer, instances_hash: TagHash) -> anyhow::Result<Self> {
+    pub fn load_from_tag(renderer: &Renderer, instances_hash: TagHash) -> anyhow::Result<Self> {
         let instances: SStaticMeshInstances = package_manager().read_tag_struct(instances_hash)?;
         let mut models = instances
             .instance_groups
@@ -498,15 +498,18 @@ impl StaticInstancesRenderer {
                 }
             });
 
-        Ok(Self {
+        Ok(Self::new(models))
+    }
+
+    pub fn new(models: Vec<StaticModelRenderer>) -> Self {
+        Self {
             subscribed_stages: models
                 .iter()
                 .fold(RenderStageSubscription::empty(), |acc, m| {
                     acc | m.model.subscribed_stages
                 }),
             models,
-            // groups_by_stage_sorted_by_technique,
-        })
+        }
     }
 }
 

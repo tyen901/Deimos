@@ -17,7 +17,7 @@ use deimos_ecs::{permutations::PermutationConfig, transform::Transform};
 use deimos_render::{
     ecs::render_objects::{DynamicRenderObject, StaticRenderObject},
     features::{
-        rigid_model::DynamicModel, static_geometry::StaticInstancesRenderer,
+        rigid_model::DynamicModel, static_instances::StaticInstancesRenderer,
         terrain_patches::TerrainPatchesRenderer,
     },
     renderer::{Renderer, object::RenderObject},
@@ -205,7 +205,7 @@ pub fn spawn_pattern_from_header(
                         renderer,
                         renderer.add_object(RenderObject::new(
                             TfxFeatureRenderer::ChunkedInstanceObjects,
-                            Box::new(StaticInstancesRenderer::load(
+                            Box::new(StaticInstancesRenderer::load_from_tag(
                                 renderer,
                                 instances.instances,
                             )?),
