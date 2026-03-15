@@ -10,13 +10,14 @@ path = "src/main.rs"
 
 [workspace]
 members = [
-    "crates/data",
     "crates/core",
-    "crates/render",
-    "crates/egui-sdl3-platform",
     "crates/d3d12",
-    "crates/egui-d3d12",
+    "crates/data",
     "crates/ecs",
+    "crates/egui-d3d12",
+    "crates/egui-sdl3-platform",
+    "crates/render",
+    "crates/umbra3",
 ]
 
 [workspace.dependencies]
@@ -67,6 +68,7 @@ deimos-render = { path = "./crates/render" }
 d3d12 = { path = "./crates/d3d12" }
 egui-sdl3-platform = { path = "./crates/egui-sdl3-platform" }
 egui-d3d12 = { path = "./crates/egui-d3d12" }
+umbra = { path = "./crates/umbra3" }
 
 # (De)serialization
 serde.workspace = true

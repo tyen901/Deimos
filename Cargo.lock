@@ -139,9 +139,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.100"
+version = "1.0.102"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
+checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
 name = "array-init"
@@ -195,6 +195,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf95709a440f45e986983918d0e8a1f30a9b1df04918fc828670606804ac3c09"
 dependencies = [
  "virtue",
+]
+
+[[package]]
+name = "bindgen"
+version = "0.72.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "993776b509cfb49c750f11b8f07a46fa23e0a1386ffc01fb1e7d343efc387895"
+dependencies = [
+ "bitflags 2.11.0",
+ "cexpr",
+ "clang-sys",
+ "itertools 0.11.0",
+ "log",
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "regex",
+ "rustc-hash",
+ "shlex",
+ "syn 2.0.100",
 ]
 
 [[package]]
@@ -322,11 +342,21 @@ checksum = "8f1fe948ff07f4bd06c30984e69f5b4899c516a3ef74f34df92a2df2ab535495"
 
 [[package]]
 name = "cc"
-version = "1.2.19"
+version = "1.2.57"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e3a13707ac958681c13b39b458c073d0d9bc8a22cb1b2f4c8e55eb72c13f362"
+checksum = "7a0dd1ca384932ff3641c8718a02769f1698e7563dc6974ffd03346116310423"
 dependencies = [
+ "find-msvc-tools",
  "shlex",
+]
+
+[[package]]
+name = "cexpr"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6fac387a98bb7c37292057cffc56d62ecb629900026402633ae9160df93a8766"
+dependencies = [
+ "nom",
 ]
 
 [[package]]
@@ -371,6 +401,17 @@ checksum = "773f3b9af64447d2ce9850330c473515014aa235e6a783b02db81ff39e4a3dad"
 dependencies = [
  "crypto-common",
  "inout",
+]
+
+[[package]]
+name = "clang-sys"
+version = "1.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b023947811758c97c59bf9d1c188fd619ad4718dcaa767947df1cadb14f39f4"
+dependencies = [
+ "glob",
+ "libc",
+ "libloading 0.8.9",
 ]
 
 [[package]]
@@ -424,9 +465,9 @@ checksum = "f46ad14479a25103f283c0f10005961cf086d8dc42205bb44c46ac563475dca6"
 
 [[package]]
 name = "cmake"
-version = "0.1.54"
+version = "0.1.57"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7caa3f9de89ddbe2c607f4101924c5abec803763ae9534e4f4d7d8f84aa81f0"
+checksum = "75443c44cd6b379beb8c5b45d85d0773baf31cce901fe7bb252f4eff3008ef7d"
 dependencies = [
  "cc",
 ]
@@ -704,7 +745,7 @@ dependencies = [
  "egui_dock",
  "egui_extras",
  "embed-resource",
- "glam",
+ "glam 0.29.3",
  "google_material_symbols",
  "hecs",
  "image",
@@ -722,6 +763,7 @@ dependencies = [
  "tracing 0.2.0",
  "tracing-subscriber",
  "tracy-client",
+ "umbra",
 ]
 
 [[package]]
@@ -748,7 +790,7 @@ dependencies = [
  "bitflags 2.11.0",
  "d3d12",
  "deimos-core",
- "glam",
+ "glam 0.29.3",
  "int-enum",
  "paste",
  "rayon",
@@ -761,7 +803,7 @@ name = "deimos-ecs"
 version = "0.0.0"
 dependencies = [
  "deimos-data",
- "glam",
+ "glam 0.29.3",
  "hecs",
  "tracing 0.2.0",
 ]
@@ -784,7 +826,7 @@ dependencies = [
  "deimos-core",
  "deimos-data",
  "deimos-ecs",
- "glam",
+ "glam 0.29.3",
  "gpu-allocator",
  "hecs",
  "inline_tweak",
@@ -807,6 +849,7 @@ dependencies = [
  "tiger-parse",
  "tiger-pkg",
  "tracing 0.2.0",
+ "umbra",
  "uuid",
  "windows 0.62.2",
 ]
@@ -1062,6 +1105,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "find-msvc-tools"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
+
+[[package]]
 name = "fixedbitset"
 version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1258,6 +1307,12 @@ checksum = "8babf46d4c1c9d92deac9f7be466f76dfc4482b6452fc5024b5e8daf6ffeb3ee"
 dependencies = [
  "bytemuck",
 ]
+
+[[package]]
+name = "glam"
+version = "0.32.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f70749695b063ecbf6b62949ccccde2e733ec3ecbbd71d467dca4e5c6c97cca0"
 
 [[package]]
 name = "glob"
@@ -1469,6 +1524,16 @@ checksum = "6800badb6cb2082ffd7b6a67e6125bb39f18782f793520caee8cb8846be06112"
 
 [[package]]
 name = "libloading"
+version = "0.8.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7c4b02199fee7c5d21a5ae7d8cfa79a6ef5bb2fc834d6e9058e89c825efdc55"
+dependencies = [
+ "cfg-if",
+ "windows-link",
+]
+
+[[package]]
+name = "libloading"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "754ca22de805bb5744484a5b151a9e1a8e837d5dc232c2d7d8c2e3492edc8b60"
@@ -1495,6 +1560,15 @@ checksum = "a7118c2c2a3c7b6edc279a8b19507672b9c4d716f95e671172dfa4e23f9fd824"
 dependencies = [
  "cmake",
  "libc",
+]
+
+[[package]]
+name = "link-cplusplus"
+version = "1.0.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f78c730aaa7d0b9336a299029ea49f9ee53b0ed06e9202e8cb7db9bae7b8c82"
+dependencies = [
+ "cc",
 ]
 
 [[package]]
@@ -2197,6 +2271,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 
 [[package]]
+name = "rustc-hash"
+version = "2.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "357703d41365b4b27c590e3ed91eabb1b663f07c4c084095e60cbed4362dff0d"
+
+[[package]]
 name = "rustc_version"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2483,7 +2563,7 @@ version = "0.7.2"
 source = "git+https://github.com/v4nguard/tiger-parse.git#0125318a611bb11d21dbfc05f34e7f0b98554555"
 dependencies = [
  "disqualified",
- "glam",
+ "glam 0.29.3",
  "paste",
  "thiserror 1.0.69",
  "tiger-parse-derive",
@@ -2519,7 +2599,7 @@ dependencies = [
  "hex",
  "itertools 0.14.0",
  "lazy_static",
- "libloading",
+ "libloading 0.9.0",
  "parking_lot",
  "rayon",
  "serde",
@@ -2731,6 +2811,25 @@ name = "ucd-trie"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2896d95c02a80c6d6a5d6e953d479f5ddf2dfdb6a244441010e373ac0fb88971"
+
+[[package]]
+name = "umbra"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "glam 0.32.1",
+ "rayon",
+ "umbra3-sys",
+]
+
+[[package]]
+name = "umbra3-sys"
+version = "0.1.0"
+dependencies = [
+ "bindgen",
+ "cmake",
+ "link-cplusplus",
+]
 
 [[package]]
 name = "unicase"

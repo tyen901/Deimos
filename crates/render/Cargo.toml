@@ -8,6 +8,7 @@ deimos-core = { path = "../core" }
 deimos-data = { path = "../data" }
 deimos-ecs = { path = "../ecs" }
 d3d12 = { path = "../d3d12" }
+umbra = { path = "../umbra3" }
 
 ahash = "0.8.12"
 anyhow.workspace = true
