@@ -17,7 +17,7 @@ use windows::{
     },
 };
 
-use crate::{verify_ffi_type, CommandQueue, Format, Resource};
+use crate::{verify_ffi_type, CommandQueue, Format, Resource, WaitableObject};
 
 #[repr(transparent)]
 pub struct SwapChain(pub(crate) IDXGISwapChain3);
@@ -50,7 +50,12 @@ impl SwapChain {
             }
         }?;
 
-        Ok(Self(swap_chain.cast()?))
+        let swapchain3: IDXGISwapChain3 = swap_chain.cast()?;
+        unsafe {
+            let _res = swapchain3.SetMaximumFrameLatency(1);
+        }
+
+        Ok(Self(swapchain3))
     }
 
     pub fn present(&self, sync_interval: u32, flags: PresentFlags) -> Option<SwapChainStatus> {
@@ -99,6 +104,10 @@ impl SwapChain {
 
     pub fn get_current_back_buffer_index(&self) -> u32 {
         unsafe { self.0.GetCurrentBackBufferIndex() }
+    }
+
+    pub fn get_frame_latency_waitable_object(&self) -> WaitableObject {
+        unsafe { WaitableObject(self.0.GetFrameLatencyWaitableObject()) }
     }
 }
 

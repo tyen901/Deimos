@@ -1,4 +1,4 @@
-use d3d12::{Event, ext::GpuFenceWaiter};
+use d3d12::{WaitableObject, ext::GpuFenceWaiter};
 use parking_lot::Mutex;
 use std::{
     ops::Deref,
@@ -75,7 +75,7 @@ struct CommandListSlot {
 pub struct AsyncCommandListRing {
     queue: d3d12::CommandQueue,
     fence: d3d12::Fence,
-    fence_event: d3d12::Event,
+    fence_event: d3d12::WaitableObject,
 
     next_fence_value: AtomicU64,
     slots: Mutex<Box<[CommandListSlot]>>,
@@ -89,7 +89,7 @@ impl AsyncCommandListRing {
         capacity: usize,
     ) -> anyhow::Result<Self> {
         let fence = device.create_fence(0)?;
-        let fence_event = Event::new(false, false)?;
+        let fence_event = WaitableObject::new(false, false)?;
 
         let slots = (0..capacity)
             .map(|_| {

@@ -3,12 +3,12 @@ use std::{
     time::Duration,
 };
 
-use crate::{CommandQueue, Device, Error, Event, Fence, Result, WaitResult};
+use crate::{CommandQueue, Device, Error, Fence, Result, WaitResult, WaitableObject};
 
 /// A fence wrapper that handles signaling and waiting
 pub struct GpuFence {
     fence: Fence,
-    event: Event,
+    event: WaitableObject,
 
     next_value: AtomicU64,
 }
@@ -17,7 +17,7 @@ impl GpuFence {
     /// Creates a new `AutoFence`
     pub fn new(device: &Device) -> Result<Self> {
         let fence = device.create_fence(0)?;
-        let event = Event::new(false, false)?;
+        let event = WaitableObject::new(false, false)?;
         Ok(Self {
             fence,
             event,

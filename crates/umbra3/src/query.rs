@@ -39,6 +39,7 @@ pub struct Query<'a> {
     _marker: PhantomData<&'a ()>,
 }
 
+#[profiling::all_functions]
 impl<'a> Query<'a> {
     pub fn new(tome: &'a Tome) -> Self {
         let mut boxed = Box::<umbra3_sys::Umbra_Query>::new_uninit();
@@ -101,6 +102,7 @@ impl Default for Visibility {
 
 pub struct OcclusionBuffer(Box<Umbra_OcclusionBuffer>);
 
+#[profiling::all_functions]
 impl OcclusionBuffer {
     pub fn is_aabb_visible(&self, min: [f32; 3], max: [f32; 3]) -> bool {
         unsafe {

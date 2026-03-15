@@ -4,7 +4,9 @@ use bitflags::bitflags;
 use windows::Win32::{
     Foundation::{CloseHandle, HANDLE, WAIT_TIMEOUT},
     Graphics::Direct3D12::*,
-    System::Threading::{CreateEventA, ResetEvent, WaitForSingleObject, INFINITE},
+    System::Threading::{
+        CreateEventA, ResetEvent, WaitForSingleObject, WaitForSingleObjectEx, INFINITE,
+    },
 };
 
 use crate::Result;
@@ -23,16 +25,16 @@ impl Fence {
         unsafe { self.0.GetCompletedValue() }
     }
 
-    pub fn set_event_on_completion(&self, event: &Event, value: u64) -> Result<()> {
+    pub fn set_event_on_completion(&self, event: &WaitableObject, value: u64) -> Result<()> {
         unsafe { self.0.SetEventOnCompletion(value, event.0)? };
         Ok(())
     }
 }
 
 #[repr(transparent)]
-pub struct Event(pub(crate) HANDLE);
+pub struct WaitableObject(pub(crate) HANDLE);
 
-impl Event {
+impl WaitableObject {
     pub fn new(manual_reset: bool, initial_state: bool) -> Result<Self> {
         let event = unsafe { CreateEventA(None, manual_reset, initial_state, None)? };
         Ok(Self(event))
@@ -52,12 +54,30 @@ impl Event {
         }
     }
 
+    /// Wait for the event to be signaled.
+    ///
+    /// If `timeout` is `None`, the function will wait indefinitely.
+    pub fn wait_alertable(&self, timeout: Option<Duration>) -> WaitResult {
+        let res = unsafe {
+            WaitForSingleObjectEx(
+                self.0,
+                timeout.map_or(INFINITE, |d| d.as_millis() as u32),
+                true,
+            )
+        };
+
+        match res {
+            WAIT_TIMEOUT => WaitResult::Timeout,
+            _ => WaitResult::Success,
+        }
+    }
+
     pub fn reset(&self) {
         unsafe { ResetEvent(self.0) }.expect("reset event");
     }
 }
 
-impl Drop for Event {
+impl Drop for WaitableObject {
     fn drop(&mut self) {
         unsafe { CloseHandle(self.0) }.expect("close event handle");
     }

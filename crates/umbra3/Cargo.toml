@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 umbra3-sys = { path = "./umbra3-sys" }
+profiling.workspace = true
 
 [dev-dependencies]
 anyhow = "1.0.102"

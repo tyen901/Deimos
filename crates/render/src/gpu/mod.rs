@@ -235,6 +235,7 @@ impl Gpu {
 impl Gpu {
     pub fn begin_frame(&self) -> &FrameContext {
         d3d12::check_device_removed(self);
+        self.swapchain.lock().wait_on_present();
         let frame_index = self.frame_index.load(std::sync::atomic::Ordering::Relaxed);
         let frame = &self.frames[frame_index % Self::FRAMES_IN_FLIGHT];
         frame.begin_frame(&self.queue);

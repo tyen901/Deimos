@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use anyhow::Context;
-use d3d12::{self, DescriptorHeap, PresentFlags, SwapChainFlags, SwapChainStatus};
+use d3d12::{self, DescriptorHeap, PresentFlags, SwapChainFlags, SwapChainStatus, WaitableObject};
 use itertools::Itertools;
 
 pub struct Swapchain {
@@ -9,6 +9,7 @@ pub struct Swapchain {
     pub swapchain: d3d12::SwapChain,
     // pub swapchain_target: Option<d3d12::RenderTargetView>,
     pub(crate) swapchain_resolution: (u32, u32),
+    frame_latency_waitable: WaitableObject,
     present_parameters: PresentFlags,
 
     rtv_desc_heap: DescriptorHeap,
@@ -29,6 +30,7 @@ impl Swapchain {
 
         let mut swapchain = Self {
             device: device.clone(),
+            frame_latency_waitable: swapchain.get_frame_latency_waitable_object(),
             swapchain,
             // swapchain_target: None,
             swapchain_resolution: size,
@@ -99,6 +101,11 @@ impl Swapchain {
                 res
             })
             .collect_vec();
+    }
+
+    pub(crate) fn wait_on_present(&self) {
+        self.frame_latency_waitable
+            .wait_alertable(Some(Duration::from_secs(1)));
     }
 
     pub(crate) fn present(&mut self, vsync: bool) {
