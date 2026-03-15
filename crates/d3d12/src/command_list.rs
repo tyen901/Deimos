@@ -172,7 +172,7 @@ impl GraphicsCommandList {
         buffer_location: GpuVirtualAddress,
     ) {
         if buffer_location == GpuVirtualAddress::NULL {
-            log::error!("Binding NULL to b{root_parameter_index} is undefined behavior! ({buffer_location:?})");
+            tracing::error!("Binding NULL to b{root_parameter_index} is undefined behavior! ({buffer_location:?})");
         }
         unsafe {
             self.0

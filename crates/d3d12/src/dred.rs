@@ -8,7 +8,7 @@ pub fn enable_dred() -> windows::core::Result<()> {
         D3D12GetDebugInterface(&mut dred_settings)?;
 
         let Some(dred_settings) = dred_settings else {
-            log::warn!("Auto breadcrumbs and page fault enablement not available");
+            tracing::warn!("Auto breadcrumbs and page fault enablement not available");
             return Ok(());
         };
 
@@ -18,7 +18,7 @@ pub fn enable_dred() -> windows::core::Result<()> {
         // Page fault output tells you which virtual address caused a fault
         dred_settings.SetPageFaultEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
 
-        log::info!("Enabled auto breadcrumbs and page fault enablement");
+        tracing::info!("Enabled auto breadcrumbs and page fault enablement");
     }
     Ok(())
 }
@@ -28,12 +28,12 @@ pub fn check_device_removed(device: &Device) {
     if removed_reason.is_ok() {
         return;
     }
-    log::error!("Device removed: {:?}", removed_reason);
+    tracing::error!("Device removed: {:?}", removed_reason);
 
     let dred_data: ID3D12DeviceRemovedExtendedData1 = match device.0.cast() {
         Ok(d) => d,
         Err(e) => {
-            log::error!("Failed to get DRED data: {:?}", e);
+            tracing::error!("Failed to get DRED data: {:?}", e);
             return;
         }
     };
@@ -47,7 +47,7 @@ pub fn check_device_removed(device: &Device) {
                 let completed = *n.pLastBreadcrumbValue;
                 let total = n.BreadcrumbCount;
 
-                log::error!(
+                tracing::error!(
                     "Command queue: {} ops completed out of {}",
                     completed,
                     total
@@ -66,18 +66,18 @@ pub fn check_device_removed(device: &Device) {
                         } else {
                             ""
                         };
-                        log::error!("  [{idx}] {op:?}{marker}");
+                        tracing::error!("  [{idx}] {op:?}{marker}");
                     }
                 }
 
                 node = n.pNext;
             }
         } else {
-            log::error!("No breadcrumbs available");
+            tracing::error!("No breadcrumbs available");
         }
 
         if let Ok(page_fault_output) = dred_data.GetPageFaultAllocationOutput1() {
-            log::error!("Page fault at GPU VA: {:#x}", page_fault_output.PageFaultVA);
+            tracing::error!("Page fault at GPU VA: {:#x}", page_fault_output.PageFaultVA);
             // pHeadExistingAllocationNode / pHeadRecentFreedAllocationNode
             // can tell you which resource was involved
         }

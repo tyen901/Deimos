@@ -43,7 +43,7 @@ tiger-parse = { version = "0.7.2", git = "https://github.com/v4nguard/tiger-pars
     "check_types_debug",
 ] }
 tiger-pkg = { version = "0.20", features = ["global_manager_instance"] }
-tracing = { version = "0.2.0", git = "https://github.com/cohaereo/tracing-lesspretty.git" }
+tracing = { version = "0.1" }
 
 [workspace.dependencies.windows]
 version = ">=0.59, <=0.62"
