@@ -1,7 +1,10 @@
 use std::{ops::Deref, sync::Arc};
 
 use d3d12::{CpuDescriptorHandle, GpuVirtualAddress};
-use deimos_data::tfx::{FixedFunctionState, PrimitiveType, ShaderStage};
+use deimos_data::{
+    tag::Tag,
+    tfx::{FixedFunctionState, PrimitiveType, ShaderStage},
+};
 use smallvec::SmallVec;
 use tiger_pkg::TagHash;
 
@@ -28,6 +31,7 @@ pub struct CommandList {
     // pub(super) current_input_topology: usize,
     pub(super) current_stencil_ref: u32,
     pub(super) bound_technique: TagHash,
+    pub bound_modelbuffers: (TagHash, TagHash, TagHash),
     smart_rebind: bool,
 
     pub externs: LocalExternContainer,
@@ -65,8 +69,9 @@ impl CommandList {
             current_depth_bias: usize::MAX,
             // current_input_topology: usize::MAX,
             current_stencil_ref: 0,
-            smart_rebind: false,
             bound_technique: TagHash::NONE,
+            bound_modelbuffers: (TagHash::NONE, TagHash::NONE, TagHash::NONE),
+            smart_rebind: false,
 
             tag: None,
         }

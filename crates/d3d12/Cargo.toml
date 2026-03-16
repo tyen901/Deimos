@@ -8,6 +8,7 @@ bitflags = "2.11.0"
 bytemuck = "1.25"
 bon = "3.9.0"
 int-enum = "1.2.0"
+profiling.workspace = true
 static_assertions = "1.1.0"
 thiserror = "2.0.18"
 tracing.workspace = true

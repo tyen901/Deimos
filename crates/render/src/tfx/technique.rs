@@ -166,7 +166,7 @@ impl Technique {
                 && stage.core.stage != ShaderStage::Vertex;
 
             if skip_full_stage_rebind {
-                stage.bind_cbvs(cmd);
+                stage.bind_cbvs(cmd, full_rebind);
             } else {
                 stage.bind(cmd, full_rebind);
             }
@@ -214,6 +214,7 @@ pub struct TechniqueResourceSlot {
     is_static: bool,
 }
 
+#[profiling::all_functions]
 impl TechniqueStage {
     pub fn new(
         asset_manager: &Arc<AssetManager>,
@@ -334,7 +335,6 @@ impl TechniqueStage {
         Ok(stage)
     }
 
-    #[profiling::function]
     pub fn bind(&self, cmd: &mut CommandList, full_rebind: bool) {
         if full_rebind && let Err(e) = self.core.prepare(cmd) {
             error!("Failed to prepare technique: {}", e);
@@ -360,10 +360,12 @@ impl TechniqueStage {
                 descriptor_range.cpu_handle(0),
                 d3d12::DescriptorHeapType::CbvSrvUav,
             );
-        } else {
+        }
+
+        {
             let null = cmd.gpu().resource_heap.lock().null().cpu_handle();
             let resources = cmd.resources(self.core.stage);
-            for slot in &self.root_texture_slots {
+            for slot in self.root_texture_slots.iter().filter(|s| !s.is_static) {
                 let src = resources
                     .get_shader_resource_view(slot.register as u32)
                     .map(|t| t.cpu_handle())
@@ -377,13 +379,18 @@ impl TechniqueStage {
             }
         }
 
-        self.bind_cbvs(cmd);
+        self.bind_cbvs(cmd, full_rebind);
     }
 
-    pub fn bind_cbvs(&self, cmd: &mut CommandList) {
+    pub fn bind_cbvs(&self, cmd: &mut CommandList, full_rebind: bool) {
         let resources = cmd.resources(self.core.stage);
 
         for slot in &self.root_cbuffer_slots {
+            // Skip rebinding view/frame scope
+            if !full_rebind && matches!(slot.register, 12 | 13) {
+                continue;
+            }
+
             if let Some(va) = resources.get_shader_constant_buffer_view(slot.register as u32) {
                 cmd.set_graphics_root_constant_buffer_view(slot.rs_slot as u32, va);
             } else {
@@ -415,6 +422,7 @@ impl TechniqueStage {
             else {
                 continue;
             };
+            assert!(slot.is_static);
 
             let handle = match source {
                 ResolvedTextureSource::Static(handle) => handle
@@ -439,10 +447,7 @@ impl TechniqueStage {
     }
 
     fn prebuild_static_staging(&mut self, gpu: &Gpu) -> anyhow::Result<()> {
-        if self.core.has_dynamic_textures()
-            || self.has_manual_textures
-            || self.descriptor_count == 0
-        {
+        if self.descriptor_count == 0 {
             return Ok(());
         }
 
@@ -454,47 +459,47 @@ impl TechniqueStage {
                 warn!(
                     "Timed out waiting for textures to load before building static descriptor staging heap"
                 );
+                return Ok(());
             }
         }
 
-        let staging = gpu
-            .create_descriptor_heap(
+        let staging = gpu.create_descriptor_heap(
+            d3d12::DescriptorHeapType::CbvSrvUav,
+            self.descriptor_count as u32,
+            false,
+            0,
+        )?;
+
+        let increment_size =
+            gpu.descriptor_handle_increment_size(d3d12::DescriptorHeapType::CbvSrvUav);
+        let null = gpu.resource_heap.lock().null().cpu_handle();
+
+        for slot in &self.root_texture_slots {
+            let src = if slot.is_static {
+                self.core
+                    .textures
+                    .iter()
+                    .find(|(s, _)| *s == slot.register as u32)
+                    .and_then(|(_, src)| match src {
+                        ResolvedTextureSource::Static(h) => h.get().map(|t| t.srv.cpu_handle()),
+                        _ => None,
+                    })
+                    .unwrap_or(null)
+            } else {
+                null
+            };
+
+            gpu.copy_descriptors_simple(
+                1,
+                src,
+                staging
+                    .cpu_descriptor_handle_for_heap_start()
+                    .offset(slot.descriptor_offset as usize, increment_size),
                 d3d12::DescriptorHeapType::CbvSrvUav,
-                self.descriptor_count as u32,
-                false, // CPU-only, not shader visible
-                0,
-            )
-            .expect("failed to create staging heap");
-
-        self.copy_static_descriptors(gpu, &staging)
-            .context("copying static descriptors")?;
-
-        // let null = gpu.resource_heap.lock().null().cpu_handle();
-        // for slot in &self.root_texture_slots {
-        //     let src = self
-        //         .core
-        //         .textures
-        //         .iter()
-        //         .find(|(s, _)| *s == slot.register as u32)
-        //         .and_then(|(_, src)| match src {
-        //             ResolvedTextureSource::Static(h) => h.get().map(|t| t.srv.cpu_handle()),
-        //             _ => None,
-        //         })
-        //         .unwrap_or(null);
-
-        //     gpu.copy_descriptors_simple(
-        //         1,
-        //         src,
-        //         staging.cpu_descriptor_handle_for_heap_start().offset(
-        //             slot.descriptor_offset as usize,
-        //             gpu.descriptor_handle_increment_size(d3d12::DescriptorHeapType::CbvSrvUav),
-        //         ),
-        //         d3d12::DescriptorHeapType::CbvSrvUav,
-        //     );
-        // }
+            );
+        }
 
         self.static_staging_heap = Some(staging);
-
-        return Ok(());
+        Ok(())
     }
 }

@@ -16,6 +16,7 @@ use crate::{
 #[derive(Clone)]
 pub struct GraphicsCommandList(pub(crate) ID3D12GraphicsCommandList);
 
+#[profiling::all_functions]
 impl GraphicsCommandList {
     pub fn close(&self) -> Result<()> {
         unsafe {

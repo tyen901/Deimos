@@ -7,6 +7,7 @@ use crate::{
 };
 
 pub(super) struct ModelBuffers {
+    key: (TagHash, TagHash, TagHash),
     pub vertex0_buffer: Handle<VertexBuffer>,
     pub vertex1_buffer: Option<Handle<VertexBuffer>>,
     pub index_buffer: Handle<IndexBuffer>,
@@ -20,7 +21,7 @@ impl ModelBuffers {
         index_buffer: TagHash,
     ) -> anyhow::Result<Self> {
         Ok(Self {
-            // vertex0_buffer: VertexBuffer::load(&renderer.gpu, vertex0_buffer)?,
+            key: (vertex0_buffer, vertex1_buffer, index_buffer),
             vertex0_buffer: renderer.asset_manager.load(vertex0_buffer),
             vertex1_buffer: if vertex1_buffer.is_some() {
                 Some(renderer.asset_manager.load(vertex1_buffer))
@@ -33,16 +34,24 @@ impl ModelBuffers {
 
     #[profiling::function]
     pub fn bind(&self, cmd: &mut CommandList) -> Option<()> {
-        self.index_buffer.get()?.bind(cmd);
+        if cmd.bound_modelbuffers == self.key {
+            return Some(());
+        }
+
+        self.index_buffer.get_ref(|ib| ib.bind(cmd))?;
 
         if let Some(vertex1) = &self.vertex1_buffer {
-            cmd.ia_set_vertex_buffers(
-                0,
-                &[self.vertex0_buffer.get()?.view(), vertex1.get()?.view()],
-            );
+            self.vertex0_buffer.get_ref(|v0| {
+                vertex1.get_ref(|v1| {
+                    cmd.ia_set_vertex_buffers(0, &[v0.view(), v1.view()]);
+                })
+            })?;
         } else {
-            self.vertex0_buffer.get()?.bind_single(&cmd.cmd, 0);
+            self.vertex0_buffer
+                .get_ref(|vb| vb.bind_single(&cmd.cmd, 0))?;
         }
+
+        cmd.bound_modelbuffers = self.key;
 
         Some(())
     }

@@ -1,5 +1,6 @@
 use std::{f32, io::Write, ops::Deref};
 
+use ahash::HashSet;
 use anyhow::Context;
 use bit_field::BitField;
 use bytemuck::{Pod, Zeroable};

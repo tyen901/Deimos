@@ -16,6 +16,7 @@ use crate::{
 #[derive(Clone)]
 pub struct Device(pub(crate) ID3D12Device);
 
+#[profiling::all_functions]
 impl Device {
     pub fn create(adapter: Option<IDXGIAdapter>) -> Result<Self> {
         let mut device = None;
@@ -331,7 +332,7 @@ impl Device {
         }
     }
 
-    pub const fn as_windows(&self) -> &ID3D12Device {
+    pub fn as_windows(&self) -> &ID3D12Device {
         &self.0
     }
 }

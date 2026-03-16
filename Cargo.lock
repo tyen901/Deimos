@@ -671,6 +671,7 @@ dependencies = [
  "bon",
  "bytemuck",
  "int-enum",
+ "profiling",
  "static_assertions",
  "thiserror 2.0.18",
  "tracing",
