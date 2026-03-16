@@ -40,7 +40,7 @@ impl DynamicBuffer {
     }
 
     /// Create a CPU-writable upload buffer.
-    /// Stays mapped for its entire lifetime — write through `mapped_slice_mut()`.
+    /// Stays mapped for the duration of it's lifetime
     pub fn new_upload(gpu: &Arc<Gpu>, size: u64, name: &str) -> anyhow::Result<Self> {
         let mut buf = Self::new_impl(gpu, size, MemoryLocation::CpuToGpu, name)?;
 

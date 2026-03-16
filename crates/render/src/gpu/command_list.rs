@@ -51,6 +51,7 @@ impl CommandList {
     // }
 
     pub fn from_native_command_list(gpu: &Arc<Gpu>, cmd: NativeCommandList) -> Self {
+        cmd.set_descriptor_heaps(std::slice::from_ref(gpu.frame().descriptors.heap()));
         Self {
             externs: LocalExternContainer::new(gpu.extern_source.read().clone()),
             parent: gpu.clone(),

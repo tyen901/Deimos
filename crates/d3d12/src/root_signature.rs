@@ -29,7 +29,7 @@ impl<'a> RootSignatureBuilder<'a> {
         self
     }
 
-    pub fn add_param(&mut self, param: RootParameter<'a>, visibility: ShaderVisibility) -> usize {
+    pub fn add_param(&mut self, param: RootParameter<'a>, visibility: ShaderVisibility) -> u32 {
         let index = self.parameters.len();
         let param_ffi = match param {
             RootParameter::DescriptorTable(descriptor_ranges) => D3D12_ROOT_PARAMETER {
@@ -99,7 +99,7 @@ impl<'a> RootSignatureBuilder<'a> {
         };
 
         self.parameters.push(param_ffi);
-        index
+        index as u32
     }
 
     pub fn with_sampler(mut self, desc: StaticSamplerDesc) -> Self {

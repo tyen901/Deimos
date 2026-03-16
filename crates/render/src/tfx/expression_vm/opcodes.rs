@@ -1,3 +1,4 @@
+use ahash::{HashMap, HashSet};
 use anyhow::Context;
 use bitflags::bitflags;
 use deimos_data::tfx::ExternIndex;
@@ -463,6 +464,31 @@ pub fn get_data_access_from_bytecode(data: &[u8]) -> anyhow::Result<ExpressionDa
     }
 
     Ok(access)
+}
+
+pub fn get_accessed_externs_from_bytecode(data: &[u8]) -> anyhow::Result<Vec<ExternIndex>> {
+    let opcodes = OpcodeIterator::new(data);
+    let mut access = HashSet::default();
+    for op in opcodes {
+        let (op, args) = op?;
+        match op {
+            Opcode::PushExternInputFloat
+            | Opcode::PushExternInputVec4
+            | Opcode::PushExternInputMat4
+            | Opcode::PushExternInputTextureView
+            | Opcode::PushExternInputU32
+            | Opcode::PushExternInputUav => {
+                let extern_id = ExternIndex::try_from(args[0])
+                    .ok()
+                    .context("Invalid extern index")?;
+
+                access.insert(extern_id);
+            }
+            _ => {}
+        }
+    }
+
+    Ok(access.into_iter().collect())
 }
 
 // FooBar -> foo_bar

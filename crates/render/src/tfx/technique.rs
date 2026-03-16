@@ -1,11 +1,15 @@
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use anyhow::Context;
 use d3d12::{
     Format, RootSignatureBuilder, RootSignatureFlags,
     ext::{PsvResourceBinding, PsvResourceType},
 };
-use deimos_data::tfx::{STechnique, STechniqueStage, ShaderStage, TechniqueBindMode};
+use deimos_data::tfx::{STechnique, STechniqueStage, ShaderStage, TechniqueBindMode, TfxScopeBits};
+use parking_lot::Mutex;
 use smallvec::SmallVec;
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::{TagHash, package_manager};
@@ -17,7 +21,10 @@ use crate::{
         pipeline_cache::PipelineKey,
     },
     renderer::globals::get_scope_samplers,
-    tfx::dynamic_core::{DynamicCore, ResolvedTextureSource},
+    tfx::{
+        dynamic_core::{DynamicCore, ResolvedTextureSource},
+        expression_vm::opcodes::get_accessed_externs_from_bytecode,
+    },
 };
 
 pub struct Technique {
@@ -27,10 +34,6 @@ pub struct Technique {
     root_signature: d3d12::RootSignature,
     stage_vertex: TechniqueStage,
     stage_pixel: TechniqueStage,
-
-    descriptor_table_parameters: SmallVec<[u32; 3]>,
-    descriptor_count: usize,
-    static_descriptor_heap: Option<d3d12::DescriptorHeap>,
 }
 
 impl Technique {
@@ -43,102 +46,38 @@ impl Technique {
             .read_tag_struct(hash)
             .context("Failed to read technique data")?;
 
+        let mut rsb = RootSignatureBuilder::default()
+            .flags(RootSignatureFlags::ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+
         let mut stage_vertex = TechniqueStage::new(
             asset_manager,
             gpu,
+            &mut rsb,
+            &data,
             data.shader_vertex.clone(),
             ShaderStage::Vertex,
         )
         .context("while loading vertex stage")?;
 
+        stage_vertex.srv_root_param_index = rsb.add_param(
+            d3d12::RootParameter::DescriptorTable(stage_vertex.descriptor_ranges.as_slice()),
+            stage_vertex.visibility,
+        );
+
         let mut stage_pixel = TechniqueStage::new(
             asset_manager,
             gpu,
+            &mut rsb,
+            &data,
             data.shader_pixel.clone(),
             ShaderStage::Pixel,
         )
         .context("while loading pixel stage")?;
 
-        let mut rsb = RootSignatureBuilder::default()
-            .flags(RootSignatureFlags::ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
-
-        let mut descriptor_ranges = Vec::new();
-        let mut descriptor_offset = 0;
-        for stage in [&mut stage_vertex, &mut stage_pixel] {
-            for scopes in data.used_scopes.iter() {
-                let index = scopes.bits().ilog2();
-                let scope = get_scope_samplers(index);
-                if let Some(scope_stage) = scope.stage_by_visibility(stage.visibility) {
-                    for sampler in &scope_stage.core.samplers {
-                        rsb.add_sampler(sampler.clone());
-                    }
-                }
-            }
-
-            for sampler in &stage.core.samplers {
-                rsb.add_sampler(sampler.clone());
-            }
-
-            let mut local_ranges = vec![];
-            for resource in &stage.resources {
-                match resource.res_type {
-                    d3d12::ext::PsvResourceType::SRVTyped
-                    | d3d12::ext::PsvResourceType::SRVRaw
-                    | d3d12::ext::PsvResourceType::SRVStructured => {
-                        let range = d3d12::DescriptorRange {
-                            range_type: d3d12::DescriptorRangeType::Srv,
-                            num_descriptors: 1,
-                            base_shader_register: resource.lower_bound,
-                            register_space: 0,
-                            offset_in_descriptors_from_table_start: descriptor_offset,
-                        };
-                        debug_assert!(descriptor_offset <= 0xff);
-                        debug_assert!(resource.lower_bound <= 0xff);
-
-                        let is_static = stage.core.textures.iter().any(|(slot, src)| {
-                            *slot == resource.lower_bound
-                                && matches!(src, ResolvedTextureSource::Static(_))
-                        });
-                        stage.root_texture_slots.push(TechniqueResourceSlot {
-                            descriptor_offset: descriptor_offset as u8,
-                            register: resource.lower_bound as u8,
-                            is_static,
-                        });
-                        descriptor_offset += 1;
-                        local_ranges.push(range);
-                    }
-                    d3d12::ext::PsvResourceType::CBV => {
-                        let rs_index = rsb.add_param(
-                            d3d12::RootParameter::CbvDescriptor {
-                                shader_register: resource.lower_bound,
-                                register_space: 0,
-                            },
-                            stage.visibility,
-                        );
-                        debug_assert!(rs_index <= 0xff);
-                        debug_assert!(resource.lower_bound <= 0xff);
-                        stage.root_cbuffer_slots.push(TechniqueCbufferSlot {
-                            register: resource.lower_bound as u8,
-                            rs_slot: rs_index as u8,
-                        });
-                    }
-                    _ => {}
-                }
-            }
-            if !local_ranges.is_empty() {
-                descriptor_ranges.push((local_ranges, stage.visibility));
-            }
-        }
-        let mut descriptor_table_parameters = SmallVec::new();
-        for (ranges, visibility) in descriptor_ranges.iter() {
-            let index = rsb.add_param(
-                d3d12::RootParameter::DescriptorTable(ranges.as_slice()),
-                *visibility,
-            );
-            descriptor_table_parameters.push(index as u32);
-        }
-
-        let descriptor_count = descriptor_offset as usize;
+        stage_pixel.srv_root_param_index = rsb.add_param(
+            d3d12::RootParameter::DescriptorTable(stage_pixel.descriptor_ranges.as_slice()),
+            stage_pixel.visibility,
+        );
 
         let root_signature_raw = rsb.serialize()?;
 
@@ -151,19 +90,6 @@ impl Technique {
             stage_vertex,
             stage_pixel,
             data,
-            descriptor_table_parameters,
-            descriptor_count,
-            static_descriptor_heap: None,
-            // TODO(cohae): Weirdly enough this causes an OOM issue when loading a lot of entities in the entity view
-            // static_descriptor_heap: (descriptor_count > 0).then(|| {
-            //     gpu.create_descriptor_heap(
-            //         d3d12::DescriptorHeapType::CbvSrvUav,
-            //         descriptor_count as u32,
-            //         false,
-            //         0,
-            //     )
-            //     .expect("failed to create static descriptor heap")
-            // }),
         };
 
         // if let Some(static_descriptor_heap) = &technique.static_descriptor_heap {
@@ -233,28 +159,17 @@ impl Technique {
             }
         }
 
-        cmd.set_descriptor_heaps(std::slice::from_ref(cmd.gpu().frame().descriptors.heap()));
-
-        let descriptor_range = cmd
-            .gpu()
-            .frame()
-            .descriptors
-            .allocate(self.descriptor_count);
-        if let Some(static_descriptor_heap) = &self.static_descriptor_heap {
-            cmd.gpu().copy_descriptor_range(
-                self.descriptor_count as u32,
-                static_descriptor_heap.cpu_descriptor_handle_for_heap_start(),
-                descriptor_range.cpu_handle(0),
-                d3d12::DescriptorHeapType::CbvSrvUav,
-            );
-        }
-
-        for &param in self.descriptor_table_parameters.iter() {
-            cmd.set_graphics_root_descriptor_table(param, descriptor_range.gpu_handle(0));
-        }
-
         for stage in self.all_stages() {
-            stage.bind(cmd, &descriptor_range, full_rebind);
+            let skip_full_stage_rebind = !full_rebind
+                && !stage.core.has_dynamic_textures()
+                && !stage.has_manual_textures
+                && stage.core.stage != ShaderStage::Vertex;
+
+            if skip_full_stage_rebind {
+                stage.bind_cbvs(cmd);
+            } else {
+                stage.bind(cmd, full_rebind);
+            }
         }
     }
 
@@ -280,6 +195,12 @@ pub struct TechniqueStage {
 
     /// Does this stage have any textures bound outside of the technique's expressions?
     pub has_manual_textures: bool,
+
+    pub srv_root_param_index: u32,
+    pub descriptor_count: usize,
+
+    descriptor_ranges: Vec<d3d12::DescriptorRange>,
+    static_staging_heap: Option<d3d12::DescriptorHeap>,
 }
 
 pub struct TechniqueCbufferSlot {
@@ -297,6 +218,8 @@ impl TechniqueStage {
     pub fn new(
         asset_manager: &Arc<AssetManager>,
         gpu: &Arc<Gpu>,
+        rsb: &mut d3d12::RootSignatureBuilder,
+        technique_data: &STechnique,
         stage: STechniqueStage,
         shader_stage: ShaderStage,
     ) -> anyhow::Result<Self> {
@@ -313,39 +236,151 @@ impl TechniqueStage {
 
         let mut has_manual_textures = false;
         for res in &resources {
-            if res.res_type == PsvResourceType::SRVTyped
-                && !core
-                    .textures
-                    .iter()
-                    .any(|(slot, _)| *slot == res.lower_bound)
+            if matches!(
+                res.res_type,
+                PsvResourceType::SRVTyped
+                    | PsvResourceType::SRVRaw
+                    | PsvResourceType::SRVStructured,
+            ) && !core
+                .textures
+                .iter()
+                .any(|(slot, _)| *slot == res.lower_bound)
             {
                 has_manual_textures = true;
                 break;
             }
         }
 
-        Ok(Self {
+        for scopes in technique_data.used_scopes.iter() {
+            let index = scopes.bits().ilog2();
+            let scope = get_scope_samplers(index);
+            if let Some(scope_stage) = scope.stage_by_visibility(shader_stage.shader_visibility()) {
+                for sampler in &scope_stage.core.samplers {
+                    rsb.add_sampler(sampler.clone());
+                }
+            }
+        }
+
+        for sampler in &core.samplers {
+            rsb.add_sampler(sampler.clone());
+        }
+
+        let mut root_cbuffer_slots = SmallVec::new();
+        let mut root_texture_slots = SmallVec::new();
+
+        let mut descriptor_ranges = vec![];
+        let mut descriptor_offset = 0;
+        for resource in &resources {
+            match resource.res_type {
+                d3d12::ext::PsvResourceType::SRVTyped
+                | d3d12::ext::PsvResourceType::SRVRaw
+                | d3d12::ext::PsvResourceType::SRVStructured => {
+                    let range = d3d12::DescriptorRange {
+                        range_type: d3d12::DescriptorRangeType::Srv,
+                        num_descriptors: 1,
+                        base_shader_register: resource.lower_bound,
+                        register_space: 0,
+                        offset_in_descriptors_from_table_start: descriptor_offset,
+                    };
+                    debug_assert!(descriptor_offset <= 0xff);
+                    debug_assert!(resource.lower_bound <= 0xff);
+
+                    let is_static = core.textures.iter().any(|(slot, src)| {
+                        *slot == resource.lower_bound
+                            && matches!(src, ResolvedTextureSource::Static(_))
+                    });
+                    root_texture_slots.push(TechniqueResourceSlot {
+                        descriptor_offset: descriptor_offset as u8,
+                        register: resource.lower_bound as u8,
+                        is_static,
+                    });
+                    descriptor_offset += 1;
+                    descriptor_ranges.push(range);
+                }
+                d3d12::ext::PsvResourceType::CBV => {
+                    let rs_index = rsb.add_param(
+                        d3d12::RootParameter::CbvDescriptor {
+                            shader_register: resource.lower_bound,
+                            register_space: 0,
+                        },
+                        shader_stage.shader_visibility(),
+                    );
+                    debug_assert!(rs_index <= 0xff);
+                    debug_assert!(resource.lower_bound <= 0xff);
+                    root_cbuffer_slots.push(TechniqueCbufferSlot {
+                        register: resource.lower_bound as u8,
+                        rs_slot: rs_index as u8,
+                    });
+                }
+                _ => {}
+            }
+        }
+
+        let mut stage = Self {
             core,
             visibility: shader_stage.shader_visibility(),
-            root_cbuffer_slots: SmallVec::new(),
-            root_texture_slots: SmallVec::new(),
+            root_cbuffer_slots,
+            root_texture_slots,
             resources,
             has_manual_textures,
-        })
+            srv_root_param_index: u32::MAX,
+            descriptor_ranges,
+            descriptor_count: descriptor_offset as usize,
+            static_staging_heap: None,
+        };
+
+        stage.prebuild_static_staging(gpu)?;
+
+        Ok(stage)
     }
 
     #[profiling::function]
-    pub fn bind(
-        &self,
-        cmd: &mut CommandList,
-        descriptor_range: &DescriptorRange,
-        full_rebind: bool,
-    ) {
+    pub fn bind(&self, cmd: &mut CommandList, full_rebind: bool) {
         if full_rebind && let Err(e) = self.core.prepare(cmd) {
             error!("Failed to prepare technique: {}", e);
             return;
         }
 
+        let descriptor_range = cmd
+            .gpu()
+            .frame()
+            .descriptors
+            .allocate(self.descriptor_count);
+        cmd.set_graphics_root_descriptor_table(
+            self.srv_root_param_index,
+            descriptor_range.gpu_handle(0),
+        );
+
+        let resources = cmd.resources(self.core.stage);
+
+        if let Some(staging) = &self.static_staging_heap {
+            cmd.gpu().copy_descriptors_simple(
+                self.descriptor_count as u32,
+                staging.cpu_descriptor_handle_for_heap_start(),
+                descriptor_range.cpu_handle(0),
+                d3d12::DescriptorHeapType::CbvSrvUav,
+            );
+        } else {
+            let null = cmd.gpu().resource_heap.lock().null().cpu_handle();
+            let resources = cmd.resources(self.core.stage);
+            for slot in &self.root_texture_slots {
+                let src = resources
+                    .get_shader_resource_view(slot.register as u32)
+                    .map(|t| t.cpu_handle())
+                    .unwrap_or(null);
+                cmd.gpu().copy_descriptors_simple(
+                    1,
+                    src,
+                    descriptor_range.cpu_handle(slot.descriptor_offset as usize),
+                    d3d12::DescriptorHeapType::CbvSrvUav,
+                );
+            }
+        }
+
+        self.bind_cbvs(cmd);
+    }
+
+    pub fn bind_cbvs(&self, cmd: &mut CommandList) {
         let resources = cmd.resources(self.core.stage);
 
         for slot in &self.root_cbuffer_slots {
@@ -359,30 +394,6 @@ impl TechniqueStage {
                 cmd.set_graphics_root_constant_buffer_view(
                     slot.rs_slot as u32,
                     cmd.gpu().frame().upload.null(),
-                );
-            }
-        }
-
-        // Filter out static texture slots, as we already copied those from the static descriptor heap
-        for slot in self.root_texture_slots.iter() {
-            // .filter(|s| !s.is_static) {
-            if let Some(tex) = resources.get_shader_resource_view(slot.register as u32) {
-                cmd.gpu().copy_descriptors_simple(
-                    1,
-                    tex.cpu_handle(),
-                    descriptor_range.cpu_handle(slot.descriptor_offset as usize),
-                    d3d12::DescriptorHeapType::CbvSrvUav,
-                );
-            } else {
-                // error!(
-                //     "Missing texture view for register {} ({}:{:?})",
-                //     slot.register, technique.tag, self.core.stage
-                // );
-                cmd.gpu().copy_descriptors_simple(
-                    1,
-                    cmd.gpu().resource_heap.lock().null().cpu_handle(),
-                    descriptor_range.cpu_handle(slot.descriptor_offset as usize),
-                    d3d12::DescriptorHeapType::CbvSrvUav,
                 );
             }
         }
@@ -425,5 +436,65 @@ impl TechniqueStage {
         }
 
         Ok(())
+    }
+
+    fn prebuild_static_staging(&mut self, gpu: &Gpu) -> anyhow::Result<()> {
+        if self.core.has_dynamic_textures()
+            || self.has_manual_textures
+            || self.descriptor_count == 0
+        {
+            return Ok(());
+        }
+
+        let mut start = Instant::now();
+        while !self.core.all_textures_loaded() {
+            rayon::yield_local();
+            // potassium::yield_job();
+            if start.elapsed() > Duration::from_secs(5) {
+                warn!(
+                    "Timed out waiting for textures to load before building static descriptor staging heap"
+                );
+            }
+        }
+
+        let staging = gpu
+            .create_descriptor_heap(
+                d3d12::DescriptorHeapType::CbvSrvUav,
+                self.descriptor_count as u32,
+                false, // CPU-only, not shader visible
+                0,
+            )
+            .expect("failed to create staging heap");
+
+        self.copy_static_descriptors(gpu, &staging)
+            .context("copying static descriptors")?;
+
+        // let null = gpu.resource_heap.lock().null().cpu_handle();
+        // for slot in &self.root_texture_slots {
+        //     let src = self
+        //         .core
+        //         .textures
+        //         .iter()
+        //         .find(|(s, _)| *s == slot.register as u32)
+        //         .and_then(|(_, src)| match src {
+        //             ResolvedTextureSource::Static(h) => h.get().map(|t| t.srv.cpu_handle()),
+        //             _ => None,
+        //         })
+        //         .unwrap_or(null);
+
+        //     gpu.copy_descriptors_simple(
+        //         1,
+        //         src,
+        //         staging.cpu_descriptor_handle_for_heap_start().offset(
+        //             slot.descriptor_offset as usize,
+        //             gpu.descriptor_handle_increment_size(d3d12::DescriptorHeapType::CbvSrvUav),
+        //         ),
+        //         d3d12::DescriptorHeapType::CbvSrvUav,
+        //     );
+        // }
+
+        self.static_staging_heap = Some(staging);
+
+        return Ok(());
     }
 }

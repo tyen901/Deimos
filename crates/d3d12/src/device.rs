@@ -312,6 +312,25 @@ impl Device {
         }
     }
 
+    pub fn copy_descriptors(
+        &self,
+        src_descriptors: &[CpuDescriptorHandle],
+        dst_descriptor_start: CpuDescriptorHandle,
+        heap_type: DescriptorHeapType,
+    ) {
+        unsafe {
+            self.0.CopyDescriptors(
+                1,
+                [dst_descriptor_start].as_ptr().cast(),
+                Some([src_descriptors.len() as u32].as_ptr()),
+                src_descriptors.len() as u32,
+                src_descriptors.as_ptr().cast(),
+                None,
+                heap_type.into(),
+            );
+        }
+    }
+
     pub const fn as_windows(&self) -> &ID3D12Device {
         &self.0
     }
