@@ -127,8 +127,8 @@ impl TerrainPatchesRenderer {
         }))
     }
 
-    pub fn bounds(&self) -> AxisAlignedBBox {
-        self.terrain.bounds.clone()
+    pub const fn bounds(&self) -> AxisAlignedBBox {
+        self.terrain.bounds
     }
 
     #[profiling::function]

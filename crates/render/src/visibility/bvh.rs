@@ -88,7 +88,7 @@ impl Bvh {
 fn merged_aabb(aabbs: &[AxisAlignedBBox], work: &[u32]) -> AxisAlignedBBox {
     work.iter()
         .skip(1)
-        .fold(aabbs[work[0] as usize].clone(), |acc, &i| {
+        .fold(aabbs[work[0] as usize], |acc, &i| {
             acc.union(&aabbs[i as usize])
         })
 }

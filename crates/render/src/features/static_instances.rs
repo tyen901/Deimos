@@ -171,7 +171,7 @@ impl StaticModelRenderer {
             4,
         )?;
 
-        let bounds = transforms.iter().map(|(_, b)| b.clone()).collect_vec();
+        let bounds = transforms.iter().map(|(_, b)| *b).collect_vec();
         let group_bounds = bounds.iter().cloned().sum();
         let bvh = Bvh::build(&bounds);
 

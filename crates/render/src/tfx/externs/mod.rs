@@ -7,7 +7,6 @@ pub use container::*;
 pub use definitions::*;
 use deimos_data::tfx::ExternIndex;
 use glam::{Mat4, Vec4};
-use gpu_allocator::d3d12::Resource;
 
 use crate::{
     asset::{Handle, texture::Texture},
@@ -249,8 +248,8 @@ impl ExternAccessor for BaseExternSource {
 
     fn get_global_channel(&self, index: u8) -> Vec4 {
         match self {
-            BaseExternSource::None => Vec4::ONE,
-            BaseExternSource::Renderer(renderer) => renderer.externs.globals[index as usize],
+            Self::None => Vec4::ONE,
+            Self::Renderer(renderer) => renderer.externs.globals[index as usize],
         }
     }
 }

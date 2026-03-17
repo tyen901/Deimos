@@ -1,19 +1,18 @@
-use std::{marker::PhantomData, mem::MaybeUninit, ptr::null_mut};
+use std::{marker::PhantomData, ptr::null_mut};
 
 use umbra3_sys::{
     Umbra_CameraTransform, Umbra_CameraTransform_DepthRange_DEPTHRANGE_ZERO_TO_ONE,
     Umbra_Matrix4x4, Umbra_MatrixFormat_MF_COLUMN_MAJOR, Umbra_OcclusionBuffer,
     Umbra_OcclusionBuffer_BufferDesc, Umbra_OcclusionBuffer_Format_FORMAT_HISTOGRAM_8BPP,
     Umbra_OcclusionBuffer_Format_FORMAT_NDC_FLOAT,
-    Umbra_OcclusionBuffer_VisibilityTestFlags_TEST_FULL_VISIBILITY,
-    Umbra_OcclusionBuffer_VisibilityTestResult_OCCLUDED, Umbra_Query, Umbra_Query_init,
+    Umbra_OcclusionBuffer_VisibilityTestResult_OCCLUDED, Umbra_Query,
     Umbra_Vector3, Umbra_Visibility,
 };
 
 use crate::Tome;
 
 #[repr(C)]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum QueryErrorCode {
     Ok = 0,
     /// Something completely unexpected happened

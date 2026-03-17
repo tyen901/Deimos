@@ -1,4 +1,4 @@
-use ahash::{HashMap, HashSet};
+use ahash::HashSet;
 use anyhow::Context;
 use bitflags::bitflags;
 use deimos_data::tfx::ExternIndex;

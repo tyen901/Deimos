@@ -15,7 +15,7 @@ use egui::{
     Color32, CornerRadius, FontId, Pos2, Rect, RichText, Sense, TextStyle, Ui, Vec2, Widget,
     scroll_area::ScrollSource, vec2,
 };
-use glam::{Vec3, Vec4};
+use glam::Vec3;
 use hecs::Entity;
 use tiger_pkg::{TagHash, package_manager};
 
@@ -74,7 +74,7 @@ impl<P: ModelProvider> ModelListBase<P> {
         // *scene.view.settings_mut() = thumbnail_scene.view.settings().clone();
         // scene.camera.far = 100_000.0;
 
-        let apply_scene_configuration = |scene: &mut Scene| {
+        let apply_scene_configuration = |_scene: &mut Scene| {
             // scene.set_global_channel_by_name("global_ambient_intensity", Vec4::splat(5.0));
         };
 

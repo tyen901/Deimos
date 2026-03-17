@@ -87,7 +87,7 @@ impl RenderTarget {
         })
     }
 
-    pub fn output_format(&self) -> d3d12::Format {
+    pub const fn output_format(&self) -> d3d12::Format {
         self.view_format
     }
 
@@ -223,7 +223,7 @@ impl DepthBuffer {
         })
     }
 
-    pub fn output_format(&self) -> d3d12::Format {
+    pub const fn output_format(&self) -> d3d12::Format {
         self.output_format
     }
 

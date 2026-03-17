@@ -6,7 +6,6 @@ use static_assertions::assert_eq_size;
 use windows::Win32::Graphics::Direct3D12::*;
 
 use crate::{
-    pix::{pix3_begin_event_blob, pix_color},
     verify_ffi_type, CpuDescriptorHandle, DescriptorHeap, Format, GpuDescriptorHandle,
     GpuVirtualAddress, PipelineState, PrimitiveTopology, QueryHeap, QueryType, Resource,
     ResourceBarrier, Result, RootSignature, TextureCopyLocation,
@@ -43,7 +42,7 @@ impl GraphicsCommandList {
         }
     }
 
-    pub fn begin_event_raw(&self, metadata: EventMetadata, data: &[u8]) {
+    pub const fn begin_event_raw(&self, _metadata: EventMetadata, _data: &[u8]) {
         // unsafe {
         //     self.0.BeginEvent(
         //         metadata as u32,
@@ -53,11 +52,11 @@ impl GraphicsCommandList {
         // }
     }
 
-    pub fn begin_event_str(&self, name: impl AsRef<str>) {
+    pub fn begin_event_str(&self, _name: impl AsRef<str>) {
         // self.begin_event_raw(EventMetadata::Ansi, name.as_ref().as_bytes());
     }
 
-    pub fn end_event(&self) {
+    pub const fn end_event(&self) {
         // unsafe {
         //     self.0.EndEvent();
         // }
@@ -65,7 +64,7 @@ impl GraphicsCommandList {
 
     /// Creates a new event scope with the given name. The event will automatically end when the returned RAII guard is dropped.
     #[must_use]
-    pub fn event_scope(&self, name: impl AsRef<str>, (r, g, b): (u8, u8, u8)) -> EventGuard {
+    pub fn event_scope(&self, _name: impl AsRef<str>, (_r, _g, _b): (u8, u8, u8)) -> EventGuard {
         #[cfg(feature = "pix")]
         self.begin_event_raw(
             EventMetadata::Pix3Blob,

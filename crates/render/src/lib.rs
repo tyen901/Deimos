@@ -1,3 +1,4 @@
+#[cfg(debug_assertions)]
 use std::ffi::CStr;
 
 #[macro_use]

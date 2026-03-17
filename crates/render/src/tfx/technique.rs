@@ -5,11 +5,10 @@ use std::{
 
 use anyhow::Context;
 use d3d12::{
-    Format, RootSignatureBuilder, RootSignatureFlags,
+    RootSignatureBuilder, RootSignatureFlags,
     ext::{PsvResourceBinding, PsvResourceType},
 };
-use deimos_data::tfx::{STechnique, STechniqueStage, ShaderStage, TechniqueBindMode, TfxScopeBits};
-use parking_lot::Mutex;
+use deimos_data::tfx::{STechnique, STechniqueStage, ShaderStage, TechniqueBindMode};
 use smallvec::SmallVec;
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::{TagHash, package_manager};
@@ -17,14 +16,11 @@ use tiger_pkg::{TagHash, package_manager};
 use crate::{
     asset::AssetManager,
     gpu::{
-        Gpu, alloc::descriptors::DescriptorRange, command_list::CommandList,
+        Gpu, command_list::CommandList,
         pipeline_cache::PipelineKey,
     },
     renderer::globals::get_scope_samplers,
-    tfx::{
-        dynamic_core::{DynamicCore, ResolvedTextureSource},
-        expression_vm::opcodes::get_accessed_externs_from_bytecode,
-    },
+    tfx::dynamic_core::{DynamicCore, ResolvedTextureSource},
 };
 
 pub struct Technique {
@@ -346,7 +342,7 @@ impl TechniqueStage {
             descriptor_range.gpu_handle(0),
         );
 
-        let resources = cmd.resources(self.core.stage);
+        let _resources = cmd.resources(self.core.stage);
 
         if let Some(staging) = &self.static_staging_heap {
             cmd.gpu().copy_descriptors_simple(
@@ -361,8 +357,7 @@ impl TechniqueStage {
             for slot in &self.root_texture_slots {
                 let src = resources
                     .get_shader_resource_view(slot.register as u32)
-                    .map(|t| t.cpu_handle())
-                    .unwrap_or(null);
+                    .map_or(null, |t| t.cpu_handle());
                 cmd.gpu().copy_descriptors_simple(
                     1,
                     src,
@@ -441,7 +436,7 @@ impl TechniqueStage {
             return Ok(());
         }
 
-        let mut start = Instant::now();
+        let start = Instant::now();
         while !self.core.all_textures_loaded() {
             rayon::yield_local();
             // potassium::yield_job();
@@ -490,6 +485,6 @@ impl TechniqueStage {
 
         self.static_staging_heap = Some(staging);
 
-        return Ok(());
+        Ok(())
     }
 }

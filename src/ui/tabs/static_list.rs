@@ -4,15 +4,14 @@ use anyhow::Context;
 use deimos_data::tfx::{
     TfxFeatureRenderer,
     features::statics::{SStaticInstanceTransform, SStaticMesh},
-    geometry::AxisAlignedBBox,
 };
 use deimos_ecs::transform::Transform;
 use deimos_render::{
-    ecs::render_objects::{DynamicRenderObject, StaticRenderObject},
+    ecs::render_objects::StaticRenderObject,
     features::static_instances::{StaticInstancesRenderer, StaticModelRenderer},
     renderer::{Renderer, object::RenderObject},
 };
-use egui::{Ui, epaint::QuadraticBezierShape};
+use egui::Ui;
 use glam::{Quat, Vec3};
 use hecs::Entity;
 use tiger_parse::{PackageManagerExt, TigerReadable};

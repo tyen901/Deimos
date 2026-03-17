@@ -105,11 +105,11 @@ impl SubmitNodeContainer {
         &mut self.0[stage as usize]
     }
 
-    pub fn blocks(&self) -> &[Vec<SubmitNode>] {
+    pub const fn blocks(&self) -> &[Vec<SubmitNode>] {
         &self.0
     }
 
-    pub fn blocks_mut(&mut self) -> &mut [Vec<SubmitNode>] {
+    pub const fn blocks_mut(&mut self) -> &mut [Vec<SubmitNode>] {
         &mut self.0
     }
 

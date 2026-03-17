@@ -25,7 +25,7 @@ use std::{
 
 use anyhow::Context;
 use d3d12::{
-    CommandQueueDesc, D3D12GetDebugInterface, DxgiUsage, ID3D12Debug, ID3D12Device4, ID3D12Device5,
+    CommandQueueDesc, D3D12GetDebugInterface, DxgiUsage, ID3D12Debug,
     SwapChainDesc, SwapEffect,
     error::D3DResultExt,
     ext::{GpuFence, GpuFenceWaiter},

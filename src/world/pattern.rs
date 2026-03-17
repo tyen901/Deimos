@@ -214,7 +214,7 @@ pub fn spawn_pattern_from_header(
                 )?;
             }
             0x80808220 => {
-                let data = get_component_data!(SDecalCollectionComponent);
+                let _data = get_component_data!(SDecalCollectionComponent);
                 //     if let Some(collection) = &*data.decals {
                 //         let renderer = DecalCollectionRenderer::load(collection.clone())?;
                 //         world.insert_one(
@@ -229,7 +229,7 @@ pub fn spawn_pattern_from_header(
                 //     }
             }
             0x808085A9 => {
-                let data = get_component_data!(SDecoratorsComponent);
+                let _data = get_component_data!(SDecoratorsComponent);
                 //     if let Some(decorators) = data.decorators.0.as_ref() {
                 //         let renderer = DecoratorRenderer::load(
                 //             Renderer::instance(),
@@ -274,7 +274,7 @@ pub fn spawn_pattern_from_header(
                 }
             }
             0x80808543 => {
-                let data = get_component_data!(SShadowingLightComponent);
+                let _data = get_component_data!(SShadowingLightComponent);
                 //     let Some(light) = data.light.0.as_ref() else {
                 //         continue;
                 //     };
@@ -330,7 +330,7 @@ pub fn spawn_pattern_from_header(
                 //     )?;
             }
             0x80808334 => {
-                let data = get_component_data!(SLightCollectionComponent);
+                let _data = get_component_data!(SLightCollectionComponent);
                 //     let Some(lights) = data.lights.0.as_ref() else {
                 //         continue;
                 //     };
@@ -354,7 +354,7 @@ pub fn spawn_pattern_from_header(
                 //     }
             }
             0x80807F3B => {
-                let data = get_component_data!(SCubemapComponent);
+                let _data = get_component_data!(SCubemapComponent);
 
                 //     let render_obj = RenderObject::new(
                 //         TfxFeatureRenderer::Cubemaps,

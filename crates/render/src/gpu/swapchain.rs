@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use anyhow::Context;
-use d3d12::{self, DescriptorHeap, PresentFlags, SwapChainFlags, SwapChainStatus, WaitableObject};
+use d3d12::{self, DescriptorHeap, PresentFlags, SwapChainFlags, SwapChainStatus};
 use itertools::Itertools;
 
 pub struct Swapchain {
@@ -103,7 +103,7 @@ impl Swapchain {
             .collect_vec();
     }
 
-    pub(crate) fn wait_on_present(&self) {
+    pub(crate) const fn wait_on_present(&self) {
         // self.frame_latency_waitable
         //     .wait_alertable(Some(Duration::from_secs(1)));
     }
