@@ -19,6 +19,7 @@ pub struct ShadedView {
     pub result: RenderTarget,
 
     resolution: (u32, u32),
+    resolution_scale: f32,
 }
 
 impl ShadedView {
@@ -34,16 +35,29 @@ impl ShadedView {
                 resolution,
             )?,
             resolution,
+            resolution_scale: 1.0,
         })
     }
 
     pub fn resize(&mut self, gpu: &Arc<Gpu>, new_resolution: (u32, u32)) -> anyhow::Result<()> {
+        let new_resolution = (
+            ((new_resolution.0 as f32 * self.resolution_scale) as u32).max(64),
+            ((new_resolution.1 as f32 * self.resolution_scale) as u32).max(64),
+        );
         if new_resolution == self.resolution {
             return Ok(());
         }
 
         *self = Self::new(gpu, new_resolution)?;
         Ok(())
+    }
+
+    pub fn set_resolution_scale(&mut self, scale: f32) {
+        self.resolution_scale = scale;
+    }
+
+    pub fn resolution_scale(&self) -> f32 {
+        self.resolution_scale
     }
 }
 

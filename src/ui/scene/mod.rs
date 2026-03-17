@@ -1,27 +1,22 @@
 use std::{sync::Arc, time::Instant};
 
-use deimos_core::job::SCHEDULER;
 use deimos_data::tfx::{
     FeatureRendererSubscription, FixedFunctionState, RenderStage, geometry::AxisAlignedBBox,
 };
 use deimos_render::{
-    asset::texture::{Texture, TextureDesc},
     camera::Camera,
     ecs::{populate_submit_nodes, s_extract_frame_packet},
-    gpu::{
-        alloc::descriptors::ResourceView, render_target::RenderTarget, stream::ParallelCommandBlock,
-    },
-    renderer::{Renderer, packet::FramePacket, scene::SceneRenderer},
+    gpu::{alloc::descriptors::ResourceView, render_target::RenderTarget},
+    renderer::{Renderer, scene::SceneRenderer},
     tfx::{
         externs::{self, get_global_channel_name},
         scope::FrameScope,
     },
-    util::range::RangeChunks,
     visibility::ViewVisibility,
 };
 use egui::{
-    Color32, FontId, Rect, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2, Widget,
-    load::SizedTexture, vec2,
+    Color32, FontId, Image, ImageSource, Rect, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2,
+    Widget, containers::menu::MenuConfig, load::SizedTexture, vec2,
 };
 use glam::{Vec3, Vec4, vec4};
 use google_material_symbols::GoogleMaterialSymbols;
@@ -48,6 +43,9 @@ pub struct Scene {
 
     // World
     pub world: World,
+    time_of_day: f32,
+    animate_time_of_day: bool,
+    sun_light_angle: f32,
 
     // Metrics
     frametimes: Vec<f32>,
@@ -70,7 +68,12 @@ impl Scene {
             controller: CameraController::new_first_person(),
             subscribed_features: FeatureRendererSubscription::all(),
             render_mode: RenderMode::Albedo,
+
             world: World::new(),
+            time_of_day: 1200.0,
+            animate_time_of_day: true,
+            sun_light_angle: 60f32,
+
             frametimes: Vec::new(),
             last_frame_time: Instant::now(),
             keep_settings_open: false,
@@ -327,70 +330,16 @@ impl Scene {
 
             self.controller.update(&mut self.camera, ui, &r, delta_time);
 
-            // if let Some((_, tome)) = self.world.query::<&umbra::Tome>().iter().next() {
-            //     let mut query = umbra::Query::new(&tome);
+            if self.animate_time_of_day {
+                self.time_of_day += delta_time;
+                self.time_of_day = self.time_of_day.rem_euclid(3600.0);
+            }
 
-            //     let mut vis = umbra::Visibility::default();
-            //     let mut ob = umbra::OcclusionBuffer::default();
-            //     vis.set_output_buffer(&mut ob);
-
-            //     query.query_portal_visibility(
-            //         0,
-            //         &vis,
-            //         &umbra::CameraTransform::new(
-            //             (self.camera.projection_matrix_standard() * self.camera.view_matrix())
-            //                 .to_cols_array_2d(),
-            //             self.camera.position.to_array(),
-            //         ),
-            //         0.0,
-            //         -1.0,
-            //         0,
-            //         1,
-            //         0,
-            //     );
-
-            //     // if false {
-            //     //     let desc = ob.get_desc();
-            //     //     let mut output = vec![64; desc.width as usize * desc.height as usize];
-            //     //     ob.get_buffer(&mut output, &desc);
-
-            //     //     // Flip the image vertically
-            //     //     let mut output_flipped = output.clone();
-            //     //     for y in 0..desc.height {
-            //     //         for x in 0..desc.width {
-            //     //             let index = (y * desc.width + x) as usize;
-            //     //             let flipped_index = ((desc.height - y - 1) * desc.width + x) as usize;
-            //     //             output_flipped[flipped_index] = output[index];
-            //     //         }
-            //     //     }
-
-            //     //     let half_rect = Rect::from_min_max(r.rect.center(), r.rect.max);
-            //     //     let umbra_rect = Rect::from_min_max(half_rect.center(), half_rect.max);
-
-            //     //     if let Ok(texture) = Texture::load(
-            //     //         &self.renderer.gpu,
-            //     //         &TextureDesc::texture_2d("umbra_debug", d3d12::Format::R8Unorm, 64, 64),
-            //     //         &output_flipped,
-            //     //     ) {
-            //     //         egui::Image::new(SizedTexture {
-            //     //             id: egui_d3d12.textures_mut().allocate_dx_temporary(
-            //     //                 texture.srv.cpu_handle(),
-            //     //                 None,
-            //     //                 false,
-            //     //             ),
-            //     //             size: egui::vec2(64.0, 64.0),
-            //     //         })
-            //     //         .paint_at(ui, umbra_rect);
-            //     //     }
-            //     // }
-            // }
-            // ui.painter().image(texture_id, umbra_rect, Rect, tint)
-
-            // if r.dragged_by(egui::PointerButton::Middle) {
-            //     let delta_adjusted = r.drag_delta() / 4.0;
-            //     self.sun_light_angle += delta_adjusted.x;
-            //     self.sun_light_angle = self.sun_light_angle.rem_euclid(360.0);
-            // }
+            if r.dragged_by(egui::PointerButton::Middle) {
+                let delta_adjusted = r.drag_delta() / 4.0;
+                self.sun_light_angle += delta_adjusted.x;
+                self.sun_light_angle = self.sun_light_angle.rem_euclid(360.0);
+            }
 
             self.render(delta_time, resolution);
         });
@@ -419,7 +368,7 @@ impl Scene {
                 .renderer
                 .gpu
                 .profiler_scope(stream, "Scene::umbra_visibility");
-            let mut query = umbra::Query::new(&tome);
+            let mut query = umbra::Query::new(tome);
 
             let mut vis = umbra::Visibility::default();
             let mut ob = umbra::OcclusionBuffer::default();
@@ -682,19 +631,19 @@ impl Scene {
 
     fn show_toolbar(&mut self, ui: &mut Ui) {
         ui.style_mut().spacing.item_spacing = vec2(8.0, 0.0);
-        // egui::containers::menu::MenuButton::new(GoogleMaterialSymbols::Tune.to_string())
-        //     .config(
-        //         MenuConfig::new().close_behavior(if self.keep_settings_open {
-        //             egui::PopupCloseBehavior::IgnoreClicks
-        //         } else {
-        //             egui::PopupCloseBehavior::CloseOnClickOutside
-        //         }),
-        //     )
-        //     .ui(ui, |ui| {
-        //         self.show_settings_ui(ui);
-        //     })
-        //     .0
-        //     .on_hover_text("Scene Settings");
+        egui::containers::menu::MenuButton::new(GoogleMaterialSymbols::Tune.to_string())
+            .config(
+                MenuConfig::new().close_behavior(if self.keep_settings_open {
+                    egui::PopupCloseBehavior::IgnoreClicks
+                } else {
+                    egui::PopupCloseBehavior::CloseOnClickOutside
+                }),
+            )
+            .ui(ui, |ui| {
+                self.show_settings_ui(ui);
+            })
+            .0
+            .on_hover_text("Scene Settings");
 
         // if ui
         //     .selectable_label(
@@ -720,6 +669,213 @@ impl Scene {
             self.render_mode.ui(ui);
         });
         self.subscribed_features.show_input(ui);
+    }
+
+    fn show_settings_ui(&mut self, ui: &mut Ui) {
+        ui.label(format!("Camera Pos: {:.1?}", self.camera.position));
+        ui.label(format!(
+            "Camera Yaw/Pitch: {:.1}/{:.1}",
+            self.controller.yaw_pitch().x,
+            self.controller.yaw_pitch().y
+        ));
+
+        ui.style_mut()
+            .text_styles
+            .insert(TextStyle::Body, FontId::proportional(16.0));
+        ui.style_mut()
+            .text_styles
+            .insert(TextStyle::Heading, FontId::proportional(24.0));
+        ui.style_mut()
+            .text_styles
+            .insert(TextStyle::Small, FontId::proportional(12.0));
+        ui.style_mut()
+            .text_styles
+            .insert(TextStyle::Button, FontId::proportional(16.0));
+
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing = vec2(8.0, 8.0);
+            ui.heading("Scene Settings");
+            if ui
+                .selectable_label(
+                    self.keep_settings_open,
+                    GoogleMaterialSymbols::PushPin.to_string(),
+                )
+                .on_hover_text("Keep panel open")
+                .clicked()
+            {
+                self.keep_settings_open = !self.keep_settings_open;
+            }
+            // #[cfg(debug_assertions)]
+            // if ui
+            //     .selectable_label(false, GoogleMaterialSymbols::Code.to_string())
+            //     .on_hover_text("Load camera cbuffers")
+            //     .clicked()
+            // {
+            //     self.load_camera_cbuffers();
+            // }
+            // #[cfg(debug_assertions)]
+            // if ui
+            //     .selectable_label(
+            //         self.lock_resolution,
+            //         GoogleMaterialSymbols::ScreenLockLandscape.to_string(),
+            //     )
+            //     .on_hover_text("Lock resolution to 1920x1080")
+            //     .clicked()
+            // {
+            //     self.lock_resolution = !self.lock_resolution;
+            // }
+        });
+
+        ui.spacing_mut().item_spacing = vec2(8.0, 4.0);
+        // ui.checkbox(&mut view_settings.autoexposure, "Auto-exposure")
+        //     .setting_description_tooltip(
+        //         "Enables automatic exposure adjustment based on scene brightness.",
+        //         PerformanceImpact::None,
+        //     );
+
+        // if settings_mut.autoexposure {
+        //     ui.strong("Target Luminance");
+        //     ui.spacing_mut().slider_width = ui.available_width() * 0.75;
+        //     egui::Slider::new(
+        //         &mut self.view.autoexposure.config.target_luminance,
+        //         0.000002..=0.04,
+        //     )
+        //     .logarithmic(false)
+        //     .show_value(true)
+        //     .ui(ui);
+        // }
+
+        // ui.add_enabled_ui(!view_settings.autoexposure, |ui| {
+        //     ui.strong("Exposure Scale");
+        //     ui.spacing_mut().slider_width = ui.available_width() * 0.75;
+        //     egui::Slider::new(&mut view_settings.exposure_scale, 0.001..=4.0)
+        //         .logarithmic(true)
+        //         .show_value(true)
+        //         .ui(ui);
+
+        //     ui.strong("Exposure Illum Relative");
+        //     ui.spacing_mut().slider_width = ui.available_width() * 0.75;
+        //     egui::Slider::new(&mut view_settings.exposure_illum_relative, 0.01..=2.0)
+        //         .logarithmic(false)
+        //         .show_value(true)
+        //         .ui(ui);
+        // });
+
+        // ui.add_space(4.0);
+
+        // Time of Day slider
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing = vec2(8.0, 0.0);
+            ui.strong("Time of Day");
+            ui.label(format!(
+                "({:02}:{:02})",
+                (self.time_of_day / 3600.0 * 24.0).floor() as u32,
+                ((self.time_of_day / 3600.0 * 24.0 * 60.0) % 60.0).floor() as u32
+            ));
+        });
+
+        ui.spacing_mut().slider_width = ui.available_width();
+
+        const DAYNIGHT_GRADIENT: ImageSource =
+            egui::include_image!("../../../assets/ui/daynight_gradient_bar.png");
+        Image::new(DAYNIGHT_GRADIENT).paint_at(
+            ui,
+            Rect::from_min_size(
+                ui.cursor().min + vec2(0.0, 6.0),
+                Vec2::new(ui.available_width(), 8.0),
+            ),
+        );
+
+        ui.scope(|ui| {
+            ui.style_mut().visuals.widgets.inactive.bg_fill = egui::Color32::from_black_alpha(48);
+            ui.style_mut().visuals.widgets.inactive.bg_stroke =
+                egui::Stroke::new(8.0, egui::Color32::WHITE);
+
+            egui::Slider::new(&mut self.time_of_day, 0.0..=3600.0)
+                .show_value(false)
+                .handle_shape(egui::style::HandleShape::Rect { aspect_ratio: 0.5 })
+                .ui(ui);
+        });
+
+        ui.checkbox(&mut self.animate_time_of_day, "Automate Time")
+            .on_hover_text("Automatically animate time of day");
+
+        ui.spacing_mut().slider_width = ui.available_width() * 0.75;
+        egui::Slider::new(&mut self.camera.fov_y, 10.0..=120.0)
+            .text("Camera FOV")
+            .show_value(true)
+            .ui(ui);
+
+        ui.spacing_mut().slider_width = 256.0;
+        let mut resolution_scale = self.scene_renderer.main_view.resolution_scale();
+        if ui
+            .add(
+                egui::Slider::new(&mut resolution_scale, 0.25..=2.0)
+                    .step_by(0.25)
+                    .text("Resolution Scale")
+                    .custom_formatter(|value, _| format!("{:.0}%", value * 100.0)),
+            )
+            .changed()
+        {
+            self.scene_renderer
+                .main_view
+                .set_resolution_scale(resolution_scale);
+        }
+
+        // ui.separator();
+
+        // ui.checkbox(&mut view_settings.vertex_ao, "Vertex AO")
+        //     .setting_description_tooltip(
+        //         "Enables ambient occlusion based on mesh vertex data.\nCan highly impact the look \
+        //              and feel of a scene, as it darkens indoor areas and crevices.",
+        //         PerformanceImpact::None,
+        //     );
+
+        // ui.checkbox(&mut view_settings.bloom, "Bloom")
+        //     .setting_description_tooltip(
+        //         "Enables bloom effect, which adds a glow to bright areas of the scene.",
+        //         PerformanceImpact::Low,
+        //     );
+
+        // ui.checkbox(&mut view_settings.volumetrics, "Volumetrics")
+        //     .setting_description_tooltip(
+        //         "Enables volumetric lighting effects, such as light shafts and fog.",
+        //         PerformanceImpact::Medium,
+        //     );
+        // ui.checkbox(&mut view_settings.shadows, "Local Shadows")
+        //     .setting_description_tooltip(
+        //         "Enables (static) shadows for local lights.",
+        //         PerformanceImpact::Medium,
+        //     );
+
+        // ui.checkbox(&mut view_settings.sun_shadows, "Sun Shadows")
+        //     .setting_description_tooltip(
+        //         "Enables (dynamic) shadows for the sun light.",
+        //         PerformanceImpact::High,
+        //     );
+
+        // ui.checkbox(&mut view_settings.anti_aliasing, "Anti-Aliasing")
+        //     .setting_description_tooltip(
+        //         "Enables FXAA anti-aliasing to smooth out jagged edges.",
+        //         PerformanceImpact::Low,
+        //     );
+
+        // ui.collapsing("Advanced", |ui| {
+        //         ui.checkbox(&mut view_settings.multithreading, "Multi-threaded Submit")
+        //             .setting_description_tooltip(
+        //                 "Enables multi-threaded submission of commands to the GPU. May improve \
+        //                  performance on systems with many CPU cores, but can introduce stuttering on \
+        //                  older systems",
+        //                 PerformanceImpact::High,
+        //             );
+
+        //         ui.checkbox(&mut view_settings.hzb_culling, "HZB Culling")
+        //             .setting_description_tooltip(
+        //                 "Enables Hierarchical Z-Buffer (HZB) culling to optimize rendering by \
+        //                  discarding occluded objects.",
+        //                 PerformanceImpact::High,
+        //             );
+        //     });
     }
 
     fn show_channel_editor(&mut self, ui: &mut Ui) {
