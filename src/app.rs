@@ -142,7 +142,10 @@ impl App {
                 )]);
 
                 cmd.clear_render_target_view(back_buffer_handle, &[0.0, 0.0, 0.0, 1.0]);
-                cmd.om_set_render_targets(&[back_buffer_handle], None);
+                cmd.om_set_render_targets(
+                    &[(back_buffer_handle, d3d12::Format::R8g8b8a8Unorm)],
+                    None,
+                );
                 cmd.set_viewports(&[d3d12::Viewport::builder()
                     .width(self.window.size_in_pixels().0 as f32)
                     .height(self.window.size_in_pixels().1 as f32)

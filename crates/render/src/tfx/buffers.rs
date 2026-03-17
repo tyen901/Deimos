@@ -69,14 +69,9 @@ impl Gbuffer {
     }
 
     pub fn bind(&self, cmd: &mut CommandList) {
-        cmd.om_set_render_targets(
-            &[
-                self.albedo.cpu_handle(),
-                self.normal.cpu_handle(),
-                self.rt3.cpu_handle(),
-                self.rt4.cpu_handle(),
-            ],
-            Some(self.depth.cpu_handle()),
+        cmd.set_render_targets(
+            &[&self.albedo, &self.normal, &self.rt3, &self.rt4],
+            Some(&self.depth),
         );
 
         cmd.set_viewports(&[d3d12::Viewport::builder()

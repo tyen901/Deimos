@@ -9,6 +9,7 @@ use crate::{
     gpu::{
         alloc::{descriptors::ResourceView, ring::UploadRing},
         native_command_list::NativeCommandList,
+        render_target::{DepthBuffer, RenderTarget},
     },
     tfx::externs::LocalExternContainer,
 };
@@ -216,14 +217,46 @@ impl CommandList {
 
     pub fn om_set_render_targets(
         &mut self,
-        render_target_descriptors: &[CpuDescriptorHandle],
-        depth_stencil_descriptor: Option<CpuDescriptorHandle>,
+        render_target_descriptors: &[(CpuDescriptorHandle, d3d12::Format)],
+        depth_stencil_descriptor: Option<(CpuDescriptorHandle, d3d12::Format)>,
     ) {
-        self.state.output.rtvs = render_target_descriptors.iter().copied().collect();
-        self.state.output.dsv = depth_stencil_descriptor;
+        self.state.output.rtvs = render_target_descriptors
+            .iter()
+            .copied()
+            .map(|(rtv, _)| rtv)
+            .collect();
+        self.state.output.rtv_formats = render_target_descriptors
+            .iter()
+            .copied()
+            .map(|(_, format)| format)
+            .collect();
+        self.state.output.dsv = depth_stencil_descriptor.unzip().0;
+        self.state.output.dsv_format = depth_stencil_descriptor.unzip().1;
 
         self.cmd
-            .om_set_render_targets(render_target_descriptors, false, depth_stencil_descriptor);
+            .om_set_render_targets(&self.state.output.rtvs, false, self.state.output.dsv);
+    }
+
+    pub fn set_render_targets(
+        &mut self,
+        render_target_descriptors: &[&RenderTarget],
+        depth_stencil_descriptor: Option<&DepthBuffer>,
+    ) {
+        self.state.output.rtvs = render_target_descriptors
+            .iter()
+            .copied()
+            .map(|rt| rt.cpu_handle())
+            .collect();
+        self.state.output.rtv_formats = render_target_descriptors
+            .iter()
+            .copied()
+            .map(|rt| rt.output_format())
+            .collect();
+        self.state.output.dsv = depth_stencil_descriptor.map(|db| db.cpu_handle());
+        self.state.output.dsv_format = depth_stencil_descriptor.map(|db| db.output_format());
+
+        self.cmd
+            .om_set_render_targets(&self.state.output.rtvs, false, self.state.output.dsv);
     }
 
     pub fn set_scissor_rects(&mut self, rects: &[d3d12::Rect]) {
@@ -378,7 +411,7 @@ macro_rules! cmd_event_span {
 pub struct CommandListState {
     pub ffstate: FixedFunctionState,
     pub ffstate_override: FixedFunctionState,
-    output: OutputState,
+    pub output: OutputState,
     pub(super) depth_mode: DepthMode,
 
     resources: [StageResources; 6],
@@ -413,7 +446,9 @@ impl Default for CommandListState {
 #[derive(Default, Clone)]
 pub struct OutputState {
     pub rtvs: SmallVec<[CpuDescriptorHandle; 4]>,
+    pub rtv_formats: SmallVec<[d3d12::Format; 4]>,
     pub dsv: Option<CpuDescriptorHandle>,
+    pub dsv_format: Option<d3d12::Format>,
 
     pub viewports: SmallVec<[d3d12::Viewport; 4]>,
     pub scissor_rects: SmallVec<[d3d12::Rect; 4]>,

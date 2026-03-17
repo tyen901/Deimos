@@ -87,6 +87,10 @@ impl RenderTarget {
         })
     }
 
+    pub fn output_format(&self) -> d3d12::Format {
+        self.view_format
+    }
+
     pub fn cpu_handle(&self) -> d3d12::CpuDescriptorHandle {
         self.rtv_heap.cpu_descriptor_handle_for_heap_start()
     }
@@ -154,6 +158,7 @@ pub struct DepthBuffer {
     gpu: Arc<Gpu>,
 
     current_state: d3d12::ResourceStates,
+    output_format: d3d12::Format,
 }
 
 impl DepthBuffer {
@@ -212,9 +217,14 @@ impl DepthBuffer {
             dsv_heap: rtv_heap,
             srv,
             size: (width, height),
+            output_format: d3d12::Format::D32FloatS8x24Uint,
 
             current_state: d3d12::ResourceStates::DEPTH_WRITE,
         })
+    }
+
+    pub fn output_format(&self) -> d3d12::Format {
+        self.output_format
     }
 
     pub fn cpu_handle(&self) -> d3d12::CpuDescriptorHandle {

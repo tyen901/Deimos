@@ -140,13 +140,8 @@ impl Technique {
             match self.gpu.pipeline_cache.lock().get_or_create(
                 pipeline_key,
                 &self.root_signature,
-                &[
-                    Format::R8g8b8a8Unorm,
-                    Format::R10g10b10a2Unorm,
-                    Format::R8g8b8a8Unorm,
-                    Format::R32g32Float,
-                ],
-                Some(Format::D32FloatS8x24Uint),
+                &cmd.cmd_state().output.rtv_formats,
+                cmd.cmd_state().output.dsv_format,
             ) {
                 Ok(pipeline) => {
                     cmd.set_pipeline_state(&pipeline.pso);
