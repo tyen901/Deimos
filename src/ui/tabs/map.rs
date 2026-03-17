@@ -27,7 +27,7 @@ impl MapTab {
     pub fn new(renderer: &Arc<Renderer>, tag: TagHash, name: String) -> anyhow::Result<Self> {
         let renderer_clone = renderer.clone();
         let camera = Camera {
-            position: Vec3::Z * 30.0,
+            position: Vec3::Z * 5.0,
             ..Default::default()
         };
 
