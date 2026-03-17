@@ -294,10 +294,18 @@ impl Scene {
                     format_bytes(memory_stats.upload_ring_capacity),
                     memory_stats.num_upload_ring_allocations
                 ));
+                ui.capacity_bar(
+                    memory_stats.upload_ring_capacity,
+                    memory_stats.upload_ring_used,
+                );
                 ui.monospace(format!(
                     "Descriptor Ring:  {}/{}",
                     memory_stats.descriptor_ring_used, memory_stats.descriptor_ring_capacity
                 ));
+                ui.capacity_bar(
+                    memory_stats.descriptor_ring_capacity,
+                    memory_stats.descriptor_ring_used,
+                );
 
                 if !memory_stats.errors.is_empty() {
                     ui.separator();

@@ -10,6 +10,8 @@ pub trait UiExt {
     fn d_paint_spinner_at(&mut self, rect: Rect);
 
     fn section_separator(&mut self, text: impl Into<RichText>);
+
+    fn capacity_bar(&mut self, capacity: usize, used: usize) -> Response;
 }
 
 impl UiExt for Ui {
@@ -34,6 +36,35 @@ impl UiExt for Ui {
     fn section_separator(&mut self, text: impl Into<RichText>) {
         self.add_space(6.0);
         self.add(egui::Label::new(text.into().weak().size(12.0)).selectable(false));
+    }
+
+    fn capacity_bar(&mut self, capacity: usize, used: usize) -> Response {
+        let height = 16.0;
+        let response = self.allocate_response(
+            vec2(self.available_size_before_wrap().x, height),
+            Sense::hover(),
+        );
+
+        self.painter()
+            .rect_filled(response.rect, 0.0, Color32::from_gray(0x33));
+
+        let fraction = (used as f64 / capacity as f64) as f32;
+        let color = if fraction >= 0.90 {
+            Color32::RED
+        } else if fraction >= 0.70 {
+            Color32::YELLOW
+        } else {
+            Color32::GREEN
+        };
+
+        let width = response.rect.width() * fraction;
+        self.painter().rect_filled(
+            response.rect.with_max_x(response.rect.min.x + width),
+            0.0,
+            color,
+        );
+
+        response
     }
 }
 
