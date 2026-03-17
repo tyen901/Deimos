@@ -44,23 +44,23 @@ impl GraphicsCommandList {
     }
 
     pub fn begin_event_raw(&self, metadata: EventMetadata, data: &[u8]) {
-        unsafe {
-            self.0.BeginEvent(
-                metadata as u32,
-                Some(data.as_ptr().cast()),
-                data.len() as u32,
-            );
-        }
+        // unsafe {
+        //     self.0.BeginEvent(
+        //         metadata as u32,
+        //         Some(data.as_ptr().cast()),
+        //         data.len() as u32,
+        //     );
+        // }
     }
 
     pub fn begin_event_str(&self, name: impl AsRef<str>) {
-        self.begin_event_raw(EventMetadata::Ansi, name.as_ref().as_bytes());
+        // self.begin_event_raw(EventMetadata::Ansi, name.as_ref().as_bytes());
     }
 
     pub fn end_event(&self) {
-        unsafe {
-            self.0.EndEvent();
-        }
+        // unsafe {
+        //     self.0.EndEvent();
+        // }
     }
 
     /// Creates a new event scope with the given name. The event will automatically end when the returned RAII guard is dropped.
