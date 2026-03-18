@@ -30,7 +30,7 @@ use crate::{
     config::AppConfig,
     ui::{
         Gui,
-        tabs::{Tab, map::MapTab},
+        tabs::{Tab, map::MapTab, model_view::ModelViewTab},
     },
 };
 
@@ -66,6 +66,20 @@ impl App {
                 },
                 Err(e) => {
                     error!("Failed to parse map hash {}: {:?}", map_hash, e);
+                }
+            };
+        }
+        if let Some(pattern_hash) = args.open_pattern.as_ref() {
+            match TagHash::from_str(pattern_hash) {
+                Ok(tag) => match ModelViewTab::new_pattern(&renderer, tag) {
+                    Ok(tab) => gui.add_tab(Tab::ModelView(Box::new(tab))),
+                    Err(e) => error!(
+                        "Failed to open model view tab for {}: {:?}",
+                        pattern_hash, e
+                    ),
+                },
+                Err(e) => {
+                    error!("Failed to parse pattern hash {}: {:?}", pattern_hash, e);
                 }
             };
         }

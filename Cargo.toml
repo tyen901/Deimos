@@ -123,5 +123,15 @@ opt-level = 3
 inherits = "release"
 debug = true
 
+[profile.quick]
+inherits = "release"
+debug = true
+opt-level = 1
+strip = "none"
+lto = false
+panic = 'unwind'
+incremental = true
+codegen-units = 256
+
 [features]
 tracy = ["profiling/profile-with-tracy", "dep:tracy-client"]
