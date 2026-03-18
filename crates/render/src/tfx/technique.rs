@@ -15,10 +15,7 @@ use tiger_pkg::{TagHash, package_manager};
 
 use crate::{
     asset::AssetManager,
-    gpu::{
-        Gpu, command_list::CommandList,
-        pipeline_cache::PipelineKey,
-    },
+    gpu::{Gpu, command_list::CommandList, pipeline_cache::PipelineKey},
     renderer::globals::get_scope_samplers,
     tfx::dynamic_core::{DynamicCore, ResolvedTextureSource},
 };
@@ -55,10 +52,12 @@ impl Technique {
         )
         .context("while loading vertex stage")?;
 
-        stage_vertex.srv_root_param_index = rsb.add_param(
-            d3d12::RootParameter::DescriptorTable(stage_vertex.descriptor_ranges.as_slice()),
-            stage_vertex.visibility,
-        );
+        if !stage_vertex.descriptor_ranges.is_empty() {
+            stage_vertex.srv_root_param_index = rsb.add_param(
+                d3d12::RootParameter::DescriptorTable(stage_vertex.descriptor_ranges.as_slice()),
+                stage_vertex.visibility,
+            );
+        }
 
         let mut stage_pixel = TechniqueStage::new(
             asset_manager,
@@ -70,10 +69,12 @@ impl Technique {
         )
         .context("while loading pixel stage")?;
 
-        stage_pixel.srv_root_param_index = rsb.add_param(
-            d3d12::RootParameter::DescriptorTable(stage_pixel.descriptor_ranges.as_slice()),
-            stage_pixel.visibility,
-        );
+        if !stage_pixel.descriptor_ranges.is_empty() {
+            stage_pixel.srv_root_param_index = rsb.add_param(
+                d3d12::RootParameter::DescriptorTable(stage_pixel.descriptor_ranges.as_slice()),
+                stage_pixel.visibility,
+            );
+        }
 
         let root_signature_raw = rsb.serialize()?;
 
@@ -332,38 +333,38 @@ impl TechniqueStage {
             return;
         }
 
-        let descriptor_range = cmd
-            .gpu()
-            .frame()
-            .descriptors
-            .allocate(self.descriptor_count);
-        cmd.set_graphics_root_descriptor_table(
-            self.srv_root_param_index,
-            descriptor_range.gpu_handle(0),
-        );
-
-        let _resources = cmd.resources(self.core.stage);
-
-        if let Some(staging) = &self.static_staging_heap {
-            cmd.gpu().copy_descriptors_simple(
-                self.descriptor_count as u32,
-                staging.cpu_descriptor_handle_for_heap_start(),
-                descriptor_range.cpu_handle(0),
-                d3d12::DescriptorHeapType::CbvSrvUav,
+        if !self.descriptor_ranges.is_empty() && self.srv_root_param_index != u32::MAX {
+            let descriptor_range = cmd
+                .gpu()
+                .frame()
+                .descriptors
+                .allocate(self.descriptor_count);
+            cmd.set_graphics_root_descriptor_table(
+                self.srv_root_param_index,
+                descriptor_range.gpu_handle(0),
             );
-        } else {
-            let null = cmd.gpu().resource_heap.lock().null().cpu_handle();
-            let resources = cmd.resources(self.core.stage);
-            for slot in &self.root_texture_slots {
-                let src = resources
-                    .get_shader_resource_view(slot.register as u32)
-                    .map_or(null, |t| t.cpu_handle());
+
+            if let Some(staging) = &self.static_staging_heap {
                 cmd.gpu().copy_descriptors_simple(
-                    1,
-                    src,
-                    descriptor_range.cpu_handle(slot.descriptor_offset as usize),
+                    self.descriptor_count as u32,
+                    staging.cpu_descriptor_handle_for_heap_start(),
+                    descriptor_range.cpu_handle(0),
                     d3d12::DescriptorHeapType::CbvSrvUav,
                 );
+            } else {
+                let null = cmd.gpu().resource_heap.lock().null().cpu_handle();
+                let resources = cmd.resources(self.core.stage);
+                for slot in &self.root_texture_slots {
+                    let src = resources
+                        .get_shader_resource_view(slot.register as u32)
+                        .map_or(null, |t| t.cpu_handle());
+                    cmd.gpu().copy_descriptors_simple(
+                        1,
+                        src,
+                        descriptor_range.cpu_handle(slot.descriptor_offset as usize),
+                        d3d12::DescriptorHeapType::CbvSrvUav,
+                    );
+                }
             }
         }
 
