@@ -60,7 +60,7 @@ extern_struct! {
         0x20 => position: Vec4,
         0x30 => view_miscellaneous: Vec4 > default(Vec4::ZERO),
         // TODO(cohae): Used for shadow generation it seems
-        0x40 => unk40: Vec4 > default(Vec4::ZERO),
+        0x40 => unk40: Vec4 > default(Vec4::NEG_ONE),
         0x50 => unk50: Vec4,
 
         0x60 => unk60: Mat4,
@@ -141,7 +141,8 @@ impl View {
         self.target_pixel_to_world = self.camera_to_world * self.target_pixel_to_camera;
 
         self.position = self.camera_to_world.w_axis;
-        self.unk40 = Vec4::Z - self.world_to_projective.w_axis;
+        // self.unk40 = Vec4::Z - self.world_to_projective.w_axis;
+        self.unk40 = -self.camera_to_world.w_axis;
 
         self.unk220 = self.projective_to_world * Self::VIEWSPACE_UNORM_TO_SNORM;
 

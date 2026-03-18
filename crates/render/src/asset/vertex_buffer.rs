@@ -18,7 +18,10 @@ pub struct VertexBuffer {
 }
 
 impl VertexBuffer {
-    pub fn load(gpu: &Arc<Gpu>, hash: TagHash) -> anyhow::Result<Self> {
+    pub fn get_raw_data_and_stride(
+        gpu: &Arc<Gpu>,
+        hash: TagHash,
+    ) -> anyhow::Result<(Vec<u8>, u32)> {
         let entry = package_manager()
             .get_entry(hash)
             .context("Entry not found")?;
@@ -30,7 +33,13 @@ impl VertexBuffer {
             .read_tag(entry.reference)
             .context("Failed to read buffer data")?;
 
-        let vb = Self::load_data(gpu, &data, header.stride as _)?;
+        Ok((data, header.stride as u32))
+    }
+
+    pub fn load(gpu: &Arc<Gpu>, hash: TagHash) -> anyhow::Result<Self> {
+        let (data, stride) = Self::get_raw_data_and_stride(gpu, hash)?;
+
+        let vb = Self::load_data(gpu, &data, stride)?;
         vb.resource
             .resource()
             .set_debug_name(format!("vertex_buffer {hash}"));

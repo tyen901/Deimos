@@ -1,5 +1,6 @@
 pub mod rigid_model;
 mod shared;
+mod skinning;
 pub mod static_instances;
 pub mod terrain_patches;
 

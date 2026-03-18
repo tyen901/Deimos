@@ -5,16 +5,16 @@ use deimos_data::tfx::{
         SDynamicModel,
     },
 };
-use glam::{Mat4, Vec4};
+use glam::{Mat4, UVec4, Vec4, Vec4Swizzles};
 use itertools::{Itertools, multizip};
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::TagHash;
 use tiger_pkg::package_manager;
 
 use crate::{
-    asset::{Handle, handle::is_technique_loaded},
-    features::FeatureRenderer,
-    gpu::command_list::CommandList,
+    asset::{Handle, handle::is_technique_loaded, vertex_buffer::VertexBuffer},
+    features::{FeatureRenderer, skinning},
+    gpu::{buffer::ImmutableBuffer, command_list::CommandList},
     renderer::{
         Renderer,
         packet::{RenderPerFrameNode, RenderPerViewNode, SubmitNode, SubmitNodeContainer},
@@ -25,12 +25,13 @@ use crate::{
 use super::shared::ModelBuffers;
 
 pub struct DynamicModel {
-    mesh_buffers: Vec<ModelBuffers>,
+    mesh_buffers: Vec<(ModelBuffers, ImmutableBuffer)>,
 
     technique_map: Vec<SDynamicMeshMaterialVariants>,
     techniques: Vec<Handle<Technique>>,
 
     pub model: SDynamicModel,
+    pub scale_factor_1d: f32,
     pub mesh_stages: Vec<RenderStageSubscription>,
     pub subscribed_stages: RenderStageSubscription,
     part_techniques: Vec<Vec<Handle<Technique>>>,
@@ -62,12 +63,41 @@ impl DynamicModel {
             .map(|&tag| renderer.asset_manager.load(tag))
             .collect_vec();
 
+        let scale_factor_1d = model.model_scale.xyz().max_element();
         let mesh_buffers = model
             .meshes
             .iter()
             .map(|m| {
-                ModelBuffers::load(renderer, m.vertex0_buffer, m.vertex1_buffer, m.index_buffer)
-                    .expect("Failed to load model buffers for dynamic model")
+                let (v0_data, v0_stride) =
+                    VertexBuffer::get_raw_data_and_stride(&renderer.gpu, m.vertex0_buffer)
+                        .expect("Failed to load vertex0 data");
+
+                let skinning_posdata = skinning::repack_pos_words_from_vb(
+                    &v0_data,
+                    v0_stride as usize,
+                    model.model_scale.xyz(),
+                    scale_factor_1d,
+                )
+                .expect("Failed to repack position data");
+
+                let skinning_posbuffer = ImmutableBuffer::new(
+                    &renderer.gpu,
+                    "skinning_posbuffer",
+                    d3d12::Format::R32Uint,
+                    bytemuck::cast_slice(&skinning_posdata),
+                )
+                .expect("Failed to create skinning position buffer");
+
+                (
+                    ModelBuffers::load(
+                        renderer,
+                        m.vertex0_buffer,
+                        m.vertex1_buffer,
+                        m.index_buffer,
+                    )
+                    .expect("Failed to load model buffers for dynamic model"),
+                    skinning_posbuffer,
+                )
             })
             .collect_vec();
 
@@ -118,6 +148,7 @@ impl DynamicModel {
             technique_map,
             techniques,
             model,
+            scale_factor_1d,
             subscribed_stages: mesh_stages
                 .iter()
                 .fold(RenderStageSubscription::empty(), |acc, &x| acc | x),
@@ -191,12 +222,14 @@ impl DynamicModel {
     ) where
         F: FnMut(&Self, &mut CommandList, &SDynamicMesh, &SDynamicMeshPart),
     {
-        for (mesh, subscribed_stages, mesh_buffers, mesh_techniques) in multizip((
-            self.model.meshes.iter(),
-            self.mesh_stages.iter(),
-            self.mesh_buffers.iter(),
-            self.part_techniques.iter(),
-        )) {
+        for (mesh, subscribed_stages, (mesh_buffers, skinning_posbuffer), mesh_techniques) in
+            multizip((
+                self.model.meshes.iter(),
+                self.mesh_stages.iter(),
+                self.mesh_buffers.iter(),
+                self.part_techniques.iter(),
+            ))
+        {
             if !subscribed_stages.is_subscribed(stage) {
                 continue;
             }
@@ -206,6 +239,7 @@ impl DynamicModel {
 
             cmd.set_input_layout(mesh.get_input_layout_for_stage(stage) as usize);
             mesh_buffers.bind(cmd);
+            skinning_posbuffer.bind_srv(cmd, ShaderStage::Vertex, 2);
             for part_index in mesh.get_range_for_stage(stage) {
                 let part = &mesh.parts[part_index];
                 if identifier != u16::MAX && part.external_identifier != identifier {
@@ -298,6 +332,8 @@ impl FeatureRenderer for DynamicModel {
                 return;
             }
         };
+
+        let scale_and_offset = self.model.model_offset.with_w(self.scale_factor_1d);
         rigid_model_cb.write(&RigidModelConstants {
             mesh_to_world: data.local_to_world,
             position_scale: self.model.model_scale,
@@ -309,6 +345,11 @@ impl FeatureRenderer for DynamicModel {
                 self.model.texcoord_offset.y,
             ),
             dynamic_sh_ao_values: Vec4::new(0.0, 0.0, 0.0, 0.8),
+            skinning: SkinningConstants {
+                unk12: scale_and_offset,
+                unk13: scale_and_offset,
+                ..Default::default()
+            },
         });
 
         data.cbuffer_gpuva = rigid_model_cb.virtual_address();
@@ -368,7 +409,7 @@ impl FeatureRenderer for DynamicModel {
             return false;
         }
 
-        if self.mesh_buffers.iter().any(|m| !m.is_loaded()) {
+        if self.mesh_buffers.iter().any(|(m, _)| !m.is_loaded()) {
             return false;
         }
 
@@ -383,6 +424,28 @@ pub struct RigidModelConstants {
     position_offset: Vec4,        // c5
     texcoord0_scale_offset: Vec4, // c6
     dynamic_sh_ao_values: Vec4,   // c7
+    skinning: SkinningConstants,
+}
+
+#[repr(C)]
+pub struct SkinningConstants {
+    unk8: Mat4,   // c8
+    unk12: Vec4,  // c12
+    unk13: Vec4,  // c13
+    unk14: UVec4, // c14
+    unk15: Mat4,  // c15
+}
+
+impl Default for SkinningConstants {
+    fn default() -> Self {
+        Self {
+            unk8: Mat4::IDENTITY,
+            unk12: Vec4::W,
+            unk13: Vec4::W,
+            unk14: UVec4::ZERO, // X is for t2/t3 offset, Y for t4
+            unk15: Mat4::IDENTITY,
+        }
+    }
 }
 
 #[repr(C)]
