@@ -103,6 +103,70 @@ impl SceneRenderer {
 
         cmd.end_event();
     }
+
+    pub fn submit_stage_serial(
+        &self,
+        cmd: &mut CommandList,
+        stream: &FrameCommandStream,
+        view: &ViewPacket,
+        stage: RenderStage,
+    ) {
+        let block = stream.begin_parallel(cmd);
+        let context = TempSubmitContext {
+            renderer: self.parent.clone(),
+            block: block.clone(),
+            frame_packet: &self.frame_packet,
+        };
+        cmd.begin_event_str(stage.to_string());
+
+        let range = 0..view.submit_node_blocks.block(stage).len();
+
+        let mut job_handles = vec![];
+        for (i, chunk) in
+            RangeChunks::new(range.clone(), range.len().div_ceil(SCHEDULER.num_workers()))
+                .enumerate()
+        {
+            let ctx = context.clone();
+            let h = SCHEDULER.job_builder("scene_submit_serial").spawn(move || {
+                let ctx = ctx;
+                let mut cmd = ctx.block.cmd_manual(i);
+                let render_objects = ctx.renderer.objects.read();
+
+                let frame_packet = unsafe { &*ctx.frame_packet };
+                let view = &frame_packet.views[0];
+                for submit_node in &view.submit_node_blocks.block(stage)[chunk] {
+                    let view_node = &view.view_nodes[submit_node.view_node];
+                    let frame_node = &frame_packet.per_frame_nodes[view_node.frame_node];
+                    let Some(render_object) = render_objects.get(frame_node.object) else {
+                        error!(
+                            "Render object with handle {:?} not found",
+                            frame_node.object
+                        );
+                        continue;
+                    };
+                    render_object.renderer.submit(
+                        &mut cmd,
+                        stage,
+                        frame_node,
+                        view_node,
+                        submit_node.key,
+                    );
+                }
+            });
+            job_handles.push(h);
+        }
+
+        let sync_job = SCHEDULER
+            .job_builder("scene_submit_serial_sync")
+            .dependencies(job_handles)
+            .spawn(|| {});
+
+        sync_job.wait();
+
+        stream.end_parallel(block);
+
+        cmd.end_event();
+    }
 }
 
 #[derive(Clone)]

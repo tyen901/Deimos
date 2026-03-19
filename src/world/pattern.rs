@@ -217,11 +217,13 @@ pub fn spawn_pattern_from_header(
                 let data = get_component_data!(SDecalCollectionComponent);
                 if let Some(collection) = &*data.decals {
                     let decal_renderer =
-                        DecalCollectionRenderer::load(&renderer, collection.clone())?;
+                        DecalCollectionRenderer::load(renderer, collection.clone()).with_context(
+                            || format!("loading decal collection {}", data.decals.taghash()),
+                        )?;
                     world.insert_one(
                         entity,
                         StaticRenderObject::new(
-                            &renderer,
+                            renderer,
                             renderer.add_object(RenderObject::new(
                                 TfxFeatureRenderer::DynamicDecals,
                                 decal_renderer,

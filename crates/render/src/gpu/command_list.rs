@@ -152,6 +152,10 @@ impl CommandList {
         }
     }
 
+    pub fn depth_mode(&self) -> DepthMode {
+        self.state.depth_mode
+    }
+
     pub const fn set_depth_stencil_state(&mut self, index: usize) {
         self.current_depth_state = index;
     }
@@ -374,7 +378,7 @@ impl CommandList {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DepthMode {
     /// Commonly used for shadow maps and decals
     Forward,

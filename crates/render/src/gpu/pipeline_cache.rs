@@ -6,12 +6,13 @@ use d3d12::{D3D12_DEPTH_STENCIL_DESC, DeviceChild, GraphicsPipelineStateDesc};
 use deimos_data::tfx::FixedFunctionState;
 use tiger_pkg::{TagHash, package_manager};
 
-use crate::gpu::global_state::RenderStates;
+use crate::gpu::{command_list::DepthMode, global_state::RenderStates};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct PipelineKey {
     pub vertex_shader: TagHash,
     pub pixel_shader: TagHash,
+    pub depth_mode: DepthMode,
     pub fixed_function_state: FixedFunctionState,
     pub input_layout: u8,
 }
@@ -68,13 +69,25 @@ impl PipelineCache {
             .get(blend_state_index)
             .context("invalid blend state")?;
 
-        let depth_state = D3D12_DEPTH_STENCIL_DESC {
-            DepthEnable: true.into(),
-            DepthWriteMask: d3d12::D3D12_DEPTH_WRITE_MASK_ALL,
-            DepthFunc: d3d12::D3D12_COMPARISON_FUNC_GREATER_EQUAL,
-            StencilEnable: false.into(),
-            ..Default::default()
-        };
+        let depth_stencil_state_index = key.fixed_function_state.depth_stencil_state().unwrap_or(0);
+        let (depth_stencil_state_reverse, depth_stencil_state_forward) = self
+            .render_states
+            .depth_stencil_states
+            .get(depth_stencil_state_index)
+            .context("invalid depth stencil state")?;
+        let depth_stencil_state = match key.depth_mode {
+            DepthMode::Forward => depth_stencil_state_forward,
+            DepthMode::Reverse => depth_stencil_state_reverse,
+        }
+        .clone();
+
+        // let depth_state = D3D12_DEPTH_STENCIL_DESC {
+        //     DepthEnable: true.into(),
+        //     DepthWriteMask: d3d12::D3D12_DEPTH_WRITE_MASK_ALL,
+        //     DepthFunc: d3d12::D3D12_COMPARISON_FUNC_GREATER_EQUAL,
+        //     StencilEnable: false.into(),
+        //     ..Default::default()
+        // };
 
         let mut desc = GraphicsPipelineStateDesc::new(root_signature)
             .with_vs(&vs)
@@ -82,7 +95,7 @@ impl PipelineCache {
             .with_primitive_topology(d3d12::PrimitiveTopology2::Triangle)
             .with_blend_state(blend_state.clone())
             .with_dsv_format(dsv_format.unwrap_or_default())
-            .with_depth_stencil_state(depth_state);
+            .with_depth_stencil_state(depth_stencil_state);
 
         if !ps.is_empty() {
             desc = desc.with_rtv_formats(rtv_formats).with_ps(&ps);

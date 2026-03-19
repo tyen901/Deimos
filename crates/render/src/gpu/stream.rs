@@ -191,14 +191,24 @@ impl ParallelCommandBlock {
         ParallelCommandGuard {
             block: self,
             cmd: ManuallyDrop::new(cmd),
+            slot: worker,
         }
     }
 
-    fn release(&self, cmd: CommandList) {
-        let worker = potassium::current_worker_index()
-            .expect("ParallelCommandBlock::release can only be called from a potassium job!");
+    pub fn cmd_manual<'a>(&'a self, index: usize) -> ParallelCommandGuard<'a> {
+        let cmd = self.workers.lock()[index]
+            .take()
+            .expect("cmd is missing from worker slot?");
 
-        let slot = &mut self.workers.lock()[worker];
+        ParallelCommandGuard {
+            block: self,
+            cmd: ManuallyDrop::new(cmd),
+            slot: index,
+        }
+    }
+
+    fn release(&self, cmd: CommandList, slot_index: usize) {
+        let slot = &mut self.workers.lock()[slot_index];
         assert!(slot.is_none(), "released slot already has a cmd");
         *slot = Some(cmd);
     }
@@ -207,12 +217,13 @@ impl ParallelCommandBlock {
 pub struct ParallelCommandGuard<'a> {
     block: &'a ParallelCommandBlock,
     cmd: ManuallyDrop<CommandList>,
+    slot: usize,
 }
 
 impl<'a> Drop for ParallelCommandGuard<'a> {
     fn drop(&mut self) {
         let cmd = unsafe { ManuallyDrop::take(&mut self.cmd) };
-        self.block.release(cmd);
+        self.block.release(cmd, self.slot);
     }
 }
 

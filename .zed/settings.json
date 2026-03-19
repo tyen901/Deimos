@@ -8,6 +8,28 @@
       "initialization_options": {
         "cargo": {
           "target": "x86_64-pc-windows-gnu",
+          "buildScripts": {
+            "enable": true, // intellisense for -sys packages
+            "useRustcWrapper": true,
+            "overrideCommand": [
+              "cargo",
+              "xwin",
+              "build",
+              "--workspace",
+              "--target=x86_64-pc-windows-msvc",
+              "--message-format=json",
+            ],
+          },
+        },
+        "check": {
+          "overrideCommand": [
+            "cargo",
+            "xwin",
+            "clippy",
+            "--workspace",
+            "--target=x86_64-pc-windows-msvc",
+            "--message-format=json",
+          ],
         },
       },
     },

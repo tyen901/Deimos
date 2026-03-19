@@ -130,6 +130,7 @@ impl Technique {
             let pipeline_key = PipelineKey {
                 vertex_shader: self.data.shader_vertex.shader,
                 pixel_shader: self.data.shader_pixel.shader,
+                depth_mode: cmd.depth_mode(),
                 fixed_function_state,
                 input_layout: cmd.get_input_layout() as u8,
             };
@@ -210,7 +211,7 @@ impl TechniqueStage {
     pub fn new(
         asset_manager: &Arc<AssetManager>,
         gpu: &Arc<Gpu>,
-        rsb: &mut d3d12::RootSignatureBuilder,
+        rsb: &mut d3d12::RootSignatureBuilder<'_>,
         technique_data: &STechnique,
         stage: STechniqueStage,
         shader_stage: ShaderStage,
@@ -457,8 +458,10 @@ impl TechniqueStage {
             )
             .expect("failed to create staging heap");
 
-        self.copy_static_descriptors(gpu, &staging)
-            .context("copying static descriptors")?;
+        if let Err(e) = self.copy_static_descriptors(gpu, &staging) {
+            warn!("Failed to copy static descriptors: {:?}", e);
+            return Ok(());
+        }
 
         // let null = gpu.resource_heap.lock().null().cpu_handle();
         // for slot in &self.root_texture_slots {

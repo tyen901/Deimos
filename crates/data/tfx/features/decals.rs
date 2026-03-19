@@ -24,9 +24,10 @@ pub struct SDecalCollection {
 }
 
 #[derive(Clone, Debug)]
-#[tiger_type(id = 0x8080822C)]
+#[tiger_type(id = 0x8080822C, size = 0xC)]
 pub struct SDecalSet {
     pub technique: TagHash,
     pub start: u16,
     pub count: u16,
+    pub unk8: u32,
 }

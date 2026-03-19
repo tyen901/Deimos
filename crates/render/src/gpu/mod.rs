@@ -25,8 +25,7 @@ use std::{
 
 use anyhow::Context;
 use d3d12::{
-    CommandQueueDesc, D3D12GetDebugInterface, DxgiUsage, ID3D12Debug,
-    SwapChainDesc, SwapEffect,
+    CommandQueueDesc, D3D12GetDebugInterface, DxgiUsage, ID3D12Debug, SwapChainDesc, SwapEffect,
     error::D3DResultExt,
     ext::{GpuFence, GpuFenceWaiter},
 };
@@ -367,6 +366,7 @@ impl Gpu {
             upload_ring_capacity: self.previous_frame().upload.capacity(),
             errors: MemoryReportCategories::empty(),
             warnings: MemoryReportCategories::empty(),
+            high_water: false,
         };
 
         let descriptor_heap_used_ratio =
@@ -381,16 +381,28 @@ impl Gpu {
             r.warnings |= MemoryReportCategories::DESCRIPTOR_HEAP;
         }
 
+        if descriptor_heap_used_ratio >= 0.9 {
+            r.high_water = true;
+        }
+
         if descriptor_ring_used_ratio >= 1.0 {
             r.errors |= MemoryReportCategories::DESCRIPTOR_RING;
         } else if descriptor_ring_used_ratio >= 0.8 {
             r.warnings |= MemoryReportCategories::DESCRIPTOR_RING;
         }
 
+        if descriptor_ring_used_ratio >= 0.9 {
+            r.high_water = true;
+        }
+
         if upload_ring_used_ratio >= 1.0 {
             r.errors |= MemoryReportCategories::UPLOAD_RING;
         } else if upload_ring_used_ratio >= 0.8 {
             r.warnings |= MemoryReportCategories::UPLOAD_RING;
+        }
+
+        if upload_ring_used_ratio >= 0.9 {
+            r.high_water = true;
         }
 
         r
@@ -431,6 +443,7 @@ pub struct MemoryStats {
 
     pub warnings: MemoryReportCategories,
     pub errors: MemoryReportCategories,
+    pub high_water: bool,
 }
 
 bitflags::bitflags! {

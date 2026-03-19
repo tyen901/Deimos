@@ -1,5 +1,7 @@
 use anyhow::Context;
-use d3d12::{D3D12_DEPTH_WRITE_MASK, D3D12_RASTERIZER_DESC, D3D12_STENCIL_OP};
+use d3d12::{
+    D3D12_DEPTH_STENCIL_DESC, D3D12_DEPTH_WRITE_MASK, D3D12_RASTERIZER_DESC, D3D12_STENCIL_OP,
+};
 use deimos_data::tfx::render_globals::SRenderGlobals;
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::package_manager;
@@ -13,8 +15,8 @@ pub struct RenderStates {
     pub blend_states: Vec<d3d12::BlendDesc>,
     // pub rasterizer_states: [[d3d12::RasterizerState; 9]; 9],
     // /// 1st state is for reverse Z, 2nd state is for regular Z (commonly used for shadow maps)
-    // pub depth_stencil_states:
-    //     [(d3d12::DepthStencilState, d3d12::DepthStencilState); DEPTH_STENCIL_COMBO_COUNT],
+    pub depth_stencil_states:
+        [(D3D12_DEPTH_STENCIL_DESC, D3D12_DEPTH_STENCIL_DESC); DEPTH_STENCIL_COMBO_COUNT],
 }
 
 impl RenderStates {
@@ -154,54 +156,53 @@ impl RenderStates {
         // })
         // .context("Failed to create rasterizer states")?;
 
-        // let depth_states: &[ShortDepthState] =
-        //     unsafe { byteutil::bytes_as_slice(Self::DEPTH_STATE_DATA) };
-        // let stencil_states: &[ShortStencilDesc] =
-        //     unsafe { byteutil::bytes_as_slice(Self::STENCIL_STATE_DATA) };
+        let depth_states: &[ShortDepthState] =
+            unsafe { byteutil::bytes_as_slice(Self::DEPTH_STATE_DATA) };
+        let stencil_states: &[ShortStencilDesc] =
+            unsafe { byteutil::bytes_as_slice(Self::STENCIL_STATE_DATA) };
 
         // warn!("!!! STENCIL TESTING IS DISABLED");
-        // let depth_stencil_states: anyhow::Result<_> = std::array::try_from_fn(|i| {
-        //     let (depth_index, stencil_index) = DEPTH_STENCIL_COMBOS[i];
+        let depth_stencil_states = std::array::from_fn(|i| {
+            let (depth_index, stencil_index) = DEPTH_STENCIL_COMBOS[i];
 
-        //     let depth = depth_states[depth_index].clone();
-        //     let stencil = stencil_states[stencil_index].clone();
-        //     let reversed_depth_func = Self::REVERSED_DEPTH_FUNCS[depth_index].clone();
+            let depth = depth_states[depth_index].clone();
+            let stencil = stencil_states[stencil_index].clone();
+            let reversed_depth_func = Self::REVERSED_DEPTH_FUNCS[depth_index];
 
-        //     let mut desc = d3d12::DepthStencilDesc {
-        //         depth_enable: BOOL(depth.0),
-        //         depth_write_mask: depth.1,
-        //         depth_func: depth.2,
-        //         stencil_enable: false.into(), //stencil.enabled,
-        //         stencil_read_mask: stencil.read_mask,
-        //         stencil_write_mask: stencil.write_mask,
-        //         front_face: d3d12::DepthStencilOpDesc {
-        //             stencil_fail_op: stencil.front_face.2,
-        //             stencil_depth_fail_op: stencil.front_face.3,
-        //             stencil_pass_op: stencil.front_face.1,
-        //             stencil_func: stencil.front_face.0,
-        //         },
-        //         back_face: d3d12::DepthStencilOpDesc {
-        //             stencil_fail_op: stencil.back_face.2,
-        //             stencil_depth_fail_op: stencil.back_face.3,
-        //             stencil_pass_op: stencil.back_face.1,
-        //             stencil_func: stencil.back_face.0,
-        //         },
-        //     };
+            let desc_reverse = d3d12::D3D12_DEPTH_STENCIL_DESC {
+                DepthEnable: BOOL(depth.0),
+                DepthWriteMask: depth.1,
+                DepthFunc: depth.2.into(),
+                StencilEnable: false.into(), //stencil.enabled,
+                StencilReadMask: stencil.read_mask,
+                StencilWriteMask: stencil.write_mask,
+                FrontFace: d3d12::D3D12_DEPTH_STENCILOP_DESC {
+                    StencilFailOp: stencil.front_face.2,
+                    StencilDepthFailOp: stencil.front_face.3,
+                    StencilPassOp: stencil.front_face.1,
+                    StencilFunc: stencil.front_face.0.into(),
+                },
+                BackFace: d3d12::D3D12_DEPTH_STENCILOP_DESC {
+                    StencilFailOp: stencil.back_face.2,
+                    StencilDepthFailOp: stencil.back_face.3,
+                    StencilPassOp: stencil.back_face.1,
+                    StencilFunc: stencil.back_face.0.into(),
+                },
+            };
 
-        //     let state = device.create_depth_stencil_state(&desc)?;
+            let desc_forward = D3D12_DEPTH_STENCIL_DESC {
+                DepthFunc: reversed_depth_func.into(),
+                ..desc_reverse
+            };
 
-        //     desc.depth_func = reversed_depth_func;
-        //     let state_reversed = device.create_depth_stencil_state(&desc)?;
-
-        //     Ok((state, state_reversed))
-        // });
+            (desc_reverse, desc_forward)
+        });
 
         Ok(Self {
             input_layouts,
             blend_states,
             // rasterizer_states,
-            // depth_stencil_states: depth_stencil_states
-            //     .context("Failed to create depth stencil states")?,
+            depth_stencil_states,
         })
     }
 

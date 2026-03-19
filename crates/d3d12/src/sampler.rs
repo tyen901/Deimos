@@ -16,6 +16,7 @@ pub enum ComparisonFunc {
     None = D3D12_COMPARISON_FUNC_NONE.0,
     NotEqual = D3D12_COMPARISON_FUNC_NOT_EQUAL.0,
 }
+verify_ffi_type!(ComparisonFunc, D3D12_COMPARISON_FUNC);
 
 #[repr(C)]
 #[derive(Debug, Clone, Builder)]

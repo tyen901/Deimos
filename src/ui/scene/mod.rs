@@ -195,7 +195,7 @@ impl Scene {
             let memory_stats = self.renderer.gpu.memory_stats();
             let mut vram_text = format_bytes(memory_stats.total_bytes_used as usize);
             let mut vram_color = Color32::GREEN;
-            if !memory_stats.errors.is_empty() {
+            if !memory_stats.errors.is_empty() || memory_stats.high_water {
                 vram_text = format!("{} {}", GoogleMaterialSymbols::Error, vram_text);
                 vram_color = Color32::RED;
             } else if !memory_stats.warnings.is_empty() {
@@ -659,7 +659,7 @@ impl Scene {
                     cmd.set_ffstate(FixedFunctionState::new(Some(8), Some(15), Some(2), Some(1)));
                     cmd.flush_states();
                     self.scene_renderer
-                        .submit_stage(cmd, stream, view, RenderStage::Decals);
+                        .submit_stage_serial(cmd, stream, view, RenderStage::Decals);
                 }
 
                 {
@@ -669,7 +669,7 @@ impl Scene {
                         .profiler_scope(stream, "submit_decals_additive");
                     cmd.set_ffstate(FixedFunctionState::new(Some(8), Some(15), Some(2), Some(1)));
                     cmd.flush_states();
-                    self.scene_renderer.submit_stage(
+                    self.scene_renderer.submit_stage_serial(
                         cmd,
                         stream,
                         view,
@@ -691,8 +691,12 @@ impl Scene {
                         .gpu
                         .profiler_scope(stream, "submit_transparents");
                     cmd.set_ffstate(FixedFunctionState::new(Some(8), Some(15), Some(2), Some(1)));
-                    self.scene_renderer
-                        .submit_stage(cmd, stream, view, RenderStage::Transparents);
+                    self.scene_renderer.submit_stage_serial(
+                        cmd,
+                        stream,
+                        view,
+                        RenderStage::Transparents,
+                    );
                 }
             }
 
