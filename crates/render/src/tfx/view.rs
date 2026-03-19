@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use crate::{
     gpu::{Gpu, render_target::RenderTarget},
-    tfx::buffers::Gbuffer,
+    tfx::buffers::{Gbuffer, LightBuffer},
     visibility::frustum::Frustum,
 };
 
@@ -15,8 +15,9 @@ pub struct ShadedView {
     pub culling_frustum: Frustum,
 
     pub gbuffer: Gbuffer,
+    pub light: LightBuffer,
 
-    pub result: RenderTarget,
+    pub output: RenderTarget,
 
     resolution: (u32, u32),
     resolution_scale: f32,
@@ -27,7 +28,8 @@ impl ShadedView {
         Ok(Self {
             culling_frustum: Frustum::default(),
             gbuffer: Gbuffer::new(gpu, resolution)?,
-            result: RenderTarget::new(
+            light: LightBuffer::new(gpu, resolution)?,
+            output: RenderTarget::new(
                 gpu,
                 "result",
                 d3d12::Format::R8g8b8a8Unorm,

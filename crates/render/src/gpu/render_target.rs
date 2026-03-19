@@ -103,6 +103,10 @@ impl RenderTarget {
         self.srv
     }
 
+    pub const fn resolution(&self) -> (u32, u32) {
+        self.size
+    }
+
     pub fn transition(&mut self, cmd: &d3d12::GraphicsCommandList, state: d3d12::ResourceStates) {
         if self.current_state != state {
             cmd.resource_barriers(&[d3d12::ResourceBarrier::transition(

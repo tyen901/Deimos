@@ -5,17 +5,18 @@ pub mod scene;
 
 use std::sync::Arc;
 
+use deimos_data::tfx::PrimitiveType;
 use parking_lot::RwLock;
 use slotmap::SlotMap;
 
 use crate::{
     asset::AssetManager,
-    gpu::Gpu,
+    gpu::{Gpu, command_list::CommandList},
     renderer::{
         globals::RenderGlobals,
         object::{RenderObject, RenderObjectHandle},
     },
-    tfx::externs::ExternContainer,
+    tfx::{externs::ExternContainer, technique::Technique},
     util::thread_cell::ThreadMutCell,
 };
 
@@ -44,6 +45,22 @@ impl Renderer {
         self.objects.write().clear();
         self.asset_manager.shutdown();
         self.gpu.shutdown();
+    }
+
+    pub fn execute_global_pipeline(
+        &self,
+        cmd: &mut CommandList,
+        pipeline: &Technique,
+        _name: &str,
+    ) {
+        // cmd_event_span!(cmd, &format!("[{name}]"));
+        cmd.set_input_topology(PrimitiveType::TriangleStrip);
+        cmd.set_input_layout(0);
+        cmd.flush_states();
+
+        pipeline.bind(cmd);
+
+        cmd.draw_instanced(0..4, 0..1);
     }
 }
 

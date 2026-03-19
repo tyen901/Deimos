@@ -116,7 +116,7 @@ impl CommandList {
         // Reset current states
         self.current_blend_state = usize::MAX;
         self.current_depth_state = usize::MAX;
-        self.current_input_layout = usize::MAX;
+        // self.current_input_layout = usize::MAX;
         self.current_rasterizer_state = usize::MAX;
         self.current_depth_bias = usize::MAX;
         // self.current_input_topology = usize::MAX;
@@ -241,6 +241,12 @@ impl CommandList {
             .om_set_render_targets(&self.state.output.rtvs, false, self.state.output.dsv);
     }
 
+    /// Sets the render targets and depth-stencil buffer for the command list.
+    ///
+    /// Updates CMD state:
+    /// - Sets output RTVs and RTV formats
+    /// - Sets output DSV and DSV format
+    /// - Sets viewport and scissor rect
     pub fn set_render_targets(
         &mut self,
         render_target_descriptors: &[&RenderTarget],
@@ -261,6 +267,19 @@ impl CommandList {
 
         self.cmd
             .om_set_render_targets(&self.state.output.rtvs, false, self.state.output.dsv);
+
+        if let Some(rt0) = render_target_descriptors.first() {
+            self.set_viewports(&[d3d12::Viewport::builder()
+                .width(rt0.resolution().0 as f32)
+                .height(rt0.resolution().1 as f32)
+                .build()]);
+            self.set_scissor_rects(&[d3d12::Rect::builder()
+                .right(rt0.resolution().0 as i32)
+                .bottom(rt0.resolution().1 as i32)
+                .top(0)
+                .left(0)
+                .build()]);
+        }
     }
 
     pub fn set_scissor_rects(&mut self, rects: &[d3d12::Rect]) {

@@ -7,7 +7,10 @@ use deimos_render::{
     camera::Camera,
     ecs::{populate_submit_nodes, s_extract_frame_packet},
     gpu::{alloc::descriptors::ResourceView, render_target::RenderTarget},
-    renderer::{Renderer, scene::SceneRenderer},
+    renderer::{
+        Renderer,
+        scene::{DebugPipeline, SceneRenderer},
+    },
     tfx::{
         externs::{self, get_global_channel_name},
         scope::FrameScope,
@@ -67,7 +70,7 @@ impl Scene {
             camera,
             controller: CameraController::new_first_person(),
             subscribed_features: FeatureRendererSubscription::all(),
-            render_mode: RenderMode::Albedo,
+            render_mode: RenderMode::Lookdev,
 
             world: World::new(),
             time_of_day: 1200.0,
@@ -142,12 +145,7 @@ impl Scene {
             let r = ui
                 .image(SizedTexture {
                     id: egui_d3d12.textures_mut().allocate_dx_temporary(
-                        self.scene_renderer
-                            .main_view
-                            .gbuffer
-                            .albedo
-                            .srv()
-                            .cpu_handle(),
+                        self.output_srv().cpu_handle(),
                         None,
                         false,
                     ),
@@ -462,7 +460,20 @@ impl Scene {
                 0.00000000,
                 0.00000000,
             );
-            ext.deferred.deferred_depth = self.scene_renderer.main_view.gbuffer.depth.srv().into();
+            let view = &self.scene_renderer.main_view;
+            ext.deferred.gbuffer_resolution_scale_offset = Vec4::new(
+                view.resolution().0 as f32,
+                view.resolution().1 as f32,
+                1. / view.resolution().0 as f32,
+                1. / view.resolution().1 as f32,
+            );
+            ext.deferred.deferred_depth = view.gbuffer.depth.srv().into();
+            ext.deferred.deferred_rt0 = view.gbuffer.albedo.srv().into();
+            ext.deferred.deferred_rt1 = view.gbuffer.normal.srv().into();
+            ext.deferred.deferred_rt2 = view.gbuffer.rt3.srv().into();
+            ext.deferred.light_diffuse = view.light.light_diffuse.srv().into();
+            ext.deferred.light_specular = view.light.light_specular.srv().into();
+            ext.deferred.light_specular_ibl = view.light.light_specular_ibl.srv().into();
 
             let view = &self.scene_renderer.main_view;
             ext.decal.depth_read = view.gbuffer.depth_read.srv().into();
@@ -513,198 +524,27 @@ impl Scene {
                 .expect("failed to copy frame constants");
         }
 
-        self.renderer.globals.scopes.frame.bind(cmd);
-        self.renderer.globals.scopes.view.bind(cmd);
-        self.renderer.globals.scopes.chunk_model.bind(cmd);
+        let vis = ViewVisibility {
+            culling_frustum: self.camera.culling_frustum.clone(),
+            position: self.camera.position,
+            world_to_projective: self.camera.world_to_projective,
+            occlusion_buffer,
+        };
+
+        self.scene_renderer.frame_packet.reset();
 
         {
-            self.scene_renderer
-                .main_view
-                .gbuffer
-                .transition(cmd, d3d12::ResourceStates::RENDER_TARGET);
-            self.scene_renderer
-                .main_view
-                .gbuffer
-                .depth
-                .transition(cmd, d3d12::ResourceStates::DEPTH_WRITE);
-            self.scene_renderer.main_view.gbuffer.clear(cmd);
-            self.scene_renderer.main_view.gbuffer.bind(cmd);
-
-            // s_extract_render_objects(&self.world, &self.renderer);
-
-            // for (_entity, render_object) in self.world.query::<&DynamicRenderObject>().iter() {
-            //     self.renderer.objects.read()[render_object.handle]
-            //         .renderer
-            //         .submit(cmd, RenderStage::GenerateGbuffer);
-            // }
-            self.scene_renderer.frame_packet.reset();
-            let vis = &ViewVisibility {
-                culling_frustum: self.camera.culling_frustum.clone(),
-                position: self.camera.position,
-                world_to_projective: self.camera.world_to_projective,
-                occlusion_buffer,
-            };
-
-            {
-                let _scope = self.renderer.gpu.profiler_scope(stream, "extract_frame");
-                s_extract_frame_packet(
-                    &self.world,
-                    &mut self.scene_renderer,
-                    vis,
-                    self.subscribed_features,
-                );
-            }
-
-            {
-                let _scope = self
-                    .renderer
-                    .gpu
-                    .profiler_scope(stream, "populate_submit_nodes");
-                populate_submit_nodes(&mut self.scene_renderer, vis);
-            }
-
-            {
-                let _scope = self
-                    .renderer
-                    .gpu
-                    .profiler_scope(stream, "prepare_per_frame");
-
-                let frame_packet = &self.scene_renderer.frame_packet;
-                let render_objects = self.renderer.objects.read();
-
-                for frame_node in &frame_packet.per_frame_nodes {
-                    let obj = &render_objects[frame_node.object];
-                    obj.renderer.prepare_per_frame(cmd, frame_node);
-                }
-            }
-
-            {
-                let _scope = self.renderer.gpu.profiler_scope(stream, "prepare_per_view");
-
-                let frame_packet = &self.scene_renderer.frame_packet;
-                let render_objects = self.renderer.objects.read();
-                for view in &self.scene_renderer.frame_packet.views {
-                    for view_node in &view.view_nodes {
-                        let frame_node = &frame_packet.per_frame_nodes[view_node.frame_node];
-                        let obj = &render_objects[frame_node.object];
-                        obj.renderer.prepare_per_view(cmd, frame_node, view_node);
-                    }
-                }
-            }
-
-            for view in &self.scene_renderer.frame_packet.views {
-                {
-                    let _scope = self
-                        .renderer
-                        .gpu
-                        .profiler_scope(stream, "submit_gbuffer_generation");
-
-                    cmd.set_ffstate(FixedFunctionState::new(Some(0), Some(2), Some(2), Some(0)));
-                    cmd.flush_states();
-                    self.scene_renderer.submit_stage(
-                        cmd,
-                        stream,
-                        view,
-                        RenderStage::GenerateGbuffer,
-                    );
-                }
-
-                // Copy normals/depth buffer
-                {
-                    let view = &mut self.scene_renderer.main_view;
-
-                    // Copy normals
-                    view.gbuffer
-                        .normal
-                        .transition(cmd, d3d12::ResourceStates::COPY_SOURCE);
-                    view.gbuffer
-                        .normal_read
-                        .transition(cmd, d3d12::ResourceStates::COPY_DEST);
-
-                    cmd.copy_resource(
-                        view.gbuffer.normal.resource.resource(),
-                        view.gbuffer.normal_read.resource.resource(),
-                    );
-                    view.gbuffer
-                        .normal_read
-                        .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
-                    view.gbuffer
-                        .normal
-                        .transition(cmd, d3d12::ResourceStates::RENDER_TARGET);
-
-                    // Copy depth
-                    view.gbuffer
-                        .depth
-                        .transition(cmd, d3d12::ResourceStates::COPY_SOURCE);
-                    view.gbuffer
-                        .depth_read
-                        .transition(cmd, d3d12::ResourceStates::COPY_DEST);
-
-                    cmd.copy_resource(
-                        view.gbuffer.depth.resource.resource(),
-                        view.gbuffer.depth_read.resource.resource(),
-                    );
-
-                    view.gbuffer
-                        .depth_read
-                        .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
-                    view.gbuffer
-                        .depth
-                        .transition(cmd, d3d12::ResourceStates::RENDER_TARGET);
-                }
-
-                {
-                    let _scope = self.renderer.gpu.profiler_scope(stream, "submit_decals");
-                    self.renderer.globals.scopes.decal.bind(cmd);
-                    cmd.set_ffstate(FixedFunctionState::new(Some(8), Some(15), Some(2), Some(1)));
-                    cmd.flush_states();
-                    self.scene_renderer
-                        .submit_stage_serial(cmd, stream, view, RenderStage::Decals);
-                }
-
-                {
-                    let _scope = self
-                        .renderer
-                        .gpu
-                        .profiler_scope(stream, "submit_decals_additive");
-                    cmd.set_ffstate(FixedFunctionState::new(Some(8), Some(15), Some(2), Some(1)));
-                    cmd.flush_states();
-                    self.scene_renderer.submit_stage_serial(
-                        cmd,
-                        stream,
-                        view,
-                        RenderStage::DecalsAdditive,
-                    );
-                }
-
-                self.scene_renderer
-                    .main_view
-                    .gbuffer
-                    .depth
-                    .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
-
-                {
-                    self.renderer.globals.scopes.transparent.bind(cmd);
-                    self.renderer.globals.scopes.transparent_advanced.bind(cmd);
-                    let _scope = self
-                        .renderer
-                        .gpu
-                        .profiler_scope(stream, "submit_transparents");
-                    cmd.set_ffstate(FixedFunctionState::new(Some(8), Some(15), Some(2), Some(1)));
-                    self.scene_renderer.submit_stage_serial(
-                        cmd,
-                        stream,
-                        view,
-                        RenderStage::Transparents,
-                    );
-                }
-            }
-
-            self.scene_renderer
-                .main_view
-                .gbuffer
-                .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
+            let _scope = self.renderer.gpu.profiler_scope(stream, "extract_frame");
+            s_extract_frame_packet(
+                &self.world,
+                &mut self.scene_renderer,
+                &vis,
+                self.subscribed_features,
+            );
         }
+
+        self.scene_renderer
+            .render(cmd, &vis, self.render_mode.into());
     }
 
     fn show_toolbar(&mut self, ui: &mut Ui) {
@@ -743,9 +583,7 @@ impl Scene {
             self.show_channel_editor = !self.show_channel_editor;
         }
 
-        ui.add_enabled_ui(false, |ui| {
-            self.render_mode.ui(ui);
-        });
+        self.render_mode.ui(ui);
         self.subscribed_features.show_input(ui);
     }
 
@@ -854,7 +692,7 @@ impl Scene {
 
         ui.spacing_mut().slider_width = ui.available_width();
 
-        const DAYNIGHT_GRADIENT: ImageSource =
+        const DAYNIGHT_GRADIENT: ImageSource<'static> =
             egui::include_image!("../../../assets/ui/daynight_gradient_bar.png");
         Image::new(DAYNIGHT_GRADIENT).paint_at(
             ui,
@@ -1011,13 +849,13 @@ impl Scene {
     }
 
     pub const fn output_srv(&self) -> ResourceView {
-        self.scene_renderer.main_view.gbuffer.albedo.srv()
+        self.scene_renderer.main_view.output.srv()
     }
 
     pub fn render_to_texture(&mut self, resolution: (u32, u32)) -> anyhow::Result<RenderTarget> {
         self.render(1.0 / 60.0, resolution);
 
-        self.scene_renderer.main_view.gbuffer.albedo.take()
+        self.scene_renderer.main_view.output.take()
     }
 
     pub const fn focus_on(&mut self, position: Vec3) {
@@ -1128,6 +966,31 @@ impl RenderMode {
             });
 
         changed
+    }
+}
+
+impl From<RenderMode> for Option<DebugPipeline> {
+    fn from(val: RenderMode) -> Self {
+        match val {
+            RenderMode::Lookdev => None,
+            RenderMode::Shaded => Some(DebugPipeline::GlobalLightingShading),
+            RenderMode::ShadedNoSun => Some(DebugPipeline::DeferredShading),
+            RenderMode::ShadingOnly => Some(DebugPipeline::DeferredShadingNoAtm),
+            // RenderMode::Matcap => Some(DebugPipeline::Matcap),
+            RenderMode::Albedo => Some(DebugPipeline::Albedo),
+            RenderMode::Smoothness => Some(DebugPipeline::Smoothness),
+            RenderMode::Metalness => Some(DebugPipeline::Metalness),
+            RenderMode::AmbientOcclusion => Some(DebugPipeline::AmbientOcclusion),
+            RenderMode::Emission => Some(DebugPipeline::Emission),
+            RenderMode::EmissionIntensity => Some(DebugPipeline::EmissionIntensity),
+            RenderMode::Transmission => Some(DebugPipeline::Transmission),
+            RenderMode::IridescenceId => Some(DebugPipeline::Overcoat),
+            RenderMode::DepthEdges => Some(DebugPipeline::DepthEdges),
+            RenderMode::WorldNormal => Some(DebugPipeline::WorldNormal),
+            RenderMode::Overdraw => Some(DebugPipeline::Overdraw),
+            RenderMode::LightDiffuse => Some(DebugPipeline::LightDiffuse),
+            RenderMode::LightSpecular => Some(DebugPipeline::LightSpecular),
+        }
     }
 }
 

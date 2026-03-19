@@ -61,7 +61,7 @@ pub fn get_scope_samplers(index: u32) -> &'static ScopeSamplers {
 
 pub struct RenderGlobals {
     pub scopes: GlobalScopes,
-    // pub pipelines: GlobalPipelines,
+    pub pipelines: GlobalPipelines,
     pub textures: GlobalTextures,
     pub channels: SRenderGlobalsGlobalChannels,
     // pub unk34: SUnk8080822d,
@@ -74,7 +74,7 @@ impl RenderGlobals {
 
         Ok(Self {
             scopes: GlobalScopes::load(asset_manager, globs),
-            // pipelines: GlobalPipelines::load(gpu, globs),
+            pipelines: GlobalPipelines::load(asset_manager, gpu, globs),
             textures: GlobalTextures::load(gpu, globs)?,
             channels: globs.global_channels.0.clone(),
             // unk34: globs.unk34.0.clone(),

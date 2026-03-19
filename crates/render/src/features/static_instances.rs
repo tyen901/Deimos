@@ -460,8 +460,9 @@ impl StaticInstancesRenderer {
     pub fn load_from_tag(renderer: &Renderer, instances_hash: TagHash) -> anyhow::Result<Self> {
         let instances: SStaticMeshInstances = package_manager().read_tag_struct(instances_hash)?;
         println!(
-            "Instance collection {instances_hash} has {} occlusion bounds",
-            instances.occlusion_bounds.bounds.len()
+            "Instance collection {instances_hash} has {} occlusion bounds, {} models",
+            instances.occlusion_bounds.bounds.len(),
+            instances.instance_groups.len()
         );
         let mut models = instances
             .instance_groups
