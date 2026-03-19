@@ -142,8 +142,8 @@ impl Technique {
                 cmd.cmd_state().output.dsv_format,
             ) {
                 Ok(pipeline) => {
-                    cmd.set_pipeline_state(&pipeline.pso);
                     cmd.set_root_signature(&self.root_signature);
+                    cmd.set_pipeline_state(&pipeline.pso);
                 }
                 Err(err) => {
                     error!("Failed to create pipeline: {}", err);
@@ -431,6 +431,7 @@ impl TechniqueStage {
     }
 
     fn prebuild_static_staging(&mut self, gpu: &Gpu) -> anyhow::Result<()> {
+        return Ok(());
         if self.core.has_dynamic_textures()
             || self.has_manual_textures
             || self.descriptor_count == 0

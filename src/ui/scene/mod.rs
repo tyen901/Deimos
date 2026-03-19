@@ -5,7 +5,7 @@ use deimos_data::tfx::{
 };
 use deimos_render::{
     camera::Camera,
-    ecs::{populate_submit_nodes, s_extract_frame_packet},
+    ecs::s_extract_frame_packet,
     gpu::{alloc::descriptors::ResourceView, render_target::RenderTarget},
     renderer::{
         Renderer,

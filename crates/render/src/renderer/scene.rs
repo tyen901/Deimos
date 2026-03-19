@@ -137,9 +137,6 @@ impl SceneRenderer {
                     view.gbuffer
                         .normal_read
                         .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
-                    view.gbuffer
-                        .normal
-                        .transition(cmd, d3d12::ResourceStates::RENDER_TARGET);
 
                     // Copy depth
                     view.gbuffer
@@ -157,9 +154,6 @@ impl SceneRenderer {
                     view.gbuffer
                         .depth_read
                         .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
-                    view.gbuffer
-                        .depth
-                        .transition(cmd, d3d12::ResourceStates::RENDER_TARGET);
                 }
 
                 {
@@ -183,7 +177,7 @@ impl SceneRenderer {
                 self.main_view
                     .gbuffer
                     .depth
-                    .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
+                    .transition(cmd, d3d12::ResourceStates::DEPTH_READ);
 
                 {
                     self.parent.globals.scopes.transparent.bind(cmd);
@@ -199,6 +193,9 @@ impl SceneRenderer {
 
             self.main_view
                 .gbuffer
+                .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
+            self.main_view
+                .light
                 .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
             self.main_view
                 .output

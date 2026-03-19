@@ -51,9 +51,9 @@ impl SwapChain {
         }?;
 
         let swapchain3: IDXGISwapChain3 = swap_chain.cast()?;
-        unsafe {
-            let _res = swapchain3.SetMaximumFrameLatency(1);
-        }
+        // unsafe {
+        //     let _res = swapchain3.SetMaximumFrameLatency(1);
+        // }
 
         Ok(Self(swapchain3))
     }
