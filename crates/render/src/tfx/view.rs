@@ -59,6 +59,10 @@ impl ShadedView {
     pub fn resolution_scale(&self) -> f32 {
         self.resolution_scale
     }
+
+    pub fn resolution(&self) -> (u32, u32) {
+        self.resolution
+    }
 }
 
 // pub struct ShadowView {}

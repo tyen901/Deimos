@@ -1,3 +1,4 @@
+pub mod decals;
 pub mod rigid_model;
 mod shared;
 mod skinning;
@@ -16,6 +17,14 @@ use crate::{
 };
 
 pub trait FeatureRenderer: Send {
+    fn populate_submit_node_blocks(
+        &self,
+        renderer: &Renderer,
+        view_node: usize,
+        visibility: &ViewVisibility,
+        submit_node_blocks: &mut SubmitNodeContainer,
+    );
+
     // fn extract_per_frame(&mut self, renderer: &Renderer, frame_node: &RenderPerFrameNode);
 
     // fn extract_per_view(
@@ -57,14 +66,6 @@ pub trait FeatureRenderer: Send {
     // ) {
     //     _ = (renderer, view_index, set, stage, jobs);
     // }
-
-    fn populate_submit_node_blocks(
-        &self,
-        renderer: &Renderer,
-        view_node: usize,
-        visibility: &ViewVisibility,
-        submit_node_blocks: &mut SubmitNodeContainer,
-    );
 
     fn subscribed_stages(&self) -> RenderStageSubscription;
 

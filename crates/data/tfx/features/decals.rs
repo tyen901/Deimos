@@ -1,9 +1,9 @@
-use tiger_parse::tiger_type;
+use tiger_parse::{tiger_type, Padding};
 use tiger_pkg::TagHash;
 
 use crate::{
     tag::Tag,
-    tfx::{common::SOcclusionBounds, geometry::AxisAlignedBBox},
+    tfx::{common::SOcclusionBounds, geometry::AxisAlignedBBox, RenderStage},
 };
 
 #[derive(Clone, Debug)]
@@ -15,7 +15,9 @@ pub struct SDecalCollection {
     pub vb0: TagHash,
     pub vb1: TagHash,
     pub unk30: u32,
-    pub unk34: u32,
+    pub unk34: u16,
+    pub render_stage: RenderStage,
+    _pad37: Padding<1>,
     pub decal_bounds: Tag<SOcclusionBounds>,
     pub unk3c: u32,
     pub bounds: AxisAlignedBBox,

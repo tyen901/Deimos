@@ -346,16 +346,18 @@ impl Scene {
     }
 
     #[profiling::function]
-    pub fn render(&mut self, delta_time: f32, resolution: (u32, u32)) {
+    pub fn render(&mut self, delta_time: f32, canvas_resolution: (u32, u32)) {
         let stream = &self.renderer.gpu.frame().stream;
         let _scope = self.renderer.gpu.profiler_scope(stream, "Scene::render");
         if let Err(e) = self
             .scene_renderer
             .main_view
-            .resize(&self.renderer.gpu, resolution)
+            .resize(&self.renderer.gpu, canvas_resolution)
         {
             error!("Failed to resize main view: {e:?}");
         }
+
+        let resolution = self.scene_renderer.main_view.resolution();
 
         let mut cmd_guard = stream.acquire_cmd(&self.renderer.gpu);
         let cmd = &mut *cmd_guard;
@@ -452,7 +454,26 @@ impl Scene {
             ext.view.derive_matrices(resolution);
             self.scene_renderer.main_view.culling_frustum = self.camera.culling_frustum.clone();
 
+            let near = Camera::NEAR;
+            let far = Camera::FAR;
+            ext.deferred.depth_constants = Vec4::new(
+                1.0 / far,
+                (far - near) / (far * near),
+                0.00000000,
+                0.00000000,
+            );
             ext.deferred.deferred_depth = self.scene_renderer.main_view.gbuffer.depth.srv().into();
+
+            let view = &self.scene_renderer.main_view;
+            ext.decal.depth_read = view.gbuffer.depth_read.srv().into();
+            ext.decal.normals_read = view.gbuffer.normal_read.srv().into();
+            ext.decal.depth_constants = ext.deferred.depth_constants;
+            ext.decal.unk30 = vec4(
+                resolution.0 as f32,
+                resolution.1 as f32,
+                1.0 / resolution.0 as f32,
+                1.0 / resolution.1 as f32,
+            );
 
             let time = self.start_time.elapsed().as_secs_f32();
             self.renderer
@@ -586,6 +607,59 @@ impl Scene {
                         view,
                         RenderStage::GenerateGbuffer,
                     );
+                }
+
+                // Copy normals/depth buffer
+                {
+                    let view = &mut self.scene_renderer.main_view;
+
+                    // Copy normals
+                    view.gbuffer
+                        .normal
+                        .transition(cmd, d3d12::ResourceStates::COPY_SOURCE);
+                    view.gbuffer
+                        .normal_read
+                        .transition(cmd, d3d12::ResourceStates::COPY_DEST);
+
+                    cmd.copy_resource(
+                        view.gbuffer.normal.resource.resource(),
+                        view.gbuffer.normal_read.resource.resource(),
+                    );
+                    view.gbuffer
+                        .normal_read
+                        .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
+                    view.gbuffer
+                        .normal
+                        .transition(cmd, d3d12::ResourceStates::RENDER_TARGET);
+
+                    // Copy depth
+                    view.gbuffer
+                        .depth
+                        .transition(cmd, d3d12::ResourceStates::COPY_SOURCE);
+                    view.gbuffer
+                        .depth_read
+                        .transition(cmd, d3d12::ResourceStates::COPY_DEST);
+
+                    cmd.copy_resource(
+                        view.gbuffer.depth.resource.resource(),
+                        view.gbuffer.depth_read.resource.resource(),
+                    );
+
+                    view.gbuffer
+                        .depth_read
+                        .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
+                    view.gbuffer
+                        .depth
+                        .transition(cmd, d3d12::ResourceStates::RENDER_TARGET);
+                }
+
+                {
+                    let _scope = self.renderer.gpu.profiler_scope(stream, "submit_decals");
+                    self.renderer.globals.scopes.decal.bind(cmd);
+                    cmd.set_ffstate(FixedFunctionState::new(Some(8), Some(15), Some(2), Some(1)));
+                    cmd.flush_states();
+                    self.scene_renderer
+                        .submit_stage(cmd, stream, view, RenderStage::Decals);
                 }
 
                 {

@@ -11,10 +11,12 @@ use crate::gpu::{
 pub struct Gbuffer {
     pub albedo: RenderTarget,
     pub normal: RenderTarget,
+    pub normal_read: RenderTarget,
     pub rt3: RenderTarget,
     pub rt4: RenderTarget,
 
     pub depth: DepthBuffer,
+    pub depth_read: DepthBuffer,
 
     resolution: (u32, u32),
 }
@@ -38,6 +40,14 @@ impl Gbuffer {
                 resolution,
             )
             .context("allocating render target")?,
+            normal_read: RenderTarget::new(
+                gpu,
+                "deferred_normal_read",
+                d3d12::Format::R10g10b10a2Typeless,
+                d3d12::Format::R10g10b10a2Unorm,
+                resolution,
+            )
+            .context("allocating render target")?,
             rt3: RenderTarget::new(
                 gpu,
                 "deferred_rt3",
@@ -55,6 +65,7 @@ impl Gbuffer {
             )
             .context("allocating render target")?,
             depth: DepthBuffer::new(gpu, resolution).context("allocating depth buffer")?,
+            depth_read: DepthBuffer::new(gpu, resolution).context("allocating depth buffer")?,
 
             resolution,
         })

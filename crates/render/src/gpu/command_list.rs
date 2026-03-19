@@ -368,6 +368,10 @@ impl CommandList {
     pub const fn set_ffstate_override(&mut self, ffstate: FixedFunctionState) {
         self.state.ffstate_override = ffstate;
     }
+
+    pub fn reset_ffstate_override(&mut self) {
+        self.state.ffstate_override = FixedFunctionState::default();
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

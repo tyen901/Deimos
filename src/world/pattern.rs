@@ -17,8 +17,8 @@ use deimos_ecs::{permutations::PermutationConfig, transform::Transform};
 use deimos_render::{
     ecs::render_objects::{DynamicRenderObject, StaticRenderObject},
     features::{
-        rigid_model::DynamicModel, static_instances::StaticInstancesRenderer,
-        terrain_patches::TerrainPatchesRenderer,
+        decals::DecalCollectionRenderer, rigid_model::DynamicModel,
+        static_instances::StaticInstancesRenderer, terrain_patches::TerrainPatchesRenderer,
     },
     renderer::{Renderer, object::RenderObject},
 };
@@ -214,19 +214,21 @@ pub fn spawn_pattern_from_header(
                 )?;
             }
             0x80808220 => {
-                let _data = get_component_data!(SDecalCollectionComponent);
-                //     if let Some(collection) = &*data.decals {
-                //         let renderer = DecalCollectionRenderer::load(collection.clone())?;
-                //         world.insert_one(
-                //             entity,
-                //             StaticRenderObject::new(Renderer::instance().add_object(
-                //                 RenderObject::new(
-                //                     alkahest_data::tfx::TfxFeatureRenderer::DynamicDecals,
-                //                     renderer,
-                //                 ),
-                //             )),
-                //         )?;
-                //     }
+                let data = get_component_data!(SDecalCollectionComponent);
+                if let Some(collection) = &*data.decals {
+                    let decal_renderer =
+                        DecalCollectionRenderer::load(&renderer, collection.clone())?;
+                    world.insert_one(
+                        entity,
+                        StaticRenderObject::new(
+                            &renderer,
+                            renderer.add_object(RenderObject::new(
+                                TfxFeatureRenderer::DynamicDecals,
+                                decal_renderer,
+                            )),
+                        ),
+                    )?;
+                }
             }
             0x808085A9 => {
                 let _data = get_component_data!(SDecoratorsComponent);
