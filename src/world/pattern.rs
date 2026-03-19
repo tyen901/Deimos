@@ -17,7 +17,7 @@ use deimos_ecs::{permutations::PermutationConfig, transform::Transform};
 use deimos_render::{
     ecs::render_objects::{DynamicRenderObject, StaticRenderObject},
     features::{
-        decals::DecalCollectionRenderer, rigid_model::DynamicModel,
+        decals::DecalCollectionRenderer, decorators::DecoratorRenderer, rigid_model::DynamicModel,
         static_instances::StaticInstancesRenderer, terrain_patches::TerrainPatchesRenderer,
     },
     renderer::{Renderer, object::RenderObject},
@@ -233,23 +233,24 @@ pub fn spawn_pattern_from_header(
                 }
             }
             0x808085A9 => {
-                let _data = get_component_data!(SDecoratorsComponent);
-                //     if let Some(decorators) = data.decorators.0.as_ref() {
-                //         let renderer = DecoratorRenderer::load(
-                //             Renderer::instance(),
-                //             data.decorators.taghash(),
-                //             decorators.clone(),
-                //         )?;
-                //         world.insert_one(
-                //             entity,
-                //             StaticRenderObject::new(Renderer::instance().add_object(
-                //                 RenderObject::new(
-                //                     TfxFeatureRenderer::SpeedtreeTrees,
-                //                     Box::new(renderer),
-                //                 ),
-                //             )),
-                //         )?;
-                //     }
+                let data = get_component_data!(SDecoratorsComponent);
+                if let Some(decorators) = data.decorators.0.as_ref() {
+                    let decorator_renderer = DecoratorRenderer::load(
+                        renderer,
+                        data.decorators.taghash(),
+                        decorators.clone(),
+                    )?;
+                    world.insert_one(
+                        entity,
+                        StaticRenderObject::new(
+                            renderer,
+                            renderer.add_object(RenderObject::new(
+                                TfxFeatureRenderer::SpeedtreeTrees,
+                                Box::new(decorator_renderer),
+                            )),
+                        ),
+                    )?;
+                }
             }
             0x80808377 => {
                 let data = get_component_data!(SSkyObjectCollectionComponent);
