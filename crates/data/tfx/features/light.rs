@@ -42,12 +42,13 @@ pub struct SLight {
     pub unkb8: f32,
     pub unkbc: f32,
 
+    pub unk_vertex_buffer: TagHash,
     pub technique_lighting_apply: TagHash,
     pub technique_volumetrics: TagHash,
     pub technique_lightprobe_apply_lightprobe: TagHash,
-    pub unkc8: TagHash, // Unk80806da1
     pub unkd0: TagHash, // Unk80806da1
-    pub unkd4: [u32; 7],
+    pub unkd4: TagHash, // Unk80806da1
+    pub unkd8: [u32; 6],
 }
 
 #[tiger_type(id = 0x80808557, size = 0x120)]
@@ -75,7 +76,8 @@ pub struct SShadowingLight {
     pub unkc8: u32,
     pub unkcc: f32,
 
-    // 0xD0
+    pub unkd0: TagHash,
+    // 0xD4
     pub technique_lighting_apply: TagHash,
     pub technique_lighting_apply_shadowing: TagHash,
     pub technique_volumetrics: TagHash,
@@ -83,10 +85,9 @@ pub struct SShadowingLight {
     // 0xE0
     pub technique_lightprobe_apply_lightprobe: TagHash,
     pub technique_lightprobe_apply_lightprobe_shadowing: TagHash,
+    // pub unke8: TagHash, // 80808691
+    // pub unkec: TagHash, // 80808691
 
-    pub unke8: TagHash, // 80808691
-    pub unkec: TagHash, // 80808691
-
-    pub unkf0: [f32; 5],
-    pub unk104: [u8; 12],
+    // pub unkf0: [f32; 5],
+    // pub unk104: [u8; 12],
 }

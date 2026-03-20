@@ -4,6 +4,8 @@ use glam::Vec4;
 
 // use crate::tfx::externs::Externs;
 
+use crate::tfx::externs::ExternContainer;
+
 use super::opcodes::Opcode;
 
 #[derive(Default, Debug)]
@@ -530,9 +532,10 @@ impl<'a> DecompilerState<'a> {
                         .context("Invalid extern index")?;
                     let offset = ptr[2];
 
-                    let field = Externs::get_extern_field_name(extern_id, offset as usize * 4)
-                        // .map(str::to_string)
-                        .unwrap_or_else(|| format!("0x{:X}", offset as usize * 4));
+                    let field =
+                        ExternContainer::get_extern_field_name(extern_id, offset as usize * 4)
+                            .map(str::to_string)
+                            .unwrap_or_else(|| format!("0x{:X}", offset as usize * 4));
 
                     cached_top = self.push(format!(
                         "<fun>extern<reset><float>(<ident>{extern_id:?}<reset>->{field})"
@@ -544,9 +547,10 @@ impl<'a> DecompilerState<'a> {
                         .context("Invalid extern index")?;
                     let offset = ptr[2];
 
-                    let field = Externs::get_extern_field_name(extern_id, offset as usize * 16)
-                        // .map(str::to_string)
-                        .unwrap_or_else(|| format!("0x{:X}", offset as usize * 16));
+                    let field =
+                        ExternContainer::get_extern_field_name(extern_id, offset as usize * 16)
+                            .map(str::to_string)
+                            .unwrap_or_else(|| format!("0x{:X}", offset as usize * 16));
                     cached_top = self.push(format!(
                         "<fun>extern<reset><float4>(<ident>{extern_id:?}<reset>->{field})",
                     ))?;
@@ -557,9 +561,10 @@ impl<'a> DecompilerState<'a> {
                         .context("Invalid extern index")?;
                     let offset = ptr[2];
 
-                    let field = Externs::get_extern_field_name(extern_id, offset as usize * 16)
-                        // .map(str::to_string)
-                        .unwrap_or_else(|| format!("0x{:X}", offset as usize * 16));
+                    let field =
+                        ExternContainer::get_extern_field_name(extern_id, offset as usize * 16)
+                            .map(str::to_string)
+                            .unwrap_or_else(|| format!("0x{:X}", offset as usize * 16));
                     cached_top = self.push(format!(
                         "<fun>extern<reset><float4x4>(<ident>{extern_id:?}<reset>->{field})"
                     ))?;
@@ -570,9 +575,10 @@ impl<'a> DecompilerState<'a> {
                         .context("Invalid extern index")?;
                     let offset = ptr[2];
 
-                    let field = Externs::get_extern_field_name(extern_id, offset as usize * 8)
-                        // .map(str::to_string)
-                        .unwrap_or_else(|| format!("0x{:X}", offset as usize * 8));
+                    let field =
+                        ExternContainer::get_extern_field_name(extern_id, offset as usize * 8)
+                            .map(str::to_string)
+                            .unwrap_or_else(|| format!("0x{:X}", offset as usize * 8));
                     cached_top = self.push(format!(
                         "<fun>extern<reset><TextureView>(<ident>{extern_id:?}<reset>->{field})"
                     ))?;
@@ -583,9 +589,10 @@ impl<'a> DecompilerState<'a> {
                         .context("Invalid extern index")?;
                     let offset = ptr[2];
 
-                    let field = Externs::get_extern_field_name(extern_id, offset as usize * 8)
-                        // .map(str::to_string)
-                        .unwrap_or_else(|| format!("0x{:X}", offset as usize * 8));
+                    let field =
+                        ExternContainer::get_extern_field_name(extern_id, offset as usize * 8)
+                            .map(str::to_string)
+                            .unwrap_or_else(|| format!("0x{:X}", offset as usize * 8));
                     cached_top = self.push(format!(
                         "<fun>extern<reset><UAV>(<ident>{extern_id:?}<reset>->{field})"
                     ))?;
@@ -637,14 +644,5 @@ impl<'a> DecompilerState<'a> {
 
         result.process_all_tags(!self.use_ansi);
         Ok(result)
-    }
-}
-
-pub type Externs = ExternsStub;
-pub struct ExternsStub;
-
-impl ExternsStub {
-    pub fn get_extern_field_name(_index: ExternIndex, offset: usize) -> Option<String> {
-        Some(format!("_0x{offset:X}"))
     }
 }

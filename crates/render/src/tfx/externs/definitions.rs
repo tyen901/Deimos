@@ -23,10 +23,10 @@ extern_struct! {
         0xA0 => unka0: TextureView,
         0xB0 => unkb0: TextureView,
         0xB8 => unkb8: TextureView,
-        0xC0 => unkc0: TextureView,
-        0xC8 => unkc8: TextureView,
-        0xD0 => unkd0: TextureView,
-        0xD8 => unkd8: TextureView,
+        0xC0 => specular_lobe_lookup: TextureView,
+        0xC8 => specular_lobe_3d_lookup: TextureView,
+        0xD0 => specular_tint_lookup: TextureView,
+        0xD8 => iridescence_lookup: TextureView,
         0xE0 => unke0: Vec4,
         0x160 => unk160: Vec4,
         0x170 => unk170: Vec4,
@@ -48,7 +48,7 @@ extern_struct! {
         0x250 => unk250: Vec4,
         0x260 => unk260: Vec4,
         0x270 => unk270: Vec4,
-        0x280 => unk280: Vec4,
+        0x280 => unk280: Vec4 > default(Vec4::ONE),
     }
 }
 

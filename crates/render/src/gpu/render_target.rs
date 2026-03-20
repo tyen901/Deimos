@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use d3d12::ResourceFlags;
+use d3d12::{DeviceChild, ResourceFlags};
 
 use crate::gpu::{
     Gpu,
@@ -50,6 +50,8 @@ impl RenderTarget {
                 resource_type: &gpu_allocator::d3d12::ResourceType::Placed,
             })
             .context("allocating resource")?;
+
+        resource.resource().set_debug_name(name);
 
         let rtv_heap = gpu.create_descriptor_heap(d3d12::DescriptorHeapType::Rtv, 1, false, 0)?;
         gpu.create_render_target_view(
@@ -193,6 +195,7 @@ impl DepthBuffer {
                 ),
             resource_type: &gpu_allocator::d3d12::ResourceType::Placed,
         })?;
+        resource.resource().set_debug_name("depth_buffer");
 
         let rtv_heap = gpu.create_descriptor_heap(d3d12::DescriptorHeapType::Dsv, 1, false, 0)?;
         gpu.create_depth_stencil_view(

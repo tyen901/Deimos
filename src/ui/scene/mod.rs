@@ -398,18 +398,19 @@ impl Scene {
             let ext = self.renderer.externs.get_mut();
             ext.globals = self.scene_renderer.global_channels;
 
+            let global_tex = &self.renderer.globals.textures;
             *ext.frame = externs::Frame {
                 game_time: self.start_time.elapsed().as_secs_f32(),
                 render_time: self.start_time.elapsed().as_secs_f32(),
                 delta_game_time: delta_time,
                 unk10: 0.5, // misc.time_of_day,
                 exposure_time: 1.0 / 60.0,
-                exposure_scale: 0.3,          // view.settings().exposure_scale,
+                exposure_scale: 2.0,          // view.settings().exposure_scale,
                 exposure_illum_relative: 1.0, // view.settings().exposure_illum_relative,
-                // specular_tint_lookup: global_tex.specular_tint_lookup.view.clone().into(),
-                // specular_lobe_lookup: global_tex.specular_lobe_lookup.view.clone().into(),
-                // specular_lobe_3d_lookup: global_tex.specular_lobe_3d_lookup.view.clone().into(),
-                // iridescence_lookup: global_tex.iridescence_lookup.view.clone().into(),
+                specular_tint_lookup: global_tex.specular_tint_lookup.srv.into(),
+                specular_lobe_lookup: global_tex.specular_lobe_lookup.srv.into(),
+                specular_lobe_3d_lookup: global_tex.specular_lobe_3d_lookup.srv.into(),
+                iridescence_lookup: global_tex.iridescence_lookup.srv.into(),
                 ..*ext.frame.clone()
             };
 
@@ -464,8 +465,8 @@ impl Scene {
             ext.deferred.gbuffer_resolution_scale_offset = Vec4::new(
                 view.resolution().0 as f32,
                 view.resolution().1 as f32,
-                1. / view.resolution().0 as f32,
-                1. / view.resolution().1 as f32,
+                0.0,
+                0.0,
             );
             ext.deferred.deferred_depth = view.gbuffer.depth.srv().into();
             ext.deferred.deferred_rt0 = view.gbuffer.albedo.srv().into();
@@ -485,6 +486,25 @@ impl Scene {
                 1.0 / resolution.0 as f32,
                 1.0 / resolution.1 as f32,
             );
+
+            *ext.global_lighting = externs::GlobalLighting {
+                // unk08: self.renderer.gpu.placeholder_white.view.clone().into(),
+                unk10: ext.get_global_channel_by_name("sun_color")
+                    * ext.get_global_channel_by_name("sun_intensity").x,
+                unk30: ext.get_global_channel_by_name("sun_light_direction"),
+                unk50: ext.get_global_channel_by_name("sun_ambient_direction"),
+                unk70: ext.get_global_channel_by_name("up_ambient_color")
+                    * ext.get_global_channel_by_name("up_ambient_intensity").x,
+                unk80: ext.get_global_channel_by_name("down_ambient_color")
+                    * ext.get_global_channel_by_name("down_ambient_intensity").x,
+                unk90: ext.get_global_channel_by_name("up_ambient_sharpness").x,
+                unk94: ext.get_global_channel_by_name("down_ambient_sharpness").x,
+                unka0: vec4(0.01, 0.01, -0.5, -0.5),
+                unkb0: vec4(0.02, -2.0, 0.0, 0.0),
+                // unkd0: vec4(f32::NAN, f32::NAN, 0.5, 0.5),
+                unkc0: vec4(0.00333, -2.33333, 0.00, 0.00),
+                ..Default::default()
+            };
 
             let time = self.start_time.elapsed().as_secs_f32();
             self.renderer

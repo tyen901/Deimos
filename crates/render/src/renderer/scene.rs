@@ -180,6 +180,22 @@ impl SceneRenderer {
                     .transition(cmd, d3d12::ResourceStates::DEPTH_READ);
 
                 {
+                    let _scope = self
+                        .parent
+                        .gpu
+                        .profiler_scope(stream, "submit_lighting_apply");
+                    self.main_view.light.clear(cmd);
+                    self.main_view.light.bind_for_lights(cmd);
+                    cmd.set_ffstate(FixedFunctionState::new(Some(2), None, Some(2), Some(2)));
+                    cmd.flush_states();
+                    self.submit_stage_serial(cmd, stream, view, RenderStage::LightingApply);
+                }
+
+                {
+                    cmd.set_render_targets(
+                        &[&self.main_view.output],
+                        Some(&self.main_view.gbuffer.depth),
+                    );
                     self.parent.globals.scopes.transparent.bind(cmd);
                     self.parent.globals.scopes.transparent_advanced.bind(cmd);
                     let _scope = self

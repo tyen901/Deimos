@@ -96,6 +96,10 @@ macro_rules! local_extern_container {
                     )*
                 }
             }
+
+            pub const fn base(&self) -> &BaseExternSource {
+                &self.base
+            }
         }
 
         impl ExternAccessor for LocalExternContainer {

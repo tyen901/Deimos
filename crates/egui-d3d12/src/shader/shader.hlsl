@@ -20,7 +20,7 @@ vs_out vs_main(vs_in input) {
 }
 
 float LinearToSRGB(float x) {
-    return x < 0.0031308 ? 12.92 * x : 1.055 * pow(x, 1.0/2.4) - 0.055;
+  return x < 0.0031308 ? 12.92 * x : 1.055 * pow(x, 1.0 / 2.4) - 0.055;
 }
 
 sampler sampler0;

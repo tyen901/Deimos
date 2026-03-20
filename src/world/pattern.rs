@@ -17,13 +17,14 @@ use deimos_ecs::{permutations::PermutationConfig, transform::Transform};
 use deimos_render::{
     ecs::render_objects::{DynamicRenderObject, StaticRenderObject},
     features::{
-        decals::DecalCollectionRenderer, decorators::DecoratorRenderer, rigid_model::DynamicModel,
-        static_instances::StaticInstancesRenderer, terrain_patches::TerrainPatchesRenderer,
+        decals::DecalCollectionRenderer, decorators::DecoratorRenderer, light::LightRenderer,
+        rigid_model::DynamicModel, static_instances::StaticInstancesRenderer,
+        terrain_patches::TerrainPatchesRenderer,
     },
     renderer::{Renderer, object::RenderObject},
 };
-use glam::Vec4Swizzles;
-use itertools::Itertools;
+use glam::{Vec3, Vec4Swizzles};
+use itertools::{Itertools, multizip};
 use tiger_parse::{PackageManagerExt, TigerReadable};
 use tiger_pkg::{TagHash, package_manager};
 
@@ -279,84 +280,88 @@ pub fn spawn_pattern_from_header(
                 }
             }
             0x80808543 => {
-                let _data = get_component_data!(SShadowingLightComponent);
-                //     let Some(light) = data.light.0.as_ref() else {
-                //         continue;
-                //     };
+                let data = get_component_data!(SShadowingLightComponent);
+                let Some(light) = data.light.0.as_ref() else {
+                    continue;
+                };
 
-                //     let transform = world
-                //         .get::<&Transform>(entity)
-                //         .clone()
-                //         .map(|c| *c)
-                //         .unwrap_or_default();
-                //     let shadowmap = ShadowMap::create(
-                //         transform,
-                //         (light.half_fov * 2.0).to_degrees(),
-                //         0.5,
-                //         light.far_plane,
-                //     );
+                let transform = world
+                    .get::<&Transform>(entity)
+                    .clone()
+                    .map(|c| *c)
+                    .unwrap_or_default();
+                // let shadowmap = ShadowMap::create(
+                //     transform,
+                //     (light.half_fov * 2.0).to_degrees(),
+                //     0.5,
+                //     light.far_plane,
+                // );
 
-                //     let mut light_renderer =
-                //         LightRenderer::new_shadowing(renderer, light, shadowmap.camera_to_projective)?;
+                let mut light_renderer = LightRenderer::new_shadowing(renderer, light)
+                    .context("reading shadowing light")?;
+                let bb = light_renderer.calculate_bounds();
 
-                //     let mut view = View::new_shadow(
-                //         format!("shadow_{}", data.light.taghash()),
-                //         &Renderer::instance().gpu,
-                //         (
-                //             ShadowView::SHADOWMAP_RESOLUTION,
-                //             ShadowView::SHADOWMAP_RESOLUTION,
-                //         ),
-                //     )
-                //     .expect("Failed to create shadowmap view");
+                // let mut view = View::new_shadow(
+                //     format!("shadow_{}", data.light.taghash()),
+                //     &renderer.gpu,
+                //     (
+                //         ShadowView::SHADOWMAP_RESOLUTION,
+                //         ShadowView::SHADOWMAP_RESOLUTION,
+                //     ),
+                // )
+                // .expect("Failed to create shadowmap view");
 
-                //     if once!() {
-                //         warn!("Culling is disabled for shadow views");
-                //     }
-                //     view.disable_culling = true;
+                // if once!() {
+                //     warn!("Culling is disabled for shadow views");
+                // }
+                // view.disable_culling = true;
 
-                //     let ViewKind::Shadow(v) = &view.kind else {
-                //         unreachable!("view is not a shadow view even though we just created it");
-                //     };
+                // let ViewKind::Shadow(v) = &view.kind else {
+                //     unreachable!("view is not a shadow view even though we just created it");
+                // };
 
-                //     let surf = &v.shadow_map;
-                //     light_renderer.shadow_view =
-                //         Some((surf.texture.clone(), surf.srv(0).unwrap().clone()));
+                // let surf = &v.shadow_map;
+                // light_renderer.shadow_view =
+                //     Some((surf.texture.clone(), surf.srv(0).unwrap().clone()));
 
-                //     let render_obj =
-                //         RenderObject::new(TfxFeatureRenderer::DeferredLights, light_renderer);
+                let render_obj =
+                    RenderObject::new(TfxFeatureRenderer::DeferredLights, light_renderer);
 
-                //     world.insert(
-                //         entity,
-                //         (
-                //             DynamicRenderObject::new(Renderer::instance().add_object(render_obj)),
-                //             shadowmap,
-                //             view,
-                //         ),
-                //     )?;
+                world.insert(
+                    entity,
+                    (
+                        DynamicRenderObject::new(renderer, renderer.add_object(render_obj)),
+                        bb,
+                        // shadowmap,
+                    ),
+                )?;
             }
             0x80808334 => {
-                let _data = get_component_data!(SLightCollectionComponent);
-                //     let Some(lights) = data.lights.0.as_ref() else {
-                //         continue;
-                //     };
+                let data = get_component_data!(SLightCollectionComponent);
+                let Some(lights) = data.lights.0.as_ref() else {
+                    continue;
+                };
 
-                //     for (light, transform, bounds) in multizip((
-                //         &lights.lights,
-                //         &lights.transforms,
-                //         &lights.occlusion_bounds.bounds,
-                //     )) {
-                //         let render_obj = Renderer::instance().add_object(RenderObject::new(
-                //             TfxFeatureRenderer::ChunkedLights,
-                //             LightRenderer::new(Renderer::instance(), light, bounds.bb)
-                //                 .context("Failed to load light")?,
-                //         ));
+                for (light, transform, bounds) in multizip((
+                    &lights.lights,
+                    &lights.transforms,
+                    &lights.occlusion_bounds.bounds,
+                )) {
+                    let mut light_renderer = LightRenderer::new(renderer, light, bounds.bb)
+                        .context("Failed to load light")?;
+                    let bb = light_renderer.calculate_bounds();
+                    let render_obj = renderer.add_object(RenderObject::new(
+                        TfxFeatureRenderer::ChunkedLights,
+                        light_renderer,
+                    ));
 
-                //         // TODO(cohae): ChunkedLights need to be chunked like static geometry
-                //         world.spawn((
-                //             Transform::new(transform.translation.xyz(), transform.rotation, Vec3::ONE),
-                //             DynamicRenderObject::new(render_obj),
-                //         ));
-                //     }
+                    // TODO(cohae): ChunkedLights need to be chunked like static geometry
+                    world.spawn((
+                        Transform::new(transform.translation.xyz(), transform.rotation, Vec3::ONE),
+                        DynamicRenderObject::new(renderer, render_obj),
+                        bb,
+                    ));
+                }
             }
             0x80807F3B => {
                 let _data = get_component_data!(SCubemapComponent);
@@ -368,7 +373,7 @@ pub fn spawn_pattern_from_header(
 
                 //     world.insert_one(
                 //         entity,
-                //         DynamicRenderObject::new(Renderer::instance().add_object(render_obj)),
+                //         DynamicRenderObject::new(renderer.add_object(render_obj)),
                 //     )?;
             }
             // 0x80806A3F => {
@@ -386,7 +391,7 @@ pub fn spawn_pattern_from_header(
             //     world.insert_one(
             //         entity,
             //         StaticRenderObject::new(
-            //             Renderer::instance().add_object(RenderObject::new(
+            //             renderer.add_object(RenderObject::new(
             //                 TfxFeatureRenderer::RoadDecals,
             //                 RoadDecalCollectionRenderer::load(data.tag.taghash())
             //                     .context("Failed to load road decal collection")?,
@@ -398,7 +403,7 @@ pub fn spawn_pattern_from_header(
             //     let data = get_component_data!(SWaterPlaneComponent);
 
             //     let model = DynamicModel::load(data.model, vec![], vec![])?;
-            //     let obj = Renderer::instance()
+            //     let obj = renderer
             //         .add_object(RenderObject::new(TfxFeatureRenderer::Water, model));
             //     world.insert_one(entity, DynamicRenderObject::new(obj))?;
             // }

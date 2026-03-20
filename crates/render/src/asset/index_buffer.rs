@@ -30,6 +30,16 @@ impl IndexBuffer {
             .read_tag(entry.reference)
             .context("Failed to read buffer data")?;
 
+        let vb = Self::load_data(gpu, &data, header.is_32bit)?;
+
+        vb.resource
+            .resource()
+            .set_debug_name(format!("index_bufer {hash}"));
+
+        Ok(vb)
+    }
+
+    pub fn load_data(gpu: &Arc<Gpu>, data: &[u8], is_32bit: bool) -> anyhow::Result<Self> {
         let desc = d3d12::ResourceDesc::buffer(data.len() as u64);
         let mut resource = gpu.allocate_resource(&ResourceCreateDesc {
             name: "index_buffer",
@@ -66,15 +76,11 @@ impl IndexBuffer {
             Ok(())
         })?;
 
-        resource
-            .resource()
-            .set_debug_name(format!("index_bufer {hash}"));
-
         Ok(Self {
             resource,
-            length: header.data_size as usize / if header.is_32bit { 4 } else { 2 },
-            size: header.data_size as usize,
-            format: if header.is_32bit {
+            length: data.len() / if is_32bit { 4 } else { 2 },
+            size: data.len(),
+            format: if is_32bit {
                 Format::R32Uint
             } else {
                 Format::R16Uint
