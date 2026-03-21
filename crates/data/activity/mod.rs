@@ -110,7 +110,7 @@ pub struct SUnk80808e89 {
 #[tiger_type(id = 0x8080B3EA)]
 pub struct SUnk80808ebe {
     pub file_size: u64,
-    pub entity_resources: Vec<Tag<Unk80808943>>,
+    pub components: Vec<Tag<Unk80808943>>,
 }
 
 #[derive(Debug, Clone)]
@@ -118,5 +118,5 @@ pub struct SUnk80808ebe {
 pub struct Unk80808943 {
     pub file_size: u64,
     #[tiger(offset = 0x20)]
-    pub entity_resource: TagHash,
+    pub component: TagHash,
 }
