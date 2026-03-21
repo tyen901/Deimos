@@ -69,7 +69,9 @@ impl Scene {
             start_time: Instant::now(),
             camera,
             controller: CameraController::new_first_person(),
-            subscribed_features: FeatureRendererSubscription::all(),
+            subscribed_features: FeatureRendererSubscription::all()
+                .difference(FeatureRendererSubscription::DEFERRED_LIGHTS)
+                .difference(FeatureRendererSubscription::CHUNKED_LIGHTS),
             render_mode: RenderMode::Lookdev,
 
             world: World::new(),
@@ -338,6 +340,16 @@ impl Scene {
                 self.sun_light_angle += delta_adjusted.x;
                 self.sun_light_angle = self.sun_light_angle.rem_euclid(360.0);
             }
+
+            let sun_light_direction = Vec3::new(
+                self.sun_light_angle.to_radians().cos(),
+                self.sun_light_angle.to_radians().sin(),
+                0.7,
+            )
+            .normalize();
+
+            self.scene_renderer
+                .set_global_channel_by_name("sun_light_direction", sun_light_direction.extend(0.0));
 
             self.render(delta_time, resolution);
         });

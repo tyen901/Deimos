@@ -5,7 +5,10 @@
 use std::sync::Arc;
 
 use deimos_core::job::SCHEDULER;
-use deimos_data::tfx::{FixedFunctionState, RenderStage};
+use deimos_data::{
+    hash::fnv1,
+    tfx::{FixedFunctionState, RenderStage},
+};
 use glam::Vec4;
 
 use crate::{
@@ -389,6 +392,22 @@ impl SceneRenderer {
         stream.end_parallel(block);
 
         cmd.end_event();
+    }
+
+    /// Sets the value of the given global channel by ID
+    /// Returns `Some` with the previous value if the channel exists, `None` otherwise
+    pub fn set_global_channel_by_id(&mut self, id: u32, v: Vec4) -> Option<Vec4> {
+        if let Some(pos) = self.parent.externs.global_ids.iter().position(|i| *i == id) {
+            Some(std::mem::replace(&mut self.global_channels[pos], v))
+        } else {
+            None
+        }
+    }
+
+    /// Sets the value of the given global channel by name, hashing the name to get its ID
+    /// Returns `Some` with the previous value if the channel exists, `None` otherwise
+    pub fn set_global_channel_by_name(&mut self, name: &str, v: Vec4) -> Option<Vec4> {
+        self.set_global_channel_by_id(fnv1(name), v)
     }
 }
 

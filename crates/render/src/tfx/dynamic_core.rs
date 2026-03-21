@@ -189,11 +189,11 @@ impl DynamicCore {
                     {
                         cmd.set_shader_resource_view(self.stage, *slot, Some(view));
                     } else {
-                        match cmd
-                            .gpu()
-                            .magic_textures
-                            .get_texture(cmd.gpu(), format!("{extern_index:?}->_0x{offset:X}"))
-                        {
+                        match cmd.gpu().magic_textures.get_texture(
+                            cmd.gpu(),
+                            format!("{extern_index:?}->_0x{offset:X}"),
+                            extern_filler(*extern_index, *offset),
+                        ) {
                             Ok(srv) => {
                                 cmd.set_shader_resource_view(self.stage, *slot, Some(srv));
                             }
@@ -227,6 +227,14 @@ impl DynamicCore {
     /// **Note: Techniques may have manually bound textures that aren't referenced by the dynamic core (eg. terrain dyemap)**
     pub const fn has_dynamic_textures(&self) -> bool {
         self.has_dynamic_textures
+    }
+}
+
+fn extern_filler(index: ExternIndex, offset: u32) -> Option<[u8; 4]> {
+    match (index, offset) {
+        (ExternIndex::ShadowMask, _) => Some([255, 255, 255, 255]),
+        (ExternIndex::Atmosphere, _) => Some([0; 4]),
+        _ => None,
     }
 }
 

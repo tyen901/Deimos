@@ -23,7 +23,7 @@ float LinearToSRGB(float x) {
   return x < 0.0031308 ? 12.92 * x : 1.055 * pow(x, 1.0 / 2.4) - 0.055;
 }
 
-sampler sampler0;
+SamplerState sampler0;
 Texture2D texture0;
 
 float4 ps_main(vs_out input) : SV_TARGET {

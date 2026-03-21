@@ -44,7 +44,12 @@ pub struct MagicTextureContainer {
 }
 
 impl MagicTextureContainer {
-    pub fn get_texture(&self, gpu: &Arc<Gpu>, key: String) -> anyhow::Result<ResourceView> {
+    pub fn get_texture(
+        &self,
+        gpu: &Arc<Gpu>,
+        key: String,
+        filler: Option<[u8; 4]>,
+    ) -> anyhow::Result<ResourceView> {
         let mut hasher = DefaultHasher::new();
         key.hash(&mut hasher);
         let hash = hasher.finish();
@@ -53,7 +58,12 @@ impl MagicTextureContainer {
         if let Some(tex) = textures.get(&hash) {
             Ok(tex.srv)
         } else {
-            let data = texture_from_hash(hash);
+            let mut data = texture_from_hash(hash);
+            if let Some(filler) = filler {
+                for chunk in data.chunks_exact_mut(4) {
+                    chunk.copy_from_slice(&filler);
+                }
+            }
             let texture = Texture::load(
                 gpu,
                 &TextureDesc::texture_2d(
