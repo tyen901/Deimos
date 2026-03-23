@@ -427,6 +427,7 @@ pub enum ExternIndex {
     ParticleCompute,
     CubemapFiltering,
     CubemapDiffuseCapture,
+    CubemapDebug,
     ParticleFastpath,
     VolumetricsPass,
     TemporalReprojection,
@@ -436,15 +437,16 @@ pub enum ExternIndex {
     Cubemaps,
     ShadowBlendWithPrevious,
     DebugShadingOutput,
-    Ssao3D,
     WaterDisplacement,
     PatternBlending,
     UiHdrTransform,
     PlayerCenteredCascadedGrid,
-    // TODO(cohae): Everything after this is unknown
     SoftDeform,
     RaymarchedAtmosphereVolume,
     Gtao,
+    XegtaoPrefilter,
+    XegtaoMain,
+    XegtaoDenoise,
     Taa,
     FirstPersonShadows,
     SkinningCompute,
@@ -456,11 +458,8 @@ pub enum ExternIndex {
     OcclusionCullingReprojectDepth,
     OcclusionCullingVisibilityTesting,
     VariableRateShading,
-    Unknown114,
-    Unknown115,
-    Unknown116,
 }
 
 impl ExternIndex {
-    pub const COUNT: usize = Self::Unknown116 as usize + 1;
+    pub const COUNT: usize = Self::VariableRateShading as usize + 1;
 }

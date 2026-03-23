@@ -1269,7 +1269,12 @@ extern_struct! {
 
 extern_struct! {
     struct DebugShadingOutput("debug_shading_output") {
-        0x00 => unk00: f32 > default(0.5),
+        /// Options:
+        /// - 0.0 => XYZ as RGB
+        /// - 1.0 => X only
+        /// - 2.0 => Y only
+        /// - 3.0 => Z only
+        0x00 => normal_display_mode: f32 > default(0.0),
         0x20 => unk20: Vec4,
         0x30 => unk30: Vec4,
         0x80 => unk80: Vec4,

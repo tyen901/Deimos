@@ -89,7 +89,6 @@ extern_container! {
         cubemaps: Cubemaps,
         shadow_blend_with_previous: ShadowBlendWithPrevious,
         debug_shading_output: DebugShadingOutput,
-        ssao3_d: Ssao3D,
         water_displacement: WaterDisplacement,
         pattern_blending: PatternBlending,
         ui_hdr_transform: UiHdrTransform,

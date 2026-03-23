@@ -126,11 +126,19 @@ macro_rules! local_extern_container {
 }
 
 macro_rules! extern_struct {
-    (struct $name:ident ($name_c:literal) { $($field_offset:expr => $field:ident: $field_type:ty $(> default($default_value:expr))? ,)* }) => {
+    (struct $name:ident ($name_c:literal) {
+        $(
+            $(#[$field_attr:meta])*
+            $field_offset:literal => $field:ident: $field_type:ty $(> default($default_value:expr))?,
+        )*
+    }) => {
         #[repr(C)]
         #[derive(Clone, Debug)]
         pub struct $name {
-            $(pub $field: $field_type,)*
+            $(
+                $(#[$field_attr])*
+                pub $field: $field_type,
+            )*
         }
 
         impl Extern for $name {
@@ -141,13 +149,10 @@ macro_rules! extern_struct {
                     $($field_offset => {
                         unsafe {
                             let ptr = ptr.add(std::mem::offset_of!(Self, $field));
-
                             Some((ptr.cast::<()>(), std::any::TypeId::of::<$field_type>()))
                         }
                     })*
-                    _ => {
-                        None
-                    }
+                    _ => None
                 }
             }
 
@@ -168,7 +173,6 @@ macro_rules! extern_struct {
                 }
             }
         }
-
     };
 }
 
