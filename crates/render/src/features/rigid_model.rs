@@ -68,9 +68,8 @@ impl DynamicModel {
             .meshes
             .iter()
             .map(|m| {
-                let (v0_data, v0_stride) =
-                    VertexBuffer::get_raw_data_and_stride(&renderer.gpu, m.vertex0_buffer)
-                        .expect("Failed to load vertex0 data");
+                let (v0_data, v0_stride) = VertexBuffer::get_raw_data_and_stride(m.vertex0_buffer)
+                    .expect("Failed to load vertex0 data");
 
                 let skinning_posdata = skinning::repack_pos_words_from_vb(
                     &v0_data,

@@ -157,7 +157,7 @@ impl RenderStates {
                     DepthClipEnable: desc11.depth_clip_enable,
                     MultisampleEnable: desc11.multisample_enable,
                     AntialiasedLineEnable: desc11.antialiased_line_enable,
-                    ForcedSampleCount: 1,
+                    ForcedSampleCount: 0,
                     ConservativeRaster: d3d12::D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF,
                 }
             })

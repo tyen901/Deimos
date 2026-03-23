@@ -18,10 +18,7 @@ pub struct VertexBuffer {
 }
 
 impl VertexBuffer {
-    pub fn get_raw_data_and_stride(
-        gpu: &Arc<Gpu>,
-        hash: TagHash,
-    ) -> anyhow::Result<(Vec<u8>, u32)> {
+    pub fn get_raw_data_and_stride(hash: TagHash) -> anyhow::Result<(Vec<u8>, u32)> {
         let entry = package_manager()
             .get_entry(hash)
             .context("Entry not found")?;
@@ -37,7 +34,7 @@ impl VertexBuffer {
     }
 
     pub fn load(gpu: &Arc<Gpu>, hash: TagHash) -> anyhow::Result<Self> {
-        let (data, stride) = Self::get_raw_data_and_stride(gpu, hash)?;
+        let (data, stride) = Self::get_raw_data_and_stride(hash)?;
 
         let vb = Self::load_data(gpu, &data, stride)?;
         vb.resource
