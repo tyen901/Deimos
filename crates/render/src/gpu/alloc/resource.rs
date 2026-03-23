@@ -8,16 +8,30 @@ pub struct OwnedResource {
 }
 
 impl OwnedResource {
-    pub const fn new(
+    pub fn new(
         gpu: Arc<Gpu>,
+        category: gpu_allocator::d3d12::ResourceCategory,
         resource: gpu_allocator::d3d12::Resource,
         current_state: d3d12::ResourceStates,
     ) -> Self {
+        let bytes = match category {
+            gpu_allocator::d3d12::ResourceCategory::OtherTexture => {
+                &gpu.num_bytes_allocated_for_textures
+            }
+            gpu_allocator::d3d12::ResourceCategory::RtvDsvTexture => {
+                &gpu.num_bytes_allocated_for_render_targets
+            }
+            gpu_allocator::d3d12::ResourceCategory::Buffer => &gpu.num_bytes_allocated_for_buffers,
+        };
+
+        bytes.fetch_add(resource.size as usize, std::sync::atomic::Ordering::Relaxed);
+
         Self {
             guard: ManuallyDrop::new(ResourceGuard {
                 gpu,
                 resource: ManuallyDrop::new(resource),
                 current_state,
+                category,
             }),
         }
     }
@@ -58,11 +72,27 @@ struct ResourceGuard {
     gpu: Arc<Gpu>,
     resource: ManuallyDrop<gpu_allocator::d3d12::Resource>,
     current_state: d3d12::ResourceStates,
+    category: gpu_allocator::d3d12::ResourceCategory,
 }
 
 impl Drop for ResourceGuard {
     fn drop(&mut self) {
         let resource = unsafe { ManuallyDrop::take(&mut self.resource) };
+
+        let bytes = match self.category {
+            gpu_allocator::d3d12::ResourceCategory::OtherTexture => {
+                &self.gpu.num_bytes_allocated_for_textures
+            }
+            gpu_allocator::d3d12::ResourceCategory::RtvDsvTexture => {
+                &self.gpu.num_bytes_allocated_for_render_targets
+            }
+            gpu_allocator::d3d12::ResourceCategory::Buffer => {
+                &self.gpu.num_bytes_allocated_for_buffers
+            }
+        };
+
+        bytes.fetch_sub(resource.size as usize, std::sync::atomic::Ordering::Relaxed);
+
         self.gpu
             .allocator
             .lock()

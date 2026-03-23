@@ -23,6 +23,7 @@ use std::{
     time::Duration,
 };
 
+use ahash::HashMap;
 use anyhow::Context;
 use d3d12::{
     CommandQueueDesc, D3D12GetDebugInterface, DxgiUsage, ID3D12Debug, SwapChainDesc, SwapEffect,
@@ -86,6 +87,10 @@ pub struct Gpu {
     pub extern_source: RwLock<BaseExternSource>,
 
     pub magic_textures: MagicTextureContainer,
+
+    pub num_bytes_allocated_for_textures: AtomicUsize,
+    pub num_bytes_allocated_for_render_targets: AtomicUsize,
+    pub num_bytes_allocated_for_buffers: AtomicUsize,
 }
 
 unsafe impl Sync for Gpu {}
@@ -190,6 +195,10 @@ impl Gpu {
             bin: Mutex::new(Vec::new()),
             extern_source: RwLock::new(BaseExternSource::None),
             magic_textures: MagicTextureContainer::default(),
+
+            num_bytes_allocated_for_textures: AtomicUsize::new(0),
+            num_bytes_allocated_for_render_targets: AtomicUsize::new(0),
+            num_bytes_allocated_for_buffers: AtomicUsize::new(0),
         })
     }
 
@@ -211,7 +220,12 @@ impl Gpu {
                 d3d12::ResourceStates::COMMON
             };
 
-        Ok(OwnedResource::new(self.clone(), res, current_state))
+        Ok(OwnedResource::new(
+            self.clone(),
+            desc.resource_category,
+            res,
+            current_state,
+        ))
     }
 
     pub fn allocate_upload_buffer(self: &Arc<Self>, size: u64) -> anyhow::Result<OwnedResource> {

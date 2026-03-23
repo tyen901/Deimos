@@ -1,8 +1,6 @@
 use std::{sync::Arc, time::Instant};
 
-use deimos_data::tfx::{
-    FeatureRendererSubscription, FixedFunctionState, RenderStage, geometry::AxisAlignedBBox,
-};
+use deimos_data::tfx::{FeatureRendererSubscription, geometry::AxisAlignedBBox};
 use deimos_render::{
     camera::Camera,
     ecs::s_extract_frame_packet,
@@ -309,6 +307,38 @@ impl Scene {
                     memory_stats.descriptor_ring_capacity,
                     memory_stats.descriptor_ring_used,
                 );
+
+                ui.separator();
+
+                ui.monospace(format!(
+                    "Buffers: {}",
+                    format_bytes(
+                        self.renderer
+                            .gpu
+                            .num_bytes_allocated_for_buffers
+                            .load(std::sync::atomic::Ordering::Relaxed)
+                    )
+                ));
+
+                ui.monospace(format!(
+                    "Render Targets: {}",
+                    format_bytes(
+                        self.renderer
+                            .gpu
+                            .num_bytes_allocated_for_render_targets
+                            .load(std::sync::atomic::Ordering::Relaxed)
+                    )
+                ));
+
+                ui.monospace(format!(
+                    "Textures: {}",
+                    format_bytes(
+                        self.renderer
+                            .gpu
+                            .num_bytes_allocated_for_textures
+                            .load(std::sync::atomic::Ordering::Relaxed)
+                    )
+                ));
 
                 if !memory_stats.errors.is_empty() {
                     ui.separator();
