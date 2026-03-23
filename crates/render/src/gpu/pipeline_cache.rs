@@ -75,11 +75,20 @@ impl PipelineCache {
             .depth_stencil_states
             .get(depth_stencil_state_index)
             .context("invalid depth stencil state")?;
-        let depth_stencil_state = match key.depth_mode {
+        let depth_stencil_state = *match key.depth_mode {
             DepthMode::Forward => depth_stencil_state_forward,
             DepthMode::Reverse => depth_stencil_state_reverse,
-        }
-        .clone();
+        };
+
+        let rasterizer_state_index = key.fixed_function_state.rasterizer_state().unwrap_or(0);
+        let depth_bias_index = key.fixed_function_state.depth_bias_state().unwrap_or(0);
+        let rasterizer_state = *self
+            .render_states
+            .rasterizer_states
+            .get(rasterizer_state_index)
+            .context("invalid rasterizer state")?
+            .get(depth_bias_index)
+            .context("invalid depth bias state")?;
 
         // let depth_state = D3D12_DEPTH_STENCIL_DESC {
         //     DepthEnable: true.into(),
@@ -95,6 +104,7 @@ impl PipelineCache {
             .with_primitive_topology(d3d12::PrimitiveTopology2::Triangle)
             .with_blend_state(blend_state.clone())
             .with_dsv_format(dsv_format.unwrap_or_default())
+            .with_rasterizer_state(rasterizer_state)
             .with_depth_stencil_state(depth_stencil_state);
 
         if !ps.is_empty() {

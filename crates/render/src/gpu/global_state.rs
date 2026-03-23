@@ -1,6 +1,7 @@
 use anyhow::Context;
 use d3d12::{
-    D3D12_DEPTH_STENCIL_DESC, D3D12_DEPTH_WRITE_MASK, D3D12_RASTERIZER_DESC, D3D12_STENCIL_OP,
+    D3D12_CULL_MODE, D3D12_DEPTH_STENCIL_DESC, D3D12_DEPTH_WRITE_MASK, D3D12_FILL_MODE,
+    D3D12_RASTERIZER_DESC, D3D12_STENCIL_OP,
 };
 use deimos_data::tfx::render_globals::SRenderGlobals;
 use tiger_parse::PackageManagerExt;
@@ -13,7 +14,7 @@ const DEPTH_STENCIL_COMBO_COUNT: usize = DEPTH_STENCIL_COMBOS.len();
 pub struct RenderStates {
     pub input_layouts: Vec<Vec<d3d12::InputElementDesc>>,
     pub blend_states: Vec<d3d12::BlendDesc>,
-    // pub rasterizer_states: [[d3d12::RasterizerState; 9]; 9],
+    pub rasterizer_states: [[d3d12::D3D12_RASTERIZER_DESC; 9]; 9],
     // /// 1st state is for reverse Z, 2nd state is for regular Z (commonly used for shadow maps)
     pub depth_stencil_states:
         [(D3D12_DEPTH_STENCIL_DESC, D3D12_DEPTH_STENCIL_DESC); DEPTH_STENCIL_COMBO_COUNT],
@@ -71,7 +72,7 @@ impl RenderStates {
                     let semantic = INPUT_SEMANTICS[e.semantic as usize];
                     let format = &INPUT_FORMATS[e.format as usize];
                     layout_elements.push(TigerInputLayoutElement {
-                        hlsl_type: format.hlsl_type,
+                        _hlsl_type: format.hlsl_type,
                         format: format.format,
                         _stride: format.stride,
                         semantic_name: semantic,
@@ -133,28 +134,34 @@ impl RenderStates {
             blend_states.push(state);
         }
 
-        // let depth_biases: &[ShortDepthBias] =
-        //     unsafe { byteutil::bytes_as_slice(Self::DEPTH_BIAS_DATA) };
-        // let rasterizer_states: &[PaddedRasterizerState] =
-        //     unsafe { byteutil::bytes_as_slice(Self::RASTERIZER_STATE_DATA) };
-        // assert_eq!(rasterizer_states.len(), 9);
-        // assert_eq!(depth_biases.len(), 9);
+        let depth_biases: &[ShortDepthBias] =
+            unsafe { byteutil::bytes_as_slice(Self::DEPTH_BIAS_DATA) };
+        let rasterizer_states: &[PaddedRasterizerState] =
+            unsafe { byteutil::bytes_as_slice(Self::RASTERIZER_STATE_DATA) };
+        assert_eq!(rasterizer_states.len(), 9);
+        assert_eq!(depth_biases.len(), 9);
 
-        // let rasterizer_states = std::array::try_from_fn(|bi| {
-        //     std::array::try_from_fn(|ri| {
-        //         let mut desc = rasterizer_states[ri].desc.clone();
-        //         desc.multisample_enable = false.into();
-        //         let ShortDepthBias(_, depth_bias, slope_scaled_depth_bias, depth_bias_clamp) =
-        //             depth_biases[bi];
+        let rasterizer_states = std::array::from_fn(|bi| {
+            std::array::from_fn(|ri| {
+                let desc11 = &rasterizer_states[ri].desc;
+                let ShortDepthBias(_, depth_bias, slope_scaled_depth_bias, depth_bias_clamp) =
+                    depth_biases[bi];
 
-        //         desc.depth_bias = depth_bias;
-        //         desc.slope_scaled_depth_bias = slope_scaled_depth_bias;
-        //         desc.depth_bias_clamp = depth_bias_clamp;
-
-        //         device.create_rasterizer_state(&desc)
-        //     })
-        // })
-        // .context("Failed to create rasterizer states")?;
+                D3D12_RASTERIZER_DESC {
+                    FillMode: desc11.fill_mode,
+                    CullMode: desc11.cull_mode,
+                    FrontCounterClockwise: desc11.front_counter_clockwise,
+                    DepthBias: depth_bias,
+                    DepthBiasClamp: depth_bias_clamp,
+                    SlopeScaledDepthBias: slope_scaled_depth_bias,
+                    DepthClipEnable: desc11.depth_clip_enable,
+                    MultisampleEnable: desc11.multisample_enable,
+                    AntialiasedLineEnable: desc11.antialiased_line_enable,
+                    ForcedSampleCount: 1,
+                    ConservativeRaster: d3d12::D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF,
+                }
+            })
+        });
 
         let depth_states: &[ShortDepthState] =
             unsafe { byteutil::bytes_as_slice(Self::DEPTH_STATE_DATA) };
@@ -201,7 +208,7 @@ impl RenderStates {
         Ok(Self {
             input_layouts,
             blend_states,
-            // rasterizer_states,
+            rasterizer_states,
             depth_stencil_states,
         })
     }
@@ -267,7 +274,7 @@ pub struct QuadBlendState {
 #[repr(C)]
 #[derive(Debug)]
 pub struct PaddedRasterizerState {
-    pub desc: D3D12_RASTERIZER_DESC,
+    pub desc: D3d11RasterizerDesc,
     _pad: u32,
 }
 
@@ -403,7 +410,7 @@ fn tiger_input_layout_to_d3d12(
 
 #[derive(Clone)]
 struct TigerInputLayoutElement {
-    pub hlsl_type: &'static str,
+    pub _hlsl_type: &'static str,
     pub format: d3d12::Format,
     pub _stride: u32,
     pub semantic_name: &'static str,
@@ -490,7 +497,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
     // Layout 0
     TigerInputLayout {
         elements: &[TigerInputLayoutElement {
-            hlsl_type: "float3",
+            _hlsl_type: "float3",
             format: d3d12::Format::R32g32b32Float,
             _stride: 12,
             semantic_name: "POSITION",
@@ -502,7 +509,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
     // Layout 1
     TigerInputLayout {
         elements: &[TigerInputLayoutElement {
-            hlsl_type: "float3",
+            _hlsl_type: "float3",
             format: d3d12::Format::R32g32b32Float,
             _stride: 12,
             semantic_name: "POSITION",
@@ -515,7 +522,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
     TigerInputLayout {
         elements: &[
             TigerInputLayoutElement {
-                hlsl_type: "float2",
+                _hlsl_type: "float2",
                 format: d3d12::Format::R32g32Float,
                 _stride: 8,
                 semantic_name: "POSITION",
@@ -524,7 +531,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
                 is_instance_data: false,
             },
             TigerInputLayoutElement {
-                hlsl_type: "float2",
+                _hlsl_type: "float2",
                 format: d3d12::Format::R32g32Float,
                 _stride: 8,
                 semantic_name: "TEXCOORD",
@@ -533,7 +540,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
                 is_instance_data: false,
             },
             TigerInputLayoutElement {
-                hlsl_type: "float4",
+                _hlsl_type: "float4",
                 format: d3d12::Format::R8g8b8a8Unorm,
                 _stride: 4,
                 semantic_name: "COLOR",
@@ -547,7 +554,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
     TigerInputLayout {
         elements: &[
             TigerInputLayoutElement {
-                hlsl_type: "float3",
+                _hlsl_type: "float3",
                 format: d3d12::Format::R32g32b32Float,
                 _stride: 12,
                 semantic_name: "POSITION",
@@ -556,7 +563,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
                 is_instance_data: false,
             },
             TigerInputLayoutElement {
-                hlsl_type: "float2",
+                _hlsl_type: "float2",
                 format: d3d12::Format::R32g32Float,
                 _stride: 8,
                 semantic_name: "TEXCOORD",
@@ -565,7 +572,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
                 is_instance_data: false,
             },
             TigerInputLayoutElement {
-                hlsl_type: "float4",
+                _hlsl_type: "float4",
                 format: d3d12::Format::R8g8b8a8Unorm,
                 _stride: 4,
                 semantic_name: "COLOR",
@@ -579,7 +586,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
     TigerInputLayout {
         elements: &[
             TigerInputLayoutElement {
-                hlsl_type: "float3",
+                _hlsl_type: "float3",
                 format: d3d12::Format::R32g32b32Float,
                 _stride: 12,
                 semantic_name: "POSITION",
@@ -588,7 +595,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
                 is_instance_data: false,
             },
             TigerInputLayoutElement {
-                hlsl_type: "float4",
+                _hlsl_type: "float4",
                 format: d3d12::Format::R8g8b8a8Unorm,
                 _stride: 4,
                 semantic_name: "COLOR",
@@ -602,7 +609,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
     TigerInputLayout {
         elements: &[
             TigerInputLayoutElement {
-                hlsl_type: "float2",
+                _hlsl_type: "float2",
                 format: d3d12::Format::R32g32Float,
                 _stride: 8,
                 semantic_name: "POSITION",
@@ -611,7 +618,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
                 is_instance_data: false,
             },
             TigerInputLayoutElement {
-                hlsl_type: "float2",
+                _hlsl_type: "float2",
                 format: d3d12::Format::R32g32Float,
                 _stride: 8,
                 semantic_name: "TEXCOORD",
@@ -625,7 +632,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
     TigerInputLayout {
         elements: &[
             TigerInputLayoutElement {
-                hlsl_type: "float3",
+                _hlsl_type: "float3",
                 format: d3d12::Format::R32g32b32Float,
                 _stride: 12,
                 semantic_name: "POSITION",
@@ -634,7 +641,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
                 is_instance_data: false,
             },
             TigerInputLayoutElement {
-                hlsl_type: "float3",
+                _hlsl_type: "float3",
                 format: d3d12::Format::R32g32b32Float,
                 _stride: 12,
                 semantic_name: "NORMAL",
@@ -643,7 +650,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
                 is_instance_data: false,
             },
             TigerInputLayoutElement {
-                hlsl_type: "float4",
+                _hlsl_type: "float4",
                 format: d3d12::Format::R32g32b32a32Float,
                 _stride: 16,
                 semantic_name: "TANGENT",
@@ -652,7 +659,7 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
                 is_instance_data: false,
             },
             TigerInputLayoutElement {
-                hlsl_type: "float2",
+                _hlsl_type: "float2",
                 format: d3d12::Format::R32g32Float,
                 _stride: 8,
                 semantic_name: "TEXCOORD",
@@ -664,3 +671,18 @@ const BASE_INPUT_LAYOUTS: [TigerInputLayout; 7] = [
     },
 ];
 //endregion
+
+#[repr(C)]
+#[derive(Debug, Clone)]
+pub struct D3d11RasterizerDesc {
+    pub fill_mode: D3D12_FILL_MODE,
+    pub cull_mode: D3D12_CULL_MODE,
+    pub front_counter_clockwise: BOOL,
+    pub depth_bias: i32,
+    pub depth_bias_clamp: f32,
+    pub slope_scaled_depth_bias: f32,
+    pub depth_clip_enable: BOOL,
+    pub scissor_enable: BOOL,
+    pub multisample_enable: BOOL,
+    pub antialiased_line_enable: BOOL,
+}

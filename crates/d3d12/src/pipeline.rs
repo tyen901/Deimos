@@ -138,6 +138,11 @@ impl<'a> GraphicsPipelineStateDesc<'a> {
         self.inner.BlendState = unsafe { desc.as_ffi().read() };
         self
     }
+
+    pub const fn with_rasterizer_state(mut self, desc: D3D12_RASTERIZER_DESC) -> Self {
+        self.inner.RasterizerState = desc;
+        self
+    }
 }
 
 #[repr(i32)]
