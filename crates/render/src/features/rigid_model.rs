@@ -25,7 +25,7 @@ use crate::{
 use super::shared::ModelBuffers;
 
 pub struct DynamicModel {
-    mesh_buffers: Vec<(ModelBuffers, ImmutableBuffer)>,
+    mesh_buffers: Vec<(ModelBuffers, ImmutableBuffer, ImmutableBuffer)>,
 
     technique_map: Vec<SDynamicMeshMaterialVariants>,
     techniques: Vec<Handle<Technique>>,
@@ -79,6 +79,10 @@ impl DynamicModel {
                 )
                 .expect("Failed to repack position data");
 
+                let skinning_normaldata =
+                    skinning::repack_normal_tangent_words_from_vb(&v0_data, v0_stride as usize)
+                        .expect("Failed to repack position data");
+
                 let skinning_posbuffer = ImmutableBuffer::new(
                     &renderer.gpu,
                     "skinning_posbuffer",
@@ -86,6 +90,14 @@ impl DynamicModel {
                     bytemuck::cast_slice(&skinning_posdata),
                 )
                 .expect("Failed to create skinning position buffer");
+
+                let skinning_normalbuffer = ImmutableBuffer::new(
+                    &renderer.gpu,
+                    "skinning_normalbuffer",
+                    d3d12::Format::R32Uint,
+                    bytemuck::cast_slice(&skinning_normaldata),
+                )
+                .expect("Failed to create skinning normal buffer");
 
                 (
                     ModelBuffers::load(
@@ -96,6 +108,7 @@ impl DynamicModel {
                     )
                     .expect("Failed to load model buffers for dynamic model"),
                     skinning_posbuffer,
+                    skinning_normalbuffer,
                 )
             })
             .collect_vec();
@@ -221,14 +234,17 @@ impl DynamicModel {
     ) where
         F: FnMut(&Self, &mut CommandList, &SDynamicMesh, &SDynamicMeshPart),
     {
-        for (mesh, subscribed_stages, (mesh_buffers, skinning_posbuffer), mesh_techniques) in
-            multizip((
-                self.model.meshes.iter(),
-                self.mesh_stages.iter(),
-                self.mesh_buffers.iter(),
-                self.part_techniques.iter(),
-            ))
-        {
+        for (
+            mesh,
+            subscribed_stages,
+            (mesh_buffers, skinning_posbuffer, skinning_normalbuffer),
+            mesh_techniques,
+        ) in multizip((
+            self.model.meshes.iter(),
+            self.mesh_stages.iter(),
+            self.mesh_buffers.iter(),
+            self.part_techniques.iter(),
+        )) {
             if !subscribed_stages.is_subscribed(stage) {
                 continue;
             }
@@ -239,6 +255,8 @@ impl DynamicModel {
             cmd.set_input_layout(mesh.get_input_layout_for_stage(stage) as usize);
             mesh_buffers.bind(cmd);
             skinning_posbuffer.bind_srv(cmd, ShaderStage::Vertex, 2);
+            skinning_normalbuffer.bind_srv(cmd, ShaderStage::Vertex, 3);
+
             for part_index in mesh.get_range_for_stage(stage) {
                 let part = &mesh.parts[part_index];
                 if identifier != u16::MAX && part.external_identifier != identifier {
@@ -408,7 +426,7 @@ impl FeatureRenderer for DynamicModel {
             return false;
         }
 
-        if self.mesh_buffers.iter().any(|(m, _)| !m.is_loaded()) {
+        if self.mesh_buffers.iter().any(|(m, _, _)| !m.is_loaded()) {
             return false;
         }
 
