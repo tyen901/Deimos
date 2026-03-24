@@ -10,7 +10,9 @@ use deimos_data::{
     tag::TagRef,
     tfx::{
         TfxFeatureRenderer,
-        features::{dynamic::SDynamicModelComponent, statics::SUnk808082D5},
+        features::{
+            dynamic::SDynamicModelComponent, light::SShadowingLight, statics::SUnk808082D5,
+        },
         geometry::AxisAlignedBBox,
     },
 };
@@ -234,8 +236,14 @@ pub fn load_component(
         }
         0x80808543 => {
             let data = get_component_data!(SShadowingLightComponent);
-            let Some(light) = data.light.0.as_ref() else {
-                return Ok(ComponentLoadResult::Skipped);
+            let light = if let Some(light) = data.light.0.as_ref() {
+                light.clone()
+            } else {
+                let mut cur = Cursor::new(package_manager().read_tag(component.taghash())?);
+                cur.seek(SeekFrom::Start(component.unk18.offset + 0x130))?;
+                let light = TagRef::<SShadowingLight>::read_ds(&mut cur)?;
+
+                light.0
             };
 
             let _transform = world
@@ -250,8 +258,8 @@ pub fn load_component(
             //     light.far_plane,
             // );
 
-            let mut light_renderer =
-                LightRenderer::new_shadowing(renderer, light).context("reading shadowing light")?;
+            let mut light_renderer = LightRenderer::new_shadowing(renderer, &light)
+                .context("reading shadowing light")?;
             let bb = light_renderer.calculate_bounds();
 
             // let mut view = View::new_shadow(
@@ -443,7 +451,7 @@ pub fn load_component(
                 .context("failed to read tome0 data")?;
             let tome = umbra::Tome::load_from_buffer(&tome0_data);
 
-            world.insert_one(entity, tome);
+            world.insert_one(entity, tome)?;
         }
         _u => return Ok(ComponentLoadResult::Skipped),
     }

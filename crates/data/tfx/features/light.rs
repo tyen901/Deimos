@@ -51,6 +51,7 @@ pub struct SLight {
     pub unkd8: [u32; 6],
 }
 
+#[derive(Clone, Debug)]
 #[tiger_type(id = 0x80808557, size = 0x120)]
 pub struct SShadowingLight {
     pub unk0: Vec4,
