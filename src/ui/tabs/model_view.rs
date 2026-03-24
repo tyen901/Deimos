@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use deimos_ecs::world::pattern::spawn_pattern;
 use deimos_render::{camera::Camera, renderer::Renderer};
 use egui::{Color32, Rect, Vec2, vec2};
 use glam::Vec3;
@@ -12,6 +13,7 @@ use crate::{
         scene::{Scene, controller::CameraController},
         util::UiExt,
     },
+    world::pattern::load_component,
 };
 
 pub struct ModelViewTab {
@@ -29,8 +31,16 @@ impl ModelViewTab {
         Ok(Self {
             load_task: Task::new(format!("load_pattern({tag})"), move || {
                 let mut world = hecs::World::new();
-                crate::world::pattern::spawn_pattern(&renderer_clone, &mut world, tag, None, None)
-                    .expect("Failed to load map into world");
+                spawn_pattern(
+                    &mut world,
+                    tag,
+                    None,
+                    None,
+                    |world, entity, pattern, data, component| {
+                        load_component(&renderer_clone, world, entity, pattern, data, component)
+                    },
+                )
+                .expect("Failed to load map into world");
                 world
             }),
             tag,

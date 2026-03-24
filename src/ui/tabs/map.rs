@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use deimos_ecs::world::map::load_map_into_world;
 use deimos_render::{camera::Camera, renderer::Renderer};
 use egui::{Color32, Rect, Vec2, vec2};
 use glam::Vec3;
@@ -12,6 +13,7 @@ use crate::{
         scene::{Scene, controller::CameraController},
         util::UiExt,
     },
+    world::pattern::load_component,
 };
 
 pub struct MapTab {
@@ -34,8 +36,14 @@ impl MapTab {
         Ok(Self {
             load_task: Task::new(format!("load_map({tag})"), move || {
                 let mut world = hecs::World::new();
-                crate::world::map::load_map_into_world(&renderer_clone, tag, &mut world)
-                    .expect("Failed to load map into world");
+                load_map_into_world(
+                    tag,
+                    &mut world,
+                    |world, entity, pattern, data, component| {
+                        load_component(&renderer_clone, world, entity, pattern, data, component)
+                    },
+                )
+                .expect("Failed to load map into world");
                 world
             }),
             tag,

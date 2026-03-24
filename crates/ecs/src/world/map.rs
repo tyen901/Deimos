@@ -1,29 +1,39 @@
-use std::{
-    io::{Cursor, Seek},
-    sync::Arc,
-};
+use std::io::{Cursor, Seek};
 
-use ahash::HashSet;
 use anyhow::Context;
 use deimos_data::{
     activity::{SActivity, SUnk80808948},
     map::{ComponentData, SBubbleParent, SMapNodeTable},
-    pattern::SComponent,
-    tag::WideHash,
+    pattern::{SComponent, SPattern},
+    tag::Tag,
 };
-use deimos_ecs::transform::Transform;
-use deimos_render::renderer::Renderer;
 use glam::Vec4Swizzles;
 use tiger_parse::{PackageManagerExt, TigerReadable};
 use tiger_pkg::{TagHash, package_manager};
+use tracing::{debug, error, info, warn};
 
-use crate::world::pattern::spawn_pattern;
+use crate::{transform::Transform, world::pattern::spawn_pattern};
 
-pub fn load_map_into_world(
-    renderer: &Arc<Renderer>,
+#[derive(Debug, PartialEq, Eq)]
+pub enum ComponentLoadResult {
+    Loaded,
+    Skipped,
+}
+
+pub fn load_map_into_world<F>(
     taghash: TagHash,
     world: &mut hecs::World,
-) -> anyhow::Result<()> {
+    callback: F,
+) -> anyhow::Result<()>
+where
+    F: Fn(
+        &mut hecs::World,
+        hecs::Entity,
+        &SPattern,
+        &ComponentData,
+        &Tag<SComponent>,
+    ) -> anyhow::Result<ComponentLoadResult>,
+{
     info!("Loading map {taghash}");
     let start = std::time::Instant::now();
     let parent = package_manager()
@@ -31,7 +41,7 @@ pub fn load_map_into_world(
         .context("Failed to read SBubbleParent")?;
     for resources in &parent.definition.containers {
         for datatable_hash in &resources.data_tables {
-            load_nodetable_into_world(renderer, *datatable_hash, world)?;
+            load_nodetable_into_world(*datatable_hash, world, &callback)?;
         }
     }
     info!("Loaded map in {:?}", start.elapsed());
@@ -39,11 +49,20 @@ pub fn load_map_into_world(
     Ok(())
 }
 
-pub fn load_activity_phase_into_world(
-    renderer: &Arc<Renderer>,
+pub fn load_activity_phase_into_world<F>(
     phase: &SUnk80808948,
     world: &mut hecs::World,
-) -> anyhow::Result<()> {
+    callback: F,
+) -> anyhow::Result<()>
+where
+    F: Fn(
+        &mut hecs::World,
+        hecs::Entity,
+        &SPattern,
+        &ComponentData,
+        &Tag<SComponent>,
+    ) -> anyhow::Result<ComponentLoadResult>,
+{
     for res in &phase.unk_entity_reference.unk18.components {
         let component_data = package_manager()
             .read_tag(res.component)
@@ -57,13 +76,13 @@ pub fn load_activity_phase_into_world(
             0x8080B1A5 => {
                 component_data.seek(std::io::SeekFrom::Start(component.unk18.offset + 0x84))?;
                 let nodetable_hash = TagHash::read_ds(&mut component_data)?;
-                load_nodetable_into_world(renderer, nodetable_hash, world)?;
+                load_nodetable_into_world(nodetable_hash, world, &callback)?;
             }
             // 0x8080B24B
             0x8080B250 => {
                 component_data.seek(std::io::SeekFrom::Start(component.unk18.offset + 0x68))?;
                 let nodetable_hash = TagHash::read_ds(&mut component_data)?;
-                load_nodetable_into_world(renderer, nodetable_hash, world)?;
+                load_nodetable_into_world(nodetable_hash, world, &callback)?;
             }
             // cohae: This loads a LOT of stuff, to the point where the application becomes unusable
             // // 0x80805be0
@@ -137,10 +156,10 @@ pub fn load_activity_phase_into_world(
             0x8080B1B6 => {
                 // contains ??? (eflg_compiler_fight_started, eflg_spectacle_complete)
             }
-            // 0x8080B24B
-            0x8080B250 => {
-                // contains ??? (ppc_*, population_loot_budget)
-            }
+            // // 0x8080B24B
+            // 0x8080B250 => {
+            //     // contains ??? (ppc_*, population_loot_budget)
+            // }
             // 0x8080B507
             0x8080B508 => {
                 // contains ??? (activity_variables)
@@ -176,12 +195,21 @@ pub fn load_activity_phase_into_world(
     Ok(())
 }
 
-pub fn load_activity_for_map_into_world(
-    renderer: &Arc<Renderer>,
+pub fn load_activity_for_map_into_world<F>(
     activity_hash: impl Into<TagHash>,
     bubble_hash: u32,
     world: &mut hecs::World,
-) -> anyhow::Result<()> {
+    callback: F,
+) -> anyhow::Result<()>
+where
+    F: Fn(
+        &mut hecs::World,
+        hecs::Entity,
+        &SPattern,
+        &ComponentData,
+        &Tag<SComponent>,
+    ) -> anyhow::Result<ComponentLoadResult>,
+{
     let activity: SActivity = package_manager().read_tag_struct(activity_hash.into())?;
     let activity_map = &activity
         .unk50
@@ -190,7 +218,7 @@ pub fn load_activity_for_map_into_world(
         .context("Map index out of range")?;
 
     for unk in &activity_map.unk18 {
-        if let Err(e) = load_activity_phase_into_world(renderer, unk, world) {
+        if let Err(e) = load_activity_phase_into_world(unk, world, &callback) {
             error!(
                 "Activity phase load for {} failed: {e}",
                 unk.unk_entity_reference.taghash()
@@ -201,11 +229,20 @@ pub fn load_activity_for_map_into_world(
     Ok(())
 }
 
-pub fn load_nodetable_into_world(
-    renderer: &Arc<Renderer>,
+pub fn load_nodetable_into_world<F>(
     table_hash: TagHash,
     world: &mut hecs::World,
-) -> anyhow::Result<()> {
+    callback: &F,
+) -> anyhow::Result<()>
+where
+    F: Fn(
+        &mut hecs::World,
+        hecs::Entity,
+        &SPattern,
+        &ComponentData,
+        &Tag<SComponent>,
+    ) -> anyhow::Result<ComponentLoadResult>,
+{
     let table: SMapNodeTable = package_manager().read_tag_struct(table_hash)?;
     for node in table.nodes {
         let transform = Transform::new(
@@ -232,11 +269,11 @@ pub fn load_nodetable_into_world(
         }
 
         if let Err(e) = spawn_pattern(
-            renderer,
             world,
             node.entity.hash32(),
             Some(&node.component_data),
             Some(transform),
+            callback,
         ) {
             error!("Failed to load entity: {:?}", e);
         }

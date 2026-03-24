@@ -5,6 +5,9 @@ use std::{
 
 use anyhow::Context;
 use deimos_data::activity::SActivity;
+use deimos_ecs::world::map::{
+    load_activity_for_map_into_world, load_activity_phase_into_world, load_map_into_world,
+};
 use deimos_render::{camera::Camera, renderer::Renderer};
 use egui::{Color32, Rect, Vec2, vec2};
 use google_material_symbols::GoogleMaterialSymbols;
@@ -18,9 +21,7 @@ use crate::{
         scene::{Scene, controller::CameraController},
         util::{DButton, UiExt},
     },
-    world::map::{
-        load_activity_for_map_into_world, load_activity_phase_into_world, load_map_into_world,
-    },
+    world::pattern::load_component,
 };
 
 pub struct ActivityTab {
@@ -189,22 +190,36 @@ impl ActivityMap {
                 // TODO(cohae): It's possible to have multiple maps per phase (see Tower), how do we handle showing those?
                 let map_hash = activity_map.map_references[0];
 
-                load_map_into_world(&renderer, map_hash.hash32(), &mut world)
-                    .expect("Failed to load map");
+                load_map_into_world(
+                    map_hash.hash32(),
+                    &mut world,
+                    |world, entity, pattern, data, component| {
+                        load_component(&renderer, world, entity, pattern, data, component)
+                    },
+                )
+                .expect("Failed to load map");
 
                 if activity.ambient_activity.is_some()
                     && let Err(e) = load_activity_for_map_into_world(
-                        &renderer,
                         activity.ambient_activity,
                         activity_map.bubble_name,
                         &mut world,
+                        |world, entity, pattern, data, component| {
+                            load_component(&renderer, world, entity, pattern, data, component)
+                        },
                     )
                 {
                     error!("Failed to load ambient activity: {e}");
                 }
 
                 for unk in &activity_map.unk18 {
-                    if let Err(e) = load_activity_phase_into_world(&renderer, unk, &mut world) {
+                    if let Err(e) = load_activity_phase_into_world(
+                        unk,
+                        &mut world,
+                        |world, entity, pattern, data, component| {
+                            load_component(&renderer, world, entity, pattern, data, component)
+                        },
+                    ) {
                         error!(
                             "Activity phase load for {} failed: {e}",
                             unk.unk_entity_reference.taghash()

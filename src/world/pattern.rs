@@ -6,14 +6,17 @@ use std::{
 use anyhow::Context;
 use deimos_data::{
     map::{ComponentData, SComponentDataListPtr},
-    pattern::SPattern,
+    pattern::{SComponent, SPattern},
+    tag::Tag,
     tfx::{
         TfxFeatureRenderer,
         features::{dynamic::SDynamicModelComponent, statics::SUnk808082D5},
         geometry::AxisAlignedBBox,
     },
 };
-use deimos_ecs::{permutations::PermutationConfig, transform::Transform};
+use deimos_ecs::{
+    permutations::PermutationConfig, transform::Transform, world::map::ComponentLoadResult,
+};
 use deimos_render::{
     ecs::render_objects::{DynamicRenderObject, StaticRenderObject},
     features::{
@@ -28,7 +31,7 @@ use itertools::{Itertools, multizip};
 use tiger_parse::{PackageManagerExt, TigerReadable};
 use tiger_pkg::{TagHash, package_manager};
 
-use crate::world::{UnimplementedTigerComponent, UnimplementedTigerComponents};
+use deimos_ecs::{UnimplementedTigerComponent, UnimplementedTigerComponents};
 
 #[macro_export]
 macro_rules! once {
@@ -38,496 +41,414 @@ macro_rules! once {
     }};
 }
 
-pub fn spawn_pattern(
+pub fn load_component(
     renderer: &Arc<Renderer>,
     world: &mut hecs::World,
-    pattern_tag: TagHash,
-    map_data_list: Option<&SComponentDataListPtr>,
-    transform: Option<Transform>,
-) -> anyhow::Result<hecs::Entity> {
-    let header = package_manager()
-        .read_tag_struct::<SPattern>(pattern_tag)
-        .context("Failed to read SEntity")?;
-    spawn_pattern_from_header(renderer, world, &header, map_data_list, transform)
-}
-
-pub fn spawn_pattern_from_header(
-    renderer: &Arc<Renderer>,
-    world: &mut hecs::World,
-    header: &SPattern,
-    map_data_list: Option<&SComponentDataListPtr>,
-    transform: Option<Transform>,
-) -> anyhow::Result<hecs::Entity> {
-    let entity = world.spawn(());
-    if let Some(transform) = transform {
-        world.insert_one(entity, transform)?;
+    entity: hecs::Entity,
+    pattern: &SPattern,
+    data: &ComponentData,
+    component: &Tag<SComponent>,
+) -> anyhow::Result<ComponentLoadResult> {
+    macro_rules! get_component_data {
+        ($type:ident) => {
+            if let ComponentData::$type(c) = data {
+                c
+            } else {
+                error!(
+                    "Expected component data type {} for component type 0x{:08X}, found \
+                         {}/0x{:08X}",
+                    stringify!($type),
+                    component.unk10.resource_type,
+                    data.class_name(),
+                    data.class_id()
+                );
+                return Ok(ComponentLoadResult::Skipped);
+            }
+        };
     }
 
-    for e in &header.components {
-        let component = &e.unk0;
+    match component.unk10.resource_type {
+        0x80808673 => {
+            let mut cur = Cursor::new(package_manager().read_tag(component.taghash())?);
+            cur.seek(SeekFrom::Start(component.unk18.offset))?;
+            let model: SDynamicModelComponent = TigerReadable::read_ds(&mut cur)?;
 
-        macro_rules! add_unknown_component {
-            ($name:expr) => {
-                let component = UnimplementedTigerComponent {
-                    class_id: component.unk10.resource_type,
-                    hash: component.taghash(),
-                    name: None,
-                };
-                if let Ok(mut components) = world.get::<&mut UnimplementedTigerComponents>(entity) {
-                    components.0.push(component);
-                } else {
-                    world.insert_one(entity, UnimplementedTigerComponents(vec![component]))?;
-                }
-            };
-        }
-
-        let Some(dynamic_data) = component.dynamic_data.first() else {
-            continue;
-        };
-
-        let data = if let Some(data) =
-            map_data_list.and_then(|l| l.get_by_class(dynamic_data.data().class_id()))
-        {
-            data
-        } else {
-            dynamic_data.data()
-        };
-
-        macro_rules! get_component_data {
-            ($type:ident) => {
-                if let ComponentData::$type(c) = data {
-                    c
-                } else {
-                    error!(
-                        "Expected component data type {} for component type 0x{:08X}, found \
-                         {}/0x{:08X}",
-                        stringify!($type),
-                        component.unk10.resource_type,
-                        data.class_name(),
-                        data.class_id()
-                    );
-                    continue;
-                }
-            };
-        }
-
-        match component.unk10.resource_type {
-            0x80808673 => {
-                let mut cur = Cursor::new(package_manager().read_tag(component.taghash())?);
-                cur.seek(SeekFrom::Start(component.unk18.offset))?;
-                let model: SDynamicModelComponent = TigerReadable::read_ds(&mut cur)?;
-
-                if let Some(permutations) = PermutationConfig::from_model(&model) {
-                    world.insert_one(entity, permutations)?;
-                }
-
-                let model = DynamicModel::load(
-                    renderer,
-                    model.model_hash,
-                    model.technique_map,
-                    model.techniques,
-                )?;
-                world.insert_one(
-                    entity,
-                    AxisAlignedBBox::from_center_extents(
-                        model.model.model_offset.xyz(),
-                        model.model.model_scale.xyz() * 2.0,
-                    ),
-                )?;
-
-                let obj =
-                    renderer.add_object(RenderObject::new(TfxFeatureRenderer::RigidObject, model));
-                world.insert_one(entity, DynamicRenderObject::new(renderer, obj))?;
+            if let Some(permutations) = PermutationConfig::from_model(&model) {
+                world.insert_one(entity, permutations)?;
             }
-            // 0x80808412 => {
-            //     let mut cur = Cursor::new(package_manager().read_tag(component.taghash())?);
-            //     cur.seek(SeekFrom::Start(component.unk18.offset + 0x88))?;
-            //     let array: Vec<S8080841B> = TigerReadable::read_ds(&mut cur)?;
 
-            //     for v1 in array {
-            //         for v2 in v1.unk30 {
-            //             if let Err(e) =
-            //                 spawn_pattern(renderer, world, v2.entity.hash32(), None, None)
-            //             {
-            //                 error!(
-            //                     "Failed to spawn nested pattern {:?}/{} in pattern component {}: \
-            //                      {:?}",
-            //                     v2.entity,
-            //                     v2.entity.hash32(),
-            //                     component.taghash(),
-            //                     e
-            //                 );
-            //             }
-            //         }
-            //     }
-            // }
-            0x80804030 => {
-                let data = get_component_data!(SMaterialPermutationsComponent);
+            let model = DynamicModel::load(
+                renderer,
+                model.model_hash,
+                model.technique_map,
+                model.techniques,
+            )?;
+            world.insert_one(
+                entity,
+                AxisAlignedBBox::from_center_extents(
+                    model.model.model_offset.xyz(),
+                    model.model.model_scale.xyz() * 2.0,
+                ),
+            )?;
 
-                if let Ok(mut config) = world.get::<&mut PermutationConfig>(entity) {
-                    for (key, value) in &data.config {
-                        config.configuration.insert(*key, *value);
-                    }
-                } else {
-                    debug!(
-                        "Material permutations component found in component {}, but entity does not \
+            let obj =
+                renderer.add_object(RenderObject::new(TfxFeatureRenderer::RigidObject, model));
+            world.insert_one(entity, DynamicRenderObject::new(renderer, obj))?;
+        }
+        // 0x80808412 => {
+        //     let mut cur = Cursor::new(package_manager().read_tag(component.taghash())?);
+        //     cur.seek(SeekFrom::Start(component.unk18.offset + 0x88))?;
+        //     let array: Vec<S8080841B> = TigerReadable::read_ds(&mut cur)?;
+
+        //     for v1 in array {
+        //         for v2 in v1.unk30 {
+        //             if let Err(e) =
+        //                 spawn_pattern(renderer, world, v2.entity.hash32(), None, None)
+        //             {
+        //                 error!(
+        //                     "Failed to spawn nested pattern {:?}/{} in pattern component {}: \
+        //                      {:?}",
+        //                     v2.entity,
+        //                     v2.entity.hash32(),
+        //                     component.taghash(),
+        //                     e
+        //                 );
+        //             }
+        //         }
+        //     }
+        // }
+        0x80804030 => {
+            let data = get_component_data!(SMaterialPermutationsComponent);
+
+            if let Ok(mut config) = world.get::<&mut PermutationConfig>(entity) {
+                for (key, value) in &data.config {
+                    config.configuration.insert(*key, *value);
+                }
+            } else {
+                debug!(
+                    "Material permutations component found in component {}, but entity does not \
                              have a permutation config set?",
-                        component.taghash()
-                    );
-                }
+                    component.taghash()
+                );
             }
-            0x80808562 => {
-                let data = get_component_data!(SStaticTerrainPatchesComponent);
+        }
+        0x80808562 => {
+            let data = get_component_data!(SStaticTerrainPatchesComponent);
 
-                let feature_renderer =
-                    TerrainPatchesRenderer::load(renderer, data.terrain, data.identifier)?;
-                let bounds = feature_renderer.bounds();
+            let feature_renderer =
+                TerrainPatchesRenderer::load(renderer, data.terrain, data.identifier)?;
+            let bounds = feature_renderer.bounds();
 
-                world.insert(
-                    entity,
-                    (
-                        StaticRenderObject::new(
-                            renderer,
-                            renderer.add_object(RenderObject::new(
-                                TfxFeatureRenderer::TerrainPatch,
-                                feature_renderer,
-                            )),
-                        ),
-                        bounds,
+            world.insert(
+                entity,
+                (
+                    StaticRenderObject::new(
+                        renderer,
+                        renderer.add_object(RenderObject::new(
+                            TfxFeatureRenderer::TerrainPatch,
+                            feature_renderer,
+                        )),
                     ),
-                )?;
-            }
-            0x808085AF => {
-                let data = get_component_data!(SStaticInstancesCollectionComponent);
-                let instances: SUnk808082D5 = package_manager().read_tag_struct(data.instances)?;
+                    bounds,
+                ),
+            )?;
+        }
+        0x808085AF => {
+            let data = get_component_data!(SStaticInstancesCollectionComponent);
+            let instances: SUnk808082D5 = package_manager().read_tag_struct(data.instances)?;
+            world.insert_one(
+                entity,
+                StaticRenderObject::new(
+                    renderer,
+                    renderer.add_object(RenderObject::new(
+                        TfxFeatureRenderer::ChunkedInstanceObjects,
+                        Box::new(StaticInstancesRenderer::load_from_tag(
+                            renderer,
+                            instances.instances,
+                        )?),
+                    )),
+                ),
+            )?;
+        }
+        0x80808220 => {
+            let data = get_component_data!(SDecalCollectionComponent);
+            if let Some(collection) = &*data.decals {
+                let decal_renderer = DecalCollectionRenderer::load(renderer, collection.clone())
+                    .with_context(|| {
+                        format!("loading decal collection {}", data.decals.taghash())
+                    })?;
                 world.insert_one(
                     entity,
                     StaticRenderObject::new(
                         renderer,
                         renderer.add_object(RenderObject::new(
-                            TfxFeatureRenderer::ChunkedInstanceObjects,
-                            Box::new(StaticInstancesRenderer::load_from_tag(
-                                renderer,
-                                instances.instances,
-                            )?),
+                            TfxFeatureRenderer::DynamicDecals,
+                            decal_renderer,
                         )),
                     ),
                 )?;
             }
-            0x80808220 => {
-                let data = get_component_data!(SDecalCollectionComponent);
-                if let Some(collection) = &*data.decals {
-                    let decal_renderer =
-                        DecalCollectionRenderer::load(renderer, collection.clone()).with_context(
-                            || format!("loading decal collection {}", data.decals.taghash()),
-                        )?;
-                    world.insert_one(
-                        entity,
-                        StaticRenderObject::new(
-                            renderer,
-                            renderer.add_object(RenderObject::new(
-                                TfxFeatureRenderer::DynamicDecals,
-                                decal_renderer,
-                            )),
-                        ),
-                    )?;
-                }
-            }
-            0x808085A9 => {
-                let data = get_component_data!(SDecoratorsComponent);
-                if let Some(decorators) = data.decorators.0.as_ref() {
-                    let decorator_renderer = DecoratorRenderer::load(
-                        renderer,
-                        data.decorators.taghash(),
-                        decorators.clone(),
-                    )?;
-                    world.insert_one(
-                        entity,
-                        StaticRenderObject::new(
-                            renderer,
-                            renderer.add_object(RenderObject::new(
-                                TfxFeatureRenderer::SpeedtreeTrees,
-                                Box::new(decorator_renderer),
-                            )),
-                        ),
-                    )?;
-                }
-            }
-            0x80808377 => {
-                let data = get_component_data!(SSkyObjectCollectionComponent);
-                let Some(objects) = &*data.objects else {
-                    continue;
-                };
-                for obj in &objects.unk8 {
-                    // cohae: Objects with unk70 set to 5 are a solid red? These don't show up in-game
-                    if obj.unk70 == 5 {
-                        continue;
-                    }
-
-                    let (scale, rotation, translation) =
-                        obj.transform.to_scale_rotation_translation();
-
-                    let render_obj = RenderObject::new(
-                        TfxFeatureRenderer::SkyTransparent,
-                        DynamicModel::load(renderer, obj.model_ref.entity_model, vec![], vec![])?,
-                    );
-
-                    // TODO(cohae): Again, spawning new entities for each object is kinda dumb
-                    world.spawn((
-                        Transform::new(translation, rotation, scale),
-                        DynamicRenderObject::new(renderer, renderer.add_object(render_obj)),
-                    ));
-                }
-            }
-            0x80808543 => {
-                let data = get_component_data!(SShadowingLightComponent);
-                let Some(light) = data.light.0.as_ref() else {
-                    continue;
-                };
-
-                let transform = world
-                    .get::<&Transform>(entity)
-                    .clone()
-                    .map(|c| *c)
-                    .unwrap_or_default();
-                // let shadowmap = ShadowMap::create(
-                //     transform,
-                //     (light.half_fov * 2.0).to_degrees(),
-                //     0.5,
-                //     light.far_plane,
-                // );
-
-                let mut light_renderer = LightRenderer::new_shadowing(renderer, light)
-                    .context("reading shadowing light")?;
-                let bb = light_renderer.calculate_bounds();
-
-                // let mut view = View::new_shadow(
-                //     format!("shadow_{}", data.light.taghash()),
-                //     &renderer.gpu,
-                //     (
-                //         ShadowView::SHADOWMAP_RESOLUTION,
-                //         ShadowView::SHADOWMAP_RESOLUTION,
-                //     ),
-                // )
-                // .expect("Failed to create shadowmap view");
-
-                // if once!() {
-                //     warn!("Culling is disabled for shadow views");
-                // }
-                // view.disable_culling = true;
-
-                // let ViewKind::Shadow(v) = &view.kind else {
-                //     unreachable!("view is not a shadow view even though we just created it");
-                // };
-
-                // let surf = &v.shadow_map;
-                // light_renderer.shadow_view =
-                //     Some((surf.texture.clone(), surf.srv(0).unwrap().clone()));
-
-                let render_obj =
-                    RenderObject::new(TfxFeatureRenderer::DeferredLights, light_renderer);
-
-                world.insert(
+        }
+        0x808085A9 => {
+            let data = get_component_data!(SDecoratorsComponent);
+            if let Some(decorators) = data.decorators.0.as_ref() {
+                let decorator_renderer = DecoratorRenderer::load(
+                    renderer,
+                    data.decorators.taghash(),
+                    decorators.clone(),
+                )?;
+                world.insert_one(
                     entity,
-                    (
-                        DynamicRenderObject::new(renderer, renderer.add_object(render_obj)),
-                        bb,
-                        // shadowmap,
+                    StaticRenderObject::new(
+                        renderer,
+                        renderer.add_object(RenderObject::new(
+                            TfxFeatureRenderer::SpeedtreeTrees,
+                            Box::new(decorator_renderer),
+                        )),
                     ),
                 )?;
             }
-            0x80808334 => {
-                let data = get_component_data!(SLightCollectionComponent);
-                let Some(lights) = data.lights.0.as_ref() else {
+        }
+        0x80808377 => {
+            let data = get_component_data!(SSkyObjectCollectionComponent);
+            let Some(objects) = &*data.objects else {
+                return Ok(ComponentLoadResult::Skipped);
+            };
+            for obj in &objects.unk8 {
+                // cohae: Objects with unk70 set to 5 are a solid red? These don't show up in-game
+                if obj.unk70 == 5 {
                     continue;
-                };
-
-                for (light, transform, bounds) in multizip((
-                    &lights.lights,
-                    &lights.transforms,
-                    &lights.occlusion_bounds.bounds,
-                )) {
-                    let mut light_renderer = LightRenderer::new(renderer, light, bounds.bb)
-                        .context("Failed to load light")?;
-                    let bb = light_renderer.calculate_bounds();
-                    let render_obj = renderer.add_object(RenderObject::new(
-                        TfxFeatureRenderer::ChunkedLights,
-                        light_renderer,
-                    ));
-
-                    // TODO(cohae): ChunkedLights need to be chunked like static geometry
-                    world.spawn((
-                        Transform::new(transform.translation.xyz(), transform.rotation, Vec3::ONE),
-                        DynamicRenderObject::new(renderer, render_obj),
-                        bb,
-                    ));
                 }
-            }
-            0x80807F3B => {
-                let _data = get_component_data!(SCubemapComponent);
 
-                //     let render_obj = RenderObject::new(
-                //         TfxFeatureRenderer::Cubemaps,
-                //         Box::new(CubemapRenderer::load(&renderer.gpu, data)?),
-                //     );
+                let (scale, rotation, translation) = obj.transform.to_scale_rotation_translation();
 
-                //     world.insert_one(
-                //         entity,
-                //         DynamicRenderObject::new(renderer.add_object(render_obj)),
-                //     )?;
+                let render_obj = RenderObject::new(
+                    TfxFeatureRenderer::SkyTransparent,
+                    DynamicModel::load(renderer, obj.model_ref.entity_model, vec![], vec![])?,
+                );
+
+                // TODO(cohae): Again, spawning new entities for each object is kinda dumb
+                world.spawn((
+                    Transform::new(translation, rotation, scale),
+                    DynamicRenderObject::new(renderer, renderer.add_object(render_obj)),
+                ));
             }
-            // 0x80806A3F => {
-            //     let data = get_component_data!(SStaticAmbientOcclusionComponent);
-            //     if let Some(ao) = data.ao.0.clone() {
-            //         world.insert_one(entity, StaticAmbientOcclusion::new(ao))?;
-            //     }
+        }
+        0x80808543 => {
+            let data = get_component_data!(SShadowingLightComponent);
+            let Some(light) = data.light.0.as_ref() else {
+                return Ok(ComponentLoadResult::Skipped);
+            };
+
+            let transform = world
+                .get::<&Transform>(entity)
+                .clone()
+                .map(|c| *c)
+                .unwrap_or_default();
+            // let shadowmap = ShadowMap::create(
+            //     transform,
+            //     (light.half_fov * 2.0).to_degrees(),
+            //     0.5,
+            //     light.far_plane,
+            // );
+
+            let mut light_renderer =
+                LightRenderer::new_shadowing(renderer, light).context("reading shadowing light")?;
+            let bb = light_renderer.calculate_bounds();
+
+            // let mut view = View::new_shadow(
+            //     format!("shadow_{}", data.light.taghash()),
+            //     &renderer.gpu,
+            //     (
+            //         ShadowView::SHADOWMAP_RESOLUTION,
+            //         ShadowView::SHADOWMAP_RESOLUTION,
+            //     ),
+            // )
+            // .expect("Failed to create shadowmap view");
+
+            // if once!() {
+            //     warn!("Culling is disabled for shadow views");
             // }
-            // 0x808068E6 => {
-            //     let data = get_component_data!(SRoadDecalCollectionComponent);
-            //     let Some(_) = data.tag.as_ref() else {
-            //         continue;
-            //     };
+            // view.disable_culling = true;
+
+            // let ViewKind::Shadow(v) = &view.kind else {
+            //     unreachable!("view is not a shadow view even though we just created it");
+            // };
+
+            // let surf = &v.shadow_map;
+            // light_renderer.shadow_view =
+            //     Some((surf.texture.clone(), surf.srv(0).unwrap().clone()));
+
+            let render_obj = RenderObject::new(TfxFeatureRenderer::DeferredLights, light_renderer);
+
+            world.insert(
+                entity,
+                (
+                    DynamicRenderObject::new(renderer, renderer.add_object(render_obj)),
+                    bb,
+                    // shadowmap,
+                ),
+            )?;
+        }
+        0x80808334 => {
+            let data = get_component_data!(SLightCollectionComponent);
+            let Some(lights) = data.lights.0.as_ref() else {
+                return Ok(ComponentLoadResult::Skipped);
+            };
+
+            for (light, transform, bounds) in multizip((
+                &lights.lights,
+                &lights.transforms,
+                &lights.occlusion_bounds.bounds,
+            )) {
+                let mut light_renderer = LightRenderer::new(renderer, light, bounds.bb)
+                    .context("Failed to load light")?;
+                let bb = light_renderer.calculate_bounds();
+                let render_obj = renderer.add_object(RenderObject::new(
+                    TfxFeatureRenderer::ChunkedLights,
+                    light_renderer,
+                ));
+
+                // TODO(cohae): ChunkedLights need to be chunked like static geometry
+                world.spawn((
+                    Transform::new(transform.translation.xyz(), transform.rotation, Vec3::ONE),
+                    DynamicRenderObject::new(renderer, render_obj),
+                    bb,
+                ));
+            }
+        }
+        0x80807F3B => {
+            let _data = get_component_data!(SCubemapComponent);
+
+            //     let render_obj = RenderObject::new(
+            //         TfxFeatureRenderer::Cubemaps,
+            //         Box::new(CubemapRenderer::load(&renderer.gpu, data)?),
+            //     );
 
             //     world.insert_one(
             //         entity,
-            //         StaticRenderObject::new(
-            //             renderer.add_object(RenderObject::new(
-            //                 TfxFeatureRenderer::RoadDecals,
-            //                 RoadDecalCollectionRenderer::load(data.tag.taghash())
-            //                     .context("Failed to load road decal collection")?,
-            //             )),
-            //         ),
+            //         DynamicRenderObject::new(renderer.add_object(render_obj)),
             //     )?;
-            // }
-            // 0x808068D9 => {
-            //     let data = get_component_data!(SWaterPlaneComponent);
-
-            //     let model = DynamicModel::load(data.model, vec![], vec![])?;
-            //     let obj = renderer
-            //         .add_object(RenderObject::new(TfxFeatureRenderer::Water, model));
-            //     world.insert_one(entity, DynamicRenderObject::new(obj))?;
-            // }
-            // 0x80806BBF => {
-            //     let data = get_component_data!(SAtmosphereDataComponent);
-
-            //     let am = &renderer.asset_manager;
-            //     let atmosphere = AtmosphereData {
-            //         atmosphere_lookup_near_0: am.load(data.unk80_tex),
-            //         atmosphere_lookup_far_0: am.load(data.unk90_tex),
-            //         atmosphere_lookup_near_1: am.load(data.unka0_tex),
-            //         atmosphere_lookup_far_1: am.load(data.unkb0_tex),
-            //         atmosphere_lookup_vertical: am.load(data.unkc0_tex),
-            //     };
-
-            //     world.insert_one(entity, atmosphere)?;
-            // }
-            // 0x80806A6F => {
-            //     if let Some(ref sun) = *get_component_data!(SSunDataComponent).unk0 {
-            //         let SUnk80808ac8Variant::SSunAngles(a0) = &*sun.unk10.unk10;
-            //         // let SUnk80808ac8Variant::SSunAngles(_a1) = &*sun.unk14.unk10;
-            //         let SUnk80808ac8Variant::SSunAngles(a2) = &*sun.unk18.unk10;
-            //         // let SUnk80808ac8Variant::SSunAngles(_a3) = &*sun.unk1c.unk10;
-
-            //         world.insert_one(
-            //             entity,
-            //             SunDirections {
-            //                 sun_directions: a0.angles.clone(),
-            //                 atmosphere_directions: a2.angles.clone(),
-            //             },
-            //         )?;
-            //     }
-            // }
-            // 0x80809479 => {
-            //     let mut f = Cursor::new(package_manager().read_tag(component.taghash())?);
-            //     f.seek(SeekFrom::Start(component.unk18.offset))?;
-
-            //     let globals = SUnk80808179::read_ds(&mut f)?;
-            //     for g in globals.unk1c8.iter().chain(globals.unk1d8.iter()) {
-            //         match &*g.unk18 {
-            //             SUnk808091f1Variant::SSequenceGlobalChannel(c) => {
-            //                 let r = &globals.unk1f8[c.other_index as usize];
-            //                 world.spawn((GlobalChannelExpression {
-            //                     channel_id: r.unk30,
-            //                     bytecode: c.bytecode.clone(),
-            //                     bytecode_constants: c.bytecode_constants.clone(),
-            //                 },));
-            //             }
-            //             SUnk808091f1Variant::Unknown {
-            //                 class: _,
-            //                 offset: _,
-            //             } => {
-            //                 // warn!(
-            //                 //     "Unknown sequence class: {:08X} at offset: {:#X} in {}",
-            //                 //     class,
-            //                 //     offset,
-            //                 //     component.taghash()
-            //                 // );
-            //             }
-            //             _ => {
-            //                 debug!("Unimplemented SUnk808091f1Variant: {g:?}");
-            //             }
-            //         }
-            //     }
-
-            //     // for (i, v) in globals.unk1f8.iter().enumerate() {
-            //     //     println!(
-            //     //         "{i}: 0x{:08X} ({:?})",
-            //     //         v.unk30,
-            //     //         get_global_channel_name(v.unk30)
-            //     //     );
-            //     // }
-
-            //     add_unknown_component!("Sequence");
-            // }
-            0x808085DD => {
-                let data = get_component_data!(SUmbraTomeComponent);
-                let Some(tomes) = &*data.tag else {
-                    tracing::error!("Missing tag for SUmbraTomeComponent");
-                    continue;
-                };
-
-                let tome0_data = package_manager()
-                    .read_tag(tomes.tome0)
-                    .context("failed to read tome0 data")?;
-                let tome = umbra::Tome::load_from_buffer(&tome0_data);
-
-                world.insert_one(entity, tome);
-            }
-            u => {
-                debug!(
-                    "\t- Unknown entity component type {:08X}, tag {:08X}, data type {:08X}/{} \
-                     (table {})",
-                    u,
-                    component.unk10.resource_type,
-                    data.class_id(),
-                    data.class_name(),
-                    component.taghash()
-                );
-                if let Some(map_data) = map_data_list {
-                    debug!(
-                        "\t\t- Has map data ({})",
-                        map_data
-                            .iter()
-                            .enumerate()
-                            .map(|(i, c)| format!("[{i}]={}({:08X})", c.class_name(), c.class_id()))
-                            .join(", ")
-                    );
-                }
-
-                if let ComponentData::Unknown { .. } = data {
-                } else {
-                    error!(
-                        "Defined component data type 0x{:X} ({}) was not used while instancing \
-                         components! (component class 0x{u:X})",
-                        data.class_id(),
-                        data.class_name()
-                    );
-                }
-
-                add_unknown_component!(None);
-            }
         }
+        // 0x80806A3F => {
+        //     let data = get_component_data!(SStaticAmbientOcclusionComponent);
+        //     if let Some(ao) = data.ao.0.clone() {
+        //         world.insert_one(entity, StaticAmbientOcclusion::new(ao))?;
+        //     }
+        // }
+        // 0x808068E6 => {
+        //     let data = get_component_data!(SRoadDecalCollectionComponent);
+        //     let Some(_) = data.tag.as_ref() else {
+        //         continue;
+        //     };
+
+        //     world.insert_one(
+        //         entity,
+        //         StaticRenderObject::new(
+        //             renderer.add_object(RenderObject::new(
+        //                 TfxFeatureRenderer::RoadDecals,
+        //                 RoadDecalCollectionRenderer::load(data.tag.taghash())
+        //                     .context("Failed to load road decal collection")?,
+        //             )),
+        //         ),
+        //     )?;
+        // }
+        // 0x808068D9 => {
+        //     let data = get_component_data!(SWaterPlaneComponent);
+
+        //     let model = DynamicModel::load(data.model, vec![], vec![])?;
+        //     let obj = renderer
+        //         .add_object(RenderObject::new(TfxFeatureRenderer::Water, model));
+        //     world.insert_one(entity, DynamicRenderObject::new(obj))?;
+        // }
+        // 0x80806BBF => {
+        //     let data = get_component_data!(SAtmosphereDataComponent);
+
+        //     let am = &renderer.asset_manager;
+        //     let atmosphere = AtmosphereData {
+        //         atmosphere_lookup_near_0: am.load(data.unk80_tex),
+        //         atmosphere_lookup_far_0: am.load(data.unk90_tex),
+        //         atmosphere_lookup_near_1: am.load(data.unka0_tex),
+        //         atmosphere_lookup_far_1: am.load(data.unkb0_tex),
+        //         atmosphere_lookup_vertical: am.load(data.unkc0_tex),
+        //     };
+
+        //     world.insert_one(entity, atmosphere)?;
+        // }
+        // 0x80806A6F => {
+        //     if let Some(ref sun) = *get_component_data!(SSunDataComponent).unk0 {
+        //         let SUnk80808ac8Variant::SSunAngles(a0) = &*sun.unk10.unk10;
+        //         // let SUnk80808ac8Variant::SSunAngles(_a1) = &*sun.unk14.unk10;
+        //         let SUnk80808ac8Variant::SSunAngles(a2) = &*sun.unk18.unk10;
+        //         // let SUnk80808ac8Variant::SSunAngles(_a3) = &*sun.unk1c.unk10;
+
+        //         world.insert_one(
+        //             entity,
+        //             SunDirections {
+        //                 sun_directions: a0.angles.clone(),
+        //                 atmosphere_directions: a2.angles.clone(),
+        //             },
+        //         )?;
+        //     }
+        // }
+        // 0x80809479 => {
+        //     let mut f = Cursor::new(package_manager().read_tag(component.taghash())?);
+        //     f.seek(SeekFrom::Start(component.unk18.offset))?;
+
+        //     let globals = SUnk80808179::read_ds(&mut f)?;
+        //     for g in globals.unk1c8.iter().chain(globals.unk1d8.iter()) {
+        //         match &*g.unk18 {
+        //             SUnk808091f1Variant::SSequenceGlobalChannel(c) => {
+        //                 let r = &globals.unk1f8[c.other_index as usize];
+        //                 world.spawn((GlobalChannelExpression {
+        //                     channel_id: r.unk30,
+        //                     bytecode: c.bytecode.clone(),
+        //                     bytecode_constants: c.bytecode_constants.clone(),
+        //                 },));
+        //             }
+        //             SUnk808091f1Variant::Unknown {
+        //                 class: _,
+        //                 offset: _,
+        //             } => {
+        //                 // warn!(
+        //                 //     "Unknown sequence class: {:08X} at offset: {:#X} in {}",
+        //                 //     class,
+        //                 //     offset,
+        //                 //     component.taghash()
+        //                 // );
+        //             }
+        //             _ => {
+        //                 debug!("Unimplemented SUnk808091f1Variant: {g:?}");
+        //             }
+        //         }
+        //     }
+
+        //     // for (i, v) in globals.unk1f8.iter().enumerate() {
+        //     //     println!(
+        //     //         "{i}: 0x{:08X} ({:?})",
+        //     //         v.unk30,
+        //     //         get_global_channel_name(v.unk30)
+        //     //     );
+        //     // }
+
+        //     add_unknown_component!("Sequence");
+        // }
+        0x808085DD => {
+            let data = get_component_data!(SUmbraTomeComponent);
+            let Some(tomes) = &*data.tag else {
+                tracing::error!("Missing tag for SUmbraTomeComponent");
+                return Ok(ComponentLoadResult::Skipped);
+            };
+
+            let tome0_data = package_manager()
+                .read_tag(tomes.tome0)
+                .context("failed to read tome0 data")?;
+            let tome = umbra::Tome::load_from_buffer(&tome0_data);
+
+            world.insert_one(entity, tome);
+        }
+        u => return Ok(ComponentLoadResult::Skipped),
     }
 
-    Ok(entity)
+    Ok(ComponentLoadResult::Loaded)
 }

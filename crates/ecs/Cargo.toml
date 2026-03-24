@@ -6,6 +6,10 @@ edition = "2024"
 [dependencies]
 deimos-data = { path = "../data" }
 
+anyhow.workspace = true
 glam.workspace = true
 hecs.workspace = true
+itertools.workspace = true
 tracing.workspace = true
+tiger-parse.workspace = true
+tiger-pkg.workspace = true

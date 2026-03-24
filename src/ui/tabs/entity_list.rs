@@ -1,7 +1,10 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use deimos_data::{pattern::SPattern, tfx::geometry::AxisAlignedBBox};
-use deimos_ecs::transform::Transform;
+use deimos_ecs::{
+    transform::Transform,
+    world::pattern::{spawn_pattern, spawn_pattern_from_header},
+};
 use deimos_render::renderer::Renderer;
 use egui::Ui;
 use tiger_parse::{PackageManagerExt, TigerReadable};
@@ -10,7 +13,7 @@ use tiger_pkg::{TagHash, package_manager};
 use super::TabResult;
 use crate::{
     ui::tabs::model_list::{ModelEntry, ModelListBase, ModelProvider},
-    world::pattern::{spawn_pattern, spawn_pattern_from_header},
+    world::pattern::load_component,
 };
 
 pub struct EntityListTab {
@@ -94,7 +97,15 @@ impl ModelProvider for EntityModelProvider {
         hash: TagHash,
         world: &mut hecs::World,
     ) -> anyhow::Result<hecs::Entity> {
-        spawn_pattern(&self.renderer, world, hash, None, None)
+        spawn_pattern(
+            world,
+            hash,
+            None,
+            None,
+            |world, entity, pattern, data, component| {
+                load_component(&self.renderer, world, entity, pattern, data, component)
+            },
+        )
     }
 
     fn load_package(&mut self, pkg_id: u16) {
@@ -115,11 +126,20 @@ impl ModelProvider for EntityModelProvider {
                     Ok(pattern) => {
                         let mut world = hecs::World::new();
                         if let Err(e) = spawn_pattern_from_header(
-                            &self.renderer,
                             &mut world,
                             &pattern,
                             None,
                             Some(Transform::default()),
+                            |world, entity, pattern, data, component| {
+                                load_component(
+                                    &self.renderer,
+                                    world,
+                                    entity,
+                                    pattern,
+                                    data,
+                                    component,
+                                )
+                            },
                         ) {
                             error!("Failed to load pattern {hash}: {e}");
                         }
