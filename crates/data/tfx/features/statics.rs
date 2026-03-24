@@ -4,7 +4,7 @@ use tiger_parse::tiger_type;
 use tiger_pkg::TagHash;
 
 use crate::{
-    tag::Tag,
+    tag::TagRef,
     tfx::{
         common::SOcclusionBounds, geometry::AxisAlignedBBox, LodCategory, PrimitiveType,
         RenderStage,
@@ -16,7 +16,7 @@ use crate::{
 pub struct SStaticMesh {
     pub file_size: u64,
     /// GenerateGbuffer/DepthPrepass/ShadowGenerate
-    pub opaque_meshes: Tag<SStaticMeshData>,
+    pub opaque_meshes: TagRef<SStaticMeshData>,
     pub unkc: u32,
     pub techniques: Vec<TagHash>,
     /// Transparents, decals, light shaft occluders, etc.
@@ -82,7 +82,7 @@ pub struct SStaticMeshGroup {
 #[tiger_type(id = 0x8080A7F1, size = 0xC0)]
 pub struct SStaticMeshInstances {
     #[tiger(offset = 0x18)]
-    pub occlusion_bounds: Tag<SOcclusionBounds>,
+    pub occlusion_bounds: TagRef<SOcclusionBounds>,
     #[tiger(offset = 0x40)]
     pub transforms: Vec<SStaticInstanceTransform>,
     pub unk50: u64,

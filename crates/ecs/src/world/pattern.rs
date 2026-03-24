@@ -1,18 +1,21 @@
+use std::io::{Cursor, Seek, SeekFrom};
+
 use anyhow::Context;
 use deimos_data::{
     map::{ComponentData, SComponentDataListPtr},
     pattern::{SComponent, SPattern},
-    tag::Tag,
+    strings::StringContainer,
+    tag::{TagRef, WideHash},
 };
 
 use itertools::Itertools;
-use tiger_parse::PackageManagerExt;
+use tiger_parse::{FnvHash, PackageManagerExt, TigerReadable};
 use tiger_pkg::{TagHash, package_manager};
 use tracing::{debug, error};
 
 use crate::{
-    UnimplementedTigerComponent, UnimplementedTigerComponents, transform::Transform,
-    world::map::ComponentLoadResult,
+    UnimplementedTigerComponent, UnimplementedTigerComponents, interactibles::Pingable,
+    transform::Transform, world::map::ComponentLoadResult,
 };
 
 #[macro_export]
@@ -36,7 +39,7 @@ where
         hecs::Entity,
         &SPattern,
         &ComponentData,
-        &Tag<SComponent>,
+        &TagRef<SComponent>,
     ) -> anyhow::Result<ComponentLoadResult>,
 {
     let header = package_manager()
@@ -58,7 +61,7 @@ where
         hecs::Entity,
         &SPattern,
         &ComponentData,
-        &Tag<SComponent>,
+        &TagRef<SComponent>,
     ) -> anyhow::Result<ComponentLoadResult>,
 {
     let entity = world.spawn(());
@@ -67,7 +70,9 @@ where
     }
 
     for e in &header.components {
-        let component = &e.unk0;
+        let mut cur = Cursor::new(package_manager().read_tag(e.component)?);
+        let component = TagRef::new(SComponent::read_ds(&mut cur)?, e.component);
+        cur.seek(SeekFrom::Start(component.unk18.offset))?;
 
         macro_rules! add_unknown_component {
             ($name:expr) => {
@@ -114,49 +119,60 @@ where
             };
         }
 
-        match callback(world, entity, header, data, component).context("component load callback")? {
+        match callback(world, entity, header, data, &component)
+            .context("component load callback")?
+        {
             ComponentLoadResult::Loaded => {
                 continue;
             }
             ComponentLoadResult::Skipped => {}
         }
 
-        // match component.unk10.resource_type {
-        //     u => {
-        let u = component.unk10.resource_type;
-        debug!(
-            "\t- Unknown entity component type {:08X}, tag {:08X}, data type {:08X}/{} \
+        match component.unk10.resource_type {
+            0x80802976 => {
+                cur.seek(SeekFrom::Start(component.unk18.offset + 0x68))?;
+                let hash = FnvHash::read_ds(&mut cur)?;
+                cur.seek(SeekFrom::Start(component.unk18.offset + 0x78))?;
+                let string_table = WideHash::read_ds(&mut cur)?;
+
+                let container = StringContainer::load(string_table)?;
+                let name = container.0.get(&hash).cloned();
+                world.insert_one(entity, Pingable { name })?;
+            }
+            u => {
+                debug!(
+                    "\t- Unknown entity component type {:08X}, tag {:08X}, data type {:08X}/{} \
                      (table {})",
-            u,
-            component.unk10.resource_type,
-            data.class_id(),
-            data.class_name(),
-            component.taghash()
-        );
-        if let Some(map_data) = map_data_list {
-            debug!(
-                "\t\t- Has map data ({})",
-                map_data
-                    .iter()
-                    .enumerate()
-                    .map(|(i, c)| format!("[{i}]={}({:08X})", c.class_name(), c.class_id()))
-                    .join(", ")
-            );
-        }
+                    u,
+                    component.unk10.resource_type,
+                    data.class_id(),
+                    data.class_name(),
+                    component.taghash()
+                );
+                if let Some(map_data) = map_data_list {
+                    debug!(
+                        "\t\t- Has map data ({})",
+                        map_data
+                            .iter()
+                            .enumerate()
+                            .map(|(i, c)| format!("[{i}]={}({:08X})", c.class_name(), c.class_id()))
+                            .join(", ")
+                    );
+                }
 
-        if let ComponentData::Unknown { .. } = data {
-        } else {
-            error!(
-                "Defined component data type 0x{:X} ({}) was not used while instancing \
+                if let ComponentData::Unknown { .. } = data {
+                } else {
+                    error!(
+                        "Defined component data type 0x{:X} ({}) was not used while instancing \
                          components! (component class 0x{u:X})",
-                data.class_id(),
-                data.class_name()
-            );
-        }
+                        data.class_id(),
+                        data.class_name()
+                    );
+                }
 
-        add_unknown_component!(None);
-        // }
-        // }
+                add_unknown_component!(None);
+            }
+        }
     }
 
     Ok(entity)

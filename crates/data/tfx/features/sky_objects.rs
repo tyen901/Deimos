@@ -2,7 +2,7 @@ use glam::Mat4;
 use tiger_parse::tiger_type;
 use tiger_pkg::TagHash;
 
-use crate::{tag::Tag, tfx::geometry::AxisAlignedBBox};
+use crate::{tag::TagRef, tfx::geometry::AxisAlignedBBox};
 
 #[derive(Clone, Debug)]
 #[tiger_type(id = 0x8080837C)]
@@ -22,7 +22,7 @@ pub struct SUnk80806f97 {
     /// Same as the bounding box from the `SObjectOcclusionBounds` array
     pub bounds: AxisAlignedBBox,
 
-    pub model_ref: Tag<SSkyObjectModelRef>,
+    pub model_ref: TagRef<SSkyObjectModelRef>,
     pub unk64: f32,
     pub unk68: u32,
     pub unk6c: u8,

@@ -10,7 +10,7 @@ use tiger_parse::{tiger_type, FnvHash, PackageManagerExt, Pointer, TigerReadable
 use tiger_pkg::{package_manager, TagHash};
 
 #[derive(Debug)]
-#[tiger_type(id = 0x8080BBE2)]
+#[tiger_type(id = 0x8080B9B8)]
 pub struct SLocalizedStrings {
     pub file_size: u64,
     pub string_hashes: Vec<FnvHash>,
@@ -30,7 +30,7 @@ pub struct SLocalizedStrings {
 }
 
 #[derive(Debug)]
-#[tiger_type(id = 0x8080BBE4)]
+#[tiger_type(id = 0x8080B9BA)]
 pub struct SStringData {
     pub file_size: u64,
     pub string_parts: Vec<SStringPart>,
@@ -41,14 +41,14 @@ pub struct SStringData {
 }
 
 #[derive(Debug)]
-#[tiger_type(id = 0x8080BBE9)]
+#[tiger_type(id = 0x8080B9BE)]
 pub struct SStringCombination {
     pub data: Pointer<()>,
     pub part_count: i64,
 }
 
 #[derive(Debug)]
-#[tiger_type(id = 0x8080BBEB)]
+#[tiger_type(id = 0x8080B9C0)]
 pub struct SStringPart {
     pub _unk0: u64,
     pub data: Pointer<()>,

@@ -3,7 +3,7 @@ use tiger_parse::tiger_type;
 use tiger_pkg::TagHash;
 
 use crate::{
-    tag::{OptionalTag, Tag},
+    tag::{OptionalTag, TagRef},
     tfx::{common::SOcclusionBounds, geometry::AxisAlignedBBox},
 };
 
@@ -11,12 +11,12 @@ use crate::{
 #[tiger_type(id = 0x8080857D)]
 pub struct SDecorator {
     pub file_size: u64,
-    pub unk8: Vec<Tag<SUnk8080717E>>,
+    pub unk8: Vec<TagRef<SUnk8080717E>>,
     pub unk18: Vec<u32>,
     pub unk28: Vec<u32>,
     pub unk38: Vec<u32>,
-    pub unk48: Tag<SUnk80807170>,
-    pub unk4c: Tag<SOcclusionBounds>,
+    pub unk48: TagRef<SUnk80807170>,
+    pub unk4c: TagRef<SOcclusionBounds>,
     pub unk50: Vec<u32>,
     pub unk60: [u32; 4],
     pub bounds: AxisAlignedBBox,
@@ -29,9 +29,9 @@ pub struct SUnk80807170 {
     pub unk8: u32,
     pub unkc: TagHash, // Vertex buffer data? (as opposed to a header)
     pub unk10: u32,
-    pub unk14: Tag<SUnk8080716B>,
+    pub unk14: TagRef<SUnk8080716B>,
     pub instance_buffer: TagHash,
-    pub instance_data: Tag<SDecoratorInstanceData>,
+    pub instance_data: TagRef<SDecoratorInstanceData>,
 }
 
 #[derive(Clone, Debug)]

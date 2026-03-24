@@ -1,7 +1,7 @@
 use tiger_parse::{tiger_type, FnvHash, NullString, Pointer, ResourcePointer};
 use tiger_pkg::TagHash;
 
-use crate::tag::{Tag, WideHash};
+use crate::tag::{TagRef, WideHash};
 
 #[derive(Debug)]
 #[tiger_type(id = 0x8080B383)]
@@ -92,7 +92,7 @@ pub struct SUnk80808948 {
     pub bubble_name: FnvHash,
     pub activity_phase_name: FnvHash,
     pub activity_phase_name2: FnvHash,
-    pub unk_entity_reference: Tag<SUnk80808e89>,
+    pub unk_entity_reference: TagRef<SUnk80808e89>,
 }
 
 #[derive(Debug, Clone)]
@@ -101,7 +101,7 @@ pub struct SUnk80808e89 {
     pub file_size: u64,
     pub unk8: u64,
     pub unk10: ResourcePointer,
-    pub unk18: Tag<SUnk80808ebe>,
+    pub unk18: TagRef<SUnk80808ebe>,
     pub unk1c: u32,
     pub unk20: [u32; 4],
 }
@@ -110,7 +110,7 @@ pub struct SUnk80808e89 {
 #[tiger_type(id = 0x8080B3EA)]
 pub struct SUnk80808ebe {
     pub file_size: u64,
-    pub components: Vec<Tag<Unk80808943>>,
+    pub components: Vec<TagRef<Unk80808943>>,
 }
 
 #[derive(Debug, Clone)]

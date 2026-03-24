@@ -5,7 +5,7 @@ use deimos_data::{
     activity::{SActivity, SUnk80808948},
     map::{ComponentData, SBubbleParent, SMapNodeTable},
     pattern::{SComponent, SPattern},
-    tag::Tag,
+    tag::TagRef,
 };
 use glam::Vec4Swizzles;
 use tiger_parse::{PackageManagerExt, TigerReadable};
@@ -31,7 +31,7 @@ where
         hecs::Entity,
         &SPattern,
         &ComponentData,
-        &Tag<SComponent>,
+        &TagRef<SComponent>,
     ) -> anyhow::Result<ComponentLoadResult>,
 {
     info!("Loading map {taghash}");
@@ -60,7 +60,7 @@ where
         hecs::Entity,
         &SPattern,
         &ComponentData,
-        &Tag<SComponent>,
+        &TagRef<SComponent>,
     ) -> anyhow::Result<ComponentLoadResult>,
 {
     for res in &phase.unk_entity_reference.unk18.components {
@@ -207,7 +207,7 @@ where
         hecs::Entity,
         &SPattern,
         &ComponentData,
-        &Tag<SComponent>,
+        &TagRef<SComponent>,
     ) -> anyhow::Result<ComponentLoadResult>,
 {
     let activity: SActivity = package_manager().read_tag_struct(activity_hash.into())?;
@@ -240,7 +240,7 @@ where
         hecs::Entity,
         &SPattern,
         &ComponentData,
-        &Tag<SComponent>,
+        &TagRef<SComponent>,
     ) -> anyhow::Result<ComponentLoadResult>,
 {
     let table: SMapNodeTable = package_manager().read_tag_struct(table_hash)?;

@@ -1,6 +1,7 @@
 use glam::{Mat4, Vec3};
+use serde::Serialize;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 pub struct Transform {
     pub translation: glam::Vec3,
     pub rotation: glam::Quat,

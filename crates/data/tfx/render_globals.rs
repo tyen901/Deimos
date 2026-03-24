@@ -2,7 +2,7 @@ use glam::Vec4;
 use tiger_parse::{tiger_type, NullString, Pointer};
 use tiger_pkg::TagHash;
 
-use crate::tag::Tag;
+use crate::tag::TagRef;
 
 #[tiger_type(id = 0x8080B61C)]
 pub struct SRenderGlobals {
@@ -15,22 +15,22 @@ pub struct SRenderGlobals {
 pub struct SUnk8080870f {
     pub unk0: u32,
     pub unk4: u32,
-    pub unk8: Tag<SRenderGlobalsData>,
+    pub unk8: TagRef<SRenderGlobalsData>,
     pub unkc: u32,
 }
 
 #[tiger_type(id = 0x80808070)]
 pub struct SRenderGlobalsData {
     pub file_size: u64,
-    pub input_layouts: Tag<SVertexInputLayouts>,
+    pub input_layouts: TagRef<SVertexInputLayouts>,
     _padc: u32,
     pub scopes: Vec<SRenderGlobalScope>,
     pub pipelines: Vec<SRenderGlobalPipelines>,
     /// Lookup textures
-    pub unk30: Tag<SRenderGlobalLookupTextures>,
-    pub global_channels: Tag<SRenderGlobalsGlobalChannels>,
+    pub unk30: TagRef<SRenderGlobalLookupTextures>,
+    pub global_channels: TagRef<SRenderGlobalsGlobalChannels>,
     pub unk38: TagHash,
-    pub unk3c: Tag<SWaterDisplacementGlobals>,
+    pub unk3c: TagRef<SWaterDisplacementGlobals>,
     pub unk40: TagHash,
 }
 
@@ -98,7 +98,7 @@ impl SRenderGlobalsGlobalChannels {
 pub struct SVertexInputLayouts {
     pub file_size: u64,
     pub unk8: u32,
-    pub elements_c: Tag<SVertexInputElementSets>,
+    pub elements_c: TagRef<SVertexInputElementSets>,
     pub elements_10: TagHash,
     pub elements_14: TagHash,
     pub elements_18: TagHash,
@@ -108,7 +108,7 @@ pub struct SVertexInputLayouts {
     pub elements_28: TagHash,
     pub elements_2c: TagHash,
     pub elements_30: TagHash,
-    pub mapping: Tag<SVertexInputLayoutMapping>,
+    pub mapping: TagRef<SVertexInputLayoutMapping>,
 }
 
 #[tiger_type(id = 0x80808664, size = 0x18)]

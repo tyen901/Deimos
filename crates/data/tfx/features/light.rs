@@ -3,7 +3,7 @@ use tiger_parse::tiger_type;
 use tiger_pkg::TagHash;
 
 use crate::{
-    tag::Tag,
+    tag::TagRef,
     tfx::{
         common::{SOcclusionBounds, SRotationTranslation},
         geometry::AxisAlignedBBox,
@@ -20,7 +20,7 @@ pub struct SLightCollection {
     pub transforms: Vec<SRotationTranslation>,
     pub light_count: u32,
     pub unk54: u32,
-    pub occlusion_bounds: Tag<SOcclusionBounds>,
+    pub occlusion_bounds: TagRef<SOcclusionBounds>,
 }
 
 #[derive(Clone, Debug)]

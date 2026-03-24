@@ -4,9 +4,9 @@ use tiger_parse::{PackageManagerExt, TigerReadable};
 use tiger_pkg::{package_manager, TagHash, TagHash64};
 
 #[derive(Clone)]
-pub struct Tag<T: TigerReadable>(pub T, TagHash);
+pub struct TagRef<T: TigerReadable>(pub T, TagHash);
 
-impl<T: TigerReadable> TigerReadable for Tag<T> {
+impl<T: TigerReadable> TigerReadable for TagRef<T> {
     fn read_ds_endian<R: std::io::prelude::Read + std::io::prelude::Seek>(
         reader: &mut R,
         endian: tiger_parse::Endian,
@@ -23,20 +23,24 @@ impl<T: TigerReadable> TigerReadable for Tag<T> {
     const SIZE: usize = TagHash::SIZE;
 }
 
-impl<T: TigerReadable> Tag<T> {
+impl<T: TigerReadable> TagRef<T> {
+    pub const fn new(value: T, taghash: TagHash) -> Self {
+        Self(value, taghash)
+    }
+
     pub const fn taghash(&self) -> TagHash {
         self.1
     }
 }
 
-impl<T: TigerReadable> std::ops::Deref for Tag<T> {
+impl<T: TigerReadable> std::ops::Deref for TagRef<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<T: TigerReadable + Debug> Debug for Tag<T> {
+impl<T: TigerReadable + Debug> Debug for TagRef<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("Tag({}, ", self.1))?;
         self.0.fmt(f)?;

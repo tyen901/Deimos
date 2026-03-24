@@ -7,7 +7,7 @@ use anyhow::Context;
 use deimos_data::{
     map::ComponentData,
     pattern::{SComponent, SPattern},
-    tag::Tag,
+    tag::TagRef,
     tfx::{
         TfxFeatureRenderer,
         features::{dynamic::SDynamicModelComponent, statics::SUnk808082D5},
@@ -45,7 +45,7 @@ pub fn load_component(
     entity: hecs::Entity,
     _pattern: &SPattern,
     data: &ComponentData,
-    component: &Tag<SComponent>,
+    component: &TagRef<SComponent>,
 ) -> anyhow::Result<ComponentLoadResult> {
     macro_rules! get_component_data {
         ($type:ident) => {

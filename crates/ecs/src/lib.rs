@@ -1,5 +1,6 @@
 use tiger_pkg::TagHash;
 
+pub mod interactibles;
 pub mod permutations;
 pub mod transform;
 pub mod world;

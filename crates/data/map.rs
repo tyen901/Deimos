@@ -8,7 +8,7 @@ use tiger_parse::{
 use tiger_pkg::TagHash;
 
 use crate::{
-    tag::{OptionalTag, Tag, WideHash, WideTag},
+    tag::{OptionalTag, TagRef, WideHash, WideTag},
     tfx::features::{
         cubemap::SCubemapComponent,
         decals::SDecalCollection,
@@ -38,7 +38,7 @@ pub struct SBubbleParent {
     pub file_size: u64,
 
     #[offset(0x8)]
-    pub definition: Tag<SBubbleDefinition>,
+    pub definition: TagRef<SBubbleDefinition>,
     pub unkc: Padding<4>,
 
     pub unk10: u64,
