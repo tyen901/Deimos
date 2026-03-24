@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Instant};
 
 use deimos_data::tfx::{FeatureRendererSubscription, geometry::AxisAlignedBBox};
 use deimos_render::{
-    camera::Camera,
+    camera::{Camera, CameraProjection},
     ecs::s_extract_frame_packet,
     gpu::{alloc::descriptors::ResourceView, render_target::RenderTarget},
     renderer::{
@@ -19,7 +19,7 @@ use egui::{
     Color32, FontId, Image, ImageSource, Rect, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2,
     Widget, containers::menu::MenuConfig, load::SizedTexture, vec2,
 };
-use glam::{Vec3, Vec4, vec4};
+use glam::{Vec3, Vec4, vec3, vec4};
 use google_material_symbols::GoogleMaterialSymbols;
 use hecs::World;
 use umbra::QueryErrorCode;
@@ -55,6 +55,7 @@ pub struct Scene {
     // UI
     keep_settings_open: bool,
     show_channel_editor: bool,
+    only_show_used_channels: bool,
 
     umbra_result: QueryErrorCode,
 }
@@ -81,6 +82,7 @@ impl Scene {
             last_frame_time: Instant::now(),
             keep_settings_open: false,
             show_channel_editor: false,
+            only_show_used_channels: true,
             umbra_result: QueryErrorCode::Ok,
         })
     }
@@ -371,12 +373,16 @@ impl Scene {
                 self.sun_light_angle = self.sun_light_angle.rem_euclid(360.0);
             }
 
-            let sun_light_direction = Vec3::new(
-                self.sun_light_angle.to_radians().cos(),
-                self.sun_light_angle.to_radians().sin(),
-                0.7,
-            )
-            .normalize();
+            let sun_light_direction = if self.render_mode == RenderMode::Lookdev {
+                -self.camera.forward()
+            } else {
+                Vec3::new(
+                    self.sun_light_angle.to_radians().cos(),
+                    self.sun_light_angle.to_radians().sin(),
+                    0.7,
+                )
+                .normalize()
+            };
 
             self.scene_renderer
                 .set_global_channel_by_name("sun_light_direction", sun_light_direction.extend(0.0));
@@ -864,10 +870,19 @@ impl Scene {
             .text_styles
             .insert(TextStyle::Button, FontId::proportional(16.0));
 
+        ui.checkbox(&mut self.only_show_used_channels, "Only show used channels");
+
         // let automated_ids = s_get_all_global_channel_ids(&self.world);
         egui::ScrollArea::vertical().show(ui, |ui| {
             ui.heading("Global Channels");
             for (i, channel) in self.scene_renderer.global_channels.iter_mut().enumerate() {
+                let frequency = self.renderer.externs.global_channel_frequency[i]
+                    .load(std::sync::atomic::Ordering::Relaxed);
+
+                if self.only_show_used_channels && frequency == 0 {
+                    continue;
+                }
+
                 let Some(channel_id) = self.renderer.externs.global_ids.get(i) else {
                     continue;
                 };
@@ -883,6 +898,7 @@ impl Scene {
                     if is_automated {
                         ui.weak("(automated)");
                     }
+                    ui.weak(format!("used x{frequency}"))
                 });
                 ui.add_enabled_ui(!is_automated, |ui| {
                     ui.horizontal(|ui| {
@@ -1034,7 +1050,7 @@ impl RenderMode {
 impl From<RenderMode> for Option<DebugPipeline> {
     fn from(val: RenderMode) -> Self {
         match val {
-            RenderMode::Lookdev => None,
+            RenderMode::Lookdev => Some(DebugPipeline::GlobalLightingShading),
             RenderMode::Shaded => Some(DebugPipeline::GlobalLightingShading),
             RenderMode::ShadedNoSun => Some(DebugPipeline::DeferredShading),
             RenderMode::ShadingOnly => Some(DebugPipeline::DeferredShadingNoAtm),

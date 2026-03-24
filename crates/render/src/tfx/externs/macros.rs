@@ -10,6 +10,7 @@ macro_rules! extern_container {
             )*
 
             pub globals: [Vec4; 256],
+            pub global_channel_frequency: [AtomicUsize; 256],
             pub global_ids: Vec<u32>,
         }
 
@@ -35,6 +36,12 @@ macro_rules! extern_container {
                     _ => None,
                 }
             }
+
+            pub fn reset_global_channel_frequencies(&self) {
+                for freq in self.global_channel_frequency.iter() {
+                    freq.store(0, std::sync::atomic::Ordering::Relaxed);
+                }
+            }
         }
 
         impl ExternAccessor for ExternContainer {
@@ -50,6 +57,7 @@ macro_rules! extern_container {
             }
 
             fn get_global_channel(&self, index: u8) -> Vec4 {
+                self.global_channel_frequency[index as usize].fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 self.globals[index as usize]
             }
         }
@@ -66,6 +74,7 @@ macro_rules! extern_container {
                         $name: Default::default(),
                     )*
                     globals,
+                    global_channel_frequency: [const { AtomicUsize::new(0) }; 256],
                     global_ids: global_channels.channel_ids.clone(),
                 };
 

@@ -1,11 +1,12 @@
 use std::any::TypeId;
 
 use crate::tfx::externs::{
-    BaseExternSource, Extern, ExternAccessor,
     macros::{extern_container, local_extern_container},
+    BaseExternSource, Extern, ExternAccessor,
 };
 use deimos_data::{hash::fnv1, tfx::ExternIndex};
 use glam::Vec4;
+use std::sync::atomic::AtomicUsize;
 
 use super::definitions::*;
 

@@ -38,12 +38,18 @@ pub struct SceneRenderer {
 
 impl SceneRenderer {
     pub fn new(parent: Arc<Renderer>) -> anyhow::Result<Self> {
-        Ok(Self {
+        let mut r = Self {
             frame_packet: FramePacket::default(),
             main_view: ShadedView::new(&parent.gpu, (1920, 1080))?,
             global_channels: parent.globals.channels.default_values(),
             parent,
-        })
+        };
+
+        r.set_global_channel_by_name("global_ambient_intensity", Vec4::splat(10.0));
+        r.set_global_channel_by_name("sun_direct_intensity", Vec4::splat(1.3));
+        r.set_global_channel_by_id(0xE16B6B6B, Vec4::splat(250000.0));
+
+        Ok(r)
     }
 
     pub fn render(
@@ -52,6 +58,7 @@ impl SceneRenderer {
         visibility: &ViewVisibility,
         debug_pipeline: Option<DebugPipeline>,
     ) {
+        self.parent.externs.reset_global_channel_frequencies();
         let gpu = cmd.gpu().clone();
         let stream = &gpu.frame().stream;
 

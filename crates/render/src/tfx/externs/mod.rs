@@ -249,7 +249,7 @@ impl ExternAccessor for BaseExternSource {
     fn get_global_channel(&self, index: u8) -> Vec4 {
         match self {
             Self::None => Vec4::ONE,
-            Self::Renderer(renderer) => renderer.externs.globals[index as usize],
+            Self::Renderer(renderer) => renderer.externs.get_global_channel(index),
         }
     }
 }
