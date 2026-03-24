@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::Context;
 use deimos_data::{
-    map::{ComponentData, SComponentDataListPtr},
+    map::ComponentData,
     pattern::{SComponent, SPattern},
     tag::Tag,
     tfx::{
@@ -29,9 +29,7 @@ use deimos_render::{
 use glam::{Vec3, Vec4Swizzles};
 use itertools::{Itertools, multizip};
 use tiger_parse::{PackageManagerExt, TigerReadable};
-use tiger_pkg::{TagHash, package_manager};
-
-use deimos_ecs::{UnimplementedTigerComponent, UnimplementedTigerComponents};
+use tiger_pkg::package_manager;
 
 #[macro_export]
 macro_rules! once {
@@ -45,7 +43,7 @@ pub fn load_component(
     renderer: &Arc<Renderer>,
     world: &mut hecs::World,
     entity: hecs::Entity,
-    pattern: &SPattern,
+    _pattern: &SPattern,
     data: &ComponentData,
     component: &Tag<SComponent>,
 ) -> anyhow::Result<ComponentLoadResult> {
@@ -240,7 +238,7 @@ pub fn load_component(
                 return Ok(ComponentLoadResult::Skipped);
             };
 
-            let transform = world
+            let _transform = world
                 .get::<&Transform>(entity)
                 .clone()
                 .map(|c| *c)
@@ -447,7 +445,7 @@ pub fn load_component(
 
             world.insert_one(entity, tome);
         }
-        u => return Ok(ComponentLoadResult::Skipped),
+        _u => return Ok(ComponentLoadResult::Skipped),
     }
 
     Ok(ComponentLoadResult::Loaded)

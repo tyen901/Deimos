@@ -1,20 +1,12 @@
-use std::io::{Cursor, Seek, SeekFrom};
-
 use anyhow::Context;
 use deimos_data::{
     map::{ComponentData, SComponentDataListPtr},
     pattern::{SComponent, SPattern},
     tag::Tag,
-    tfx::{
-        TfxFeatureRenderer,
-        features::{dynamic::SDynamicModelComponent, statics::SUnk808082D5},
-        geometry::AxisAlignedBBox,
-    },
 };
 
-use glam::{Vec3, Vec4Swizzles};
 use itertools::Itertools;
-use tiger_parse::{PackageManagerExt, TigerReadable};
+use tiger_parse::PackageManagerExt;
 use tiger_pkg::{TagHash, package_manager};
 use tracing::{debug, error};
 

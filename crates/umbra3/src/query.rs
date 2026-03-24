@@ -5,8 +5,8 @@ use umbra3_sys::{
     Umbra_Matrix4x4, Umbra_MatrixFormat_MF_COLUMN_MAJOR, Umbra_OcclusionBuffer,
     Umbra_OcclusionBuffer_BufferDesc, Umbra_OcclusionBuffer_Format_FORMAT_HISTOGRAM_8BPP,
     Umbra_OcclusionBuffer_Format_FORMAT_NDC_FLOAT,
-    Umbra_OcclusionBuffer_VisibilityTestResult_OCCLUDED, Umbra_Query,
-    Umbra_Vector3, Umbra_Visibility,
+    Umbra_OcclusionBuffer_VisibilityTestResult_OCCLUDED, Umbra_Query, Umbra_Vector3,
+    Umbra_Visibility,
 };
 
 use crate::Tome;

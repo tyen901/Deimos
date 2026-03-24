@@ -239,7 +239,7 @@ impl<'a> TextureCopyLocation<'a> {
 pub struct ResourceBarrier<'a>(pub(crate) D3D12_RESOURCE_BARRIER, PhantomData<&'a ()>);
 
 impl<'a> ResourceBarrier<'a> {
-    pub fn transition(
+    pub const fn transition(
         resource: &'a Resource,
         subresource: u32,
         state_before: ResourceStates,
