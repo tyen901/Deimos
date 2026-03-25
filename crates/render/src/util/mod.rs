@@ -1,4 +1,5 @@
 pub mod byteutil;
+pub mod filtering;
 pub mod fps_histogram;
 pub mod geometry;
 pub mod math;

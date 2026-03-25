@@ -117,6 +117,7 @@ impl<P: ModelProvider> ModelListBase<P> {
                     );
 
                     self.thumbnail_scene.set_world(world);
+                    self.thumbnail_scene.controller = CameraController::new_orbit(Vec3::ZERO, 25.0);
                     self.thumbnail_scene.focus_fit_ortho(&bb);
                     match self
                         .thumbnail_scene

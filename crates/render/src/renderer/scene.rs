@@ -45,9 +45,10 @@ impl SceneRenderer {
             parent,
         };
 
-        r.set_global_channel_by_name("global_ambient_intensity", Vec4::splat(10.0));
+        r.set_global_channel_by_name("global_ambient_intensity", Vec4::splat(0.0));
         r.set_global_channel_by_name("sun_direct_intensity", Vec4::splat(1.3));
-        r.set_global_channel_by_id(0xE16B6B6B, Vec4::splat(250000.0));
+        r.set_global_channel_by_id(0xE16B6B6B, Vec4::splat(1000000.0));
+        r.set_global_channel_by_id(0x462A7037, Vec4::splat(0.0)); // >0 causes moss to glow?
 
         Ok(r)
     }
@@ -58,6 +59,16 @@ impl SceneRenderer {
         visibility: &ViewVisibility,
         debug_pipeline: Option<DebugPipeline>,
     ) {
+        let use_hdri = matches!(
+            debug_pipeline,
+            Some(
+                DebugPipeline::GlobalLightingShading
+                    | DebugPipeline::DeferredShading
+                    | DebugPipeline::DeferredShadingNoAtm
+                    | DebugPipeline::LightDiffuse
+                    | DebugPipeline::LightSpecular
+            ),
+        );
         self.parent.externs.reset_global_channel_frequencies();
         let gpu = cmd.gpu().clone();
         let stream = &gpu.frame().stream;
@@ -188,6 +199,12 @@ impl SceneRenderer {
                     .gbuffer
                     .depth
                     .transition(cmd, d3d12::ResourceStates::DEPTH_READ);
+                self.main_view
+                    .gbuffer
+                    .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
+                self.main_view
+                    .light
+                    .transition(cmd, d3d12::ResourceStates::RENDER_TARGET);
 
                 {
                     let _scope = self
@@ -195,10 +212,77 @@ impl SceneRenderer {
                         .gpu
                         .profiler_scope(stream, "submit_lighting_apply");
                     self.main_view.light.clear(cmd);
+
+                    if use_hdri {
+                        self.main_view.light.bind_for_cubemaps(cmd);
+                        self.parent.apply_hdri_light(cmd);
+                    }
+
                     self.main_view.light.bind_for_lights(cmd);
                     cmd.set_ffstate(FixedFunctionState::new(Some(2), None, Some(2), Some(2)));
                     cmd.flush_states();
                     self.submit_stage_serial(cmd, stream, view, RenderStage::LightingApply);
+                }
+
+                self.main_view
+                    .light
+                    .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
+                self.main_view
+                    .output
+                    .transition(cmd, d3d12::ResourceStates::RENDER_TARGET);
+
+                cmd.set_ffstate(FixedFunctionState::new(Some(8), Some(15), Some(2), Some(1)));
+                if let Some(debug_pipeline) = debug_pipeline {
+                    cmd.set_render_targets(&[&self.main_view.output], None);
+
+                    let p = &self.parent.globals.pipelines;
+                    let technique = match debug_pipeline {
+                        DebugPipeline::GlobalLightingShading => &p.global_lighting_and_shading,
+                        DebugPipeline::DeferredShading => &p.deferred_shading,
+                        DebugPipeline::DeferredShadingNoAtm => &p.deferred_shading_no_atm,
+                        DebugPipeline::Albedo => &p.debug_source_color,
+                        DebugPipeline::Smoothness => &p.debug_specular_smoothness,
+                        DebugPipeline::Metalness => &p.debug_metalness,
+                        DebugPipeline::AmbientOcclusion => &p.debug_ambient_occlusion,
+                        DebugPipeline::Emission => &p.debug_emissive,
+                        DebugPipeline::EmissionIntensity => &p.debug_emissive_intensity,
+                        DebugPipeline::Transmission => &p.debug_transmission,
+                        DebugPipeline::Overcoat => &p.debug_colored_overcoat_id,
+                        DebugPipeline::DepthEdges => &p.debug_depth_edges,
+                        DebugPipeline::WorldNormal => &p.debug_world_normal,
+                        DebugPipeline::LightDiffuse => &p.debug_diffuse_light,
+                        DebugPipeline::LightSpecular => &p.debug_specular_light,
+
+                        DebugPipeline::Overdraw => &p.global_lighting_and_shading,
+                    };
+
+                    self.parent.execute_global_pipeline(
+                        cmd,
+                        technique,
+                        &format!("{debug_pipeline:?}"),
+                    );
+                } else {
+                    self.main_view
+                        .gbuffer
+                        .albedo
+                        .transition(cmd, d3d12::ResourceStates::COPY_SOURCE);
+                    self.main_view
+                        .output
+                        .transition(cmd, d3d12::ResourceStates::COPY_DEST);
+
+                    cmd.copy_resource(
+                        self.main_view.gbuffer.albedo.resource.resource(),
+                        self.main_view.output.resource.resource(),
+                    );
+                }
+
+                self.main_view
+                    .output
+                    .transition(cmd, d3d12::ResourceStates::RENDER_TARGET);
+
+                if use_hdri {
+                    cmd.set_render_targets(&[&self.main_view.output], None);
+                    self.parent.draw_hdri_background(cmd);
                 }
 
                 {
@@ -216,61 +300,6 @@ impl SceneRenderer {
                     self.submit_stage_serial(cmd, stream, view, RenderStage::Transparents);
                 }
             }
-
-            self.main_view
-                .gbuffer
-                .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
-            self.main_view
-                .light
-                .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
-            self.main_view
-                .output
-                .transition(cmd, d3d12::ResourceStates::RENDER_TARGET);
-
-            if let Some(debug_pipeline) = debug_pipeline {
-                cmd.set_render_targets(&[&self.main_view.output], None);
-
-                let p = &self.parent.globals.pipelines;
-                let technique = match debug_pipeline {
-                    DebugPipeline::GlobalLightingShading => &p.global_lighting_and_shading,
-                    DebugPipeline::DeferredShading => &p.deferred_shading,
-                    DebugPipeline::DeferredShadingNoAtm => &p.deferred_shading_no_atm,
-                    DebugPipeline::Albedo => &p.debug_source_color,
-                    DebugPipeline::Smoothness => &p.debug_specular_smoothness,
-                    DebugPipeline::Metalness => &p.debug_metalness,
-                    DebugPipeline::AmbientOcclusion => &p.debug_ambient_occlusion,
-                    DebugPipeline::Emission => &p.debug_emissive,
-                    DebugPipeline::EmissionIntensity => &p.debug_emissive_intensity,
-                    DebugPipeline::Transmission => &p.debug_transmission,
-                    DebugPipeline::Overcoat => &p.debug_colored_overcoat_id,
-                    DebugPipeline::DepthEdges => &p.debug_depth_edges,
-                    DebugPipeline::WorldNormal => &p.debug_world_normal,
-                    DebugPipeline::LightDiffuse => &p.debug_diffuse_light,
-                    DebugPipeline::LightSpecular => &p.debug_specular_light,
-
-                    DebugPipeline::Overdraw => &p.global_lighting_and_shading,
-                };
-
-                self.parent
-                    .execute_global_pipeline(cmd, technique, &format!("{debug_pipeline:?}"));
-            } else {
-                self.main_view
-                    .gbuffer
-                    .albedo
-                    .transition(cmd, d3d12::ResourceStates::COPY_SOURCE);
-                self.main_view
-                    .output
-                    .transition(cmd, d3d12::ResourceStates::COPY_DEST);
-
-                cmd.copy_resource(
-                    self.main_view.gbuffer.albedo.resource.resource(),
-                    self.main_view.output.resource.resource(),
-                );
-            }
-
-            self.main_view
-                .output
-                .transition(cmd, d3d12::ResourceStates::RENDER_TARGET);
         }
     }
 

@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Instant};
 
 use deimos_data::tfx::{FeatureRendererSubscription, geometry::AxisAlignedBBox};
 use deimos_render::{
-    camera::{Camera, CameraProjection},
+    camera::Camera,
     ecs::s_extract_frame_packet,
     gpu::{alloc::descriptors::ResourceView, render_target::RenderTarget},
     renderer::{
@@ -19,7 +19,7 @@ use egui::{
     Color32, FontId, Image, ImageSource, Rect, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2,
     Widget, containers::menu::MenuConfig, load::SizedTexture, vec2,
 };
-use glam::{Vec3, Vec4, vec3, vec4};
+use glam::{Vec3, Vec4, vec4};
 use google_material_symbols::GoogleMaterialSymbols;
 use hecs::World;
 use umbra::QueryErrorCode;

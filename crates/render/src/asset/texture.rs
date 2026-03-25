@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, f32::consts::PI, sync::Arc};
 
 use anyhow::Context;
 use d3d12::{
@@ -9,13 +9,22 @@ use deimos_data::{
     tfx::{ShaderStage, texture::STextureHeader},
 };
 use gpu_allocator::{MemoryLocation, d3d12::ResourceCreateDesc};
+use image::{DynamicImage, GenericImageView, Rgba, Rgba32FImage};
+use itertools::Itertools;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::package_manager;
 
-use crate::gpu::{
-    Gpu,
-    alloc::{descriptors::ResourceView, resource::OwnedResource},
-    command_list::CommandList,
+use crate::{
+    gpu::{
+        Gpu,
+        alloc::{descriptors::ResourceView, resource::OwnedResource},
+        command_list::CommandList,
+    },
+    util::filtering::{
+        NUM_SAMPLES, d_ggx, hammersley, importance_sample_ggx, sample_base_bilinear,
+        sample_mip_bilinear, uv_to_dir,
+    },
 };
 
 pub struct Texture {
@@ -249,4 +258,124 @@ impl<'a> TextureDesc<'a> {
             num_mips: 1,
         }
     }
+}
+
+pub fn generate_hdri_mips_rgbaf32(data: &[f32], width: usize, height: usize) -> Vec<Vec<f32>> {
+    let num_mips = (width.min(height).ilog2() + 1) as usize;
+
+    let mut src_chain: Vec<Vec<f32>> = vec![data.to_vec()];
+    let mut src_widths = vec![width];
+    let mut src_heights = vec![height];
+    {
+        let mut cur_w = width;
+        let mut cur_h = height;
+        while cur_w > 1 || cur_h > 1 {
+            let prev = src_chain.last().unwrap();
+            let next_w = (cur_w >> 1).max(1);
+            let next_h = (cur_h >> 1).max(1);
+            let mut next = vec![0f32; next_w * next_h * 4];
+            for y in 0..next_h {
+                for x in 0..next_w {
+                    let fetch = |sx: usize, sy: usize| {
+                        let i = (sy.min(cur_h - 1) * cur_w + sx.min(cur_w - 1)) * 4;
+                        [prev[i], prev[i + 1], prev[i + 2], prev[i + 3]]
+                    };
+                    let p00 = fetch(x * 2, y * 2);
+                    let p01 = fetch(x * 2 + 1, y * 2);
+                    let p10 = fetch(x * 2, y * 2 + 1);
+                    let p11 = fetch(x * 2 + 1, y * 2 + 1);
+                    let i = (y * next_w + x) * 4;
+                    for c in 0..4 {
+                        next[i + c] = (p00[c] + p01[c] + p10[c] + p11[c]) * 0.25;
+                    }
+                }
+            }
+            src_chain.push(next);
+            src_widths.push(next_w);
+            src_heights.push(next_h);
+            cur_w = next_w;
+            cur_h = next_h;
+        }
+    }
+
+    let texel_solid_angle = 4.0 * PI / (width * height) as f32;
+
+    let mut mips: Vec<Vec<f32>> = Vec::with_capacity(num_mips);
+    mips.push(data.to_vec());
+
+    for mip in 1..num_mips {
+        let mip_w = (width >> mip).max(1);
+        let mip_h = (height >> mip).max(1);
+        let roughness = mip as f32 / (num_mips - 1) as f32;
+        let alpha = roughness * roughness;
+
+        let pixel_rows: Vec<Vec<f32>> = (0..mip_h)
+            .into_par_iter()
+            .map(|y| {
+                let mut row = vec![0.0; mip_w * 4];
+
+                for x in 0..mip_w {
+                    let u = (x as f32 + 0.5) / mip_w as f32;
+                    let v = (y as f32 + 0.5) / mip_h as f32;
+                    let r = uv_to_dir(u, v);
+
+                    let mut accum = [0f32; 3];
+                    let mut total_weight = 0f32;
+
+                    for i in 0..NUM_SAMPLES {
+                        let xi = hammersley(i, NUM_SAMPLES);
+                        let h = importance_sample_ggx(xi, alpha, r);
+
+                        let v_dot_h = r.dot(h).max(0.0);
+                        let n_dot_h = v_dot_h;
+                        let l = (2.0 * v_dot_h * h - r).normalize();
+                        let n_o_l = r.dot(l).max(0.0);
+
+                        if n_o_l > 0.0 {
+                            let d = d_ggx(n_dot_h, alpha.max(0.001));
+                            let pdf = (d * n_dot_h / 4.0f32.mul_add(v_dot_h, 1e-5)).max(1e-5);
+                            let omega_s = 1.0 / (NUM_SAMPLES as f32 * pdf);
+                            let src_mip = (0.5 * (omega_s / texel_solid_angle).log2()).max(0.0);
+
+                            let s = sample_mip_bilinear(
+                                &src_chain,
+                                &src_widths,
+                                &src_heights,
+                                l,
+                                src_mip,
+                            );
+
+                            accum[0] += s[0] * n_o_l;
+                            accum[1] += s[1] * n_o_l;
+                            accum[2] += s[2] * n_o_l;
+                            total_weight += n_o_l;
+                        }
+                    }
+
+                    let idx = x * 4;
+                    if total_weight > 0.0 {
+                        row[idx] = accum[0] / total_weight;
+                        row[idx + 1] = accum[1] / total_weight;
+                        row[idx + 2] = accum[2] / total_weight;
+                    }
+                    row[idx + 3] = 1.0;
+                }
+                row
+            })
+            .collect();
+
+        mips.push(pixel_rows.into_iter().flatten().collect());
+    }
+
+    mips
+}
+
+pub fn generate_hdri_mips_rgbaf32_raw(data: &[u8], width: usize, height: usize) -> Vec<u8> {
+    let data_f32 = bytemuck::cast_slice(data);
+    let mips = generate_hdri_mips_rgbaf32(data_f32, width, height);
+    let mut result = Vec::with_capacity(data.len() * 2);
+    for mip in mips {
+        result.extend_from_slice(bytemuck::cast_slice(&mip));
+    }
+    result
 }

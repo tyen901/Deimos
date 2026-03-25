@@ -1,11 +1,13 @@
 pub mod globals;
+pub mod internal;
 pub mod object;
 pub mod packet;
 pub mod scene;
 
 use std::sync::Arc;
 
-use deimos_data::tfx::PrimitiveType;
+use d3d12::GpuVirtualAddress;
+use deimos_data::tfx::{PrimitiveType, ShaderStage};
 use parking_lot::RwLock;
 use slotmap::SlotMap;
 
@@ -14,6 +16,7 @@ use crate::{
     gpu::{Gpu, command_list::CommandList},
     renderer::{
         globals::RenderGlobals,
+        internal::InternalResources,
         object::{RenderObject, RenderObjectHandle},
     },
     tfx::{externs::ExternContainer, technique::Technique},
@@ -26,12 +29,14 @@ pub struct Renderer {
     pub asset_manager: Arc<AssetManager>,
     pub globals: RenderGlobals,
     pub externs: ThreadMutCell<ExternContainer>,
+    pub internal: InternalResources,
 }
 
 impl Renderer {
     pub fn new(gpu: Arc<Gpu>) -> Self {
         let asset_manager = Arc::new(AssetManager::new(&gpu));
         Self {
+            internal: InternalResources::new(&gpu).expect("Failed to create internal resources"),
             globals: RenderGlobals::load(&asset_manager, &gpu)
                 .expect("Failed to load render globals"),
             asset_manager,
@@ -59,6 +64,96 @@ impl Renderer {
         cmd.flush_states();
 
         pipeline.bind(cmd);
+
+        cmd.draw_instanced(0..4, 0..1);
+    }
+
+    pub fn draw_hdri_background(&self, cmd: &mut CommandList) {
+        cmd.set_input_topology(PrimitiveType::TriangleStrip);
+        cmd.set_input_layout(0);
+        cmd.flush_states();
+
+        cmd.set_root_signature(&self.internal.rs_hdri_background);
+        cmd.set_pipeline_state(&self.internal.pso_hdri_background);
+
+        let descriptor_range = cmd.gpu().frame().descriptors.allocate(2);
+        let Some(deferred_srv) = self.externs.deferred.deferred_depth.get_srv() else {
+            return;
+        };
+        cmd.gpu().copy_descriptors_simple(
+            1,
+            deferred_srv.cpu_handle(),
+            descriptor_range.cpu_handle(0),
+            d3d12::DescriptorHeapType::CbvSrvUav,
+        );
+        cmd.gpu().copy_descriptors_simple(
+            1,
+            self.internal.hdri.srv.cpu_handle(),
+            descriptor_range.cpu_handle(1),
+            d3d12::DescriptorHeapType::CbvSrvUav,
+        );
+
+        let Some(view_scope_cbv) = cmd.get_shader_constant_buffer_view(ShaderStage::Pixel, 12)
+        else {
+            return;
+        };
+
+        cmd.set_graphics_root_descriptor_table(0, descriptor_range.gpu_handle(0));
+        cmd.set_graphics_root_constant_buffer_view(1, view_scope_cbv);
+
+        cmd.draw_instanced(0..4, 0..1);
+    }
+
+    pub fn apply_hdri_light(&self, cmd: &mut CommandList) {
+        cmd.set_input_topology(PrimitiveType::TriangleStrip);
+        cmd.set_input_layout(0);
+        cmd.flush_states();
+
+        cmd.set_root_signature(&self.internal.rs_hdri_lighting);
+        cmd.set_pipeline_state(&self.internal.pso_hdri_lighting);
+
+        let descriptor_range = cmd.gpu().frame().descriptors.allocate(4);
+        let Some(gbuffer_normal) = self.externs.deferred.deferred_rt1.get_srv() else {
+            return;
+        };
+        let Some(gbuffer_third) = self.externs.deferred.deferred_rt2.get_srv() else {
+            return;
+        };
+        let Some(deferred_depth_srv) = self.externs.deferred.deferred_depth.get_srv() else {
+            return;
+        };
+        cmd.gpu().copy_descriptors_simple(
+            1,
+            gbuffer_normal.cpu_handle(),
+            descriptor_range.cpu_handle(0),
+            d3d12::DescriptorHeapType::CbvSrvUav,
+        );
+        cmd.gpu().copy_descriptors_simple(
+            1,
+            gbuffer_third.cpu_handle(),
+            descriptor_range.cpu_handle(1),
+            d3d12::DescriptorHeapType::CbvSrvUav,
+        );
+        cmd.gpu().copy_descriptors_simple(
+            1,
+            deferred_depth_srv.cpu_handle(),
+            descriptor_range.cpu_handle(2),
+            d3d12::DescriptorHeapType::CbvSrvUav,
+        );
+        cmd.gpu().copy_descriptors_simple(
+            1,
+            self.internal.hdri.srv.cpu_handle(),
+            descriptor_range.cpu_handle(3),
+            d3d12::DescriptorHeapType::CbvSrvUav,
+        );
+
+        let Some(view_scope_cbv) = cmd.get_shader_constant_buffer_view(ShaderStage::Pixel, 12)
+        else {
+            return;
+        };
+
+        cmd.set_graphics_root_descriptor_table(0, descriptor_range.gpu_handle(0));
+        cmd.set_graphics_root_constant_buffer_view(1, view_scope_cbv);
 
         cmd.draw_instanced(0..4, 0..1);
     }
