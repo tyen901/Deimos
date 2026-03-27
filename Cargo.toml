@@ -109,6 +109,7 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 native-dialog = "0.7.0"
 nu-ansi-term = "0.50.1"
 rayon.workspace = true
+windows-registry = "0.6.1"
 
 [build-dependencies]
 embed-resource = "3.0.1"

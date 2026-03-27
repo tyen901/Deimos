@@ -9,11 +9,15 @@ use google_material_symbols::GoogleMaterialSymbols;
 
 use crate::{
     app::SharedState,
-    ui::tabs::{DockStateExt, Tab, TabViewer},
+    ui::{
+        sodi::SodiVow,
+        tabs::{DockStateExt, Tab, TabViewer},
+    },
 };
 
 pub mod colors;
 mod scene;
+pub mod sodi;
 mod style;
 pub mod tabs;
 pub mod util;
@@ -27,6 +31,8 @@ pub struct Gui {
     tree: DockState<Tab>,
 
     added_nodes: Vec<Tab>,
+
+    sodi: SodiVow,
 }
 
 impl Gui {
@@ -163,6 +169,7 @@ impl Gui {
             egui_sdl3,
             tree,
             added_nodes: Vec::new(),
+            sodi: SodiVow::default(),
         })
     }
 
@@ -268,6 +275,8 @@ impl Gui {
                 egui::Color32::from_white_alpha(127),
             );
         }
+
+        self.sodi.draw(&ctx);
     }
 
     pub fn render(&mut self, gpu: &Arc<Gpu>, cmd: &GraphicsCommandList) {
