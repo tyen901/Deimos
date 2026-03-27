@@ -138,10 +138,11 @@ impl InternalResources {
             )
             .context("pso_hdri_lighting")?;
 
-        const HDRI_DATA_ZSTD: &[u8] = include_bytes!("../../builtin/textures/hdri.data.zst");
-        let hdri_raw = zstd::decode_all(HDRI_DATA_ZSTD)?;
+        const HDRI_DATA_ZSTD: &[u8] = include_bytes!("../../builtin/textures/hdri_mips.data.zst");
+        let hdri_mips = zstd::decode_all(HDRI_DATA_ZSTD)?;
         let num_mips = 512u16.ilog2() as u16 + 1;
-        let hdri_mips = generate_hdri_mips_rgbaf32_raw(&hdri_raw, 1024, 512);
+        // let hdri_mips = generate_hdri_mips_rgbaf32_raw(&hdri_raw, 1024, 512);
+        // std::fs::write("hdri_mips.bin", &hdri_mips)?;
         let hdri = Texture::load(
             gpu,
             &TextureDesc {

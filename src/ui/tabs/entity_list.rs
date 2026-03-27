@@ -1,6 +1,11 @@
 use std::{collections::BTreeMap, sync::Arc};
 
-use deimos_data::{pattern::SPattern, tfx::geometry::AxisAlignedBBox};
+use deimos_data::{
+    map::ComponentData,
+    pattern::{SComponent, SPattern},
+    tag::TagRef,
+    tfx::geometry::AxisAlignedBBox,
+};
 use deimos_ecs::{
     transform::Transform,
     world::pattern::{spawn_pattern, spawn_pattern_from_header},
@@ -124,22 +129,21 @@ impl ModelProvider for EntityModelProvider {
                 let hash = TagHash::new(pkg_id, i as u16);
                 match package_manager().read_tag_struct::<SPattern>(hash) {
                     Ok(pattern) => {
+                        let cb = |world: &mut hecs::World,
+                                  entity: hecs::Entity,
+                                  pattern: &SPattern,
+                                  data: &ComponentData,
+                                  component: &TagRef<SComponent>| {
+                            load_component(&self.renderer, world, entity, pattern, data, component)
+                        };
+
                         let mut world = hecs::World::new();
                         if let Err(e) = spawn_pattern_from_header(
                             &mut world,
                             &pattern,
                             None,
                             Some(Transform::default()),
-                            |world, entity, pattern, data, component| {
-                                load_component(
-                                    &self.renderer,
-                                    world,
-                                    entity,
-                                    pattern,
-                                    data,
-                                    component,
-                                )
-                            },
+                            &cb,
                         ) {
                             error!("Failed to load pattern {hash}: {e}");
                         }

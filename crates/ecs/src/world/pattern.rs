@@ -45,7 +45,7 @@ where
     let header = package_manager()
         .read_tag_struct::<SPattern>(pattern_tag)
         .context("Failed to read SEntity")?;
-    spawn_pattern_from_header(world, &header, map_data_list, transform, callback)
+    spawn_pattern_from_header(world, &header, map_data_list, transform, &callback)
 }
 
 pub fn spawn_pattern_from_header<F>(
@@ -53,7 +53,7 @@ pub fn spawn_pattern_from_header<F>(
     header: &SPattern,
     map_data_list: Option<&SComponentDataListPtr>,
     transform: Option<Transform>,
-    callback: F,
+    callback: &F,
 ) -> anyhow::Result<hecs::Entity>
 where
     F: Fn(
