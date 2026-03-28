@@ -175,11 +175,6 @@ impl ImmutableBuffer {
         view_format: d3d12::Format,
         data: &[u8],
     ) -> anyhow::Result<Self> {
-        if data.len() >= 24899584 {
-            println!("Large buffer found, dumping");
-            std::fs::write("large_buffer.bin", data)?;
-        }
-
         let resource_desc = D3D12_RESOURCE_DESC {
             Dimension: D3D12_RESOURCE_DIMENSION_BUFFER,
             Width: data.len() as u64,
@@ -203,7 +198,7 @@ impl ImmutableBuffer {
             castable_formats: &[],
             clear_value: None,
             initial_state_or_layout: ResourceStateOrBarrierLayout::ResourceState(
-                d3d12::D3D12_RESOURCE_STATE_COMMON,
+                d3d12::D3D12_RESOURCE_STATE_COPY_DEST,
             ),
             resource_type: &ResourceType::Placed,
         })?;
@@ -218,13 +213,6 @@ impl ImmutableBuffer {
         }
 
         gpu.cmd_scope(|cmd| {
-            cmd.resource_barriers(&[ResourceBarrier::transition(
-                resource.resource(),
-                0,
-                ResourceStates::COMMON,
-                ResourceStates::COPY_DEST,
-            )]);
-
             cmd.copy_resource(upload_buffer.resource(), resource.resource());
 
             cmd.resource_barriers(&[ResourceBarrier::transition(

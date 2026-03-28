@@ -454,6 +454,7 @@ pub struct StaticInstancesRenderer {
     /// (model, visible)
     models: Vec<(StaticModelRenderer, ResourceView)>,
     instance_id_buffer: ImmutableBuffer,
+    transforms_buffer: ImmutableBuffer,
     // (technique_hash, model_index, group_index) sorted by the group's technique hash
     // groups_by_stage_sorted_by_technique: HashMap<RenderStage, Arc<Vec<(TagHash, usize, usize)>>>,
 }
@@ -509,11 +510,6 @@ impl StaticInstancesRenderer {
                 }
             });
 
-        std::fs::write(
-            format!("transforms_{instances_hash}.bin"),
-            transforms_upload.data().as_slice(),
-        );
-
         Ok(Self::new(
             &renderer.gpu,
             models,
@@ -564,6 +560,7 @@ impl StaticInstancesRenderer {
                 })
                 .collect(),
             instance_id_buffer,
+            transforms_buffer,
         }
     }
 }

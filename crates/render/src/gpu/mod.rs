@@ -23,7 +23,6 @@ use std::{
     time::Duration,
 };
 
-use ahash::HashMap;
 use anyhow::Context;
 use d3d12::{
     CommandQueueDesc, D3D12GetDebugInterface, DxgiUsage, ID3D12Debug, SwapChainDesc, SwapEffect,
@@ -208,15 +207,6 @@ impl Gpu {
         self: &Arc<Self>,
         desc: &gpu_allocator::d3d12::ResourceCreateDesc<'_>,
     ) -> anyhow::Result<OwnedResource> {
-        // warn!(
-        //     "> alloc '{}' {:?} {:.1}KB ({:.1}MB buffers total)",
-        //     desc.name,
-        //     desc.resource_category,
-        //     desc.resource_desc.Width as f64 / 1024.0,
-        //     self.num_bytes_allocated_for_buffers
-        //         .load(std::sync::atomic::Ordering::SeqCst) as f64
-        //         / (1024.0 * 1024.0)
-        // );
         let res = self
             .allocator
             .lock()
