@@ -11,6 +11,7 @@ impl OwnedResource {
     pub fn new(
         gpu: Arc<Gpu>,
         category: gpu_allocator::d3d12::ResourceCategory,
+        location: gpu_allocator::MemoryLocation,
         resource: gpu_allocator::d3d12::Resource,
         current_state: d3d12::ResourceStates,
     ) -> Self {
@@ -21,7 +22,13 @@ impl OwnedResource {
             gpu_allocator::d3d12::ResourceCategory::RtvDsvTexture => {
                 &gpu.num_bytes_allocated_for_render_targets
             }
-            gpu_allocator::d3d12::ResourceCategory::Buffer => &gpu.num_bytes_allocated_for_buffers,
+            gpu_allocator::d3d12::ResourceCategory::Buffer => {
+                if location == gpu_allocator::MemoryLocation::GpuOnly {
+                    &gpu.num_bytes_allocated_for_buffers
+                } else {
+                    &gpu.num_bytes_allocated_for_transfer_buffers
+                }
+            }
         };
 
         bytes.fetch_add(resource.size as usize, std::sync::atomic::Ordering::Relaxed);
@@ -32,6 +39,7 @@ impl OwnedResource {
                 resource: ManuallyDrop::new(resource),
                 current_state,
                 category,
+                location,
             }),
         }
     }
@@ -73,6 +81,7 @@ struct ResourceGuard {
     resource: ManuallyDrop<gpu_allocator::d3d12::Resource>,
     current_state: d3d12::ResourceStates,
     category: gpu_allocator::d3d12::ResourceCategory,
+    location: gpu_allocator::MemoryLocation,
 }
 
 impl Drop for ResourceGuard {
@@ -87,7 +96,11 @@ impl Drop for ResourceGuard {
                 &self.gpu.num_bytes_allocated_for_render_targets
             }
             gpu_allocator::d3d12::ResourceCategory::Buffer => {
-                &self.gpu.num_bytes_allocated_for_buffers
+                if self.location != gpu_allocator::MemoryLocation::GpuOnly {
+                    &self.gpu.num_bytes_allocated_for_transfer_buffers
+                } else {
+                    &self.gpu.num_bytes_allocated_for_buffers
+                }
             }
         };
 

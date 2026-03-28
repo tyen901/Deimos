@@ -9,6 +9,7 @@ use deimos_ecs::transform::Transform;
 use deimos_render::{
     ecs::render_objects::StaticRenderObject,
     features::static_instances::{StaticInstancesRenderer, StaticModelRenderer},
+    gpu::alloc::staging::ImmutableStaging,
     renderer::{Renderer, object::RenderObject},
 };
 use egui::Ui;
@@ -155,10 +156,19 @@ fn load_static_mesh(
     let data = package_manager().read_tag_struct::<SStaticMesh>(hash)?;
 
     // TODO(cohae): data.bounds seems to be mostly right, but needs to be double checked
-    let model = StaticModelRenderer::new(renderer, vec![(transform, data.bounds)], hash, 0)
-        .context("Failed to load static model tag")?;
+    let upload0 = ImmutableStaging::new(0);
+    let upload1 = ImmutableStaging::new(0);
+    let model = StaticModelRenderer::new(
+        renderer,
+        vec![(transform, data.bounds)],
+        hash,
+        0,
+        &upload0,
+        &upload1,
+    )
+    .context("Failed to load static model tag")?;
     let entity = world.spawn((Transform::default(), model.bounds));
-    let model_renderer = StaticInstancesRenderer::new(vec![model]);
+    let model_renderer = StaticInstancesRenderer::new(&renderer.gpu, vec![model], upload0, upload1);
 
     let obj = renderer.add_object(RenderObject::new(
         TfxFeatureRenderer::StaticObjects,

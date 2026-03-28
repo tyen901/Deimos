@@ -1,11 +1,12 @@
-use std::sync::Arc;
+use std::{ops::Range, sync::Arc};
 
 use anyhow::Context;
 use d3d12::{
-    BufferSrvFlags, D3D12_RESOURCE_DESC, D3D12_RESOURCE_DIMENSION_BUFFER,
-    D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
-    GpuVirtualAddress, ID3D12Resource, Resource, ResourceBarrier, ResourceStates,
-    error::D3DResultExt,
+    BufferSrvFlags, D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT, D3D12_RESOURCE_DESC,
+    D3D12_RESOURCE_DIMENSION_BUFFER, D3D12_RESOURCE_STATE_COMMON,
+    D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT,
+    D3D12_TEXTURE_LAYOUT_ROW_MAJOR, GpuVirtualAddress, ID3D12Resource, Resource, ResourceBarrier,
+    ResourceStates, error::D3DResultExt,
 };
 use deimos_data::tfx::ShaderStage;
 use gpu_allocator::{
@@ -164,6 +165,7 @@ pub struct ImmutableBuffer {
     resource: OwnedResource,
     srv: ResourceView,
     size: u64,
+    view_format: d3d12::Format,
 }
 
 impl ImmutableBuffer {
@@ -173,6 +175,11 @@ impl ImmutableBuffer {
         view_format: d3d12::Format,
         data: &[u8],
     ) -> anyhow::Result<Self> {
+        if data.len() >= 24899584 {
+            println!("Large buffer found, dumping");
+            std::fs::write("large_buffer.bin", data)?;
+        }
+
         let resource_desc = D3D12_RESOURCE_DESC {
             Dimension: D3D12_RESOURCE_DIMENSION_BUFFER,
             Width: data.len() as u64,
@@ -246,8 +253,23 @@ impl ImmutableBuffer {
             gpu: Arc::clone(gpu),
             resource,
             srv,
+            view_format,
             size: data.len() as u64,
         })
+    }
+
+    pub fn create_srv(&self, gpu: &Gpu, bytes_range: Range<u64>) -> ResourceView {
+        gpu.resource_heap.lock().allocate_srv(
+            "immutable_buffer_slice",
+            self.resource.resource(),
+            &d3d12::ShaderResourceViewDesc::buffer(
+                self.view_format,
+                self.view_format.buffer_element_count(bytes_range.start)
+                    ..self.view_format.buffer_element_count(bytes_range.end),
+                0,
+                BufferSrvFlags::empty(),
+            ),
+        )
     }
 
     pub const fn size(&self) -> u64 {

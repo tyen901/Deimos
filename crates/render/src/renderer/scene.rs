@@ -64,7 +64,6 @@ impl SceneRenderer {
             Some(
                 DebugPipeline::GlobalLightingShading
                     | DebugPipeline::DeferredShading
-                    | DebugPipeline::DeferredShadingNoAtm
                     | DebugPipeline::LightDiffuse
                     | DebugPipeline::LightSpecular
             ),

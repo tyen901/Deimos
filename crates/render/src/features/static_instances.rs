@@ -1,4 +1,4 @@
-use std::{f32, io::Write, ops::Deref};
+use std::{f32, io::Write, ops::Deref, sync::Arc};
 
 use anyhow::Context;
 use bit_field::BitField;
@@ -24,7 +24,12 @@ use tiger_pkg::package_manager;
 use crate::{
     asset::{Handle, vertex_buffer::VertexBuffer},
     features::shared::ModelBuffers,
-    gpu::{buffer::ImmutableBuffer, command_list::CommandList},
+    gpu::{
+        Gpu,
+        alloc::{descriptors::ResourceView, staging::ImmutableStaging},
+        buffer::ImmutableBuffer,
+        command_list::CommandList,
+    },
     renderer::{
         Renderer,
         packet::{RenderPerFrameNode, RenderPerViewNode, SubmitNode, SubmitNodeContainer},
@@ -121,8 +126,9 @@ impl StaticModel {
 
 pub struct StaticModelRenderer {
     // unk_cb1: ConstantBuffer<Vec4>,
-    instance_buffer: ImmutableBuffer,
-    instance_id_buffer: VertexBuffer,
+    instance_buffer_offset: usize,
+    instance_id_buffer_offset: usize,
+
     model: StaticModel,
     visible_instance_ids: Vec<u32>,
     transforms: Vec<(SStaticInstanceTransform, AxisAlignedBBox)>,
@@ -149,27 +155,22 @@ impl StaticModelRenderer {
         transforms: Vec<(SStaticInstanceTransform, AxisAlignedBBox)>,
         model_hash: TagHash,
         identifier: u64,
+        ids_upload: &ImmutableStaging,
+        transforms_upload: &ImmutableStaging,
     ) -> anyhow::Result<Self> {
         let model = StaticModel::load(renderer, model_hash)?;
         let transforms_tmp = transforms.iter().map(|(t, _)| t.clone()).collect_vec();
         let instance_data = Self::generate_constants(&model.model.opaque_meshes, &transforms_tmp);
-        let instance_buffer = ImmutableBuffer::new(
-            &renderer.gpu,
-            "static_geometry::instance_buffer",
-            d3d12::Format::R32Uint,
-            &instance_data,
-        )?;
+        let instance_buffer_offset =
+            transforms_upload.upload_slice(bytemuck::cast_slice(&instance_data));
 
         // Instance IDs dictate from where in the instance buffer to read the transform data. This is calculated as the ID * 0x50 (in bytes).
         // In the past, the engine would skip the 32 bytes where the quantization information was stored, but the offset must now be an exact multiple of 0x40 bytes.
-        // cb0[0].x dictates where the quantization information is stored. For now I've opted to just skip the first instance and use that slot for the quantization information.
+        // cb0[0].x dictates where the quantization information  is stored. For now I've opted to just skip the first instance and use that slot for the quantization information.
         let visible_instance_ids = (0..transforms.len() as u32).map(|i| i + 1).collect_vec();
 
-        let instance_id_buffer = VertexBuffer::load_data_ex(
-            &renderer.gpu,
-            bytemuck::cast_slice(&visible_instance_ids),
-            4,
-        )?;
+        let instance_id_buffer_offset =
+            ids_upload.upload_slice(bytemuck::cast_slice(&visible_instance_ids));
 
         let bounds = transforms.iter().map(|(_, b)| *b).collect_vec();
         let group_bounds = bounds.iter().cloned().sum();
@@ -204,8 +205,8 @@ impl StaticModelRenderer {
         trace!(instances = transforms.len(), model_hash=%model_hash, "Loading model");
         Ok(Self {
             // unk_cb1: ConstantBuffer::create(gpu, Some(&Vec4::ZERO))?, // Offsets instance buffer data
-            instance_buffer,
-            instance_id_buffer,
+            instance_buffer_offset,
+            instance_id_buffer_offset,
             model,
             bounds: group_bounds,
             bvh,
@@ -220,9 +221,6 @@ impl StaticModelRenderer {
     #[profiling::function]
     pub fn render_all(&self, cmd: &mut CommandList, stage: RenderStage) {
         cmd.enable_smart_technique_binding();
-        // self.unk_cb1.bind(cmd, ShaderStage::Vertex, 1);
-        self.instance_id_buffer.bind_single(cmd, 2);
-        self.instance_buffer.bind_srv(cmd, ShaderStage::Vertex, 2);
 
         let is_opaque = matches!(
             stage,
@@ -296,9 +294,6 @@ impl StaticModelRenderer {
     #[profiling::function]
     pub fn render_group(&self, cmd: &mut CommandList, stage: RenderStage, group_index: usize) {
         cmd.enable_smart_technique_binding();
-        // self.unk_cb1.bind(cmd, ShaderStage::Vertex, 1);
-        self.instance_id_buffer.bind_single(cmd, 2);
-        self.instance_buffer.bind_srv(cmd, ShaderStage::Vertex, 2);
 
         let is_opaque = matches!(
             stage,
@@ -355,6 +350,10 @@ impl StaticModelRenderer {
                 model.texture_coordinate_offset.y,
                 f32::from_bits(model.max_color_index),
             ]))
+            .unwrap();
+
+        buffer
+            .write_all(&(transforms.len() as f32).to_le_bytes())
             .unwrap();
 
         while buffer.len() < size_of::<InstanceTransformBlock>() {
@@ -450,9 +449,11 @@ impl StaticModelRenderer {
 }
 
 pub struct StaticInstancesRenderer {
+    gpu: Arc<Gpu>,
     subscribed_stages: RenderStageSubscription,
     /// (model, visible)
-    models: Vec<StaticModelRenderer>,
+    models: Vec<(StaticModelRenderer, ResourceView)>,
+    instance_id_buffer: ImmutableBuffer,
     // (technique_hash, model_index, group_index) sorted by the group's technique hash
     // groups_by_stage_sorted_by_technique: HashMap<RenderStage, Arc<Vec<(TagHash, usize, usize)>>>,
 }
@@ -465,6 +466,8 @@ impl StaticInstancesRenderer {
             instances.occlusion_bounds.bounds.len(),
             instances.instance_groups.len()
         );
+        let ids_upload = ImmutableStaging::new(instances.instance_groups.len() * 16);
+        let transforms_upload = ImmutableStaging::new(instances.instance_groups.len() * 0x50 * 2);
         let mut models = instances
             .instance_groups
             .par_iter()
@@ -487,6 +490,8 @@ impl StaticInstancesRenderer {
                         .collect(),
                     model,
                     instances.vertex_ao_identifier,
+                    &ids_upload,
+                    &transforms_upload,
                 )?;
 
                 Ok(renderer)
@@ -504,17 +509,70 @@ impl StaticInstancesRenderer {
                 }
             });
 
-        Ok(Self::new(models))
+        std::fs::write(
+            format!("transforms_{instances_hash}.bin"),
+            transforms_upload.data().as_slice(),
+        );
+
+        Ok(Self::new(
+            &renderer.gpu,
+            models,
+            ids_upload,
+            transforms_upload,
+        ))
     }
 
-    pub fn new(models: Vec<StaticModelRenderer>) -> Self {
+    pub fn new(
+        gpu: &Arc<Gpu>,
+        models: Vec<StaticModelRenderer>,
+        ids_upload: ImmutableStaging,
+        transforms_upload: ImmutableStaging,
+    ) -> Self {
+        let upload_data = ids_upload.into_inner();
+        let instance_id_buffer = ImmutableBuffer::new(
+            gpu,
+            "grouped_instance_id_buffer",
+            d3d12::Format::R32Uint,
+            &upload_data,
+        )
+        .unwrap();
+        let transforms_data = transforms_upload.into_inner();
+        let transforms_buffer = ImmutableBuffer::new(
+            gpu,
+            "grouped_transforms_buffer",
+            d3d12::Format::R32Uint,
+            &transforms_data,
+        )
+        .unwrap();
+
         Self {
+            gpu: gpu.clone(),
             subscribed_stages: models
                 .iter()
                 .fold(RenderStageSubscription::empty(), |acc, m| {
                     acc | m.model.subscribed_stages
                 }),
-            models,
+            models: models
+                .into_iter()
+                .map(|m| {
+                    let start = m.instance_buffer_offset as u64;
+                    let count =
+                        (m.visible_instance_ids.len() + 1) * size_of::<InstanceTransformBlock>();
+                    let elements = start..start + count as u64;
+                    let transforms_srv = transforms_buffer.create_srv(gpu, elements);
+                    (m, transforms_srv)
+                })
+                .collect(),
+            instance_id_buffer,
+        }
+    }
+}
+
+impl Drop for StaticInstancesRenderer {
+    fn drop(&mut self) {
+        let mut resource_heap = self.gpu.resource_heap.lock();
+        for (_m, srv) in &self.models {
+            resource_heap.free_srv(*srv);
         }
     }
 }
@@ -537,11 +595,11 @@ impl FeatureRenderer for StaticInstancesRenderer {
     ) {
         let visible_indices: Vec<usize> = (0..self.models.len())
             .into_par_iter()
-            .filter(|&i| self.models[i].is_visible(visibility))
+            .filter(|&i| self.models[i].0.is_visible(visibility))
             .collect();
 
         for model_index in &visible_indices {
-            let model = &self.models[*model_index];
+            let (model, _) = &self.models[*model_index];
             for &(stage, mut node) in &model.precomputed_submit_nodes {
                 node.view_node = view_node;
                 submit_node_blocks.push(stage, node);
@@ -559,7 +617,19 @@ impl FeatureRenderer for StaticInstancesRenderer {
     ) {
         let key = StaticSubmitKey::from_u64(submit_key);
 
-        self.models[key.model_index as usize].render_group(cmd, stage, key.group_index as usize);
+        let (model, transforms_srv) = &self.models[key.model_index as usize];
+        cmd.ia_set_vertex_buffers(
+            2,
+            &[d3d12::VertexBufferView::new(
+                self.instance_id_buffer
+                    .constant_buffer_view()
+                    .offset(model.instance_id_buffer_offset),
+                model.visible_instance_ids.len() as u32 * 4,
+                4,
+            )],
+        );
+        cmd.set_shader_resource_view(ShaderStage::Vertex, 2, Some(*transforms_srv));
+        model.render_group(cmd, stage, key.group_index as usize);
     }
 
     fn subscribed_stages(&self) -> RenderStageSubscription {

@@ -323,6 +323,16 @@ impl Scene {
                 ));
 
                 ui.monospace(format!(
+                    "Upload/Download Buffers: {}",
+                    format_bytes(
+                        self.renderer
+                            .gpu
+                            .num_bytes_allocated_for_transfer_buffers
+                            .load(std::sync::atomic::Ordering::Relaxed)
+                    )
+                ));
+
+                ui.monospace(format!(
                     "Render Targets: {}",
                     format_bytes(
                         self.renderer
