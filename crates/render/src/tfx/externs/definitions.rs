@@ -13,7 +13,7 @@ extern_struct! {
         0x1C => exposure_scale: f32 > default(1.0),
         0x20 => unk20: f32,
         0x24 => unk24: f32,
-        0x28 => exposure_illum_relative: f32 > default(2.0),
+        0x28 => exposure_illum_relative: f32 > default(1.0),
         0x70 => unk70: f32 > default(0.5),
         0x78 => unk78: TextureView,
         0x80 => unk80: TextureView,
@@ -185,7 +185,7 @@ extern_struct! {
         0xD8 => unkd8: TextureView,
         0xE8 => unke8: TextureView,
         0xF0 => unkf0: TextureView,
-        0xF8 => unkf8: TextureView,
+        0xF8 => sky_hemisphere: TextureView,
         0x100 => unk100: TextureView,
     }
 }

@@ -564,6 +564,7 @@ impl Scene {
             ext.deferred.light_diffuse = view.light.light_diffuse.srv().into();
             ext.deferred.light_specular = view.light.light_specular.srv().into();
             ext.deferred.light_specular_ibl = view.light.light_specular_ibl.srv().into();
+            ext.deferred.sky_hemisphere = self.renderer.internal.default_hemisphere.srv.into();
 
             let view = &self.scene_renderer.main_view;
             ext.decal.depth_read = view.gbuffer.depth_read.srv().into();

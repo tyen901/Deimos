@@ -45,6 +45,9 @@ impl SceneRenderer {
             parent,
         };
 
+        r.set_global_channel_by_name("cubemap_sky_intensity", Vec4::splat(0.4));
+        r.set_global_channel_by_name("global_cubemap_intensity", Vec4::splat(0.4));
+
         r.set_global_channel_by_name("global_ambient_intensity", Vec4::splat(0.0));
         r.set_global_channel_by_name("sun_direct_intensity", Vec4::splat(1.3));
         r.set_global_channel_by_id(0xE16B6B6B, Vec4::splat(1000000.0));

@@ -415,7 +415,7 @@ impl FeatureRenderer for DynamicModel {
             self.subscribed_stages,
             SubmitNode {
                 view_node,
-                key: ((u32::MAX as u64) << 32) | distance_u32 as u64,
+                key: distance_u32 as u64,
             },
         );
     }

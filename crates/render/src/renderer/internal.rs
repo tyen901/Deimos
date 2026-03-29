@@ -15,6 +15,7 @@ pub struct InternalResources {
     pub pso_hdri_background: d3d12::PipelineState,
 
     pub hdri: Texture,
+    pub default_hemisphere: Texture,
 }
 
 impl InternalResources {
@@ -153,6 +154,21 @@ impl InternalResources {
         )
         .context("hdri")?;
 
+        let hemisphere_data_l8 = include_bytes!("../../builtin/textures/default_hemisphere.data");
+        let hemisphere_data_rgba8 = (0..(512 * 512))
+            .flat_map(|i| {
+                let l = hemisphere_data_l8[i];
+                [l, l, l, 255]
+            })
+            .collect::<Vec<u8>>();
+
+        let default_hemisphere = Texture::load(
+            gpu,
+            &TextureDesc::texture_2d("default_hemisphere", Format::R8g8b8a8Unorm, 512, 512),
+            &hemisphere_data_rgba8,
+        )
+        .context("default_hemisphere")?;
+
         Ok(Self {
             rs_hdri_lighting,
             pso_hdri_lighting,
@@ -161,6 +177,7 @@ impl InternalResources {
             pso_hdri_background,
 
             hdri,
+            default_hemisphere,
         })
     }
 }
