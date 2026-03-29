@@ -1,8 +1,8 @@
 use std::any::TypeId;
 
 use crate::tfx::externs::{
-    macros::{extern_container, local_extern_container},
     BaseExternSource, Extern, ExternAccessor,
+    macros::{extern_container, local_extern_container},
 };
 use deimos_data::{hash::fnv1, tfx::ExternIndex};
 use glam::Vec4;
@@ -165,7 +165,6 @@ const GLOBAL_CHANNEL_NAMES: &[&str] = &[
     "sun_glow_color",
     "sun_glow_shape",
     "sun_glow_intensity",
-    "sky_sun_glow_shape",
     "sky_sun_glow_intensity",
     "fog_density",
     "fog_density_lookup_start",

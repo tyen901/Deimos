@@ -47,6 +47,8 @@ pub struct Scene {
 
     // World
     pub world: World,
+    raininess: f32,
+    heat_cascade: f32,
     time_of_day: f32,
     animate_time_of_day: bool,
     sun_light_angle: f32,
@@ -77,6 +79,8 @@ impl Scene {
             render_mode: RenderMode::Lookdev,
 
             world: World::new(),
+            raininess: 0.0,
+            heat_cascade: 0.0,
             time_of_day: 1200.0,
             animate_time_of_day: true,
             sun_light_angle: 60f32,
@@ -391,6 +395,13 @@ impl Scene {
             self.scene_renderer
                 .set_global_channel_by_name("sun_light_direction", sun_light_direction.extend(0.0));
 
+            self.scene_renderer
+                .set_global_channel_by_id(0x156C2B22, Vec4::splat(self.raininess));
+            self.scene_renderer
+                .set_global_channel_by_id(0xD8281393, Vec4::splat(self.raininess));
+            self.scene_renderer
+                .set_global_channel_by_id(0xFDCC7BAA, Vec4::splat(self.heat_cascade));
+
             self.render(delta_time, resolution);
 
             ui.interact(
@@ -474,7 +485,7 @@ impl Scene {
                 game_time: self.start_time.elapsed().as_secs_f32(),
                 render_time: self.start_time.elapsed().as_secs_f32(),
                 delta_game_time: delta_time,
-                unk10: 0.5, // misc.time_of_day,
+                unk10: self.time_of_day / 3600.0,
                 exposure_time: 1.0 / 60.0,
                 exposure_scale: 2.0,          // view.settings().exposure_scale,
                 exposure_illum_relative: 1.0, // view.settings().exposure_illum_relative,
@@ -806,6 +817,52 @@ impl Scene {
 
         ui.checkbox(&mut self.animate_time_of_day, "Automate Time")
             .on_hover_text("Automatically animate time of day");
+
+        // Raininess slider
+        ui.strong("Raininess");
+        const RAININESS_GRADIENT: ImageSource<'static> =
+            egui::include_image!("../../../assets/ui/raininess_gradient_bar.png");
+        Image::new(RAININESS_GRADIENT).paint_at(
+            ui,
+            Rect::from_min_size(
+                ui.cursor().min + vec2(0.0, 6.0),
+                Vec2::new(ui.available_width(), 8.0),
+            ),
+        );
+
+        ui.scope(|ui| {
+            ui.style_mut().visuals.widgets.inactive.bg_fill = egui::Color32::from_black_alpha(48);
+            ui.style_mut().visuals.widgets.inactive.bg_stroke =
+                egui::Stroke::new(8.0, egui::Color32::WHITE);
+
+            egui::Slider::new(&mut self.raininess, 0.0..=1.0)
+                .show_value(false)
+                .handle_shape(egui::style::HandleShape::Rect { aspect_ratio: 0.5 })
+                .ui(ui);
+        });
+
+        // Heat cascade slider
+        ui.strong("Heat Cascade");
+        const HEAT_CASCADE_GRADIENT: ImageSource<'static> =
+            egui::include_image!("../../../assets/ui/heat_cascade_gradient_bar.png");
+        Image::new(HEAT_CASCADE_GRADIENT).paint_at(
+            ui,
+            Rect::from_min_size(
+                ui.cursor().min + vec2(0.0, 6.0),
+                Vec2::new(ui.available_width(), 8.0),
+            ),
+        );
+
+        ui.scope(|ui| {
+            ui.style_mut().visuals.widgets.inactive.bg_fill = egui::Color32::from_black_alpha(48);
+            ui.style_mut().visuals.widgets.inactive.bg_stroke =
+                egui::Stroke::new(8.0, egui::Color32::WHITE);
+
+            egui::Slider::new(&mut self.heat_cascade, 0.0..=1.0)
+                .show_value(false)
+                .handle_shape(egui::style::HandleShape::Rect { aspect_ratio: 0.5 })
+                .ui(ui);
+        });
 
         ui.spacing_mut().slider_width = ui.available_width() * 0.75;
         egui::Slider::new(&mut self.camera.fov_y, 10.0..=120.0)
