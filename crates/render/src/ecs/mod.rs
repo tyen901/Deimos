@@ -152,15 +152,16 @@ pub fn populate_submit_nodes(scene: &mut SceneRenderer, visibility: &ViewVisibil
         ..
     } in frame_packet.views.iter_mut()
     {
-        for (view_node, render_object) in view_nodes
+        for (view_node_index, view_node, frame_node, render_object) in view_nodes
             .iter()
             .enumerate()
-            .map(|(view_node, v)| (view_node, &frame_packet.per_frame_nodes[v.frame_node]))
-            .map(|(view_node, o)| (view_node, &render_objects[o.object]))
+            .map(|(view_node, v)| (view_node, v, &frame_packet.per_frame_nodes[v.frame_node]))
+            .map(|(view_node, v, o)| (view_node, v, o, &render_objects[o.object]))
         {
             render_object.renderer.populate_submit_node_blocks(
                 renderer,
-                view_node,
+                (view_node_index, view_node),
+                frame_node,
                 visibility,
                 submit_node_blocks,
             );

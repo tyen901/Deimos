@@ -6,6 +6,7 @@ pub mod frustum;
 
 pub struct ViewVisibility {
     pub position: glam::Vec3,
+    pub far_plane: f32,
     pub culling_frustum: frustum::Frustum,
     pub world_to_projective: glam::Mat4,
     pub occlusion_buffer: Option<umbra::OcclusionBuffer>,

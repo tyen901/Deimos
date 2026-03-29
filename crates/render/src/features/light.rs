@@ -13,7 +13,10 @@ use tiger_pkg::TagHash;
 use crate::{
     asset::{index_buffer::IndexBuffer, vertex_buffer::VertexBuffer},
     features::rigid_model::DynamicObjectData,
-    renderer::Renderer,
+    renderer::{
+        Renderer,
+        packet::{RenderPerFrameNode, RenderPerViewNode},
+    },
     tfx::{
         externs::{self, BaseExternSource},
         technique::Technique,
@@ -224,7 +227,8 @@ impl FeatureRenderer for LightRenderer {
     fn populate_submit_node_blocks(
         &self,
         renderer: &Renderer,
-        view_node: usize,
+        (view_node, _): (usize, &RenderPerViewNode),
+        frame_node: &RenderPerFrameNode,
         visibility: &crate::visibility::ViewVisibility,
         submit_node_blocks: &mut crate::renderer::packet::SubmitNodeContainer,
     ) {

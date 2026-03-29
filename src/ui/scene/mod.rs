@@ -635,6 +635,7 @@ impl Scene {
 
         let vis = ViewVisibility {
             culling_frustum: self.camera.culling_frustum.clone(),
+            far_plane: Camera::FAR,
             position: self.camera.position,
             world_to_projective: self.camera.world_to_projective,
             occlusion_buffer,

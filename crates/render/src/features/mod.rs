@@ -26,7 +26,8 @@ pub trait FeatureRenderer: Send {
     fn populate_submit_node_blocks(
         &self,
         renderer: &Renderer,
-        view_node: usize,
+        view_node: (usize, &RenderPerViewNode),
+        frame_node: &RenderPerFrameNode,
         visibility: &ViewVisibility,
         submit_node_blocks: &mut SubmitNodeContainer,
     );

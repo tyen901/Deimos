@@ -10,7 +10,10 @@ use crate::{
     asset::{Handle, vertex_buffer::VertexBuffer},
     features::{FeatureRenderer, rigid_model::DynamicModel},
     gpu::buffer::ImmutableBuffer,
-    renderer::Renderer,
+    renderer::{
+        Renderer,
+        packet::{RenderPerFrameNode, RenderPerViewNode},
+    },
     tfx::externs,
 };
 
@@ -256,7 +259,8 @@ impl FeatureRenderer for DecoratorRenderer {
     fn populate_submit_node_blocks(
         &self,
         _renderer: &Renderer,
-        view_node: usize,
+        (view_node, _): (usize, &RenderPerViewNode),
+        frame_node: &RenderPerFrameNode,
         _visibility: &crate::visibility::ViewVisibility,
         submit_node_blocks: &mut crate::renderer::packet::SubmitNodeContainer,
     ) {

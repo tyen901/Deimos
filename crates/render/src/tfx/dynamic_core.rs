@@ -236,6 +236,7 @@ const fn extern_filler(index: ExternIndex, offset: u32) -> Option<[u8; 4]> {
         (ExternIndex::Atmosphere, _) => Some([0; 4]),
         (ExternIndex::Transparent, 0) => Some([0x00, 0x00, 0x00, 0x00]),
         (ExternIndex::Transparent, _) => Some([0x00, 0x00, 0x00, 0xFF]),
+        (ExternIndex::Deferred, 0xF8) => Some([0x50, 0x50, 0x50, 0xFF]), // Sky hemisphere
         _ => None,
     }
 }

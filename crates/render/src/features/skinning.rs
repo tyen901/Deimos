@@ -1,7 +1,5 @@
 use bit_field::BitField;
-use glam::{I16Vec3, U16Vec3, Vec3, vec3};
-
-use crate::asset::vertex_buffer::VertexBuffer;
+use glam::{I16Vec3, Vec3, vec3};
 
 pub fn quant_snorm(v: f32, bits: u32) -> i32 {
     let denom: i32 = 1 << (bits - 1);

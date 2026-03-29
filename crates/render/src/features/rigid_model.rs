@@ -396,15 +396,26 @@ impl FeatureRenderer for DynamicModel {
     fn populate_submit_node_blocks(
         &self,
         _renderer: &Renderer,
-        view_node: usize,
-        _visibility: &crate::visibility::ViewVisibility,
+        (view_node, _): (usize, &RenderPerViewNode),
+        frame_node: &RenderPerFrameNode,
+        visibility: &crate::visibility::ViewVisibility,
         submit_node_blocks: &mut SubmitNodeContainer,
     ) {
+        let data = unsafe { frame_node.data::<DynamicObjectData>() }
+            .expect("DynamicModel was extracted with no data!");
+
+        let (_, _, translation) = data.local_to_world.to_scale_rotation_translation();
+
+        let distance = translation.distance(visibility.position);
+        // reversed so further objects are rendered first
+        let distance_normalized = 1.0 - (distance as f64 / visibility.far_plane as f64);
+        let distance_u32 = (distance_normalized.clamp(0.0, 1.0) * u32::MAX as f64) as u32;
+
         submit_node_blocks.broadcast(
             self.subscribed_stages,
             SubmitNode {
                 view_node,
-                key: u64::MAX,
+                key: ((u32::MAX as u64) << 32) | distance_u32 as u64,
             },
         );
     }

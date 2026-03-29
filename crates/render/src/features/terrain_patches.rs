@@ -219,7 +219,8 @@ impl FeatureRenderer for TerrainPatchesRenderer {
     fn populate_submit_node_blocks(
         &self,
         _renderer: &Renderer,
-        view_node: usize,
+        (view_node, _): (usize, &RenderPerViewNode),
+        frame_node: &RenderPerFrameNode,
         _visibility: &ViewVisibility,
         submit_node_blocks: &mut SubmitNodeContainer,
     ) {
