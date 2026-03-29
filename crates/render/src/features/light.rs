@@ -8,16 +8,14 @@ use deimos_data::tfx::{
     geometry::AxisAlignedBBox,
 };
 use glam::{Mat4, Vec3, Vec4, Vec4Swizzles};
-use itertools::Itertools;
 use tiger_pkg::TagHash;
 
 use crate::{
     asset::{index_buffer::IndexBuffer, vertex_buffer::VertexBuffer},
     features::rigid_model::DynamicObjectData,
-    gpu::command_list::CommandList,
-    renderer::{Renderer, packet::RenderPerFrameNode},
+    renderer::Renderer,
     tfx::{
-        externs::{self, BaseExternSource, DeferredLight, SimpleGeometry},
+        externs::{self, BaseExternSource},
         technique::Technique,
     },
     util::geometry,

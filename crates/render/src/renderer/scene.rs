@@ -49,6 +49,8 @@ impl SceneRenderer {
         r.set_global_channel_by_name("sun_direct_intensity", Vec4::splat(1.3));
         r.set_global_channel_by_id(0xE16B6B6B, Vec4::splat(1000000.0));
         r.set_global_channel_by_id(0x462A7037, Vec4::splat(0.0)); // >0 causes moss to glow?
+        r.set_global_channel_by_id(0xCF70AC7C, Vec4::splat(0.0)); // something about transmission
+        r.set_global_channel_by_id(0x07806276, Vec4::splat(1.0)); // something about transmission
 
         Ok(r)
     }
@@ -225,7 +227,7 @@ impl SceneRenderer {
                     self.main_view.light.bind_for_lights(cmd);
                     cmd.set_ffstate(FixedFunctionState::new(Some(2), None, Some(2), Some(2)));
                     cmd.flush_states();
-                    self.submit_stage_serial(cmd, stream, view, RenderStage::LightingApply);
+                    self.submit_stage(cmd, stream, view, RenderStage::LightingApply);
                 }
 
                 self.main_view
@@ -302,6 +304,8 @@ impl SceneRenderer {
                         .profiler_scope(stream, "submit_transparents");
                     cmd.set_ffstate(FixedFunctionState::new(Some(8), Some(15), Some(2), Some(1)));
                     self.submit_stage_serial(cmd, stream, view, RenderStage::Transparents);
+
+                    self.parent.immediate.draw_shapes(cmd);
                 }
             }
         }

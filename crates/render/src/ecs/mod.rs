@@ -5,7 +5,12 @@ use deimos_ecs::{permutations::PermutationConfig, transform::Transform};
 use crate::{
     ecs::render_objects::{DynamicRenderObject, StaticRenderObject},
     features::rigid_model::DynamicObjectData,
-    renderer::{Renderer, packet::ViewPacket, scene::SceneRenderer},
+    renderer::{
+        Renderer,
+        immediate::{IMMEDIATE_SHAPES, ImmediatePrimitive, ImmediateShape},
+        packet::ViewPacket,
+        scene::SceneRenderer,
+    },
     visibility::ViewVisibility,
 };
 
@@ -76,6 +81,16 @@ pub fn s_extract_frame_packet(
         let bounds = bounds.map_or(AxisAlignedBBox::EVERYTHING, |b| {
             b.transformed(transform.local_to_world())
         });
+
+        // IMMEDIATE_SHAPES.push(ImmediateShape {
+        //     color: if visibility.is_visible(&bounds) {
+        //         [0, 255, 0, 255]
+        //     } else {
+        //         [255, 0, 0, 255]
+        //     },
+        //     primitive: ImmediatePrimitive::BoundingBox(bounds),
+        // });
+
         let frame_node = frame_packet.push_frame_node(
             render_object.handle(),
             bounds.sphere(),

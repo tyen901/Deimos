@@ -1,4 +1,5 @@
 pub mod globals;
+pub mod immediate;
 pub mod internal;
 pub mod object;
 pub mod packet;
@@ -16,6 +17,7 @@ use crate::{
     gpu::{Gpu, command_list::CommandList},
     renderer::{
         globals::RenderGlobals,
+        immediate::ImmediateRenderer,
         internal::InternalResources,
         object::{RenderObject, RenderObjectHandle},
     },
@@ -30,6 +32,7 @@ pub struct Renderer {
     pub globals: RenderGlobals,
     pub externs: ThreadMutCell<ExternContainer>,
     pub internal: InternalResources,
+    pub immediate: ImmediateRenderer,
 }
 
 impl Renderer {
@@ -40,6 +43,7 @@ impl Renderer {
             globals: RenderGlobals::load(&asset_manager, &gpu)
                 .expect("Failed to load render globals"),
             asset_manager,
+            immediate: ImmediateRenderer::new(&gpu).expect("Failed to create immediate renderer"),
             gpu,
             objects: RwLock::new(SlotMap::with_key()),
             externs: ThreadMutCell::new(ExternContainer::default()),
