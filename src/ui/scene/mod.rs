@@ -81,8 +81,8 @@ impl Scene {
             world: World::new(),
             raininess: 0.0,
             heat_cascade: 0.0,
-            time_of_day: 1200.0,
-            animate_time_of_day: true,
+            time_of_day: 0.0,
+            animate_time_of_day: false,
             sun_light_angle: 60f32,
 
             frametimes: Vec::new(),
@@ -404,6 +404,8 @@ impl Scene {
                 .set_global_channel_by_id(0x156C2B22, Vec4::splat(self.raininess));
             self.scene_renderer
                 .set_global_channel_by_id(0xD8281393, Vec4::splat(self.raininess));
+            self.scene_renderer
+                .set_global_channel_by_id(0x2C53817A, Vec4::splat(1.0 - self.raininess));
             self.scene_renderer
                 .set_global_channel_by_id(0xFDCC7BAA, Vec4::splat(self.heat_cascade));
 
@@ -768,23 +770,22 @@ impl Scene {
         //     .ui(ui);
         // }
 
-        // ui.add_enabled_ui(!view_settings.autoexposure, |ui| {
-        //     ui.strong("Exposure Scale");
-        //     ui.spacing_mut().slider_width = ui.available_width() * 0.75;
-        //     egui::Slider::new(&mut view_settings.exposure_scale, 0.001..=4.0)
-        //         .logarithmic(true)
-        //         .show_value(true)
-        //         .ui(ui);
+        ui.strong("Exposure Scale");
+        ui.spacing_mut().slider_width = ui.available_width() * 0.75;
+        let ext = self.renderer.externs.get_mut();
+        egui::Slider::new(&mut ext.frame.exposure_scale, 0.001..=4.0)
+            .logarithmic(true)
+            .show_value(true)
+            .ui(ui);
 
-        //     ui.strong("Exposure Illum Relative");
-        //     ui.spacing_mut().slider_width = ui.available_width() * 0.75;
-        //     egui::Slider::new(&mut view_settings.exposure_illum_relative, 0.01..=2.0)
-        //         .logarithmic(false)
-        //         .show_value(true)
-        //         .ui(ui);
-        // });
+        ui.strong("Exposure Illum Relative");
+        ui.spacing_mut().slider_width = ui.available_width() * 0.75;
+        egui::Slider::new(&mut ext.frame.exposure_illum_relative, 0.01..=2.0)
+            .logarithmic(false)
+            .show_value(true)
+            .ui(ui);
 
-        // ui.add_space(4.0);
+        ui.add_space(4.0);
 
         // Time of Day slider
         ui.horizontal(|ui| {

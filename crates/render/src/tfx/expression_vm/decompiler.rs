@@ -625,6 +625,30 @@ impl<'a> DecompilerState<'a> {
                         "<ident>global_channels<reset>[<num>{channel}<reset>]"
                     ))?;
                 }
+                Opcode::Unknown0x49 => {
+                    let constant_start = ptr[1];
+                    ensure!(
+                        (constant_start + 10) < constants.len() as u8,
+                        "Invalid constant index"
+                    );
+
+                    let cl = get_constants(constant_start as usize..constant_start as usize + 11)?;
+                    cached_top = format!(
+                        "<fun>unk49<reset>({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})",
+                        cached_top,
+                        cl[0],
+                        cl[1],
+                        cl[2],
+                        cl[3],
+                        cl[4],
+                        cl[5],
+                        cl[6],
+                        cl[7],
+                        cl[8],
+                        cl[9],
+                        cl[10]
+                    );
+                }
                 Opcode::Unknown0x5e => {
                     let unk = ptr[1];
                     cached_top = self.push(format!("unknown0x5e({unk})"))?;
