@@ -104,7 +104,9 @@ impl Gpu {
     pub const FRAMES_IN_FLIGHT: usize = 3;
 
     pub fn create(window: &Rc<sdl3::video::Window>) -> anyhow::Result<Self> {
-        d3d12::enable_dred()?;
+        if let Err(e) = d3d12::enable_dred() {
+            error!("Failed to enable DRED: {e}");
+        }
         if cfg!(debug_assertions) {
             unsafe {
                 let mut debug: Option<ID3D12Debug> = None;
@@ -120,7 +122,8 @@ impl Gpu {
             } else {
                 DXGI_CREATE_FACTORY_FLAGS(0)
             })
-        }?;
+        }
+        .context("Failed to create DXGI factory")?;
 
         let use_warp = std::env::var("DEIMOS_USE_WARP") == Ok("1".to_string());
         let adapter = if use_warp {
@@ -147,11 +150,13 @@ impl Gpu {
 
         let device = d3d12::Device::create(Some(adapter)).context("Failed to create device")?;
 
-        let queue = device.create_command_queue(
-            &CommandQueueDesc::builder()
-                .type_(d3d12::CommandListType::Direct)
-                .build(),
-        )?;
+        let queue = device
+            .create_command_queue(
+                &CommandQueueDesc::builder()
+                    .type_(d3d12::CommandListType::Direct)
+                    .build(),
+            )
+            .context("Failed to create command queue")?;
 
         let swap_chain = d3d12::SwapChain::create(
             &dxgi_factory,

@@ -83,7 +83,8 @@ impl FeatureRenderer for DecalCollectionRenderer {
                         key: StaticSubmitKey {
                             technique: u32::MAX, // set.technique.hash().0,
                             model_index: i as u16,
-                            group_index: 0,
+                            is_special_mesh: false,
+                            mesh_index: 0,
                         }
                         .to_u64(),
                     },

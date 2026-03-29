@@ -10,7 +10,7 @@ use tiger_pkg::TagHash;
 use crate::{
     task::Task,
     ui::{
-        scene::{Scene, controller::CameraController},
+        scene::{RenderMode, Scene, controller::CameraController},
         util::UiExt,
     },
     world::pattern::load_component,
@@ -49,7 +49,9 @@ impl MapTab {
             tag,
             name,
             scene: Box::new(
-                Scene::new(renderer, camera)?.with_controller(CameraController::new_first_person()),
+                Scene::new(renderer, camera)?
+                    .with_controller(CameraController::new_first_person())
+                    .with_render_mode(RenderMode::Shaded),
             ),
             errored: false,
         })

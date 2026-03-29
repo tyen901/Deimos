@@ -234,6 +234,7 @@ const fn extern_filler(index: ExternIndex, offset: u32) -> Option<[u8; 4]> {
     match (index, offset) {
         (ExternIndex::ShadowMask, _) => Some([255, 255, 255, 255]),
         (ExternIndex::Atmosphere, _) => Some([0; 4]),
+        (ExternIndex::Transparent, _) => Some([0x00, 0x00, 0x00, 0xFF]),
         _ => None,
     }
 }

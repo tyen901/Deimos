@@ -192,7 +192,8 @@ impl StaticModelRenderer {
                 let key = StaticSubmitKey {
                     technique: technique.hash().0,
                     model_index: 0, // fixed up in the StaticInstancesRenderer
-                    group_index: group_index as u16,
+                    is_special_mesh: false,
+                    mesh_index: group_index as u16,
                 };
                 precomputed_submit_nodes.push((
                     group.render_stage,
@@ -202,6 +203,27 @@ impl StaticModelRenderer {
                     },
                 ));
             }
+        }
+
+        let special_meshes = &model.special_meshes;
+        for (mesh_index, mesh) in special_meshes
+            .iter()
+            .enumerate()
+            .filter(|(_, m)| m.lod.is_highest_detail())
+        {
+            let key = StaticSubmitKey {
+                technique: mesh.technique.hash().0,
+                model_index: 0, // fixed up in the StaticInstancesRenderer
+                is_special_mesh: true,
+                mesh_index: mesh_index as u16,
+            };
+            precomputed_submit_nodes.push((
+                mesh.render_stage,
+                SubmitNode {
+                    key: key.to_u64(),
+                    view_node: 0, // fixed up at submit time
+                },
+            ));
         }
 
         trace!(instances = transforms.len(), model_hash=%model_hash, "Loading model");
@@ -293,17 +315,36 @@ impl StaticModelRenderer {
     }
 
     #[profiling::function]
-    pub fn render_group(&self, cmd: &mut CommandList, stage: RenderStage, group_index: usize) {
+    pub fn render_group(&self, cmd: &mut CommandList, is_special_mesh: bool, mesh_index: usize) {
         cmd.enable_smart_technique_binding();
 
-        let is_opaque = matches!(
-            stage,
-            RenderStage::ShadowGenerate | RenderStage::DepthPrepass | RenderStage::GenerateGbuffer
-        );
+        // let is_opaque = matches!(
+        //     stage,
+        //     RenderStage::ShadowGenerate | RenderStage::DepthPrepass | RenderStage::GenerateGbuffer
+        // );
 
-        if is_opaque {
+        if is_special_mesh {
+            let mesh = &self.model.special_meshes[mesh_index];
+            if mesh.buffers.bind(cmd).is_none() {
+                return;
+            }
+
+            cmd.set_input_layout(mesh.input_layout_index as usize);
+            cmd.set_input_topology(mesh.primitive_type);
+            if let Some(technique) = mesh.technique.get() {
+                technique.bind(cmd);
+            } else {
+                return;
+            }
+
+            cmd.draw_indexed_instanced(
+                mesh.index_range(),
+                0..self.visible_instance_ids.len() as u32,
+                0,
+            );
+        } else {
             let opaque_meshes = &self.model.model.opaque_meshes;
-            let group = &opaque_meshes.mesh_groups[group_index];
+            let group = &opaque_meshes.mesh_groups[mesh_index];
             let part = &opaque_meshes.parts[group.part_index as usize];
             let buffers = &self.model.buffers[part.buffer_index as usize];
             if buffers.bind(cmd).is_none() {
@@ -316,7 +357,7 @@ impl StaticModelRenderer {
             if let Some(technique) = &self
                 .model
                 .materials_by_group
-                .get(group_index)
+                .get(mesh_index)
                 .and_then(|h| h.get())
             {
                 technique.bind(cmd);
@@ -588,7 +629,7 @@ impl FeatureRenderer for StaticInstancesRenderer {
             )],
         );
         cmd.set_shader_resource_view(ShaderStage::Vertex, 2, Some(*transforms_srv));
-        model.render_group(cmd, stage, key.group_index as usize);
+        model.render_group(cmd, key.is_special_mesh, key.mesh_index as usize);
     }
 
     fn subscribed_stages(&self) -> RenderStageSubscription {
@@ -601,7 +642,8 @@ impl FeatureRenderer for StaticInstancesRenderer {
 pub struct StaticSubmitKey {
     pub technique: u32,
     pub model_index: u16,
-    pub group_index: u16,
+    pub is_special_mesh: bool,
+    pub mesh_index: u16,
 }
 
 impl StaticSubmitKey {
@@ -609,14 +651,16 @@ impl StaticSubmitKey {
         Self {
             technique: k.get_bits(32..64) as u32,
             model_index: k.get_bits(16..32) as u16,
-            group_index: k.get_bits(0..16) as u16,
+            is_special_mesh: k.get_bit(15),
+            mesh_index: k.get_bits(0..15) as u16,
         }
     }
 
     pub fn to_u64(self) -> u64 {
         let mut k = 0u64;
 
-        k.set_bits(0..16, self.group_index as u64);
+        k.set_bits(0..15, self.mesh_index as u64);
+        k.set_bit(15, self.is_special_mesh);
         k.set_bits(16..32, self.model_index as u64);
         k.set_bits(32..64, self.technique as u64);
 

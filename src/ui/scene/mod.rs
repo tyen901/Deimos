@@ -99,6 +99,11 @@ impl Scene {
         self
     }
 
+    pub const fn with_render_mode(mut self, render_mode: RenderMode) -> Self {
+        self.render_mode = render_mode;
+        self
+    }
+
     pub fn set_world(&mut self, world: World) {
         self.world = world;
     }
@@ -486,9 +491,9 @@ impl Scene {
                 render_time: self.start_time.elapsed().as_secs_f32(),
                 delta_game_time: delta_time,
                 unk10: self.time_of_day / 3600.0,
-                exposure_time: 1.0 / 60.0,
-                exposure_scale: 2.0,          // view.settings().exposure_scale,
-                exposure_illum_relative: 1.0, // view.settings().exposure_illum_relative,
+                // exposure_time: 1.0 / 60.0,
+                // exposure_scale: 2.0,          // view.settings().exposure_scale,
+                // exposure_illum_relative: 1.0, // view.settings().exposure_illum_relative,
                 specular_tint_lookup: global_tex.specular_tint_lookup.srv.into(),
                 specular_lobe_lookup: global_tex.specular_lobe_lookup.srv.into(),
                 specular_lobe_3d_lookup: global_tex.specular_lobe_3d_lookup.srv.into(),

@@ -18,7 +18,7 @@ use crate::{
     app::SharedState,
     task::Task,
     ui::{
-        scene::{Scene, controller::CameraController},
+        scene::{RenderMode, Scene, controller::CameraController},
         util::{DButton, UiExt},
     },
     world::pattern::load_component,
@@ -71,7 +71,8 @@ impl ActivityTab {
             name,
             scene: Box::new(
                 Scene::new(&state.renderer.clone(), Camera::default())?
-                    .with_controller(CameraController::new_first_person()),
+                    .with_controller(CameraController::new_first_person())
+                    .with_render_mode(RenderMode::Shaded),
             ),
         })
     }
