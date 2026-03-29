@@ -1,4 +1,9 @@
-use std::{f32, io::Write, ops::Deref, sync::Arc};
+use std::{
+    f32,
+    io::Write,
+    ops::Deref,
+    sync::{Arc, atomic::Ordering},
+};
 
 use anyhow::Context;
 use bit_field::BitField;
@@ -585,7 +590,7 @@ impl FeatureRenderer for StaticInstancesRenderer {
     #[profiling::function]
     fn populate_submit_node_blocks(
         &self,
-        _renderer: &Renderer,
+        renderer: &Renderer,
         view_node: usize,
         visibility: &ViewVisibility,
         submit_node_blocks: &mut SubmitNodeContainer,
@@ -597,6 +602,10 @@ impl FeatureRenderer for StaticInstancesRenderer {
 
         for model_index in &visible_indices {
             let (model, _) = &self.models[*model_index];
+            renderer
+                .gpu
+                .num_static_instances
+                .fetch_add(model.transforms.len(), Ordering::Relaxed);
             for &(stage, mut node) in &model.precomputed_submit_nodes {
                 node.view_node = view_node;
                 submit_node_blocks.push(stage, node);

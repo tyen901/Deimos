@@ -1,4 +1,7 @@
-use std::{ops::Deref, sync::Arc};
+use std::{
+    ops::{Deref, Range},
+    sync::{Arc, atomic::Ordering},
+};
 
 use d3d12::{CpuDescriptorHandle, GpuVirtualAddress};
 use deimos_data::tfx::{FixedFunctionState, PrimitiveType, ShaderStage};
@@ -280,6 +283,22 @@ impl CommandList {
                 .left(0)
                 .build()]);
         }
+    }
+
+    pub fn draw_instanced(&self, vertices: Range<u32>, instances: Range<u32>) {
+        self.gpu().num_drawcalls.fetch_add(1, Ordering::Relaxed);
+        self.cmd.draw_instanced(vertices, instances);
+    }
+
+    pub fn draw_indexed_instanced(
+        &self,
+        indices: Range<u32>,
+        instances: Range<u32>,
+        base_vertex_location: i32,
+    ) {
+        self.gpu().num_drawcalls.fetch_add(1, Ordering::Relaxed);
+        self.cmd
+            .draw_indexed_instanced(indices, instances, base_vertex_location);
     }
 
     pub fn set_scissor_rects(&mut self, rects: &[d3d12::Rect]) {

@@ -1,4 +1,7 @@
-use std::{sync::Arc, time::Instant};
+use std::{
+    sync::{Arc, atomic::Ordering},
+    time::Instant,
+};
 
 use deimos_data::tfx::{FeatureRendererSubscription, geometry::AxisAlignedBBox};
 use deimos_render::{
@@ -262,15 +265,6 @@ impl Scene {
             ui.style_mut().spacing.tooltip_width = 4096.0;
             // Renderer::instance().profiler.set_enabled(false);
             ui.interact(
-                fps_rect,
-                "frame_counter_profiler_tooltip".into(),
-                Sense::hover(),
-            )
-            .on_hover_ui(|ui| {
-                let profiler_results = self.renderer.gpu.frame().profiler.get_results_string();
-                ui.add(egui::Label::new(RichText::new(profiler_results).monospace()).extend());
-            });
-            ui.interact(
                 vram_rect,
                 "vram_report_profiler_tooltip".into(),
                 Sense::hover(),
@@ -318,7 +312,7 @@ impl Scene {
                         self.renderer
                             .gpu
                             .num_bytes_allocated_for_buffers
-                            .load(std::sync::atomic::Ordering::Relaxed)
+                            .load(Ordering::Relaxed)
                     )
                 ));
 
@@ -328,7 +322,7 @@ impl Scene {
                         self.renderer
                             .gpu
                             .num_bytes_allocated_for_transfer_buffers
-                            .load(std::sync::atomic::Ordering::Relaxed)
+                            .load(Ordering::Relaxed)
                     )
                 ));
 
@@ -338,7 +332,7 @@ impl Scene {
                         self.renderer
                             .gpu
                             .num_bytes_allocated_for_render_targets
-                            .load(std::sync::atomic::Ordering::Relaxed)
+                            .load(Ordering::Relaxed)
                     )
                 ));
 
@@ -348,7 +342,7 @@ impl Scene {
                         self.renderer
                             .gpu
                             .num_bytes_allocated_for_textures
-                            .load(std::sync::atomic::Ordering::Relaxed)
+                            .load(Ordering::Relaxed)
                     )
                 ));
 
@@ -398,6 +392,25 @@ impl Scene {
                 .set_global_channel_by_name("sun_light_direction", sun_light_direction.extend(0.0));
 
             self.render(delta_time, resolution);
+
+            ui.interact(
+                fps_rect,
+                "frame_counter_profiler_tooltip".into(),
+                Sense::hover(),
+            )
+            .on_hover_ui(|ui| {
+                let gpu = &self.renderer.gpu;
+                ui.monospace(format!(
+                    "{} Drawcalls",
+                    gpu.num_drawcalls.load(Ordering::Relaxed)
+                ));
+                ui.monospace(format!(
+                    "{} Static Instances",
+                    gpu.num_static_instances.load(Ordering::Relaxed)
+                ));
+                let profiler_results = self.renderer.gpu.frame().profiler.get_results_string();
+                ui.add(egui::Label::new(RichText::new(profiler_results).monospace()).extend());
+            });
         });
     }
 
@@ -886,8 +899,8 @@ impl Scene {
         egui::ScrollArea::vertical().show(ui, |ui| {
             ui.heading("Global Channels");
             for (i, channel) in self.scene_renderer.global_channels.iter_mut().enumerate() {
-                let frequency = self.renderer.externs.global_channel_frequency[i]
-                    .load(std::sync::atomic::Ordering::Relaxed);
+                let frequency =
+                    self.renderer.externs.global_channel_frequency[i].load(Ordering::Relaxed);
 
                 if self.only_show_used_channels && frequency == 0 {
                     continue;

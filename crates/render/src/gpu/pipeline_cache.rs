@@ -2,7 +2,7 @@ use std::{collections::hash_map::Entry, sync::Arc};
 
 use ahash::HashMap;
 use anyhow::Context;
-use d3d12::{D3D12_DEPTH_STENCIL_DESC, DeviceChild, GraphicsPipelineStateDesc};
+use d3d12::{DeviceChild, GraphicsPipelineStateDesc};
 use deimos_data::tfx::FixedFunctionState;
 use tiger_pkg::{TagHash, package_manager};
 

@@ -91,6 +91,9 @@ pub struct Gpu {
     pub num_bytes_allocated_for_render_targets: AtomicUsize,
     pub num_bytes_allocated_for_buffers: AtomicUsize,
     pub num_bytes_allocated_for_transfer_buffers: AtomicUsize,
+
+    pub num_drawcalls: AtomicUsize,
+    pub num_static_instances: AtomicUsize,
 }
 
 unsafe impl Sync for Gpu {}
@@ -200,6 +203,9 @@ impl Gpu {
             num_bytes_allocated_for_render_targets: AtomicUsize::new(0),
             num_bytes_allocated_for_buffers: AtomicUsize::new(0),
             num_bytes_allocated_for_transfer_buffers: AtomicUsize::new(0),
+
+            num_drawcalls: AtomicUsize::new(0),
+            num_static_instances: AtomicUsize::new(0),
         })
     }
 
@@ -249,6 +255,11 @@ impl Gpu {
 // Frame management
 impl Gpu {
     pub fn begin_frame(&self) -> &FrameContext {
+        self.num_drawcalls
+            .store(0, std::sync::atomic::Ordering::Relaxed);
+        self.num_static_instances
+            .store(0, std::sync::atomic::Ordering::Relaxed);
+
         d3d12::check_device_removed(self);
         self.swapchain.lock().wait_on_present();
         let frame_index = self.frame_index.load(std::sync::atomic::Ordering::Relaxed);
