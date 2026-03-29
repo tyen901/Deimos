@@ -75,6 +75,14 @@ impl UploadRing {
         })
     }
 
+    pub fn upload_bytes(&self, data: &[u8]) -> anyhow::Result<d3d12::GpuVirtualAddress> {
+        let slice = self.alloc_slice(data.len())?;
+        unsafe {
+            std::ptr::copy_nonoverlapping(data.as_ptr(), slice.ptr, data.len());
+        }
+        Ok(slice.gpu_va)
+    }
+
     pub const fn null(&self) -> d3d12::GpuVirtualAddress {
         self.gpu_base
     }

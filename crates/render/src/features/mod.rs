@@ -19,6 +19,10 @@ use crate::{
 };
 
 pub trait FeatureRenderer: Send {
+    fn visibility_test(&mut self, visibility: &ViewVisibility) {
+        _ = visibility;
+    }
+
     fn populate_submit_node_blocks(
         &self,
         renderer: &Renderer,

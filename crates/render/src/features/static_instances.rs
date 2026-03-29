@@ -21,7 +21,9 @@ use deimos_data::tfx::{
 };
 use glam::{Mat4, Vec3, Vec4};
 use itertools::Itertools;
-use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{
+    IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
+};
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::TagHash;
 use tiger_pkg::package_manager;
@@ -132,7 +134,6 @@ impl StaticModel {
 pub struct StaticModelRenderer {
     // unk_cb1: ConstantBuffer<Vec4>,
     instance_buffer_offset: usize,
-    instance_id_buffer_offset: usize,
 
     model: StaticModel,
     visible_instance_ids: Vec<u32>,
@@ -160,7 +161,6 @@ impl StaticModelRenderer {
         transforms: Vec<(SStaticInstanceTransform, AxisAlignedBBox)>,
         model_hash: TagHash,
         identifier: u64,
-        ids_upload: &ImmutableStaging,
         transforms_upload: &ImmutableStaging,
     ) -> anyhow::Result<Self> {
         let model = StaticModel::load(renderer, model_hash)?;
@@ -173,9 +173,6 @@ impl StaticModelRenderer {
         // In the past, the engine would skip the 32 bytes where the quantization information was stored, but the offset must now be an exact multiple of 0x40 bytes.
         // cb0[0].x dictates where the quantization information  is stored. For now I've opted to just skip the first instance and use that slot for the quantization information.
         let visible_instance_ids = (0..transforms.len() as u32).map(|i| i + 1).collect_vec();
-
-        let instance_id_buffer_offset =
-            ids_upload.upload_slice(bytemuck::cast_slice(&visible_instance_ids));
 
         let bounds = transforms.iter().map(|(_, b)| *b).collect_vec();
         let group_bounds = bounds.iter().cloned().sum();
@@ -211,7 +208,6 @@ impl StaticModelRenderer {
         Ok(Self {
             // unk_cb1: ConstantBuffer::create(gpu, Some(&Vec4::ZERO))?, // Offsets instance buffer data
             instance_buffer_offset,
-            instance_id_buffer_offset,
             model,
             bounds: group_bounds,
             bvh,
@@ -413,43 +409,7 @@ impl StaticModelRenderer {
                 .unwrap();
         }
 
-        // unsafe {
-        //     self.instance_buffer.write_array(ctx, &buffer).unwrap();
-        // }
         buffer
-    }
-
-    // fn visibility_test(&mut self, camera: &Camera) -> bool {
-    //     if !camera.culling_frustum.aabb_intersecting(&self.bounds) {
-    //         return false;
-    //     }
-
-    //     self.visible_instance_ids.clear();
-    //     for (i, (_, b)) in self.transforms.iter().enumerate() {
-    //         if camera.is_visible(b) {
-    //             self.visible_instance_ids.push(1 + i as u32);
-    //         }
-    //     }
-
-    //     !self.visible_instance_ids.is_empty()
-    // }
-
-    // fn prepare_write_instance_ids(&self, cmd: &DeviceContext) {
-    //     // Safety: there's never more instances than we allocated space for (hopefully)
-    //     unsafe {
-    //         self.instance_id_buffer
-    //             .write(cmd, bytemuck::cast_slice(&self.visible_instance_ids))
-    //             .unwrap();
-    //     }
-    // }
-
-    #[profiling::function]
-    pub fn is_visible(&self, visibility: &ViewVisibility) -> bool {
-        if !visibility.is_visible(&self.bounds) {
-            return false;
-        }
-
-        self.bvh.has_visible_leaves(visibility)
     }
 }
 
@@ -458,7 +418,6 @@ pub struct StaticInstancesRenderer {
     subscribed_stages: RenderStageSubscription,
     /// (model, visible)
     models: Vec<(StaticModelRenderer, ResourceView)>,
-    instance_id_buffer: ImmutableBuffer,
     transforms_buffer: ImmutableBuffer,
     // (technique_hash, model_index, group_index) sorted by the group's technique hash
     // groups_by_stage_sorted_by_technique: HashMap<RenderStage, Arc<Vec<(TagHash, usize, usize)>>>,
@@ -472,7 +431,6 @@ impl StaticInstancesRenderer {
             instances.occlusion_bounds.bounds.len(),
             instances.instance_groups.len()
         );
-        let ids_upload = ImmutableStaging::new(instances.instance_groups.len() * 16);
         let transforms_upload = ImmutableStaging::new(instances.instance_groups.len() * 0x50 * 2);
         let mut models = instances
             .instance_groups
@@ -496,7 +454,6 @@ impl StaticInstancesRenderer {
                         .collect(),
                     model,
                     instances.vertex_ao_identifier,
-                    &ids_upload,
                     &transforms_upload,
                 )?;
 
@@ -515,28 +472,14 @@ impl StaticInstancesRenderer {
                 }
             });
 
-        Ok(Self::new(
-            &renderer.gpu,
-            models,
-            ids_upload,
-            transforms_upload,
-        ))
+        Ok(Self::new(&renderer.gpu, models, transforms_upload))
     }
 
     pub fn new(
         gpu: &Arc<Gpu>,
         models: Vec<StaticModelRenderer>,
-        ids_upload: ImmutableStaging,
         transforms_upload: ImmutableStaging,
     ) -> Self {
-        let upload_data = ids_upload.into_inner();
-        let instance_id_buffer = ImmutableBuffer::new(
-            gpu,
-            "grouped_instance_id_buffer",
-            d3d12::Format::R32Uint,
-            &upload_data,
-        )
-        .unwrap();
         let transforms_data = transforms_upload.into_inner();
         let transforms_buffer = ImmutableBuffer::new(
             gpu,
@@ -557,14 +500,12 @@ impl StaticInstancesRenderer {
                 .into_iter()
                 .map(|m| {
                     let start = m.instance_buffer_offset as u64;
-                    let count =
-                        (m.visible_instance_ids.len() + 1) * size_of::<InstanceTransformBlock>();
+                    let count = (m.transforms.len() + 1) * size_of::<InstanceTransformBlock>();
                     let elements = start..start + count as u64;
                     let transforms_srv = transforms_buffer.create_srv(gpu, elements);
                     (m, transforms_srv)
                 })
                 .collect(),
-            instance_id_buffer,
             transforms_buffer,
         }
     }
@@ -580,12 +521,18 @@ impl Drop for StaticInstancesRenderer {
 }
 
 impl FeatureRenderer for StaticInstancesRenderer {
-    // fn visibility_test(&mut self, camera: &Camera) -> bool {
-    //     self.models.par_iter_mut().for_each(|(model, visible)| {
-    //         *visible = model.visibility_test(camera);
-    //     });
-    //     true
-    // }
+    fn visibility_test(&mut self, visibility: &ViewVisibility) {
+        self.models.par_iter_mut().for_each(|(model, _)| {
+            model.visible_instance_ids.clear();
+            model
+                .bvh
+                .collect_visible_leaves(visibility, &mut model.visible_instance_ids, 1);
+            assert!(
+                model.visible_instance_ids.len() <= model.transforms.len(),
+                "Visible instance count exceeds transform count"
+            );
+        });
+    }
 
     #[profiling::function]
     fn populate_submit_node_blocks(
@@ -595,13 +542,11 @@ impl FeatureRenderer for StaticInstancesRenderer {
         visibility: &ViewVisibility,
         submit_node_blocks: &mut SubmitNodeContainer,
     ) {
-        let visible_indices: Vec<usize> = (0..self.models.len())
-            .into_par_iter()
-            .filter(|&i| self.models[i].0.is_visible(visibility))
-            .collect();
-
-        for model_index in &visible_indices {
-            let (model, _) = &self.models[*model_index];
+        for (model, _) in self
+            .models
+            .iter()
+            .filter(|(m, _)| !m.visible_instance_ids.is_empty())
+        {
             renderer
                 .gpu
                 .num_static_instances
@@ -624,12 +569,20 @@ impl FeatureRenderer for StaticInstancesRenderer {
         let key = StaticSubmitKey::from_u64(submit_key);
 
         let (model, transforms_srv) = &self.models[key.model_index as usize];
+        let ids_gpuva = match cmd
+            .upload_ring()
+            .upload_bytes(bytemuck::cast_slice(&model.visible_instance_ids))
+        {
+            Ok(va) => va,
+            Err(e) => {
+                error!("Failed to upload instance IDs: {}", e);
+                return;
+            }
+        };
         cmd.ia_set_vertex_buffers(
             2,
             &[d3d12::VertexBufferView::new(
-                self.instance_id_buffer
-                    .constant_buffer_view()
-                    .offset(model.instance_id_buffer_offset),
+                ids_gpuva,
                 model.visible_instance_ids.len() as u32 * 4,
                 4,
             )],

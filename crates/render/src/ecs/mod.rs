@@ -103,6 +103,26 @@ pub fn s_extract_frame_packet(
     }
 }
 
+pub fn node_visibility_test(scene: &mut SceneRenderer, visibility: &ViewVisibility) {
+    let SceneRenderer {
+        parent: renderer,
+        frame_packet,
+        ..
+    } = scene;
+
+    let mut render_objects = renderer.objects.write();
+    for ViewPacket { view_nodes, .. } in frame_packet.views.iter_mut() {
+        for (_view_node, per_frame_node) in view_nodes
+            .iter()
+            .enumerate()
+            .map(|(view_node, v)| (view_node, &frame_packet.per_frame_nodes[v.frame_node]))
+        {
+            let render_object = &mut render_objects[per_frame_node.object];
+            render_object.renderer.visibility_test(visibility);
+        }
+    }
+}
+
 pub fn populate_submit_nodes(scene: &mut SceneRenderer, visibility: &ViewVisibility) {
     let SceneRenderer {
         parent: renderer,

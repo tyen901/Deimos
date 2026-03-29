@@ -2,11 +2,10 @@ use std::{ops::Range, sync::Arc};
 
 use anyhow::Context;
 use d3d12::{
-    BufferSrvFlags, D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT, D3D12_RESOURCE_DESC,
-    D3D12_RESOURCE_DIMENSION_BUFFER, D3D12_RESOURCE_STATE_COMMON,
-    D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT,
-    D3D12_TEXTURE_LAYOUT_ROW_MAJOR, GpuVirtualAddress, ID3D12Resource, Resource, ResourceBarrier,
-    ResourceStates, error::D3DResultExt,
+    BufferSrvFlags, D3D12_RESOURCE_DESC, D3D12_RESOURCE_DIMENSION_BUFFER,
+    D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
+    GpuVirtualAddress, ID3D12Resource, Resource, ResourceBarrier, ResourceStates,
+    error::D3DResultExt,
 };
 use deimos_data::tfx::ShaderStage;
 use gpu_allocator::{

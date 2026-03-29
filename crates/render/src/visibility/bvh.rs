@@ -12,7 +12,7 @@ struct FlatNode {
 #[derive(Debug, Clone)]
 enum NodeData {
     Internal { right_child: u32 },
-    Leaf,
+    Leaf { original_index: u32 },
 }
 
 pub struct Bvh {
@@ -52,7 +52,7 @@ impl Bvh {
                         stack.push(idx + 1);
                     }
                 }
-                NodeData::Leaf => {
+                NodeData::Leaf { .. } => {
                     if vis.is_visible(&node.aabb) {
                         return true;
                     }
@@ -62,6 +62,34 @@ impl Bvh {
         false
     }
 
+    #[profiling::function]
+    pub fn collect_visible_leaves(&self, vis: &ViewVisibility, out: &mut Vec<u32>, offset: u32) {
+        if self.nodes.is_empty() {
+            return;
+        }
+
+        let mut stack = SmallVec::<[u32; 64]>::new();
+        stack.push(0u32);
+
+        while let Some(idx) = stack.pop() {
+            let node = &self.nodes[idx as usize];
+
+            match node.data {
+                NodeData::Internal { right_child } => {
+                    if vis.is_visible_quick(&node.aabb) {
+                        stack.push(right_child);
+                        stack.push(idx + 1);
+                    }
+                }
+                NodeData::Leaf { original_index } => {
+                    if vis.is_visible(&node.aabb) {
+                        out.push(offset + original_index);
+                    }
+                }
+            }
+        }
+    }
+
     pub const fn node_count(&self) -> usize {
         self.nodes.len()
     }
@@ -69,7 +97,7 @@ impl Bvh {
     pub fn depth(&self) -> usize {
         fn recurse(nodes: &[FlatNode], idx: usize) -> usize {
             match nodes[idx].data {
-                NodeData::Leaf => 1,
+                NodeData::Leaf { .. } => 1,
                 NodeData::Internal { right_child } => {
                     let l = recurse(nodes, idx + 1);
                     let r = recurse(nodes, right_child as usize);
@@ -99,7 +127,9 @@ fn build_recursive(aabbs: &[AxisAlignedBBox], work: &mut [u32], nodes: &mut Vec<
     if work.len() <= LEAF_SIZE {
         nodes.push(FlatNode {
             aabb,
-            data: NodeData::Leaf,
+            data: NodeData::Leaf {
+                original_index: work[0],
+            },
         });
         return;
     }

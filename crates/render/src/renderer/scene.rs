@@ -12,7 +12,7 @@ use deimos_data::{
 use glam::Vec4;
 
 use crate::{
-    ecs::populate_submit_nodes,
+    ecs::{node_visibility_test, populate_submit_nodes},
     gpu::{
         command_list::CommandList,
         stream::{FrameCommandStream, ParallelCommandBlock},
@@ -94,6 +94,11 @@ impl SceneRenderer {
             //         .renderer
             //         .submit(cmd, RenderStage::GenerateGbuffer);
             // }
+
+            {
+                let _scope = gpu.profiler_scope(stream, "node_visibility_test");
+                node_visibility_test(self, visibility);
+            }
 
             {
                 let _scope = gpu.profiler_scope(stream, "populate_submit_nodes");
