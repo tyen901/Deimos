@@ -2,6 +2,7 @@
 
 pub mod activity;
 pub mod hash;
+pub mod investment;
 pub mod map;
 pub mod pattern;
 pub mod strings;

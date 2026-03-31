@@ -1,0 +1,16 @@
+[package]
+name = "deimos-investment"
+version = "0.0.0"
+edition = "2024"
+
+[dependencies]
+deimos-core = { path = "../core" }
+deimos-data = { path = "../data" }
+
+anyhow.workspace = true
+tiger-parse.workspace = true
+tiger-pkg.workspace = true
+
+[dev-dependencies]
+serde_json = "1.0.149"
+serde.workspace = true

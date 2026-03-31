@@ -819,6 +819,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "deimos-investment"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "deimos-core",
+ "deimos-data",
+ "serde",
+ "serde_json",
+ "tiger-parse",
+ "tiger-pkg",
+]
+
+[[package]]
 name = "deimos-render"
 version = "0.1.0"
 dependencies = [
