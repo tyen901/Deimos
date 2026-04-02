@@ -37,7 +37,7 @@ pub struct DynamicModel {
     part_techniques: Vec<Vec<Handle<Technique>>>,
 
     // pub selected_mesh: usize,
-    pub permutation: usize,
+    pub default_permutation: usize,
     permutation_count: usize,
 
     identifier_count: usize,
@@ -152,7 +152,7 @@ impl DynamicModel {
             + 1;
 
         Ok(Box::new(Self {
-            permutation: permutation_count - 1,
+            default_permutation: permutation_count - 1,
             permutation_count,
             // selected_mesh: 0,
             identifier_count,
@@ -230,6 +230,7 @@ impl DynamicModel {
         cmd: &mut CommandList,
         stage: RenderStage,
         identifier: u16,
+        permutation: Option<usize>,
         mut f: F,
     ) where
         F: FnMut(&Self, &mut CommandList, &SDynamicMesh, &SDynamicMeshPart),
@@ -267,8 +268,10 @@ impl DynamicModel {
                     continue;
                 }
 
-                let variant_material =
-                    self.get_permutation_technique(part.variant_shader_index, self.permutation);
+                let variant_material = self.get_permutation_technique(
+                    part.variant_shader_index,
+                    permutation.unwrap_or(self.default_permutation),
+                );
 
                 let mut all_scopes = TfxScopeBits::empty();
                 if let Some(technique) = mesh_techniques[part_index].get() {
@@ -388,9 +391,15 @@ impl FeatureRenderer for DynamicModel {
         cmd.set_shader_constant_buffer_view(ShaderStage::Vertex, 1, Some(data.cbuffer_gpuva));
         cmd.set_shader_constant_buffer_view(ShaderStage::Pixel, 1, Some(data.cbuffer_gpuva));
 
-        self.draw_wrapped(cmd, stage, u16::MAX, |_model, cmd, _mesh, part| {
-            cmd.draw_indexed_instanced(part.index_range(), 0..1, 0);
-        });
+        self.draw_wrapped(
+            cmd,
+            stage,
+            u16::MAX,
+            Some(data.permutation),
+            |_model, cmd, _mesh, part| {
+                cmd.draw_indexed_instanced(part.index_range(), 0..1, 0);
+            },
+        );
     }
 
     fn populate_submit_node_blocks(

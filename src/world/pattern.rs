@@ -58,7 +58,7 @@ pub fn load_component(
                     "Expected component data type {} for component type 0x{:08X}, found \
                          {}/0x{:08X}",
                     stringify!($type),
-                    component.unk10.resource_type,
+                    component.default_instance.resource_type,
                     data.class_name(),
                     data.class_id()
                 );
@@ -67,10 +67,10 @@ pub fn load_component(
         };
     }
 
-    match component.unk10.resource_type {
+    match component.default_instance.resource_type {
         0x80808673 => {
             let mut cur = Cursor::new(package_manager().read_tag(component.taghash())?);
-            cur.seek(SeekFrom::Start(component.unk18.offset))?;
+            cur.seek(SeekFrom::Start(component.definition.offset))?;
             let model: SDynamicModelComponent = TigerReadable::read_ds(&mut cur)?;
 
             if let Some(permutations) = PermutationConfig::from_model(&model) {
@@ -91,9 +91,12 @@ pub fn load_component(
                 ),
             )?;
 
+            let default_permutation = model.default_permutation;
             let obj =
                 renderer.add_object(RenderObject::new(TfxFeatureRenderer::RigidObject, model));
-            world.insert_one(entity, DynamicRenderObject::new(renderer, obj))?;
+            let mut obj_component = DynamicRenderObject::new(renderer, obj);
+            obj_component.permutation = default_permutation;
+            world.insert_one(entity, obj_component)?;
         }
         // 0x80808412 => {
         //     let mut cur = Cursor::new(package_manager().read_tag(component.taghash())?);
@@ -120,6 +123,7 @@ pub fn load_component(
         0x80804030 => {
             let data = get_component_data!(SMaterialPermutationsComponent);
 
+            println!("Permutation config {data:#X?}");
             if let Ok(mut config) = world.get::<&mut PermutationConfig>(entity) {
                 for (key, value) in &data.config {
                     config.configuration.insert(*key, *value);
@@ -240,7 +244,7 @@ pub fn load_component(
                 light.clone()
             } else {
                 let mut cur = Cursor::new(package_manager().read_tag(component.taghash())?);
-                cur.seek(SeekFrom::Start(component.unk18.offset + 0x130))?;
+                cur.seek(SeekFrom::Start(component.definition.offset + 0x130))?;
                 let light = TagRef::<SShadowingLight>::read_ds(&mut cur)?;
 
                 light.0

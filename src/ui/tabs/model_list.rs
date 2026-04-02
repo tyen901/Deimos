@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::{mem::transmute, str::FromStr, sync::Arc};
 
 use deimos_data::tfx::geometry::AxisAlignedBBox;
 use deimos_ecs::permutations::{self, OPTION_KEY_INVALID, PermutationConfig};
@@ -582,7 +582,9 @@ impl<P: ModelProvider> ModelListBase<P> {
                                     Some(*bb)
                                 }
                             })
-                            .unwrap_or(AxisAlignedBBox::from_center_extents(Vec3::ZERO, Vec3::ONE));
+                            .unwrap_or_else(|| {
+                                AxisAlignedBBox::from_center_extents(Vec3::ZERO, Vec3::ONE)
+                            });
 
                         self.scene.focus_on(bb.centroid());
                     }

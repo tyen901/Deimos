@@ -101,6 +101,7 @@ tiger_variant_enum! {
     }
 }
 
+#[derive(Debug)]
 #[tiger_type(id = 0x8080402E)]
 pub struct SMaterialPermutationsComponent {
     pub config: Vec<(u32, u32)>,

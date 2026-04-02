@@ -72,15 +72,17 @@ where
         let component =
             SComponent::read_ds(&mut component_data).context("Failed to read SComponent")?;
 
-        match component.unk18.resource_type {
+        match component.definition.resource_type {
             0x8080B1A5 => {
-                component_data.seek(std::io::SeekFrom::Start(component.unk18.offset + 0x84))?;
+                component_data
+                    .seek(std::io::SeekFrom::Start(component.definition.offset + 0x84))?;
                 let nodetable_hash = TagHash::read_ds(&mut component_data)?;
                 load_nodetable_into_world(nodetable_hash, world, &callback)?;
             }
             // 0x8080B24B
             0x8080B250 => {
-                component_data.seek(std::io::SeekFrom::Start(component.unk18.offset + 0x68))?;
+                component_data
+                    .seek(std::io::SeekFrom::Start(component.definition.offset + 0x68))?;
                 let nodetable_hash = TagHash::read_ds(&mut component_data)?;
                 load_nodetable_into_world(nodetable_hash, world, &callback)?;
             }

@@ -5,12 +5,7 @@ use deimos_ecs::{permutations::PermutationConfig, transform::Transform};
 use crate::{
     ecs::render_objects::{DynamicRenderObject, StaticRenderObject},
     features::rigid_model::DynamicObjectData,
-    renderer::{
-        Renderer,
-        immediate::{IMMEDIATE_SHAPES, ImmediatePrimitive, ImmediateShape},
-        packet::ViewPacket,
-        scene::SceneRenderer,
-    },
+    renderer::{Renderer, packet::ViewPacket, scene::SceneRenderer},
     visibility::ViewVisibility,
 };
 

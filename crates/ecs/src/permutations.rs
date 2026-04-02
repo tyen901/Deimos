@@ -113,6 +113,7 @@ const FNV_NAMES: &[&str] = &[
 pub const OPTION_KEY_INVALID: u32 = 0x871AC0EA;
 
 const FNV_NAME_GUESSES: &[(u32, &str)] = &[
+    (0x811C9DC5, "<invalid>"),
     (OPTION_KEY_INVALID, "<invalid>"),
     (0x20809827, "dark gray*"),
     (0xCFA916D2, "light gray*"),

@@ -72,12 +72,12 @@ where
     for e in &header.components {
         let mut cur = Cursor::new(package_manager().read_tag(e.component)?);
         let component = TagRef::new(SComponent::read_ds(&mut cur)?, e.component);
-        cur.seek(SeekFrom::Start(component.unk18.offset))?;
+        cur.seek(SeekFrom::Start(component.definition.offset))?;
 
         macro_rules! add_unknown_component {
             ($name:expr) => {
                 let component = UnimplementedTigerComponent {
-                    class_id: component.unk10.resource_type,
+                    class_id: component.default_instance.resource_type,
                     hash: component.taghash(),
                     name: None,
                 };
@@ -128,11 +128,11 @@ where
             ComponentLoadResult::Skipped => {}
         }
 
-        match component.unk10.resource_type {
+        match component.default_instance.resource_type {
             0x80802976 => {
-                cur.seek(SeekFrom::Start(component.unk18.offset + 0x68))?;
+                cur.seek(SeekFrom::Start(component.definition.offset + 0x68))?;
                 let hash = FnvHash::read_ds(&mut cur)?;
-                cur.seek(SeekFrom::Start(component.unk18.offset + 0x78))?;
+                cur.seek(SeekFrom::Start(component.definition.offset + 0x78))?;
                 let string_table = WideHash::read_ds(&mut cur)?;
 
                 let container = StringContainer::load(string_table)?;
@@ -144,7 +144,7 @@ where
                     "\t- Unknown entity component type {:08X}, tag {:08X}, data type {:08X}/{} \
                      (table {})",
                     u,
-                    component.unk10.resource_type,
+                    component.default_instance.resource_type,
                     data.class_id(),
                     data.class_name(),
                     component.taghash()

@@ -349,7 +349,7 @@ impl FeatureRenderer for DecoratorRenderer {
             };
 
             self.instance_blend_indices_vb.bind_single(cmd, 3);
-            model.draw_wrapped(cmd, stage, dyn_id, move |_model, cmd, _mesh, part| {
+            model.draw_wrapped(cmd, stage, dyn_id, None, move |_model, cmd, _mesh, part| {
                 // LOD selector. 0=high, 1=medium, 2=low
                 if part.unk17 != 2 {
                     return;
