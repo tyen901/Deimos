@@ -85,6 +85,14 @@ impl PermutationConfig {
         self.keys.iter().map(|(k, v)| (*k, v))
     }
 
+    pub fn get_available_values(&self, key: u32) -> Option<&HashSet<u32>> {
+        self.keys.get(&key)
+    }
+
+    pub fn is_valid_value(&self, key: u32, value: u32) -> bool {
+        self.keys.get(&key).is_some_and(|v| v.contains(&value))
+    }
+
     pub fn for_each_key_mut<F>(&mut self, mut f: F)
     where
         // key_hash, available_values, current_value

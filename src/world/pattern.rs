@@ -5,7 +5,8 @@ use std::{
 
 use anyhow::Context;
 use deimos_data::{
-    map::ComponentData,
+    hash::FNV1_BASE,
+    map::{ComponentData, S808085E3},
     pattern::{SComponent, SPattern},
     tag::TagRef,
     tfx::{
@@ -123,10 +124,32 @@ pub fn load_component(
         0x80804030 => {
             let data = get_component_data!(SMaterialPermutationsComponent);
 
-            println!("Permutation config {data:#X?}");
             if let Ok(mut config) = world.get::<&mut PermutationConfig>(entity) {
+                let mut cur = Cursor::new(package_manager().read_tag(component.taghash())?);
+                cur.seek(SeekFrom::Start(component.definition.offset + 0xE8))?;
+                let default_keys_order: Vec<S808085E3> = TigerReadable::read_ds(&mut cur)?;
+
                 for (key, value) in &data.config {
-                    config.configuration.insert(*key, *value);
+                    let value = if *value == FNV1_BASE
+                        && let Some(defaults) =
+                            default_keys_order.iter().find(|item| item.key == *key)
+                    {
+                        *defaults
+                            .values
+                            .iter()
+                            .find(|v| config.is_valid_value(*key, **v))
+                            .unwrap_or(value)
+                    } else {
+                        *value
+                    };
+
+                    // if let Some(values) = config.get_available_values(*key)
+                    //     && !values.contains(&value)
+                    // {
+                    //     value = *values.iter().next().unwrap_or(&value);
+                    // }
+
+                    config.configuration.insert(*key, value);
                 }
             } else {
                 debug!(

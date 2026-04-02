@@ -160,6 +160,14 @@ pub struct SUmbraTomeComponent {
     pub tag: OptionalTag<SUmbraTomes>,
 }
 
+#[derive(Debug)]
+#[tiger_type(id = 0x808085E3)]
+pub struct S808085E3 {
+    pub unk0: u32,
+    pub key: FnvHash,
+    pub values: Vec<FnvHash>,
+}
+
 pub struct SComponentDataNode {
     next: Option<Box<Self>>,
     data: ComponentData,
