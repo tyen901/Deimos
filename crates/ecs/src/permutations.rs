@@ -4,6 +4,9 @@ use deimos_data::{hash::fnv1, tfx::features::dynamic::SDynamicModelComponent};
 use tracing::{error, warn};
 
 pub struct PermutationConfig {
+    pub permutation_index_override: Option<usize>,
+    pub permutation_count: usize,
+
     /// Current configuration of key-value pairs
     pub configuration: HashMap<u32, u32>,
 
@@ -74,7 +77,17 @@ impl PermutationConfig {
             pairs_to_permutation.insert(pair, i);
         }
 
+        let permutation_count = model
+            .technique_map
+            .iter()
+            .filter(|m| m.unk8 == 0)
+            .map(|m| m.technique_count as usize)
+            .next()
+            .unwrap_or(1);
+
         Some(Self {
+            permutation_index_override: None,
+            permutation_count,
             configuration,
             keys,
             pairs_to_permutation,
@@ -106,6 +119,10 @@ impl PermutationConfig {
     }
 
     pub fn calculate_permutation_index(&self) -> Option<usize> {
+        if let Some(index) = self.permutation_index_override {
+            return Some(index);
+        }
+
         let mut key_vals: Vec<(u32, u32)> =
             self.configuration.iter().map(|(k, v)| (*k, *v)).collect();
         key_vals.sort_by_key(|(k, _)| *k);

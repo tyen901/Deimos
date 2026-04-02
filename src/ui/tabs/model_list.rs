@@ -301,6 +301,7 @@ impl<P: ModelProvider> ModelListBase<P> {
                     .query::<&mut PermutationConfig>()
                     .iter()
                     .next()
+                    && config.permutation_count > 1
                 {
                     ui.style_mut()
                         .text_styles
@@ -313,37 +314,77 @@ impl<P: ModelProvider> ModelListBase<P> {
                         |ui| {
                             ui.add_space(12.0);
 
-                            config.for_each_key_mut(|key, available_values, current_value| {
-                                ui.horizontal(|ui| {
-                                    ui.label(permutations::find_kv_name_or_default(key));
-                                    egui::ComboBox::from_id_salt(format!(
-                                        "permutation_combo_{key:X}"
-                                    ))
-                                    .selected_text(permutations::find_kv_name_or_default(
-                                        *current_value,
-                                    ))
-                                    .show_ui(ui, |ui| {
-                                        ui.style_mut()
-                                            .text_styles
-                                            .insert(TextStyle::Button, FontId::proportional(16.0));
-                                        ui.style_mut().spacing.button_padding = Vec2::new(8.0, 2.0);
-                                        ui.style_mut().spacing.item_spacing = Vec2::ZERO;
-
-                                        for value in available_values {
-                                            if *value == OPTION_KEY_INVALID {
-                                                continue;
-                                            }
-                                            ui.selectable_value(
-                                                current_value,
-                                                *value,
-                                                permutations::find_kv_name_or_default(*value),
-                                            );
-                                        }
-                                    });
-                                });
+                            let manual_mode = config.permutation_index_override.is_some();
+                            ui.horizontal(|ui| {
+                                if ui
+                                    .selectable_label(!manual_mode, "Calculate Permutation")
+                                    .clicked()
+                                {
+                                    config.permutation_index_override = None;
+                                }
+                                if ui.selectable_label(manual_mode, "Manual Index").clicked() {
+                                    config.permutation_index_override = Some(0);
+                                }
                             });
 
-                            if config.calculate_permutation_index().is_none() {
+                            if manual_mode {
+                                let mut index = config.permutation_index_override.unwrap_or(0);
+                                ui.horizontal(|ui| {
+                                    ui.label("Permutation Index:");
+                                    ui.style_mut().spacing.slider_width =
+                                        ui.available_width() * 0.7;
+                                    ui.add(egui::Slider::new(
+                                        &mut index,
+                                        0..=config.permutation_count.saturating_sub(1),
+                                    ));
+                                });
+
+                                // Only update when overridden, otherwise we can't switch back to calculation mode
+                                if config.permutation_index_override.is_some() {
+                                    config.permutation_index_override = Some(index);
+                                }
+                            } else {
+                                config.for_each_key_mut(|key, available_values, current_value| {
+                                    ui.horizontal(|ui| {
+                                        ui.label(permutations::find_kv_name_or_default(key));
+                                        egui::ComboBox::from_id_salt(format!(
+                                            "permutation_combo_{key:X}"
+                                        ))
+                                        .selected_text(permutations::find_kv_name_or_default(
+                                            *current_value,
+                                        ))
+                                        .show_ui(
+                                            ui,
+                                            |ui| {
+                                                ui.style_mut().text_styles.insert(
+                                                    TextStyle::Button,
+                                                    FontId::proportional(16.0),
+                                                );
+                                                ui.style_mut().spacing.button_padding =
+                                                    Vec2::new(8.0, 2.0);
+                                                ui.style_mut().spacing.item_spacing = Vec2::ZERO;
+
+                                                for value in available_values {
+                                                    if *value == OPTION_KEY_INVALID {
+                                                        continue;
+                                                    }
+                                                    ui.selectable_value(
+                                                        current_value,
+                                                        *value,
+                                                        permutations::find_kv_name_or_default(
+                                                            *value,
+                                                        ),
+                                                    );
+                                                }
+                                            },
+                                        );
+                                    });
+                                });
+                            }
+
+                            if let Some(permutation_index) = config.calculate_permutation_index() {
+                                ui.label(format!("Selected permutation: {permutation_index}"));
+                            } else {
                                 ui.colored_label(
                                     Color32::YELLOW,
                                     "Warning: Current configuration does not map to a valid \
