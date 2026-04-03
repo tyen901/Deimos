@@ -323,6 +323,7 @@ impl StaticModelRenderer {
         //     RenderStage::ShadowGenerate | RenderStage::DepthPrepass | RenderStage::GenerateGbuffer
         // );
 
+        cmd.set_shader_resource_view(ShaderStage::Vertex, 0, None);
         if is_special_mesh {
             let mesh = &self.model.special_meshes[mesh_index];
             if mesh.buffers.bind(cmd).is_none() {

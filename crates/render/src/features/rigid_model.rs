@@ -1,4 +1,5 @@
 use ahash::AHashMap;
+use anyhow::Context;
 use deimos_data::tfx::{
     RenderStage, ShaderStage, TfxScopeBits,
     features::dynamic::{
@@ -27,7 +28,12 @@ use crate::{
 use super::shared::ModelBuffers;
 
 pub struct DynamicModel {
-    mesh_buffers: Vec<(ModelBuffers, ImmutableBuffer, ImmutableBuffer)>,
+    mesh_buffers: Vec<(
+        ModelBuffers,
+        Option<ImmutableBuffer>,
+        ImmutableBuffer,
+        ImmutableBuffer,
+    )>,
 
     technique_map: Vec<SDynamicMeshMaterialVariants>,
     techniques: Vec<Handle<Technique>>,
@@ -109,6 +115,21 @@ impl DynamicModel {
                         m.index_buffer,
                     )
                     .expect("Failed to load model buffers for dynamic model"),
+                    if m.color_buffer.is_some() {
+                        let (vb_data, _) = VertexBuffer::get_raw_data_and_stride(m.color_buffer)
+                            .expect("Failed to load color buffer for dynamic model");
+                        Some(
+                            ImmutableBuffer::new(
+                                &renderer.gpu,
+                                "color_buffer",
+                                d3d12::Format::R8g8b8a8Unorm,
+                                &vb_data,
+                            )
+                            .expect("Failed to create color buffer for dynamic model"),
+                        )
+                    } else {
+                        None
+                    },
                     skinning_posbuffer,
                     skinning_normalbuffer,
                 )
@@ -240,7 +261,7 @@ impl DynamicModel {
         for (
             mesh,
             subscribed_stages,
-            (mesh_buffers, skinning_posbuffer, skinning_normalbuffer),
+            (mesh_buffers, color_buffer, skinning_posbuffer, skinning_normalbuffer),
             mesh_techniques,
         ) in multizip((
             self.model.meshes.iter(),
@@ -257,6 +278,9 @@ impl DynamicModel {
 
             cmd.set_input_layout(mesh.get_input_layout_for_stage(stage) as usize);
             mesh_buffers.bind(cmd);
+            if let Some(color_buffer) = color_buffer {
+                color_buffer.bind_srv(cmd, ShaderStage::Vertex, 0);
+            }
             skinning_posbuffer.bind_srv(cmd, ShaderStage::Vertex, 2);
             skinning_normalbuffer.bind_srv(cmd, ShaderStage::Vertex, 3);
 
@@ -448,7 +472,7 @@ impl FeatureRenderer for DynamicModel {
             return false;
         }
 
-        if self.mesh_buffers.iter().any(|(m, _, _)| !m.is_loaded()) {
+        if self.mesh_buffers.iter().any(|(m, _, _, _)| !m.is_loaded()) {
             return false;
         }
 

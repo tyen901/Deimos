@@ -167,6 +167,12 @@ where
 
                 channels.set_by_name("cool_down", Vec4::splat(0.0));
                 channels.set_by_name("charge_progress", Vec4::splat(0.0));
+
+                // Fixes darkened clearance code icons on terminals
+                channels.set_by_name("deposit_1", Vec4::splat(0.0));
+                channels.set_by_name("deposit_2", Vec4::splat(0.0));
+                channels.set_by_name("deposit_3", Vec4::splat(0.0));
+
                 channels.set_by_id(0x2EC4BC4E, Vec4::splat(0.0)); // Makes compiler/sptsh bullets more recognisable
                 channels.set_by_id(0x6057A3B9, Vec4::splat(0.0)); // Makes compiler core green
                 channels.set_by_id(0x0EDC1DFF, Vec4::splat(0.0)); // Makes compiler cape visible
