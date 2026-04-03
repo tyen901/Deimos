@@ -237,6 +237,8 @@ impl Gui {
             })
             .show_leaf_collapse_buttons(false)
             .show_leaf_close_all_buttons(false)
+            .draggable_tabs(false)
+            .allowed_splits(egui_dock::AllowedSplits::None)
             .show(
                 &ctx,
                 &mut TabViewer {
