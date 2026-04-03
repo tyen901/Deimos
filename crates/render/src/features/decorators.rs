@@ -372,4 +372,8 @@ impl FeatureRenderer for DecoratorRenderer {
                 acc | model.subscribed_stages
             })
     }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }

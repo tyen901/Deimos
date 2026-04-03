@@ -2,8 +2,10 @@ use core::f32;
 use std::arch::x86_64::{__m128, _mm_fmadd_ps};
 use std::ops::{Add, Mul, Sub};
 
+use ahash::AHashMap;
 use anyhow::{Context, ensure};
 use deimos_data::tfx::ExternIndex;
+use deimos_ecs::object::ObjectChannel;
 use glam::{Mat4, Vec4, Vec4Swizzles};
 
 use crate::tfx::externs::{ExternAccessor, ExternAccessorExt};
@@ -11,15 +13,10 @@ use crate::util::math::Vec4Ext;
 
 use super::opcodes::Opcode;
 
-#[derive(Default)]
-pub struct TempObjectChannels {
-    pub position: Vec4,
-}
-
 pub struct InterpreterState<'a> {
     data: &'a [u8],
     pub ip: usize,
-    object_channels: Option<&'a TempObjectChannels>,
+    object_channels: Option<&'a AHashMap<u32, ObjectChannel>>,
     externs: Option<&'a dyn ExternAccessor>,
 
     stack: [Vec4; 32],
@@ -43,7 +40,10 @@ impl<'a> InterpreterState<'a> {
         }
     }
 
-    pub const fn with_object_channels(mut self, object_channels: &'a TempObjectChannels) -> Self {
+    pub const fn with_object_channels(
+        mut self,
+        object_channels: &'a AHashMap<u32, ObjectChannel>,
+    ) -> Self {
         self.object_channels = Some(object_channels);
         self
     }
@@ -607,7 +607,13 @@ impl<'a> InterpreterState<'a> {
 
                     let v = match channel_hash {
                         0xD3583E54 => Vec4::ZERO, // unique_id
-                        _ => Vec4::ONE,
+                        _ => self
+                            .object_channels
+                            .and_then(|channels| channels.get(&channel_hash))
+                            .map_or(Vec4::ONE, |c| {
+                                c.usage.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                                c.value
+                            }),
                     };
 
                     cached_top = self.push(v)?;

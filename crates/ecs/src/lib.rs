@@ -1,7 +1,7 @@
 use tiger_pkg::TagHash;
 
 pub mod interactibles;
-pub mod permutations;
+pub mod object;
 pub mod transform;
 pub mod world;
 

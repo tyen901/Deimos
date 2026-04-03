@@ -1,10 +1,12 @@
 use std::sync::Arc;
 
+use ahash::AHashMap;
 use anyhow::Context;
 use deimos_data::{
     tag::WideHash,
     tfx::{ExternIndex, SDynamicCore, SSamplerReference, ShaderStage},
 };
+use deimos_ecs::object::ObjectChannel;
 use glam::Vec4;
 use itertools::Itertools;
 use tiger_pkg::{TagHash, package_manager};
@@ -127,7 +129,11 @@ impl DynamicCore {
     }
 
     #[profiling::function]
-    pub fn prepare(&self, cmd: &mut CommandList) -> anyhow::Result<()> {
+    pub fn prepare(
+        &self,
+        cmd: &mut CommandList,
+        object_channels: Option<&AHashMap<u32, ObjectChannel>>,
+    ) -> anyhow::Result<()> {
         if self.data.constant_buffer_slot >= 0 {
             let mut buffer = cmd
                 .gpu()
@@ -140,6 +146,9 @@ impl DynamicCore {
             out.copy_from_slice(&self.initial_constants);
             let mut interpreter =
                 InterpreterState::new(&self.data.bytecode).with_externs(&cmd.externs);
+            if let Some(object_channels) = object_channels {
+                interpreter = interpreter.with_object_channels(object_channels);
+            }
 
             if let Err(e) = interpreter.evaluate(&self.data.bytecode_constants, out) {
                 error!("Failed to evaluate expression bytecode: {:?}", e);

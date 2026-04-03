@@ -20,6 +20,10 @@ impl RenderObject {
             feature_type: kind,
         }
     }
+
+    pub fn get_mut<T: FeatureRenderer>(&mut self) -> Option<&mut T> {
+        self.renderer.as_any_mut().downcast_mut::<T>()
+    }
 }
 
 unsafe impl Send for RenderObject {}

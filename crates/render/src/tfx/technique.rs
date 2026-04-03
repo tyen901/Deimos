@@ -3,12 +3,15 @@ use std::{
     time::{Duration, Instant},
 };
 
+use ahash::AHashMap;
 use anyhow::Context;
 use d3d12::{
     RootSignatureBuilder, RootSignatureFlags,
     ext::{PsvResourceBinding, PsvResourceType},
 };
 use deimos_data::tfx::{STechnique, STechniqueStage, ShaderStage, TechniqueBindMode};
+use deimos_ecs::object::ObjectChannel;
+use glam::Vec4;
 use smallvec::SmallVec;
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::{TagHash, package_manager};
@@ -110,6 +113,14 @@ impl Technique {
     /// Make sure to set any necessary states (input layout, etc.) before calling this method, as these need to be compiled into the PSO
     #[profiling::function]
     pub fn bind(&self, cmd: &mut CommandList) {
+        self.bind_with_channels(cmd, None);
+    }
+
+    pub fn bind_with_channels(
+        &self,
+        cmd: &mut CommandList,
+        object_channels: Option<&AHashMap<u32, ObjectChannel>>,
+    ) {
         let full_rebind = !cmd.is_technique_smart_bound(self.tag);
 
         if !matches!(
@@ -161,7 +172,7 @@ impl Technique {
             if skip_full_stage_rebind {
                 stage.bind_cbvs(cmd);
             } else {
-                stage.bind(cmd, full_rebind);
+                stage.bind(cmd, full_rebind, object_channels);
             }
         }
     }
@@ -328,8 +339,13 @@ impl TechniqueStage {
     }
 
     #[profiling::function]
-    pub fn bind(&self, cmd: &mut CommandList, full_rebind: bool) {
-        if full_rebind && let Err(e) = self.core.prepare(cmd) {
+    pub fn bind(
+        &self,
+        cmd: &mut CommandList,
+        full_rebind: bool,
+        object_channels: Option<&AHashMap<u32, ObjectChannel>>,
+    ) {
+        if full_rebind && let Err(e) = self.core.prepare(cmd, object_channels) {
             error!("Failed to prepare technique: {}", e);
             return;
         }

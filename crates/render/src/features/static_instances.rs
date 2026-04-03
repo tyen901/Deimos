@@ -636,6 +636,10 @@ impl FeatureRenderer for StaticInstancesRenderer {
     fn subscribed_stages(&self) -> RenderStageSubscription {
         self.subscribed_stages
     }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 #[repr(C, packed)]

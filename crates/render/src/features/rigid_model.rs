@@ -1,3 +1,4 @@
+use ahash::AHashMap;
 use deimos_data::tfx::{
     RenderStage, ShaderStage, TfxScopeBits,
     features::dynamic::{
@@ -5,6 +6,7 @@ use deimos_data::tfx::{
         SDynamicModel,
     },
 };
+use deimos_ecs::object::ObjectChannel;
 use glam::{Mat4, UVec4, Vec4, Vec4Swizzles};
 use itertools::{Itertools, multizip};
 use tiger_parse::PackageManagerExt;
@@ -19,7 +21,7 @@ use crate::{
         Renderer,
         packet::{RenderPerFrameNode, RenderPerViewNode, SubmitNode, SubmitNodeContainer},
     },
-    tfx::{expression_vm::interpreter::TempObjectChannels, technique::Technique},
+    tfx::technique::Technique,
 };
 
 use super::shared::ModelBuffers;
@@ -44,7 +46,7 @@ pub struct DynamicModel {
 
     pub hash: TagHash,
 
-    pub channels: TempObjectChannels,
+    pub channels: AHashMap<u32, ObjectChannel>,
     pub transform: Mat4,
 }
 
@@ -167,7 +169,7 @@ impl DynamicModel {
             mesh_stages,
             part_techniques,
             hash,
-            channels: TempObjectChannels::default(),
+            channels: AHashMap::default(),
             transform: Mat4::IDENTITY,
         }))
     }
@@ -275,7 +277,7 @@ impl DynamicModel {
 
                 let mut all_scopes = TfxScopeBits::empty();
                 if let Some(technique) = mesh_techniques[part_index].get() {
-                    technique.bind(cmd);
+                    technique.bind_with_channels(cmd, Some(&self.channels));
                     // technique
                     //     .bind_with_channels(cmd, Some(&self.channels))
                     //     .expect("Failed to bind technique");
@@ -285,7 +287,7 @@ impl DynamicModel {
                 if let Some(technique) = &variant_material
                     && let Some(technique) = technique.get()
                 {
-                    technique.bind(cmd);
+                    technique.bind_with_channels(cmd, Some(&self.channels));
                     // tech.bind_with_channels(cmd, Some(&self.channels))
                     //     .expect("Failed to bind variant technique");
                     all_scopes |= technique.data.used_scopes;
@@ -451,6 +453,10 @@ impl FeatureRenderer for DynamicModel {
         }
 
         true
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 }
 

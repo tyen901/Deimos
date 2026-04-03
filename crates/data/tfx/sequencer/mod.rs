@@ -1,6 +1,7 @@
 use glam::Vec4;
 use tiger_parse::tiger_type;
 
+#[derive(Debug, Clone)]
 #[tiger_type(id = 0x8080B7A8, size = 0x30)]
 pub struct SExpression {
     pub bytecode: Vec<u8>,

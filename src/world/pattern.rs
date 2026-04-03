@@ -18,7 +18,7 @@ use deimos_data::{
     },
 };
 use deimos_ecs::{
-    permutations::PermutationConfig, transform::Transform, world::map::ComponentLoadResult,
+    object::PermutationConfig, transform::Transform, world::map::ComponentLoadResult,
 };
 use deimos_render::{
     ecs::render_objects::{DynamicRenderObject, StaticRenderObject},

@@ -6,7 +6,7 @@ use std::{
 use deimos_data::tfx::{FeatureRendererSubscription, geometry::AxisAlignedBBox};
 use deimos_render::{
     camera::Camera,
-    ecs::s_extract_frame_packet,
+    ecs::{s_extract_frame_packet, s_update_object_channels},
     gpu::{alloc::descriptors::ResourceView, render_target::RenderTarget},
     renderer::{
         Renderer,
@@ -448,6 +448,7 @@ impl Scene {
     pub fn render(&mut self, delta_time: f32, canvas_resolution: (u32, u32)) {
         let stream = &self.renderer.gpu.frame().stream;
         let _scope = self.renderer.gpu.profiler_scope(stream, "Scene::render");
+        s_update_object_channels(&self.world);
         if let Err(e) = self
             .scene_renderer
             .main_view

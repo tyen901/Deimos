@@ -1,21 +1,28 @@
-use std::io::{Cursor, Seek, SeekFrom};
+use std::{
+    io::{Cursor, Seek, SeekFrom},
+    sync::{Arc, atomic::AtomicUsize},
+};
 
 use anyhow::Context;
 use deimos_data::{
     map::{ComponentData, SComponentDataListPtr},
-    pattern::{SComponent, SPattern},
+    pattern::{SComponent, SObjectChannelComponent, SPattern},
     strings::StringContainer,
     tag::{TagRef, WideHash},
 };
 
+use glam::{Vec4, vec4};
 use itertools::Itertools;
 use tiger_parse::{FnvHash, PackageManagerExt, TigerReadable};
 use tiger_pkg::{TagHash, package_manager};
 use tracing::{debug, error};
 
 use crate::{
-    UnimplementedTigerComponent, UnimplementedTigerComponents, interactibles::Pingable,
-    transform::Transform, world::map::ComponentLoadResult,
+    UnimplementedTigerComponent, UnimplementedTigerComponents,
+    interactibles::Pingable,
+    object::{ObjectChannel, ObjectChannels},
+    transform::Transform,
+    world::map::ComponentLoadResult,
 };
 
 #[macro_export]
@@ -138,6 +145,40 @@ where
                 let container = StringContainer::load(string_table)?;
                 let name = container.0.get(&hash).cloned();
                 world.insert_one(entity, Pingable { name })?;
+            }
+            0x8080AF8E => {
+                let data = SObjectChannelComponent::read_ds(&mut cur)?;
+                let mut channels = ObjectChannels(
+                    data.m_channels
+                        .iter()
+                        .map(|c| ObjectChannel {
+                            name: c.name,
+                            value: c
+                                .expression
+                                .bytecode_constants
+                                .first()
+                                .cloned()
+                                .unwrap_or(Vec4::ONE),
+                            expression: c.expression.clone(),
+                            usage: Arc::new(AtomicUsize::new(0)),
+                        })
+                        .collect(),
+                );
+
+                channels.set_by_name("cool_down", Vec4::splat(0.0));
+                channels.set_by_name("charge_progress", Vec4::splat(0.0));
+                channels.set_by_id(0x2EC4BC4E, Vec4::splat(0.0)); // Makes compiler/sptsh bullets more recognisable
+                channels.set_by_id(0x6057A3B9, Vec4::splat(0.0)); // Makes compiler core green
+                channels.set_by_id(0x0EDC1DFF, Vec4::splat(0.0)); // Makes compiler cape visible
+                channels.set_by_id(0xEE29282E, Vec4::splat(0.0));
+                channels.set_by_id(0x5B7CD2A2, Vec4::splat(0.0));
+                channels.set_by_id(0x8694B692, Vec4::splat(0.0)); // Makes big compiler cape visible
+
+                channels.set_by_id(0x3969B148, Vec4::ZERO); // Hides exfil bubble/flash
+                channels.set_by_id(0xDEB2E0B2, Vec4::splat(0.1)); // Shows exfil circle a bit better
+                channels.set_by_id(0x25784EE5, vec4(0.0, 0.0, 2.0, 1.0)); // Positions exfil bubble/flash correctly
+
+                world.insert_one(entity, channels)?;
             }
             u => {
                 debug!(

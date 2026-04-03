@@ -95,7 +95,7 @@ impl ScopeStage {
     }
 
     pub fn bind(&self, cmd: &mut CommandList) {
-        if let Err(e) = self.core.read().prepare(cmd) {
+        if let Err(e) = self.core.read().prepare(cmd, None) {
             error!("Failed to prepare technique: {}", e);
         }
     }

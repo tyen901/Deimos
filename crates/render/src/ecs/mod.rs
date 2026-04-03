@@ -1,15 +1,31 @@
 use d3d12::GpuVirtualAddress;
 use deimos_data::tfx::{FeatureRendererSubscription, geometry::AxisAlignedBBox};
-use deimos_ecs::{permutations::PermutationConfig, transform::Transform};
+use deimos_ecs::{
+    object::{ObjectChannels, PermutationConfig},
+    transform::Transform,
+};
+use glam::Vec3;
 
 use crate::{
     ecs::render_objects::{DynamicRenderObject, StaticRenderObject},
-    features::rigid_model::DynamicObjectData,
+    features::rigid_model::{DynamicModel, DynamicObjectData},
     renderer::{Renderer, packet::ViewPacket, scene::SceneRenderer},
     visibility::ViewVisibility,
 };
 
 pub mod render_objects;
+pub fn s_update_object_channels(world: &hecs::World) {
+    for (_entity, (transform, object_channels)) in world
+        .query::<(Option<&Transform>, &mut ObjectChannels)>()
+        .iter()
+    {
+        object_channels.reset_usage_counters();
+        object_channels.set_by_name(
+            "interpolated_world_position",
+            transform.map_or(Vec3::ZERO, |t| t.translation).extend(1.0),
+        );
+    }
+}
 
 pub fn s_extract_frame_packet(
     world: &hecs::World,
@@ -24,7 +40,7 @@ pub fn s_extract_frame_packet(
         ..
     } = scene;
 
-    let render_objects = renderer.objects.read();
+    let mut render_objects = renderer.objects.write();
 
     let views = [&main_view];
     frame_packet.insert_view(0, main_view.culling_frustum.clone());
@@ -51,12 +67,13 @@ pub fn s_extract_frame_packet(
         }
     }
 
-    for (_entity, (transform, render_object, permutations, bounds)) in world
+    for (_entity, (transform, render_object, permutations, bounds, object_channels)) in world
         .query::<(
             Option<&Transform>,
             &DynamicRenderObject,
             Option<&PermutationConfig>,
             Option<&AxisAlignedBBox>,
+            Option<&ObjectChannels>,
         )>()
         .iter()
     {
@@ -85,6 +102,16 @@ pub fn s_extract_frame_packet(
         //     },
         //     primitive: ImmediatePrimitive::BoundingBox(bounds),
         // });
+
+        if let Some(object_channels) = object_channels
+            && let Some(rigid_model) = render_objects
+                .get_mut(render_object.handle())
+                .and_then(|r| r.get_mut::<DynamicModel>())
+        {
+            for channel in &object_channels.0 {
+                rigid_model.channels.insert(channel.name, channel.clone());
+            }
+        }
 
         let frame_node = frame_packet.push_frame_node(
             render_object.handle(),

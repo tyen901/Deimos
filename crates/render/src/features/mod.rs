@@ -7,6 +7,8 @@ mod skinning;
 pub mod static_instances;
 pub mod terrain_patches;
 
+use std::any::Any;
+
 use deimos_data::tfx::{RenderStage, features::dynamic::RenderStageSubscription};
 
 use crate::{
@@ -18,7 +20,7 @@ use crate::{
     visibility::ViewVisibility,
 };
 
-pub trait FeatureRenderer: Send {
+pub trait FeatureRenderer: Send + Any {
     fn visibility_test(&mut self, visibility: &ViewVisibility) {
         _ = visibility;
     }
@@ -80,4 +82,6 @@ pub trait FeatureRenderer: Send {
     fn is_loaded(&self) -> bool {
         true
     }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }

@@ -7,7 +7,6 @@ pub mod scene;
 
 use std::sync::Arc;
 
-use d3d12::GpuVirtualAddress;
 use deimos_data::tfx::{PrimitiveType, ShaderStage};
 use parking_lot::RwLock;
 use slotmap::SlotMap;
