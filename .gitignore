@@ -21,6 +21,7 @@ lookup_cache_*.bin
 package_cache.json
 
 reversing/
+investment/
 flamegraph.svg
 *.tracy
 vkd3d-proton.cache
