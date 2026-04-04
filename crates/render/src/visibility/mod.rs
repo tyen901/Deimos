@@ -5,6 +5,8 @@ pub mod bvh;
 pub mod frustum;
 
 pub struct ViewVisibility {
+    /// If false, visibility checks will always return true.
+    pub enabled: bool,
     pub position: glam::Vec3,
     pub far_plane: f32,
     pub culling_frustum: frustum::Frustum,
@@ -15,6 +17,10 @@ pub struct ViewVisibility {
 impl ViewVisibility {
     #[profiling::function]
     pub fn is_visible_quick(&self, aabb: &AxisAlignedBBox) -> bool {
+        if !self.enabled {
+            return true;
+        }
+
         if let Some(occlusion_buffer) = &self.occlusion_buffer
             && !occlusion_buffer.is_aabb_visible(
                 aabb.min.truncate().to_array(),
@@ -37,6 +43,10 @@ impl ViewVisibility {
 
     #[profiling::function]
     pub fn is_visible(&self, aabb: &AxisAlignedBBox) -> bool {
+        if !self.enabled {
+            return true;
+        }
+
         if !self.is_visible_quick(aabb) {
             return false;
         }

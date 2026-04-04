@@ -5,7 +5,7 @@ use std::{
 
 use deimos_data::tfx::{FeatureRendererSubscription, geometry::AxisAlignedBBox};
 use deimos_render::{
-    camera::Camera,
+    camera::{Camera, CameraProjection},
     ecs::{s_extract_frame_packet, s_update_object_channels},
     gpu::{alloc::descriptors::ResourceView, render_target::RenderTarget},
     renderer::{
@@ -648,6 +648,7 @@ impl Scene {
         }
 
         let vis = ViewVisibility {
+            enabled: self.camera.projection != CameraProjection::Orthographic,
             culling_frustum: self.camera.culling_frustum.clone(),
             far_plane: Camera::FAR,
             position: self.camera.position,
