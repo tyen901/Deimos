@@ -119,10 +119,15 @@ impl<P: ModelProvider> ModelListBase<P> {
         for entry in entries.iter_mut().filter(|e| e.thumbnail.is_none()) {
             if let Some(world) = entry.thumbnail_world.take() {
                 if s_are_all_objects_loaded(&world, &self.scene.scene_renderer.parent) {
-                    let bb = world.query::<&AxisAlignedBBox>().iter().next().map_or_else(
-                        || AxisAlignedBBox::from_center_extents(Vec3::ZERO, Vec3::ONE),
-                        |(_, bb)| *bb,
-                    );
+                    let mut bb: AxisAlignedBBox = world
+                        .query::<&AxisAlignedBBox>()
+                        .iter()
+                        .map(|(_, bb)| *bb)
+                        .sum();
+
+                    if !bb.is_valid() {
+                        bb = AxisAlignedBBox::from_center_extents(Vec3::ZERO, Vec3::ONE);
+                    }
 
                     self.thumbnail_scene.set_world(world);
                     self.thumbnail_scene.controller = CameraController::new_orbit(Vec3::ZERO, 25.0);
@@ -170,10 +175,16 @@ impl<P: ModelProvider> ModelListBase<P> {
             return;
         };
         if let Some(world) = entry.thumbnail_world.take() {
-            let bb = world.query::<&AxisAlignedBBox>().iter().next().map_or_else(
-                || AxisAlignedBBox::from_center_extents(Vec3::ZERO, Vec3::ONE),
-                |(_, bb)| *bb,
-            );
+            let mut bb: AxisAlignedBBox = world
+                .query::<&AxisAlignedBBox>()
+                .iter()
+                .map(|(_, bb)| *bb)
+                .sum();
+
+            if !bb.is_valid() {
+                bb = AxisAlignedBBox::from_center_extents(Vec3::ZERO, Vec3::ONE);
+            }
+
             self.thumbnail_scene.set_world(world);
             self.thumbnail_scene.focus_fit_ortho(&bb);
             self.thumbnail_scene.controller.set_yaw_pitch(

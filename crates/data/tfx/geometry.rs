@@ -120,6 +120,10 @@ impl AxisAlignedBBox {
             && point.z >= self.min.z
             && point.z <= self.max.z
     }
+
+    pub fn is_valid(&self) -> bool {
+        self.min.x <= self.max.x && self.min.y <= self.max.y && self.min.z <= self.max.z
+    }
 }
 
 impl Sum for AxisAlignedBBox {

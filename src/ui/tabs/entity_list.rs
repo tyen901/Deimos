@@ -145,16 +145,7 @@ impl ModelProvider for EntityModelProvider {
                             Some(Transform::default()),
                             &cb,
                         ) {
-                            error!("Failed to load pattern {hash}: {e}");
-                        }
-
-                        if let Some((_, (transform, aabb))) = world
-                            .query::<(&mut Transform, &mut AxisAlignedBBox)>()
-                            .iter()
-                            .next()
-                        {
-                            transform.scale = aabb.extents().recip();
-                            *aabb = aabb.transformed(transform.local_to_world());
+                            error!("Failed to load pattern {hash}: {e:?}");
                         }
 
                         Some(ModelEntry {

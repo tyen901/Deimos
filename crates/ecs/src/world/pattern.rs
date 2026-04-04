@@ -6,7 +6,7 @@ use std::{
 use anyhow::Context;
 use deimos_data::{
     map::{ComponentData, SComponentDataListPtr},
-    pattern::{SComponent, SObjectChannelComponent, SPattern},
+    pattern::{S8080A313, SComponent, SObjectChannelComponent, SPattern},
     strings::StringContainer,
     tag::{TagRef, WideHash},
 };
@@ -49,10 +49,29 @@ where
         &TagRef<SComponent>,
     ) -> anyhow::Result<ComponentLoadResult>,
 {
+    spawn_pattern_internal(world, pattern_tag, map_data_list, transform, &callback)
+}
+
+fn spawn_pattern_internal<F>(
+    world: &mut hecs::World,
+    pattern_tag: TagHash,
+    map_data_list: Option<&SComponentDataListPtr>,
+    transform: Option<Transform>,
+    callback: &F,
+) -> anyhow::Result<hecs::Entity>
+where
+    F: Fn(
+        &mut hecs::World,
+        hecs::Entity,
+        &SPattern,
+        &ComponentData,
+        &TagRef<SComponent>,
+    ) -> anyhow::Result<ComponentLoadResult>,
+{
     let header = package_manager()
         .read_tag_struct::<SPattern>(pattern_tag)
         .context("Failed to read SEntity")?;
-    spawn_pattern_from_header(world, &header, map_data_list, transform, &callback)
+    spawn_pattern_from_header(world, &header, map_data_list, transform, callback)
 }
 
 pub fn spawn_pattern_from_header<F>(
@@ -185,6 +204,27 @@ where
                 channels.set_by_id(0x25784EE5, vec4(0.0, 0.0, 2.0, 1.0)); // Positions exfil bubble/flash correctly
 
                 world.insert_one(entity, channels)?;
+            }
+            0x8080A317 => {
+                let data = S8080A313::read_ds(&mut cur)?;
+                for u1 in data.unka8 {
+                    for u2 in u1.unk8 {
+                        if u2.pattern.is_none() {
+                            continue;
+                        }
+
+                        spawn_pattern_internal(
+                            world,
+                            u2.pattern.hash32(),
+                            None,
+                            transform,
+                            callback,
+                        )
+                        .with_context(|| {
+                            format!("failed to spawn attached pattern for bone {:08X}", u2.bone)
+                        })?;
+                    }
+                }
             }
             u => {
                 debug!(
