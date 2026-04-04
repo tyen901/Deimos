@@ -97,6 +97,7 @@ impl AsyncCommandListRing {
                 Ok(CommandListSlot {
                     command_list,
                     fence_value: 0,
+                    #[allow(clippy::arc_with_non_send_sync)]
                     fence_waiter: Arc::new(GpuFenceWaiter::new(device)?),
                 })
             })

@@ -60,8 +60,8 @@ impl DecompilationResult {
 
         let ops = ["->", "+", " - ", "*", "/", "=", "<", ">"];
 
-        for op in &ops {
-            if !strip {
+        if !strip {
+            for op in &ops {
                 r = r.replace(op, &format!("{}{}{}", ORANGE, op, RESET));
             }
         }
@@ -534,8 +534,7 @@ impl<'a> DecompilerState<'a> {
 
                     let field =
                         ExternContainer::get_extern_field_name(extern_id, offset as usize * 4)
-                            .map(str::to_string)
-                            .unwrap_or_else(|| format!("0x{:X}", offset as usize * 4));
+                            .map_or_else(|| format!("0x{:X}", offset as usize * 4), str::to_string);
 
                     cached_top = self.push(format!(
                         "<fun>extern<reset><float>(<ident>{extern_id:?}<reset>->{field})"
@@ -549,8 +548,10 @@ impl<'a> DecompilerState<'a> {
 
                     let field =
                         ExternContainer::get_extern_field_name(extern_id, offset as usize * 16)
-                            .map(str::to_string)
-                            .unwrap_or_else(|| format!("0x{:X}", offset as usize * 16));
+                            .map_or_else(
+                                || format!("0x{:X}", offset as usize * 16),
+                                str::to_string,
+                            );
                     cached_top = self.push(format!(
                         "<fun>extern<reset><float4>(<ident>{extern_id:?}<reset>->{field})",
                     ))?;
@@ -563,8 +564,10 @@ impl<'a> DecompilerState<'a> {
 
                     let field =
                         ExternContainer::get_extern_field_name(extern_id, offset as usize * 16)
-                            .map(str::to_string)
-                            .unwrap_or_else(|| format!("0x{:X}", offset as usize * 16));
+                            .map_or_else(
+                                || format!("0x{:X}", offset as usize * 16),
+                                str::to_string,
+                            );
                     cached_top = self.push(format!(
                         "<fun>extern<reset><float4x4>(<ident>{extern_id:?}<reset>->{field})"
                     ))?;
@@ -577,8 +580,7 @@ impl<'a> DecompilerState<'a> {
 
                     let field =
                         ExternContainer::get_extern_field_name(extern_id, offset as usize * 8)
-                            .map(str::to_string)
-                            .unwrap_or_else(|| format!("0x{:X}", offset as usize * 8));
+                            .map_or_else(|| format!("0x{:X}", offset as usize * 8), str::to_string);
                     cached_top = self.push(format!(
                         "<fun>extern<reset><TextureView>(<ident>{extern_id:?}<reset>->{field})"
                     ))?;
@@ -591,8 +593,7 @@ impl<'a> DecompilerState<'a> {
 
                     let field =
                         ExternContainer::get_extern_field_name(extern_id, offset as usize * 8)
-                            .map(str::to_string)
-                            .unwrap_or_else(|| format!("0x{:X}", offset as usize * 8));
+                            .map_or_else(|| format!("0x{:X}", offset as usize * 8), str::to_string);
                     cached_top = self.push(format!(
                         "<fun>extern<reset><UAV>(<ident>{extern_id:?}<reset>->{field})"
                     ))?;

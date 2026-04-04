@@ -18,7 +18,7 @@ pub struct Gbuffer {
     pub depth: DepthBuffer,
     pub depth_read: DepthBuffer,
 
-    resolution: (u32, u32),
+    _resolution: (u32, u32),
 }
 
 impl Gbuffer {
@@ -67,7 +67,7 @@ impl Gbuffer {
             depth: DepthBuffer::new(gpu, resolution).context("allocating depth buffer")?,
             depth_read: DepthBuffer::new(gpu, resolution).context("allocating depth buffer")?,
 
-            resolution,
+            _resolution: resolution,
         })
     }
 

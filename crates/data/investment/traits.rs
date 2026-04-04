@@ -1,4 +1,4 @@
-use tiger_parse::{tiger_type, FnvHash, Padding};
+use tiger_parse::{tiger_type, FnvHash};
 
 use crate::investment::SIndexedString;
 

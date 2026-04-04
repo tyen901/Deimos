@@ -1,7 +1,4 @@
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::sync::Arc;
 
 use ahash::AHashMap;
 use anyhow::Context;
@@ -11,7 +8,6 @@ use d3d12::{
 };
 use deimos_data::tfx::{STechnique, STechniqueStage, ShaderStage, TechniqueBindMode};
 use deimos_ecs::object::ObjectChannel;
-use glam::Vec4;
 use smallvec::SmallVec;
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::{TagHash, package_manager};
@@ -37,7 +33,7 @@ impl Technique {
         asset_manager: &Arc<AssetManager>,
         gpu: &Arc<Gpu>,
         hash: TagHash,
-    ) -> anyhow::Result<Self> {
+    ) -> anyhow::Result<Box<Self>> {
         let data: STechnique = package_manager()
             .read_tag_struct(hash)
             .context("Failed to read technique data")?;
@@ -105,7 +101,7 @@ impl Technique {
         //     }
         // }
 
-        Ok(technique)
+        Ok(Box::new(technique))
     }
 
     /// Bind the technique to the command list.
@@ -215,7 +211,7 @@ pub struct TechniqueCbufferSlot {
 pub struct TechniqueResourceSlot {
     pub register: u8,
     pub descriptor_offset: u8,
-    is_static: bool,
+    _is_static: bool,
 }
 
 impl TechniqueStage {
@@ -296,7 +292,7 @@ impl TechniqueStage {
                     root_texture_slots.push(TechniqueResourceSlot {
                         descriptor_offset: descriptor_offset as u8,
                         register: resource.lower_bound as u8,
-                        is_static,
+                        _is_static: is_static,
                     });
                     descriptor_offset += 1;
                     descriptor_ranges.push(range);
@@ -320,7 +316,7 @@ impl TechniqueStage {
             }
         }
 
-        let mut stage = Self {
+        Ok(Self {
             core,
             visibility: shader_stage.shader_visibility(),
             root_cbuffer_slots,
@@ -331,11 +327,7 @@ impl TechniqueStage {
             descriptor_ranges,
             descriptor_count: descriptor_offset as usize,
             static_staging_heap: None,
-        };
-
-        stage.prebuild_static_staging(gpu)?;
-
-        Ok(stage)
+        })
     }
 
     #[profiling::function]
@@ -446,66 +438,66 @@ impl TechniqueStage {
         Ok(())
     }
 
-    fn prebuild_static_staging(&mut self, gpu: &Gpu) -> anyhow::Result<()> {
-        return Ok(());
-        if self.core.has_dynamic_textures()
-            || self.has_manual_textures
-            || self.descriptor_count == 0
-        {
-            return Ok(());
-        }
+    // const fn prebuild_static_staging(&self, _gpu: &Gpu) -> anyhow::Result<()> {
+    //     Ok(())
+    //     // if self.core.has_dynamic_textures()
+    //     //     || self.has_manual_textures
+    //     //     || self.descriptor_count == 0
+    //     // {
+    //     //     return Ok(());
+    //     // }
 
-        let start = Instant::now();
-        while !self.core.all_textures_loaded() {
-            rayon::yield_local();
-            // potassium::yield_job();
-            if start.elapsed() > Duration::from_secs(5) {
-                warn!(
-                    "Timed out waiting for textures to load before building static descriptor staging heap"
-                );
-            }
-        }
+    //     // let start = Instant::now();
+    //     // while !self.core.all_textures_loaded() {
+    //     //     rayon::yield_local();
+    //     //     // potassium::yield_job();
+    //     //     if start.elapsed() > Duration::from_secs(5) {
+    //     //         warn!(
+    //     //             "Timed out waiting for textures to load before building static descriptor staging heap"
+    //     //         );
+    //     //     }
+    //     // }
 
-        let staging = gpu
-            .create_descriptor_heap(
-                d3d12::DescriptorHeapType::CbvSrvUav,
-                self.descriptor_count as u32,
-                false, // CPU-only, not shader visible
-                0,
-            )
-            .expect("failed to create staging heap");
+    //     // let staging = gpu
+    //     //     .create_descriptor_heap(
+    //     //         d3d12::DescriptorHeapType::CbvSrvUav,
+    //     //         self.descriptor_count as u32,
+    //     //         false, // CPU-only, not shader visible
+    //     //         0,
+    //     //     )
+    //     //     .expect("failed to create staging heap");
 
-        if let Err(e) = self.copy_static_descriptors(gpu, &staging) {
-            warn!("Failed to copy static descriptors: {:?}", e);
-            return Ok(());
-        }
+    //     // if let Err(e) = self.copy_static_descriptors(gpu, &staging) {
+    //     //     warn!("Failed to copy static descriptors: {:?}", e);
+    //     //     return Ok(());
+    //     // }
 
-        // let null = gpu.resource_heap.lock().null().cpu_handle();
-        // for slot in &self.root_texture_slots {
-        //     let src = self
-        //         .core
-        //         .textures
-        //         .iter()
-        //         .find(|(s, _)| *s == slot.register as u32)
-        //         .and_then(|(_, src)| match src {
-        //             ResolvedTextureSource::Static(h) => h.get().map(|t| t.srv.cpu_handle()),
-        //             _ => None,
-        //         })
-        //         .unwrap_or(null);
+    //     // // let null = gpu.resource_heap.lock().null().cpu_handle();
+    //     // // for slot in &self.root_texture_slots {
+    //     // //     let src = self
+    //     // //         .core
+    //     // //         .textures
+    //     // //         .iter()
+    //     // //         .find(|(s, _)| *s == slot.register as u32)
+    //     // //         .and_then(|(_, src)| match src {
+    //     // //             ResolvedTextureSource::Static(h) => h.get().map(|t| t.srv.cpu_handle()),
+    //     // //             _ => None,
+    //     // //         })
+    //     // //         .unwrap_or(null);
 
-        //     gpu.copy_descriptors_simple(
-        //         1,
-        //         src,
-        //         staging.cpu_descriptor_handle_for_heap_start().offset(
-        //             slot.descriptor_offset as usize,
-        //             gpu.descriptor_handle_increment_size(d3d12::DescriptorHeapType::CbvSrvUav),
-        //         ),
-        //         d3d12::DescriptorHeapType::CbvSrvUav,
-        //     );
-        // }
+    //     // //     gpu.copy_descriptors_simple(
+    //     // //         1,
+    //     // //         src,
+    //     // //         staging.cpu_descriptor_handle_for_heap_start().offset(
+    //     // //             slot.descriptor_offset as usize,
+    //     // //             gpu.descriptor_handle_increment_size(d3d12::DescriptorHeapType::CbvSrvUav),
+    //     // //         ),
+    //     // //         d3d12::DescriptorHeapType::CbvSrvUav,
+    //     // //     );
+    //     // // }
 
-        self.static_staging_heap = Some(staging);
+    //     // self.static_staging_heap = Some(staging);
 
-        Ok(())
-    }
+    //     // Ok(())
+    // }
 }

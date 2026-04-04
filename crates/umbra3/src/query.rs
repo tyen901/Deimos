@@ -132,6 +132,7 @@ impl OcclusionBuffer {
     }
 
     pub fn get_buffer(&self, output: &mut [u8], desc: &Umbra_OcclusionBuffer_BufferDesc) {
+        #[allow(non_upper_case_globals)]
         match desc.format {
             Umbra_OcclusionBuffer_Format_FORMAT_HISTOGRAM_8BPP => {
                 assert!(output.len() == (desc.width * desc.height) as usize);

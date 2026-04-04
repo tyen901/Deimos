@@ -1,4 +1,4 @@
-use std::{mem::transmute, str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc};
 
 use deimos_data::tfx::geometry::AxisAlignedBBox;
 use deimos_ecs::object::{self, OPTION_KEY_INVALID, ObjectChannels, PermutationConfig};

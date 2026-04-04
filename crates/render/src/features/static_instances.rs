@@ -21,15 +21,13 @@ use deimos_data::tfx::{
 };
 use glam::{Mat4, Vec3, Vec4};
 use itertools::Itertools;
-use rayon::iter::{
-    IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
-};
+use rayon::iter::{IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::TagHash;
 use tiger_pkg::package_manager;
 
 use crate::{
-    asset::{Handle, vertex_buffer::VertexBuffer},
+    asset::Handle,
     features::shared::ModelBuffers,
     gpu::{
         Gpu,
@@ -141,8 +139,6 @@ pub struct StaticModelRenderer {
     pub bounds: AxisAlignedBBox,
     identifier: u64,
 
-    constants_dirty: bool,
-
     bvh: Bvh,
     precomputed_submit_nodes: Vec<(RenderStage, SubmitNode)>,
 }
@@ -236,7 +232,6 @@ impl StaticModelRenderer {
             visible_instance_ids,
             transforms,
             identifier,
-            constants_dirty: true,
             precomputed_submit_nodes,
         })
     }
@@ -460,9 +455,7 @@ pub struct StaticInstancesRenderer {
     subscribed_stages: RenderStageSubscription,
     /// (model, visible)
     models: Vec<(StaticModelRenderer, ResourceView)>,
-    transforms_buffer: ImmutableBuffer,
-    // (technique_hash, model_index, group_index) sorted by the group's technique hash
-    // groups_by_stage_sorted_by_technique: HashMap<RenderStage, Arc<Vec<(TagHash, usize, usize)>>>,
+    _transforms_buffer: ImmutableBuffer,
 }
 
 impl StaticInstancesRenderer {
@@ -548,7 +541,7 @@ impl StaticInstancesRenderer {
                     (m, transforms_srv)
                 })
                 .collect(),
-            transforms_buffer,
+            _transforms_buffer: transforms_buffer,
         }
     }
 }
@@ -581,8 +574,8 @@ impl FeatureRenderer for StaticInstancesRenderer {
         &self,
         renderer: &Renderer,
         (view_node, _): (usize, &RenderPerViewNode),
-        frame_node: &RenderPerFrameNode,
-        visibility: &ViewVisibility,
+        _frame_node: &RenderPerFrameNode,
+        _visibility: &ViewVisibility,
         submit_node_blocks: &mut SubmitNodeContainer,
     ) {
         for (model, _) in self
@@ -604,7 +597,7 @@ impl FeatureRenderer for StaticInstancesRenderer {
     fn submit(
         &self,
         cmd: &mut CommandList,
-        stage: RenderStage,
+        _stage: RenderStage,
         _frame_node: &RenderPerFrameNode,
         _view_node: &RenderPerViewNode,
         submit_key: u64,

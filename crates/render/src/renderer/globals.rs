@@ -159,15 +159,13 @@ macro_rules! tfx_global_pipelines {
 
                 Self {
                     $(
-                        $name: Box::new(
-                            Technique::load(
-                                asset_manager,
-                                gpu,
-                                *techniques.get(stringify!($name))
-                                    .expect(&format!("Technique {} does not exist", stringify!($name)))
-                            )
-                            .unwrap_or_else(|e| panic!("Failed to read global pipeline technique {}: {e:?}", stringify!($name))),
-                        ),
+                        $name: Technique::load(
+                            asset_manager,
+                            gpu,
+                            *techniques.get(stringify!($name))
+                                .expect(&format!("Technique {} does not exist", stringify!($name)))
+                        )
+                        .unwrap_or_else(|e| panic!("Failed to read global pipeline technique {}: {e:?}", stringify!($name))),
                     )*
                 }
             }

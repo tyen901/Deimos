@@ -30,7 +30,7 @@ use deimos_render::{
     renderer::{Renderer, object::RenderObject},
 };
 use glam::{Vec3, Vec4Swizzles};
-use itertools::{Itertools, multizip};
+use itertools::multizip;
 use tiger_parse::{PackageManagerExt, TigerReadable};
 use tiger_pkg::package_manager;
 

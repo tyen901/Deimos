@@ -1,6 +1,11 @@
-#![allow(non_upper_case_globals)]
-#![allow(non_camel_case_types)]
-#![allow(non_snake_case)]
+#![allow(non_upper_case_globals, non_camel_case_types, non_snake_case)]
+#![allow(
+    clippy::missing_safety_doc,
+    clippy::too_many_arguments,
+    clippy::doc_markdown,
+    clippy::semicolon_if_nothing_returned,
+    clippy::use_self
+)]
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 

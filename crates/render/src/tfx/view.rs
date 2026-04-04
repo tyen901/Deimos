@@ -54,15 +54,15 @@ impl ShadedView {
         Ok(())
     }
 
-    pub fn set_resolution_scale(&mut self, scale: f32) {
+    pub const fn set_resolution_scale(&mut self, scale: f32) {
         self.resolution_scale = scale;
     }
 
-    pub fn resolution_scale(&self) -> f32 {
+    pub const fn resolution_scale(&self) -> f32 {
         self.resolution_scale
     }
 
-    pub fn resolution(&self) -> (u32, u32) {
+    pub const fn resolution(&self) -> (u32, u32) {
         self.resolution
     }
 }

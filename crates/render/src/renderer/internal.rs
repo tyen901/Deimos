@@ -4,7 +4,7 @@ use anyhow::Context;
 use d3d12::{DescriptorRange, Format, GraphicsPipelineStateDesc, RootSignatureBuilder};
 
 use crate::{
-    asset::texture::{Texture, TextureDesc, generate_hdri_mips_rgbaf32_raw},
+    asset::texture::{Texture, TextureDesc},
     gpu::Gpu,
 };
 

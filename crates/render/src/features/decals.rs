@@ -20,7 +20,6 @@ pub struct DecalCollectionRenderer {
     sets: Vec<DecalSet>,
     vb0: Handle<VertexBuffer>,
     vb1: Handle<VertexBuffer>,
-    bounds: AxisAlignedBBox,
     render_stage: RenderStage,
 }
 
@@ -62,7 +61,6 @@ impl DecalCollectionRenderer {
             sets,
             vb0,
             vb1,
-            bounds: collection.bounds,
             render_stage: collection.render_stage,
         }))
     }
@@ -74,7 +72,7 @@ impl FeatureRenderer for DecalCollectionRenderer {
         &self,
         _renderer: &crate::renderer::Renderer,
         (view_node, _): (usize, &RenderPerViewNode),
-        frame_node: &RenderPerFrameNode,
+        _frame_node: &RenderPerFrameNode,
         visibility: &crate::visibility::ViewVisibility,
         submit_node_blocks: &mut crate::renderer::packet::SubmitNodeContainer,
     ) {

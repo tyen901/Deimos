@@ -260,7 +260,7 @@ impl FeatureRenderer for DecoratorRenderer {
         &self,
         _renderer: &Renderer,
         (view_node, _): (usize, &RenderPerViewNode),
-        frame_node: &RenderPerFrameNode,
+        _frame_node: &RenderPerFrameNode,
         _visibility: &crate::visibility::ViewVisibility,
         submit_node_blocks: &mut crate::renderer::packet::SubmitNodeContainer,
     ) {

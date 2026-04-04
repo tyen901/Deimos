@@ -108,23 +108,23 @@ where
             dynamic_data.data()
         };
 
-        macro_rules! get_component_data {
-            ($type:ident) => {
-                if let ComponentData::$type(c) = data {
-                    c
-                } else {
-                    error!(
-                        "Expected component data type {} for component type 0x{:08X}, found \
-                         {}/0x{:08X}",
-                        stringify!($type),
-                        component.unk10.resource_type,
-                        data.class_name(),
-                        data.class_id()
-                    );
-                    continue;
-                }
-            };
-        }
+        // macro_rules! get_component_data {
+        //     ($type:ident) => {
+        //         if let ComponentData::$type(c) = data {
+        //             c
+        //         } else {
+        //             error!(
+        //                 "Expected component data type {} for component type 0x{:08X}, found \
+        //                  {}/0x{:08X}",
+        //                 stringify!($type),
+        //                 component.unk10.resource_type,
+        //                 data.class_name(),
+        //                 data.class_id()
+        //             );
+        //             continue;
+        //         }
+        //     };
+        // }
 
         match callback(world, entity, header, data, &component)
             .context("component load callback")?

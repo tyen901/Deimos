@@ -26,8 +26,8 @@ use crate::{
 
 use super::FeatureRenderer;
 pub struct LightRenderer {
-    technique_lighting_apply: Technique,
-    technique_volumetrics: Option<Technique>,
+    technique_lighting_apply: Box<Technique>,
+    // technique_volumetrics: Option<Technique>,
     // technique_light_probe_apply: Technique,
 
     // TODO(cohae): This should be a shared resource (eg. a struct in the renderer that we can use instead of recreating it for every light/cubemap)
@@ -70,7 +70,7 @@ impl LightRenderer {
     fn new_impl(
         renderer: &Renderer,
         technique_shading: TagHash,
-        technique_volumetrics: TagHash,
+        _technique_volumetrics: TagHash,
         // technique_light_probe: TagHash,
         light_space_transform: Mat4,
         bounds: Option<AxisAlignedBBox>,
@@ -93,17 +93,17 @@ impl LightRenderer {
                 technique_shading,
             )
             .context("load technique lighting_apply")?,
-            technique_volumetrics: technique_volumetrics
-                .is_some()
-                .then(|| {
-                    Technique::load(
-                        &renderer.asset_manager,
-                        &renderer.gpu,
-                        technique_volumetrics,
-                    )
-                    .context("load technique volumetrics")
-                })
-                .transpose()?,
+            // technique_volumetrics: technique_volumetrics
+            //     .is_some()
+            //     .then(|| {
+            //         Technique::load(
+            //             &renderer.asset_manager,
+            //             &renderer.gpu,
+            //             technique_volumetrics,
+            //         )
+            //         .context("load technique volumetrics")
+            //     })
+            //     .transpose()?,
             // technique_light_probe_apply: Technique::load(&renderer.gpu, technique_light_probe)?,
             vb,
             ib,
@@ -226,10 +226,10 @@ impl FeatureRenderer for LightRenderer {
 
     fn populate_submit_node_blocks(
         &self,
-        renderer: &Renderer,
+        _renderer: &Renderer,
         (view_node, _): (usize, &RenderPerViewNode),
-        frame_node: &RenderPerFrameNode,
-        visibility: &crate::visibility::ViewVisibility,
+        _frame_node: &RenderPerFrameNode,
+        _visibility: &crate::visibility::ViewVisibility,
         submit_node_blocks: &mut crate::renderer::packet::SubmitNodeContainer,
     ) {
         submit_node_blocks.broadcast(
@@ -243,8 +243,8 @@ impl FeatureRenderer for LightRenderer {
         cmd: &mut crate::gpu::command_list::CommandList,
         stage: deimos_data::tfx::RenderStage,
         frame_node: &crate::renderer::packet::RenderPerFrameNode,
-        view_node: &crate::renderer::packet::RenderPerViewNode,
-        submit_key: u64,
+        _view_node: &crate::renderer::packet::RenderPerViewNode,
+        _submit_key: u64,
     ) {
         if stage != RenderStage::LightingApply {
             // TODO

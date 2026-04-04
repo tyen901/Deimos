@@ -1,4 +1,3 @@
-use d3d12::D3D12_SHADING_RATE_COMBINER;
 use tiger_parse::{tiger_type, tiger_variant_enum, FnvHash, Padding, VariantPointer};
 
 use crate::investment::SIndexedString;

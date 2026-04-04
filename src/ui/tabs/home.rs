@@ -17,6 +17,7 @@ use crate::{
 pub struct HomeTab;
 
 impl HomeTab {
+    #[allow(clippy::unused_self)]
     pub fn ui(&self, ui: &mut Ui, shared_state: &Arc<SharedState>) -> TabResult {
         let mut result = TabResult::Continue;
 

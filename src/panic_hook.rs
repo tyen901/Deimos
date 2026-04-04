@@ -20,7 +20,7 @@ pub fn hook(panic: &PanicHookInfo<'_>) {
         "Thread '{}' panicked at {}:\n{}",
         thread_name,
         location,
-        message.unwrap_or("Unknown panic".to_owned())
+        message.unwrap_or_else(|| "Unknown panic".to_owned())
     )
     .ok();
 

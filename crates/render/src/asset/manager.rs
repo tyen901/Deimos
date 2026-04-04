@@ -182,7 +182,7 @@ fn load_asset(
         },
         Technique::ASSET_TYPE => match Technique::load(&asset_manager, gpu, request.tag) {
             Ok(o) => {
-                request.handle.update(o.into());
+                request.handle.update(o);
             }
             Err(e) => {
                 error!("Failed to load technique {}: {:?}", request.tag, e);

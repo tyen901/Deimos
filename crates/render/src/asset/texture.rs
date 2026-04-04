@@ -9,8 +9,6 @@ use deimos_data::{
     tfx::{ShaderStage, texture::STextureHeader},
 };
 use gpu_allocator::{MemoryLocation, d3d12::ResourceCreateDesc};
-use image::{DynamicImage, GenericImageView, Rgba, Rgba32FImage};
-use itertools::Itertools;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use tiger_parse::PackageManagerExt;
 use tiger_pkg::package_manager;
@@ -22,8 +20,7 @@ use crate::{
         command_list::CommandList,
     },
     util::filtering::{
-        NUM_SAMPLES, d_ggx, hammersley, importance_sample_ggx, sample_base_bilinear,
-        sample_mip_bilinear, uv_to_dir,
+        NUM_SAMPLES, d_ggx, hammersley, importance_sample_ggx, sample_mip_bilinear, uv_to_dir,
     },
 };
 

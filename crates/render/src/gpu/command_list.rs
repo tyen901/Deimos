@@ -155,7 +155,7 @@ impl CommandList {
         }
     }
 
-    pub fn depth_mode(&self) -> DepthMode {
+    pub const fn depth_mode(&self) -> DepthMode {
         self.state.depth_mode
     }
 

@@ -44,7 +44,6 @@ pub struct TerrainPatchesRenderer {
     techniques: Vec<Handle<Technique>>,
     dyemaps: Vec<Handle<Texture>>,
     group_cbuffers: Vec<ImmutableBuffer>,
-    constants_dirty: bool,
     detail_level: TerrainDetailLevel,
 
     technique_shadow: Handle<Technique>,
@@ -114,7 +113,6 @@ impl TerrainPatchesRenderer {
             vertex0_buffer: assets.load(terrain.vertex0_buffer),
             vertex1_buffer: assets.load(terrain.vertex1_buffer),
             index_buffer: assets.load(terrain.index_buffer),
-            constants_dirty: true,
             detail_level: TerrainDetailLevel::Medium,
             technique_depth_only: assets.load(terrain.technique_depth_only),
             technique_shadow: assets.load(terrain.technique_shadow),
@@ -220,7 +218,7 @@ impl FeatureRenderer for TerrainPatchesRenderer {
         &self,
         _renderer: &Renderer,
         (view_node, _): (usize, &RenderPerViewNode),
-        frame_node: &RenderPerFrameNode,
+        _frame_node: &RenderPerFrameNode,
         _visibility: &ViewVisibility,
         submit_node_blocks: &mut SubmitNodeContainer,
     ) {
