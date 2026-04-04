@@ -25,10 +25,12 @@ use crate::ui::{
         Scene,
         controller::{CameraController, egui_to_glam_vec2},
     },
+    tabs::model_view::ModelViewTab,
     util::UiExt,
 };
 
 pub struct ModelListBase<P: ModelProvider> {
+    renderer: Arc<Renderer>,
     package_sorting: PackageSorting,
     package_ids: Vec<u16>,
 
@@ -91,6 +93,7 @@ impl<P: ModelProvider> ModelListBase<P> {
         package_sorting.sort_package_ids(&provider, &mut package_ids);
 
         Self {
+            renderer: renderer.clone(),
             package_sorting,
             package_ids,
             current_package: 0,
@@ -198,6 +201,8 @@ impl<P: ModelProvider> ModelListBase<P> {
     }
 
     pub fn ui(&mut self, ui: &mut Ui, egui_d3d11: &mut egui_d3d12::D3D12Renderer) -> TabResult {
+        let mut result = TabResult::Continue;
+
         self.provider.load_package(self.current_package);
         self.render_thumbnails(ui.ctx());
 
@@ -716,6 +721,20 @@ impl<P: ModelProvider> ModelListBase<P> {
                                 ui.style_mut()
                                     .text_styles
                                     .insert(TextStyle::Button, FontId::proportional(16.0));
+                                if ui.button("Open in new tab").clicked() {
+                                    match ModelViewTab::new_pattern(&self.renderer, model.hash) {
+                                        Ok(o) => {
+                                            result = TabResult::Open(
+                                                crate::ui::tabs::Tab::ModelView(Box::new(o)),
+                                            );
+                                        }
+                                        Err(e) => {
+                                            error!("Failed to open model: {}", e);
+                                        }
+                                    }
+
+                                    ui.close();
+                                }
                                 if ui.button("Copy hash").clicked() {
                                     ui.ctx().copy_text(model.hash.to_string());
                                     ui.close();
@@ -753,7 +772,7 @@ impl<P: ModelProvider> ModelListBase<P> {
             }
         });
 
-        TabResult::Continue
+        result
     }
 }
 

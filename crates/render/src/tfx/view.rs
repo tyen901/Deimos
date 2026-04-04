@@ -32,8 +32,8 @@ impl ShadedView {
             output: RenderTarget::new(
                 gpu,
                 "result",
-                d3d12::Format::R8g8b8a8Unorm,
-                d3d12::Format::R8g8b8a8Unorm,
+                d3d12::Format::R11g11b10Float,
+                d3d12::Format::R11g11b10Float,
                 resolution,
             )?,
             resolution,

@@ -53,7 +53,7 @@ impl SceneRenderer {
         r.set_global_channel_by_id(0xE16B6B6B, Vec4::splat(1000000.0));
         r.set_global_channel_by_id(0x462A7037, Vec4::splat(0.0)); // >0 causes moss to glow?
         r.set_global_channel_by_id(0xCF70AC7C, Vec4::splat(0.0)); // something about transmission
-        r.set_global_channel_by_id(0x07806276, Vec4::splat(1.0)); // something about transmission
+        r.set_global_channel_by_id(0x07806276, Vec4::splat(2.0)); // fixes missing lights
 
         r.set_global_channel_by_id(0x2C538179, Vec4::splat(0.1)); // dims some very bright sky objects
         r.set_global_channel_by_id(0x2E538443, Vec4::splat(1.0)); // fixes marathon/planet rings not appearing
@@ -72,12 +72,7 @@ impl SceneRenderer {
     ) {
         let use_hdri = matches!(
             debug_pipeline,
-            Some(
-                DebugPipeline::GlobalLightingShading
-                    | DebugPipeline::DeferredShading
-                    | DebugPipeline::LightDiffuse
-                    | DebugPipeline::LightSpecular
-            ),
+            Some(DebugPipeline::GlobalLightingShading | DebugPipeline::DeferredShading),
         );
         self.parent.externs.reset_global_channel_frequencies();
         let gpu = cmd.gpu().clone();

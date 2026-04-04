@@ -191,6 +191,9 @@ where
                 channels.set_by_name("deposit_1", Vec4::splat(0.0));
                 channels.set_by_name("deposit_2", Vec4::splat(0.0));
                 channels.set_by_name("deposit_3", Vec4::splat(0.0));
+                channels.set_by_id(0xDEF47AFA, Vec4::splat(3.5));
+                channels.set_by_id(0xDEF47AFB, Vec4::splat(1.0));
+                channels.set_by_id(0xDEF47AF8, Vec4::splat(0.5));
 
                 channels.set_by_id(0x2EC4BC4E, Vec4::splat(0.0)); // Makes compiler/sptsh bullets more recognisable
                 channels.set_by_id(0x6057A3B9, Vec4::splat(0.0)); // Makes compiler core green
