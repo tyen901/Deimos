@@ -113,6 +113,7 @@ native-dialog = "0.7.0"
 nu-ansi-term = "0.50.1"
 rayon.workspace = true
 windows-registry = "0.6.1"
+sysinfo = { version = "0.38.4", default-features = false, features = ["system"] }
 
 [build-dependencies]
 embed-resource = "3.0.1"

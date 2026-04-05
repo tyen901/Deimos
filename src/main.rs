@@ -1,4 +1,4 @@
-use std::{fs::File, rc::Rc, sync::Mutex};
+use std::{fs::File, io::Write, rc::Rc, sync::Mutex};
 
 use anyhow::Context;
 use app::App;
@@ -11,6 +11,8 @@ use tracing_subscriber::{
     layer::SubscriberExt,
     util::SubscriberInitExt,
 };
+
+use crate::panic_hook::write_system_info;
 
 mod app;
 mod cli;
@@ -40,7 +42,12 @@ fn main() -> anyhow::Result<()> {
 
     fix_windows_console();
     std::panic::set_hook(Box::new(panic_hook::hook));
-    let log_file = File::create("deimos.log").context("creating log file")?;
+    let mut log_file = File::create("deimos.log").context("creating log file")?;
+    let mut system_info = String::new();
+    write_system_info(&mut system_info);
+    log_file.write_all(system_info.as_bytes())?;
+    writeln!(&mut log_file)?;
+
     let filter = EnvFilter::builder()
         .with_default_directive(LevelFilter::INFO.into())
         .from_env_lossy();

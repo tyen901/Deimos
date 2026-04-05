@@ -1,7 +1,11 @@
 use std::fmt::Write;
 use std::{backtrace::Backtrace, panic::PanicHookInfo};
 
+use d3d12::AdapterIterator;
 use nu_ansi_term::{Color, Style};
+use sysinfo::System;
+
+use crate::ui::util::format_bytes;
 
 pub fn hook(panic: &PanicHookInfo<'_>) {
     let message = if let Some(s) = panic.payload().downcast_ref::<&str>() {
@@ -45,5 +49,66 @@ pub fn hook(panic: &PanicHookInfo<'_>) {
     }
 
     eprint!("{}", style.paint(&msg));
+
+    writeln!(&mut msg).ok();
+    write_system_info(&mut msg);
+
     std::fs::write("panic.log", msg).ok();
+}
+
+pub fn write_system_info<R: std::fmt::Write>(out: &mut R) {
+    let s = System::new_with_specifics(
+        sysinfo::RefreshKind::nothing()
+            .with_memory(sysinfo::MemoryRefreshKind::everything())
+            .with_cpu(sysinfo::CpuRefreshKind::everything()),
+    );
+
+    let is_wine = std::fs::read_to_string("/proc/version")
+        .unwrap_or_default()
+        .contains("Linux");
+
+    writeln!(out, "System info:").ok();
+    writeln!(
+        out,
+        "  Operating System: {} ({})",
+        System::long_os_version().unwrap_or_else(|| "unknown".to_string()),
+        if is_wine { "Wine/Proton" } else { "Microsoft" }
+    )
+    .ok();
+    if let Some(cpu) = s.cpus().first() {
+        writeln!(
+            out,
+            "  CPU: {}, {} MHz, {} cores, {} threads",
+            cpu.name().trim(),
+            cpu.frequency(),
+            System::physical_core_count().unwrap_or(0),
+            s.cpus().len()
+        )
+        .ok();
+    }
+    writeln!(
+        out,
+        "  Memory: {} free, {} total",
+        format_bytes(s.free_memory() as usize),
+        format_bytes(s.total_memory() as usize)
+    )
+    .ok();
+
+    if let Ok(adapter_iter) = AdapterIterator::new() {
+        for (i, gpu) in adapter_iter.enumerate() {
+            let Ok(desc) = gpu.desc() else {
+                continue;
+            };
+            writeln!(
+                out,
+                "  GPU {}: {} (vendor: 0x{:04X}, device: 0x{:04X}), {} VRAM",
+                i,
+                desc.description,
+                desc.vendor_id,
+                desc.device_id,
+                format_bytes(desc.dedicated_video_memory)
+            )
+            .ok();
+        }
+    }
 }

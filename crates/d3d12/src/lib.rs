@@ -1,5 +1,8 @@
 pub use windows::Win32::Graphics::Direct3D12::*;
 
+pub mod dxgi;
+pub use dxgi::*;
+
 pub mod error;
 pub use error::{Error, Result};
 
