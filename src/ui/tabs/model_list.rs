@@ -112,14 +112,17 @@ impl<P: ModelProvider> ModelListBase<P> {
         }
     }
 
-    const THUMBNAIL_QUOTA: usize = 1;
+    const THUMBNAIL_QUOTA: usize = 2;
     fn render_thumbnails(&mut self, egui_ctx: &egui::Context) {
         let Some(entries) = self.provider.package_mut(self.current_package) else {
             return;
         };
 
         let mut quota = Self::THUMBNAIL_QUOTA;
-        for entry in entries.iter_mut().filter(|e| e.thumbnail.is_none()) {
+        for entry in entries
+            .iter_mut()
+            .filter(|e| e.thumbnail.is_none() || e.rerender_needed)
+        {
             if let Some(world) = entry.thumbnail_world.take() {
                 if s_are_all_objects_loaded(&world, &self.scene.scene_renderer.parent) {
                     let mut bb: AxisAlignedBBox = world
@@ -141,6 +144,7 @@ impl<P: ModelProvider> ModelListBase<P> {
                     {
                         Ok(o) => {
                             entry.thumbnail = Some(o);
+                            entry.rerender_needed = false;
                         }
                         Err(e) => {
                             error!("Failed to render thumbnail for {}: {}", entry.hash, e);
@@ -157,6 +161,13 @@ impl<P: ModelProvider> ModelListBase<P> {
             }
         }
         egui_ctx.request_repaint();
+
+        let all_entries_rendered = entries.iter().all(|e| !e.rerender_needed);
+        if let Some(e) = entries.first_mut()
+            && all_entries_rendered
+        {
+            e.rerender_needed = true;
+        }
     }
 
     fn clear_thumbnails(&mut self) {
@@ -471,7 +482,7 @@ impl<P: ModelProvider> ModelListBase<P> {
                                                 ui.label(
                                                     "The current combination of permutation keys does not \
                                                     correspond to any valid permutation for this \
-                                                    model.\nThis is a bug in Alkahest, and may happen more \
+                                                    model.\nThis is a bug in Deimos, and may happen more \
                                                     frequently with models that have a large number of \
                                                     options.",
                                                 );
@@ -567,7 +578,7 @@ impl<P: ModelProvider> ModelListBase<P> {
                 .auto_shrink([false; 2])
                 .scroll_source(ScrollSource::MOUSE_WHEEL | ScrollSource::SCROLL_BAR)
                 .show(ui, |ui| {
-                    let Some(entries) = self.provider.package(self.current_package) else {
+                    let Some(entries) = self.provider.package_mut(self.current_package) else {
                         ui.label("No package selected");
                         return;
                     };
@@ -682,6 +693,9 @@ impl<P: ModelProvider> ModelListBase<P> {
                                     Color32::WHITE,
                                 );
                             } else {
+                                if ui.is_rect_visible(card_response.rect) {
+                                    model.rerender_needed = true;
+                                }
                                 ui.d_paint_spinner_at(Rect::from_center_size(
                                     card_image_rect.center(),
                                     vec2(128.0, 128.0),
@@ -795,6 +809,7 @@ pub struct ModelEntry {
     pub hash: TagHash,
     pub thumbnail_world: Option<hecs::World>,
     pub thumbnail: Option<RenderTarget>,
+    pub rerender_needed: bool,
 }
 
 impl ModelEntry {

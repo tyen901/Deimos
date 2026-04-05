@@ -124,6 +124,7 @@ impl ModelProvider for StaticModelProvider {
                         hash,
                         thumbnail_world: Some(world),
                         thumbnail: None,
+                        rerender_needed: false,
                     }),
                     Err(err) => {
                         error!("Failed to load static model {hash}: {err}");
