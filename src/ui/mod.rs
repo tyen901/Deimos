@@ -1,18 +1,21 @@
-use std::{collections::BTreeMap, mem::discriminant, rc::Rc, sync::Arc};
+use std::{collections::BTreeMap, mem::discriminant, rc::Rc, sync::Arc, thread::JoinHandle};
 
 use anyhow::Context;
 use d3d12::GraphicsCommandList;
 use deimos_render::gpu::Gpu;
-use egui::{Color32, FontId, vec2};
+use egui::{Align2, Color32, FontFamily, FontId, Margin};
 use egui_dock::{DockArea, DockState, TabInteractionStyle};
 use google_material_symbols::GoogleMaterialSymbols;
 
 use crate::{
     app::SharedState,
+    task::Task,
     ui::{
         sodi::SodiVow,
         tabs::{DockStateExt, Tab, TabViewer},
+        util::UiExt,
     },
+    updater::{AvailableUpdate, check_stable_release, execute_update},
 };
 
 pub mod colors;
@@ -33,6 +36,13 @@ pub struct Gui {
     added_nodes: Vec<Tab>,
 
     sodi: SodiVow,
+
+    update_check: Task<Option<AvailableUpdate>>,
+    available_update: Option<AvailableUpdate>,
+
+    update_thread: Option<JoinHandle<()>>,
+
+    commonmark_cache: egui_commonmark::CommonMarkCache,
 }
 
 impl Gui {
@@ -170,6 +180,17 @@ impl Gui {
             tree,
             added_nodes: Vec::new(),
             sodi: SodiVow::default(),
+
+            update_check: Task::new("updater".to_string(), || match check_stable_release() {
+                Ok(Some(update)) => Some(update),
+                e => {
+                    error!("Failed to check for update: {:?}", e);
+                    None
+                }
+            }),
+            available_update: None,
+            update_thread: None,
+            commonmark_cache: egui_commonmark::CommonMarkCache::default(),
         })
     }
 
@@ -279,6 +300,103 @@ impl Gui {
         // }
 
         self.sodi.draw(&ctx);
+
+        if let Some(update) = self.update_check.get() {
+            match update {
+                Ok(update) => {
+                    self.available_update = update;
+                }
+                Err(e) => {
+                    error!("Failed to check for update: {:?}", e);
+                }
+            }
+        }
+
+        let mut close_update_window = false;
+        if let Some(update) = self.available_update.as_ref() {
+            egui::Modal::new("update_available".into())
+                .frame(egui::Frame::popup(&ctx.style()).inner_margin(Margin::symmetric(64, 48)))
+                .show(&ctx, |ui| {
+                    ui.heading("Update available!");
+                    ui.label(format!(
+                        "Release '{}' is available for download",
+                        update.version
+                    ));
+                    ui.separator();
+                    egui_commonmark::CommonMarkViewer::new().show(
+                        ui,
+                        &mut self.commonmark_cache,
+                        update.changelog.as_str(),
+                    );
+
+                    ui.add_space(32.0);
+                    ui.horizontal(|ui| {
+                        if ui
+                            .d_button(format!("{} Close", GoogleMaterialSymbols::Close))
+                            .clicked()
+                        {
+                            close_update_window = true;
+                        }
+                        if ui
+                            .d_button(format!(
+                                "{} Open in Browser",
+                                GoogleMaterialSymbols::OpenInNew
+                            ))
+                            .clicked()
+                        {
+                            ctx.open_url(egui::OpenUrl::new_tab(&update.url));
+                        }
+                        if ui
+                            .d_button(format!("{} Download", GoogleMaterialSymbols::Download))
+                            .clicked()
+                        {
+                            let download_url = update.download_url.clone();
+                            self.update_thread = Some(std::thread::spawn(move || {
+                                match ehttp::fetch_blocking(&ehttp::Request::get(download_url)) {
+                                    Ok(response) => {
+                                        info!(
+                                            "Successfully downloaded update: {} bytes",
+                                            response.bytes.len()
+                                        );
+
+                                        execute_update(response.bytes)
+                                            .expect("Failed to execute update");
+                                    }
+                                    Err(e) => {
+                                        panic!("Failed to download update: {e:?}");
+                                    }
+                                }
+                            }));
+                            close_update_window = true;
+                        }
+                    });
+                });
+        }
+
+        if close_update_window {
+            self.available_update = None;
+        }
+
+        if let Some(_thread) = &self.update_thread {
+            egui::Modal::new("update_available".into())
+                .frame(egui::Frame::default().inner_margin(64.0))
+                .show(&ctx, |ui| {
+                    let time = ui.input(|i| i.time);
+                    let dots = (time * 3.0) as usize % 3;
+                    ui.painter().text(
+                        ctx.viewport_rect().center(),
+                        Align2::CENTER_CENTER,
+                        format!(
+                            "{} Updating{}{}",
+                            GoogleMaterialSymbols::Downloading,
+                            ".".repeat(dots),
+                            " ".repeat(3 - dots),
+                        ),
+                        egui::FontId::new(64.0, FontFamily::Name("shapiro".into())),
+                        Color32::WHITE,
+                    );
+                });
+        }
     }
 
     pub fn render(&mut self, gpu: &Arc<Gpu>, cmd: &GraphicsCommandList) {

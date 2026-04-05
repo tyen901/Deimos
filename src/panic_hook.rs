@@ -50,10 +50,27 @@ pub fn hook(panic: &PanicHookInfo<'_>) {
 
     eprint!("{}", style.paint(&msg));
 
+    // Dont show dialog on debug builds
+    if !cfg!(debug_assertions) {
+        // Finally, show a dialog
+        let panic_message_stripped = strip_ansi_codes(&msg);
+        if let Err(e) = native_dialog::MessageDialog::new()
+            .set_type(native_dialog::MessageType::Error)
+            .set_title("Deimos crashed!")
+            .set_text(&format!(
+                "{}\n\nA full crash log has been written to panic.log. Please attach panic.log and deimos.log when reporting this issue to the developer.",
+                panic_message_stripped
+            ))
+            .show_alert()
+        {
+            eprintln!("Failed to show error dialog: {e}");
+        }
+    }
+
     writeln!(&mut msg).ok();
     write_system_info(&mut msg);
 
-    std::fs::write("panic.log", msg).ok();
+    std::fs::write("panic.log", msg.clone()).ok();
 }
 
 pub fn write_system_info<R: std::fmt::Write>(out: &mut R) {
@@ -111,4 +128,9 @@ pub fn write_system_info<R: std::fmt::Write>(out: &mut R) {
             .ok();
         }
     }
+}
+
+pub fn strip_ansi_codes(input: &str) -> String {
+    let ansi_escape_pattern = regex::Regex::new(r"\x1B\[[0-9;]*[mK]").unwrap();
+    ansi_escape_pattern.replace_all(input, "").to_string()
 }

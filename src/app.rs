@@ -19,7 +19,6 @@ use deimos_data::{
     tag::WideHash,
 };
 use deimos_render::{gpu::Gpu, renderer::Renderer, util::fps_histogram::FrametimeHistogram};
-use itertools::Itertools;
 use parking_lot::RwLock;
 use sdl3::video::Window;
 use tiger_parse::TigerReadable;
