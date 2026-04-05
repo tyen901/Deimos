@@ -19,6 +19,7 @@ members = [
     "crates/render",
     "crates/umbra3",
     "crates/investment",
+    "crates/polonium",
 ]
 
 [workspace.dependencies]
@@ -65,6 +66,7 @@ features = [
 deimos-core = { path = "./crates/core" }
 deimos-data = { path = "./crates/data" }
 deimos-ecs = { path = "./crates/ecs" }
+deimos-polonium = { path = "./crates/polonium" }
 deimos-render = { path = "./crates/render" }
 d3d12 = { path = "./crates/d3d12" }
 egui-sdl3-platform = { path = "./crates/egui-sdl3-platform" }

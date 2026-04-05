@@ -4,7 +4,6 @@ use deimos_data::{
     map::ComponentData,
     pattern::{SComponent, SPattern},
     tag::TagRef,
-    tfx::geometry::AxisAlignedBBox,
 };
 use deimos_ecs::{
     transform::Transform,
@@ -127,6 +126,10 @@ impl ModelProvider for EntityModelProvider {
             .filter(|(_, e)| e.reference == SPattern::ID.unwrap())
             .filter_map(|(i, _)| {
                 let hash = TagHash::new(pkg_id, i as u16);
+                if !deimos_polonium::check_tag(hash) {
+                    return None;
+                }
+
                 match package_manager().read_tag_struct::<SPattern>(hash) {
                     Ok(pattern) => {
                         let cb = |world: &mut hecs::World,
