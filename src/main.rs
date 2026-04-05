@@ -12,7 +12,7 @@ use tracing_subscriber::{
     util::SubscriberInitExt,
 };
 
-use crate::panic_hook::write_system_info;
+use crate::{cli::print_banner, panic_hook::write_system_info};
 
 mod app;
 mod cli;
@@ -41,6 +41,7 @@ fn main() -> anyhow::Result<()> {
         .build_global()?;
 
     fix_windows_console();
+    print_banner();
     std::panic::set_hook(Box::new(panic_hook::hook));
     let mut log_file = File::create("deimos.log").context("creating log file")?;
     let mut system_info = String::new();
