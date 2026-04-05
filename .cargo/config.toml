@@ -82,5 +82,6 @@ rustflags = [
     "-Wclippy::nursery",
     "-Aclippy::significant_drop_tightening",
     "-Aclippy::significant_drop_in_scrutinee",
-    "-Aclippy::option_if_let_else"
+    "-Aclippy::option_if_let_else",
+    "-Aclippy::while_float"
 ]

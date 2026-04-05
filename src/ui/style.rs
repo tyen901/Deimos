@@ -11,7 +11,7 @@ pub fn gui_style() -> Style {
             ..Visuals::dark()
         },
         spacing: Spacing {
-            button_padding: egui::vec2(25.0, 20.0),
+            // button_padding: egui::vec2(25.0, 20.0),
             item_spacing: egui::vec2(20.0, 10.0),
             ..Default::default()
         },

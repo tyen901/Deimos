@@ -183,6 +183,14 @@ impl App {
         self.gpu.end_frame();
         self.gpu.present(self.shared_state.config.read().vsync);
 
+        let config = self.shared_state.config.read();
+        if config.framelimiter_enabled {
+            let target_frame_delta = 1.0 / config.framerate_limit as f32;
+            while self.last_frame_time.elapsed().as_secs_f32() < target_frame_delta {
+                std::hint::spin_loop();
+            }
+        }
+
         profiling::finish_frame!();
 
         Ok(())
