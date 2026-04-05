@@ -69,11 +69,12 @@ impl SceneRenderer {
         cmd: &mut CommandList,
         visibility: &ViewVisibility,
         debug_pipeline: Option<DebugPipeline>,
+        use_hdri: bool,
     ) {
         let use_hdri = matches!(
             debug_pipeline,
             Some(DebugPipeline::GlobalLightingShading | DebugPipeline::DeferredShading),
-        );
+        ) && use_hdri;
         self.parent.externs.reset_global_channel_frequencies();
         let gpu = cmd.gpu().clone();
         let stream = &gpu.frame().stream;

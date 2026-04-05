@@ -63,6 +63,7 @@ pub struct Scene {
     only_show_used_channels: bool,
 
     umbra_result: QueryErrorCode,
+    enable_hdri: bool,
 }
 
 impl Scene {
@@ -92,6 +93,7 @@ impl Scene {
             show_channel_editor: false,
             only_show_used_channels: true,
             umbra_result: QueryErrorCode::Ok,
+            enable_hdri: true,
         })
     }
 
@@ -669,7 +671,7 @@ impl Scene {
         }
 
         self.scene_renderer
-            .render(cmd, &vis, self.render_mode.into());
+            .render(cmd, &vis, self.render_mode.into(), self.enable_hdri);
     }
 
     fn show_toolbar(&mut self, ui: &mut Ui) {
@@ -719,6 +721,9 @@ impl Scene {
             self.controller.yaw_pitch().x,
             self.controller.yaw_pitch().y
         ));
+
+        let (bearing, dir) = compass_heading(self.camera.forward());
+        ui.label(format!("Heading {} ({:.1}°)", dir, bearing));
 
         ui.style_mut()
             .text_styles
@@ -908,7 +913,9 @@ impl Scene {
                 .set_resolution_scale(resolution_scale);
         }
 
-        // ui.separator();
+        ui.separator();
+
+        ui.checkbox(&mut self.enable_hdri, "Enable HDRI");
 
         // ui.checkbox(&mut view_settings.vertex_ao, "Vertex AO")
         //     .setting_description_tooltip(
@@ -1234,4 +1241,16 @@ impl ExternalDataWidgetExt for FeatureRendererSubscription {
             })
             .response
     }
+}
+
+fn compass_heading(forward: Vec3) -> (f32, &'static str) {
+    const DIRS: [&str; 8] = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+
+    let bearing_deg = (-forward.x)
+        .atan2(-forward.y)
+        .to_degrees()
+        .rem_euclid(360.0); // map [-180, 180] to [0, 360]
+
+    let index = ((bearing_deg + 22.5) / 45.0) as usize % 8;
+    (bearing_deg, DIRS[index])
 }
