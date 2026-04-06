@@ -49,9 +49,9 @@ impl<T: TigerReadable + Debug> Debug for TagRef<T> {
 }
 
 #[derive(Clone)]
-pub struct OptionalTag<T: TigerReadable>(pub Option<T>, TagHash);
+pub struct OptionalTagRef<T: TigerReadable>(pub Option<T>, TagHash);
 
-impl<T: TigerReadable> TigerReadable for OptionalTag<T> {
+impl<T: TigerReadable> TigerReadable for OptionalTagRef<T> {
     fn read_ds_endian<R: std::io::prelude::Read + std::io::prelude::Seek>(
         reader: &mut R,
         endian: tiger_parse::Endian,
@@ -69,20 +69,20 @@ impl<T: TigerReadable> TigerReadable for OptionalTag<T> {
     const SIZE: usize = TagHash::SIZE;
 }
 
-impl<T: TigerReadable> std::ops::Deref for OptionalTag<T> {
+impl<T: TigerReadable> std::ops::Deref for OptionalTagRef<T> {
     type Target = Option<T>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<T: TigerReadable> OptionalTag<T> {
+impl<T: TigerReadable> OptionalTagRef<T> {
     pub const fn taghash(&self) -> TagHash {
         self.1
     }
 }
 
-impl<T: TigerReadable + Debug> Debug for OptionalTag<T> {
+impl<T: TigerReadable + Debug> Debug for OptionalTagRef<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("OptionalTag({}, ", self.1))?;
         self.0.fmt(f)?;

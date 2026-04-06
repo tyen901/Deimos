@@ -18,6 +18,8 @@ pub struct Gbuffer {
     pub depth: DepthBuffer,
     pub depth_read: DepthBuffer,
 
+    current_rtv_state: d3d12::ResourceStates,
+
     _resolution: (u32, u32),
 }
 
@@ -66,6 +68,7 @@ impl Gbuffer {
             .context("allocating render target")?,
             depth: DepthBuffer::new(gpu, resolution).context("allocating depth buffer")?,
             depth_read: DepthBuffer::new(gpu, resolution).context("allocating depth buffer")?,
+            current_rtv_state: d3d12::ResourceStates::RENDER_TARGET,
 
             _resolution: resolution,
         })
@@ -74,16 +77,9 @@ impl Gbuffer {
     pub fn clear(&self, cmd: &d3d12::GraphicsCommandList) {
         cmd.clear_render_target_view(self.albedo.cpu_handle(), &[0.0, 0.0, 0.0, 0.0]);
         cmd.clear_render_target_view(self.normal.cpu_handle(), &[0.0, 0.0, 0.0, 0.0]);
-        cmd.clear_render_target_view(self.normal_read.cpu_handle(), &[0.0, 0.0, 0.0, 0.0]);
         cmd.clear_render_target_view(self.rt3.cpu_handle(), &[0.0, 0.5, 0.0, 0.0]);
         cmd.clear_render_target_view(self.rt4.cpu_handle(), &[0.0, 0.0, 0.0, 0.0]);
         cmd.clear_depth_stencil_view(self.depth.cpu_handle(), d3d12::ClearFlags::DEPTH, 0.0, 0);
-        cmd.clear_depth_stencil_view(
-            self.depth_read.cpu_handle(),
-            d3d12::ClearFlags::DEPTH,
-            0.0,
-            0,
-        );
     }
 
     pub fn bind(&self, cmd: &mut CommandList) {

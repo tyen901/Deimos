@@ -8,7 +8,7 @@ use tiger_parse::{
 use tiger_pkg::TagHash;
 
 use crate::{
-    tag::{OptionalTag, TagRef, WideHash, WideTag},
+    tag::{OptionalTagRef, TagRef, WideHash, WideTag},
     tfx::features::{
         cubemap::SCubemapComponent,
         decals::SDecalCollection,
@@ -119,7 +119,7 @@ pub struct SStaticInstancesCollectionComponent {
 
 #[tiger_type(id = 0x80808378)]
 pub struct SSkyObjectCollectionComponent {
-    pub objects: OptionalTag<SSkyObjectCollection>,
+    pub objects: OptionalTagRef<SSkyObjectCollection>,
 }
 
 // #[tiger_type(id = 0x80806DE0)]
@@ -129,17 +129,17 @@ pub struct SSkyObjectCollectionComponent {
 
 #[tiger_type(id = 0x80808335)]
 pub struct SLightCollectionComponent {
-    pub lights: OptionalTag<SLightCollection>,
+    pub lights: OptionalTagRef<SLightCollection>,
 }
 
 #[tiger_type(id = 0x80808544)]
 pub struct SShadowingLightComponent {
-    pub light: OptionalTag<SShadowingLight>,
+    pub light: OptionalTagRef<SShadowingLight>,
 }
 
 #[tiger_type(id = 0x8080821E)]
 pub struct SDecalCollectionComponent {
-    pub decals: OptionalTag<SDecalCollection>,
+    pub decals: OptionalTagRef<SDecalCollection>,
 }
 
 #[derive(Clone, Debug)]
@@ -152,12 +152,12 @@ pub struct SStaticTerrainPatchesComponent {
 
 #[tiger_type(id = 0x808085AA)]
 pub struct SDecoratorsComponent {
-    pub decorators: OptionalTag<SDecorator>,
+    pub decorators: OptionalTagRef<SDecorator>,
 }
 
 #[tiger_type(id = 0x808085DE)]
 pub struct SUmbraTomeComponent {
-    pub tag: OptionalTag<SUmbraTomes>,
+    pub tag: OptionalTagRef<SUmbraTomes>,
 }
 
 #[derive(Debug)]

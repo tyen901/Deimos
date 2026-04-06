@@ -3,7 +3,7 @@ use tiger_parse::tiger_type;
 use tiger_pkg::TagHash;
 
 use crate::{
-    tag::{OptionalTag, TagRef},
+    tag::{OptionalTagRef, TagRef},
     tfx::{common::SOcclusionBounds, geometry::AxisAlignedBBox},
 };
 
@@ -71,7 +71,7 @@ pub struct SUnk8080717E {
     pub unk8: u32,
     pub bounds: AxisAlignedBBox,
     pub unk10: TagHash,
-    pub unk14: OptionalTag<SUnk80807184>,
+    pub unk14: OptionalTagRef<SUnk80807184>,
     pub unk18: Vec<f32>,
     pub unk28: Vec<bool>,
     pub unk38: Vec<f32>,

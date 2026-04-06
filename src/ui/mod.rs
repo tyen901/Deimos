@@ -183,6 +183,7 @@ impl Gui {
 
             update_check: Task::new("updater".to_string(), || match check_stable_release() {
                 Ok(Some(update)) => Some(update),
+                Ok(None) => None,
                 e => {
                     error!("Failed to check for update: {:?}", e);
                     None

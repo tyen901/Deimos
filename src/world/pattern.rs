@@ -8,7 +8,7 @@ use deimos_data::{
     hash::FNV1_BASE,
     map::{ComponentData, S808085E3},
     pattern::{SComponent, SPattern},
-    tag::TagRef,
+    tag::{OptionalTagRef, TagRef},
     tfx::{
         TfxFeatureRenderer,
         features::{
@@ -268,9 +268,12 @@ pub fn load_component(
             } else {
                 let mut cur = Cursor::new(package_manager().read_tag(component.taghash())?);
                 cur.seek(SeekFrom::Start(component.definition.offset + 0x130))?;
-                let light = TagRef::<SShadowingLight>::read_ds(&mut cur)?;
+                let light = OptionalTagRef::<SShadowingLight>::read_ds(&mut cur)?;
 
-                light.0
+                let Some(light) = light.0 else {
+                    return Ok(ComponentLoadResult::Skipped);
+                };
+                light
             };
 
             let _transform = world
