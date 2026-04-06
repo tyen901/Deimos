@@ -169,6 +169,9 @@ impl SceneRenderer {
                     view.gbuffer
                         .normal_read
                         .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
+                    view.gbuffer
+                        .normal
+                        .transition(cmd, d3d12::ResourceStates::RENDER_TARGET);
 
                     // Copy depth
                     view.gbuffer
@@ -186,6 +189,9 @@ impl SceneRenderer {
                     view.gbuffer
                         .depth_read
                         .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
+                    view.gbuffer
+                        .depth
+                        .transition(cmd, d3d12::ResourceStates::DEPTH_READ);
                 }
 
                 {
@@ -241,6 +247,10 @@ impl SceneRenderer {
                 self.main_view
                     .output
                     .transition(cmd, d3d12::ResourceStates::RENDER_TARGET);
+                cmd.clear_render_target_view(
+                    self.main_view.output.cpu_handle(),
+                    &[0.0, 0.0, 0.0, 1.0],
+                );
 
                 cmd.set_ffstate(FixedFunctionState::new(Some(8), Some(15), Some(2), Some(1)));
                 if let Some(debug_pipeline) = debug_pipeline {
