@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     io::{Cursor, Seek, SeekFrom},
     sync::{Arc, atomic::AtomicUsize},
 };
@@ -15,7 +16,7 @@ use glam::{Vec4, vec4};
 use itertools::Itertools;
 use tiger_parse::{FnvHash, PackageManagerExt, TigerReadable};
 use tiger_pkg::{TagHash, package_manager};
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 
 use crate::{
     UnimplementedTigerComponent, UnimplementedTigerComponents,
@@ -236,6 +237,26 @@ where
                         })?;
                     }
                 }
+            }
+            0x808077C0 => {
+                // TODO(cohae): Do this in a way that isn't brute forcing
+                cur.seek(std::io::SeekFrom::Start(component.definition.offset))?;
+                let mut loaded_patterns: HashSet<TagHash> = HashSet::default();
+                while let Ok(taghash) = WideHash::read_ds(&mut cur) {
+                    cur.seek(std::io::SeekFrom::Current(-0xC))?;
+                    let Some(entry) = package_manager().get_entry(taghash) else {
+                        continue;
+                    };
+                    if Some(entry.reference) == SPattern::ID
+                        && loaded_patterns.insert(taghash.hash32())
+                    {
+                        spawn_pattern_internal(world, taghash.hash32(), None, None, callback)?;
+                    }
+                }
+                info!(
+                    "Loaded {} node tables from component",
+                    loaded_patterns.len()
+                );
             }
             u => {
                 debug!(
