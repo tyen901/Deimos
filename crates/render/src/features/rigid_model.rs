@@ -282,6 +282,7 @@ impl DynamicModel {
             }
             skinning_posbuffer.bind_srv(cmd, ShaderStage::Vertex, 2);
             skinning_normalbuffer.bind_srv(cmd, ShaderStage::Vertex, 3);
+            cmd.set_shader_resource_view(ShaderStage::Vertex, 4, None);
 
             for part_index in mesh.get_range_for_stage(stage) {
                 let part = &mesh.parts[part_index];

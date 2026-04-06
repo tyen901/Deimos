@@ -18,8 +18,6 @@ pub struct RenderTarget {
     name: String,
     format: d3d12::Format,
     view_format: d3d12::Format,
-
-    current_state: d3d12::ResourceStates,
 }
 
 impl RenderTarget {
@@ -84,8 +82,6 @@ impl RenderTarget {
             name: name.to_string(),
             format,
             view_format,
-
-            current_state: d3d12::ResourceStates::RENDER_TARGET,
         })
     }
 
@@ -109,16 +105,12 @@ impl RenderTarget {
         self.size
     }
 
-    pub fn transition(&mut self, cmd: &d3d12::GraphicsCommandList, state: d3d12::ResourceStates) {
-        if self.current_state != state {
-            cmd.resource_barriers(&[d3d12::ResourceBarrier::transition(
-                self.resource.resource(),
-                0,
-                self.current_state,
-                state,
-            )]);
-            self.current_state = state;
-        }
+    pub fn transition(
+        &mut self,
+        cmd: &d3d12::GraphicsCommandList,
+        new_state: d3d12::ResourceStates,
+    ) {
+        self.resource.transition(cmd, new_state);
     }
 
     /// Resize the depth buffer.
@@ -242,16 +234,12 @@ impl DepthBuffer {
         self.dsv_heap.gpu_descriptor_handle_for_heap_start()
     }
 
-    pub fn transition(&mut self, cmd: &d3d12::GraphicsCommandList, state: d3d12::ResourceStates) {
-        if self.current_state != state {
-            cmd.resource_barriers(&[d3d12::ResourceBarrier::transition(
-                self.resource.resource(),
-                0,
-                self.current_state,
-                state,
-            )]);
-            self.current_state = state;
-        }
+    pub fn transition(
+        &mut self,
+        cmd: &d3d12::GraphicsCommandList,
+        new_state: d3d12::ResourceStates,
+    ) {
+        self.resource.transition(cmd, new_state);
     }
 
     pub const fn srv(&self) -> ResourceView {

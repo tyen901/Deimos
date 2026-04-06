@@ -1,5 +1,7 @@
 use std::{mem::ManuallyDrop, sync::Arc};
 
+use d3d12::D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
 use crate::gpu::Gpu;
 
 /// Represents an owned GPU resource that will be automatically freed when dropped.
@@ -49,9 +51,13 @@ impl OwnedResource {
         cmd: &d3d12::GraphicsCommandList,
         new_states: d3d12::ResourceStates,
     ) {
+        if self.guard.current_state == new_states {
+            return;
+        }
+
         cmd.resource_barriers(&[d3d12::ResourceBarrier::transition(
             self.resource(),
-            0,
+            D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
             self.guard.current_state,
             new_states,
         )]);
