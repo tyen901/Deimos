@@ -302,6 +302,7 @@ impl<'a> DecompilerState<'a> {
                 Opcode::Cubic => {
                     let x = cached_top;
                     let coefficients = self.get(-1)?;
+                    self.stack_pointer -= 1;
                     set_top!(format!("<fun>cubic<reset>({x}, {coefficients})"));
                 }
                 Opcode::Lerp => {
@@ -381,7 +382,7 @@ impl<'a> DecompilerState<'a> {
                     let b = self.get(-1)?;
                     let a = self.get(-2)?;
                     self.stack_pointer -= 2;
-                    set_top!(format!("({a} <op>*<op/> {b} <op>+<op/> {c})"));
+                    set_top!(format!("({a} <op>*<reset> {b} <op>+<reset> {c})"));
                 }
                 Opcode::Clamp => {
                     let min = cached_top;
@@ -617,7 +618,7 @@ impl<'a> DecompilerState<'a> {
                 Opcode::PushObjectChannelVector => {
                     let channel = u32::from_be_bytes([ptr[1], ptr[2], ptr[3], ptr[4]]);
                     cached_top = self.push(format!(
-                        "<ident>object_channels<reset>[<num>{channel:08X}<reset>]"
+                        "<ident>object_channels<reset>[<num>0x{channel:08X}<reset>]"
                     ))?;
                 }
                 Opcode::PushGlobalChannelVector => {

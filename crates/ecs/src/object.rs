@@ -185,7 +185,7 @@ const FNV_NAME_GUESSES: &[(u32, &str)] = &[
     (0x1023B2D3, "color*"),
 ];
 
-fn find_fnv_name(hash: u32) -> Option<&'static str> {
+pub fn find_fnv_name(hash: u32) -> Option<&'static str> {
     if let Some(s) = FNV_NAMES
         .iter()
         .find(|&&name| fnv1(name.as_bytes()) == hash)

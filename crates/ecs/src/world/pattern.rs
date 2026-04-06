@@ -195,6 +195,12 @@ where
                 channels.set_by_id(0xDEF47AFB, Vec4::splat(1.0));
                 channels.set_by_id(0xDEF47AF8, Vec4::splat(0.5));
 
+                channels.set_by_name("hack_progress", Vec4::splat(0.5));
+                channels.set_by_name("device_power", Vec4::splat(0.1));
+                channels.set_by_name("spawn_in", Vec4::splat(0.0));
+                channels.set_by_id(0x0FBEEF72, Vec4::splat(0.0));
+                // channels.set_by_id(0x262F908A, Vec4::splat(0.0));
+
                 channels.set_by_id(0xEE1D8D50, Vec4::splat(0.0)); // Makes flight control roomba happy :D
 
                 channels.set_by_id(0x2EC4BC4E, Vec4::splat(0.0)); // Makes compiler/sptsh bullets more recognisable

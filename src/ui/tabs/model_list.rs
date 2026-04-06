@@ -502,14 +502,18 @@ impl<P: ModelProvider> ModelListBase<P> {
                                         ui.spacing_mut().scroll.floating = false;
                                         egui::ScrollArea::vertical().show(ui, |ui| {
                                             for channel in channels.0.iter_mut().filter(|c| if self.only_show_used_channels {
-                                                c.usage.load(std::sync::atomic::Ordering::Relaxed) > 0
-                                            } else {
-                                                true
-                                            }) {
-                                                ui.horizontal(|ui| {
-                                                    ui.label(object::find_fnv_name_or_default(
+                                                    c.usage.load(std::sync::atomic::Ordering::Relaxed) > 0
+                                                } else {
+                                                    true
+                                                }) {
+                                                    ui.horizontal(|ui| {
+                                                    if let Some(name) = object::find_fnv_name(
                                                         channel.name,
-                                                    ));
+                                                    ) {
+                                                        ui.label(format!("{name} (0x{:08X})", channel.name));
+                                                    } else {
+                                                        ui.label(format!("unk_{:08X}", channel.name));
+                                                    }
                                                     ui.horizontal(|ui| {
                                                         ui.spacing_mut().button_padding = vec2(4.0, 1.0);
                                                         ui.spacing_mut().interact_size = egui::vec2(100.0, 32.0);

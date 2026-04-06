@@ -640,6 +640,15 @@ impl<'a> InterpreterState<'a> {
                         v2[s3 as usize],
                     ))?;
                 }
+                // TODO(cohae): figure out what this does
+                Opcode::Unknown0x3D => {
+                    let _v0 = cached_top;
+                    let v1 = self.get(-1)?;
+
+                    cached_top = self.push(v1)?;
+
+                    self.stack_pointer -= 2;
+                }
                 u => {
                     anyhow::bail!(
                         "Unimplemented opcode: {u:?} / 0x{:02X} (ip=0x{:X})",
@@ -652,7 +661,7 @@ impl<'a> InterpreterState<'a> {
             if self.debug {
                 println!("{}: {:?} {:?}", self.ip, op, &self.data_ptr()[1..op.size()]);
                 // Print stack
-                for (i, val) in self.stack.iter().enumerate() {
+                for (i, val) in self.stack.iter().enumerate().take(self.stack_pointer + 1) {
                     println!("  [{i}] {val:?}");
                 }
             }
