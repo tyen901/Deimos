@@ -58,12 +58,18 @@ impl UploadRing {
         if start + size_aligned > self.capacity {
             Err(anyhow::anyhow!("Out of memory"))
         } else {
-            Ok(RingSlice {
+            let slice = RingSlice {
                 ptr: unsafe { self.mapped_ptr.add(start) },
                 len: size,
                 capacity: size_aligned,
                 gpu_va: self.gpu_base.offset(start),
-            })
+            };
+
+            unsafe {
+                slice.ptr.write_bytes(0x00, slice.capacity());
+            }
+
+            Ok(slice)
         }
     }
 

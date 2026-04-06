@@ -195,6 +195,8 @@ where
                 channels.set_by_id(0xDEF47AFB, Vec4::splat(1.0));
                 channels.set_by_id(0xDEF47AF8, Vec4::splat(0.5));
 
+                channels.set_by_id(0xEE1D8D50, Vec4::splat(0.0)); // Makes flight control roomba happy :D
+
                 channels.set_by_id(0x2EC4BC4E, Vec4::splat(0.0)); // Makes compiler/sptsh bullets more recognisable
                 channels.set_by_id(0x6057A3B9, Vec4::splat(0.0)); // Makes compiler core green
                 channels.set_by_id(0x0EDC1DFF, Vec4::splat(0.0)); // Makes compiler cape visible

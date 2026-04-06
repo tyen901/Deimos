@@ -108,7 +108,7 @@ impl ResourceDesc {
 impl ResourceDesc {
     pub fn buffer(size: u64) -> Self {
         Self::new(ResourceDimension::Buffer)
-            .width(size)
+            .width(size.next_multiple_of(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT as u64))
             .height(1)
             .format(Format::Unknown)
             .layout(TextureLayout::RowMajor)

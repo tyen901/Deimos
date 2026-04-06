@@ -270,10 +270,10 @@ impl Gpu {
         self.swapchain.lock().wait_on_present();
         let frame_index = self.frame_index.load(std::sync::atomic::Ordering::Relaxed);
         let frame = &self.frames[frame_index % Self::FRAMES_IN_FLIGHT];
-        frame.begin_frame(&self.queue);
         frame
             .wait_for_completion(&self.frame_fence)
             .expect("wait for frame completion");
+        frame.begin_frame(&self.queue);
 
         let _to_bin = self
             .bin
