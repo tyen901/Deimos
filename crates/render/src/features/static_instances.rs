@@ -83,8 +83,14 @@ impl StaticModel {
             .buffers
             .iter()
             .map(
-                |&(index_buffer, vertex0_buffer, vertex1_buffer, _unk_buffer)| {
-                    ModelBuffers::load(renderer, vertex0_buffer, vertex1_buffer, index_buffer)
+                |&(index_buffer, vertex0_buffer, vertex1_buffer, color_buffer)| {
+                    ModelBuffers::load(
+                        renderer,
+                        vertex0_buffer,
+                        vertex1_buffer,
+                        index_buffer,
+                        color_buffer,
+                    )
                 },
             )
             .collect::<anyhow::Result<Vec<_>>>()
@@ -110,6 +116,7 @@ impl StaticModel {
                         mesh.vertex0_buffer,
                         mesh.vertex1_buffer,
                         mesh.index_buffer,
+                        mesh.color_buffer,
                     )
                     .expect("Failed to load special mesh buffers"),
                     technique: renderer.asset_manager.load(mesh.technique),
@@ -234,79 +241,6 @@ impl StaticModelRenderer {
             identifier,
             precomputed_submit_nodes,
         })
-    }
-
-    #[profiling::function]
-    pub fn render_all(&self, cmd: &mut CommandList, stage: RenderStage) {
-        cmd.enable_smart_technique_binding();
-
-        let is_opaque = matches!(
-            stage,
-            RenderStage::ShadowGenerate | RenderStage::DepthPrepass | RenderStage::GenerateGbuffer
-        );
-
-        let mut bound_buffer_index = None;
-        if is_opaque {
-            let opaque_meshes = &self.model.model.opaque_meshes;
-            for (i, group, part) in opaque_meshes
-                .mesh_groups
-                .iter()
-                .enumerate()
-                .map(|(i, g)| (i, g, &opaque_meshes.parts[g.part_index as usize]))
-                .filter(|(_, g, p)| g.render_stage == stage && p.lod_category.is_highest_detail())
-            {
-                if bound_buffer_index != Some(part.buffer_index) {
-                    let buffers = &self.model.buffers[part.buffer_index as usize];
-                    if buffers.bind(cmd).is_none() {
-                        continue;
-                    }
-                }
-                bound_buffer_index = Some(part.buffer_index);
-
-                cmd.set_input_layout(group.input_layout_index as usize);
-                cmd.set_input_topology(part.primitive_type);
-
-                if let Some(technique) = &self.model.materials_by_group.get(i).and_then(|h| h.get())
-                {
-                    technique.bind(cmd);
-                } else {
-                    continue;
-                }
-
-                cmd.draw_indexed_instanced(
-                    part.index_range(),
-                    0..self.visible_instance_ids.len() as u32,
-                    0,
-                );
-            }
-        }
-
-        if !is_opaque {
-            for mesh in self
-                .model
-                .special_meshes
-                .iter()
-                .filter(|m| m.mesh.render_stage == stage && m.mesh.lod.is_highest_detail())
-            {
-                if mesh.buffers.bind(cmd).is_none() {
-                    continue;
-                }
-
-                cmd.set_input_layout(mesh.input_layout_index as usize);
-                cmd.set_input_topology(mesh.primitive_type);
-                if let Some(technique) = mesh.technique.get() {
-                    technique.bind(cmd);
-                } else {
-                    continue;
-                }
-
-                cmd.draw_indexed_instanced(
-                    mesh.index_range(),
-                    0..self.visible_instance_ids.len() as u32,
-                    0,
-                );
-            }
-        }
     }
 
     #[profiling::function]
