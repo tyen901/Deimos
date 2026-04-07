@@ -28,9 +28,10 @@ extern_struct! {
         0xD0 => specular_tint_lookup: TextureView,
         0xD8 => iridescence_lookup: TextureView,
         0xE0 => unke0: Vec4,
-        0x160 => unk160: Vec4,
+
+        0x160 => wind_unk160: Vec4 > default(vec4(0.1, 0.1, 0.1, 1.0)),
         0x170 => unk170: Vec4,
-        0x180 => unk180: Vec4,
+        0x180 => wind_unk180: Vec4 > default(vec4(0.1, 0.1, 0.1, 0.0)),
         0x190 => unk190: Vec4,
         0x1A0 => unk1a0: Vec4,
 
