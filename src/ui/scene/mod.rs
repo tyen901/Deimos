@@ -23,7 +23,7 @@ use egui::{
     Color32, FontId, Image, ImageSource, Rect, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2,
     Widget, containers::menu::MenuConfig, load::SizedTexture, vec2,
 };
-use glam::{Vec3, Vec4, vec4};
+use glam::{Vec3, Vec4, vec3, vec4};
 use google_material_symbols::GoogleMaterialSymbols;
 use hecs::World;
 use itertools::Itertools;
@@ -400,12 +400,16 @@ impl Scene {
                 self.sun_light_angle = self.sun_light_angle.rem_euclid(360.0);
             }
 
-            let sun_light_direction = Vec3::new(
-                self.sun_light_angle.to_radians().cos(),
-                self.sun_light_angle.to_radians().sin(),
-                0.7,
-            )
-            .normalize();
+            let sun_light_direction = if self.render_mode == RenderMode::Lookdev {
+                -vec3(0.510, 0.317, 0.799).normalize()
+            } else {
+                vec3(
+                    self.sun_light_angle.to_radians().cos(),
+                    self.sun_light_angle.to_radians().sin(),
+                    0.7,
+                )
+                .normalize()
+            };
 
             self.scene_renderer
                 .set_global_channel_by_name("sun_light_direction", sun_light_direction.extend(0.0));
@@ -744,6 +748,7 @@ impl Scene {
             self.controller.yaw_pitch().x,
             self.controller.yaw_pitch().y
         ));
+        // ui.label(format!("Camera Forward: {:.3?}", self.camera.forward()));
 
         let (bearing, dir) = compass_heading(self.camera.forward());
         ui.label(format!("Heading {} ({:.1}°)", dir, bearing));
