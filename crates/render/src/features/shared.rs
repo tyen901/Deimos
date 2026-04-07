@@ -1,3 +1,4 @@
+use anyhow::Context;
 use deimos_data::tfx::ShaderStage;
 use tiger_pkg::TagHash;
 
@@ -33,14 +34,14 @@ impl ModelBuffers {
             index_buffer: renderer.asset_manager.load(index_buffer),
             color_buffer: if color_buffer.is_some() {
                 let (vb_data, _) = VertexBuffer::get_raw_data_and_stride(color_buffer)
-                    .expect("Failed to load color buffer for dynamic model");
+                    .context("Failed to load color buffer for dynamic model")?;
                 ImmutableBuffer::new(
                     &renderer.gpu,
                     &format!("color_buffer_{color_buffer}"),
                     d3d12::Format::R8g8b8a8Unorm,
                     &vb_data,
                 )
-                .expect("Failed to create color buffer for dynamic model")
+                .context("Failed to create color buffer for dynamic model")?
             } else {
                 ImmutableBuffer::new(
                     &renderer.gpu,
@@ -48,7 +49,7 @@ impl ModelBuffers {
                     d3d12::Format::R8g8b8a8Unorm,
                     &[255u8, 255, 255, 255],
                 )
-                .expect("Failed to create color buffer for dynamic model")
+                .context("Failed to create color buffer for dynamic model")?
             },
         })
     }

@@ -3,6 +3,7 @@ use tiger_pkg::TagHash;
 pub mod interactibles;
 pub mod object;
 pub mod transform;
+pub mod visibility;
 pub mod world;
 
 pub struct UnimplementedTigerComponent {

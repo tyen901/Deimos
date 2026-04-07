@@ -1,9 +1,7 @@
 use std::{ffi::c_void, fmt::Debug, ptr::NonNull};
 
 use bytemuck::Pod;
-use deimos_data::tfx::{
-    RenderStage, features::dynamic::RenderStageSubscription, geometry::SphereBounds,
-};
+use deimos_data::tfx::{RenderStage, features::dynamic::RenderStageSubscription};
 use static_assertions::assert_eq_size;
 
 use crate::{renderer::object::RenderObjectHandle, visibility::frustum::Frustum};
@@ -25,12 +23,10 @@ impl FramePacket {
     pub fn push_frame_node<T: Pod>(
         &mut self,
         object: RenderObjectHandle,
-        bounds: SphereBounds,
         data: Option<T>,
     ) -> usize {
         let node = RenderPerFrameNode {
             object,
-            bounds,
             data: data.map(|d| self.allocate_data(d)),
         };
 
@@ -168,8 +164,6 @@ impl Debug for SubmitNodeContainer {
 #[derive(Debug)]
 pub struct RenderPerFrameNode {
     pub object: RenderObjectHandle,
-    pub bounds: SphereBounds,
-
     pub data: Option<NonNull<c_void>>,
 }
 
@@ -182,7 +176,7 @@ impl RenderPerFrameNode {
     }
 }
 
-assert_eq_size!(RenderPerFrameNode, [u8; 32]);
+assert_eq_size!(RenderPerFrameNode, [u8; 16]);
 
 #[repr(Rust)]
 #[derive(Debug)]

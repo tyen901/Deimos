@@ -6,7 +6,7 @@ use std::{
 use deimos_data::tfx::{FeatureRendererSubscription, geometry::AxisAlignedBBox};
 use deimos_render::{
     camera::{Camera, CameraProjection},
-    ecs::{s_extract_frame_packet, s_update_object_channels},
+    ecs::{s_extract_frame_packet, s_update_object_channels, s_visibility_test},
     gpu::{alloc::descriptors::ResourceView, render_target::RenderTarget},
     renderer::{
         Renderer,
@@ -657,6 +657,11 @@ impl Scene {
             world_to_projective: self.camera.world_to_projective,
             occlusion_buffer,
         };
+
+        {
+            let _scope = self.renderer.gpu.profiler_scope(stream, "visibility_test");
+            s_visibility_test(&mut self.world, &vis);
+        }
 
         self.scene_renderer.frame_packet.reset();
 

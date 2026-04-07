@@ -3,8 +3,10 @@ use deimos_data::tfx::{FeatureRendererSubscription, geometry::AxisAlignedBBox};
 use deimos_ecs::{
     object::{ObjectChannels, PermutationConfig},
     transform::Transform,
+    visibility::Visible,
 };
 use glam::Vec3;
+use rayon::iter::{ParallelBridge, ParallelIterator};
 
 use crate::{
     ecs::render_objects::{DynamicRenderObject, StaticRenderObject},
@@ -14,6 +16,8 @@ use crate::{
 };
 
 pub mod render_objects;
+
+#[profiling::function]
 pub fn s_update_object_channels(world: &hecs::World) {
     for (_entity, (transform, object_channels)) in world
         .query::<(Option<&Transform>, &mut ObjectChannels)>()
@@ -27,6 +31,38 @@ pub fn s_update_object_channels(world: &hecs::World) {
     }
 }
 
+#[profiling::function]
+pub fn s_visibility_test(world: &mut hecs::World, visibility: &ViewVisibility) {
+    let dynamic_entities: Vec<hecs::Entity> = world
+        .query::<&DynamicRenderObject>()
+        .iter()
+        .map(|(entity, _)| entity)
+        .collect();
+
+    for e in dynamic_entities {
+        _ = world.insert_one(e, Visible(false));
+    }
+
+    world
+        .query::<(
+            Option<&Transform>,
+            &DynamicRenderObject,
+            Option<&AxisAlignedBBox>,
+            &mut Visible,
+        )>()
+        .iter()
+        .par_bridge()
+        .for_each(|(_e, (transform, _render_object, bounds, visible))| {
+            let transform = transform.copied().unwrap_or_default();
+            let bounds = bounds.map_or(AxisAlignedBBox::EVERYTHING, |b| {
+                b.transformed(transform.local_to_world())
+            });
+
+            visible.0 = visibility.is_visible(&bounds);
+        });
+}
+
+#[profiling::function]
 pub fn s_extract_frame_packet(
     world: &hecs::World,
     scene: &mut SceneRenderer,
@@ -54,28 +90,25 @@ pub fn s_extract_frame_packet(
         }
 
         let bounds = bounds.map_or(AxisAlignedBBox::EVERYTHING, |b| *b);
-        let frame_node = frame_packet.push_frame_node::<()>(
-            static_render_object.handle(),
-            bounds.sphere(),
-            None,
-        );
+        let frame_node = frame_packet.push_frame_node::<()>(static_render_object.handle(), None);
 
         for (view_id, _v) in views.iter().enumerate() {
-            if visibility.is_visible_quick(&bounds) {
+            if visibility.is_visible(&bounds) {
                 frame_packet.push_view_node::<()>(view_id, frame_node, None);
             }
         }
     }
 
-    for (_entity, (transform, render_object, permutations, bounds, object_channels)) in world
+    for (_entity, (transform, render_object, permutations, object_channels, _visible)) in world
         .query::<(
             Option<&Transform>,
             &DynamicRenderObject,
             Option<&PermutationConfig>,
-            Option<&AxisAlignedBBox>,
             Option<&ObjectChannels>,
+            Option<&Visible>,
         )>()
         .iter()
+        .filter(|(_, (_, _, _, _, visible))| visible.is_none_or(|v| v.0))
     {
         if !features.is_subscribed(render_objects[render_object.handle()].feature_type) {
             continue;
@@ -90,19 +123,6 @@ pub fn s_extract_frame_packet(
             render_object.permutation
         };
 
-        let bounds = bounds.map_or(AxisAlignedBBox::EVERYTHING, |b| {
-            b.transformed(transform.local_to_world())
-        });
-
-        // IMMEDIATE_SHAPES.push(ImmediateShape {
-        //     color: if visibility.is_visible(&bounds) {
-        //         [0, 255, 0, 255]
-        //     } else {
-        //         [255, 0, 0, 255]
-        //     },
-        //     primitive: ImmediatePrimitive::BoundingBox(bounds),
-        // });
-
         if let Some(object_channels) = object_channels
             && let Some(rigid_model) = render_objects
                 .get_mut(render_object.handle())
@@ -115,7 +135,6 @@ pub fn s_extract_frame_packet(
 
         let frame_node = frame_packet.push_frame_node(
             render_object.handle(),
-            bounds.sphere(),
             Some(DynamicObjectData {
                 local_to_world: transform.local_to_world(),
                 permutation,
@@ -124,22 +143,12 @@ pub fn s_extract_frame_packet(
         );
 
         for (view_id, _v) in views.iter().enumerate() {
-            if visibility.is_visible(&bounds) {
-                frame_packet.push_view_node::<()>(view_id, frame_node, None);
-            }
+            frame_packet.push_view_node::<()>(view_id, frame_node, None);
         }
-
-        // render_objects[render_object.handle]
-        //     .renderer
-        //     .extract(renderer, &(transform.local_to_world(), permutation));
-        // frame_packet.push_dynamic_render_object(
-        //     render_object.handle,
-        //     transform.local_to_world().into(),
-        //     permutation,
-        // );
     }
 }
 
+#[profiling::function]
 pub fn node_visibility_test(scene: &mut SceneRenderer, visibility: &ViewVisibility) {
     let SceneRenderer {
         parent: renderer,
