@@ -107,9 +107,9 @@ impl InternalResources {
             )
             .with_sampler(d3d12::StaticSamplerDesc {
                 filter: d3d12::Filter::MinMagMipLinear,
-                address_u: d3d12::TextureAddressMode::Clamp,
-                address_v: d3d12::TextureAddressMode::Clamp,
-                address_w: d3d12::TextureAddressMode::Clamp,
+                address_u: d3d12::TextureAddressMode::Wrap,
+                address_v: d3d12::TextureAddressMode::Wrap,
+                address_w: d3d12::TextureAddressMode::Wrap,
                 mip_lod_bias: 0.0,
                 max_anisotropy: 1,
                 comparison_func: d3d12::ComparisonFunc::Always,

@@ -65,7 +65,6 @@ pub struct Scene {
     only_show_used_channels: bool,
 
     umbra_result: QueryErrorCode,
-    enable_hdri: bool,
 }
 
 impl Scene {
@@ -95,7 +94,6 @@ impl Scene {
             show_channel_editor: false,
             only_show_used_channels: true,
             umbra_result: QueryErrorCode::Ok,
-            enable_hdri: true,
         })
     }
 
@@ -402,16 +400,12 @@ impl Scene {
                 self.sun_light_angle = self.sun_light_angle.rem_euclid(360.0);
             }
 
-            let sun_light_direction = if self.render_mode == RenderMode::Lookdev {
-                -self.camera.forward()
-            } else {
-                Vec3::new(
-                    self.sun_light_angle.to_radians().cos(),
-                    self.sun_light_angle.to_radians().sin(),
-                    0.7,
-                )
-                .normalize()
-            };
+            let sun_light_direction = Vec3::new(
+                self.sun_light_angle.to_radians().cos(),
+                self.sun_light_angle.to_radians().sin(),
+                0.7,
+            )
+            .normalize();
 
             self.scene_renderer
                 .set_global_channel_by_name("sun_light_direction", sun_light_direction.extend(0.0));
@@ -700,7 +694,7 @@ impl Scene {
         }
 
         self.scene_renderer
-            .render(cmd, &vis, self.render_mode.into(), self.enable_hdri);
+            .render(cmd, &vis, self.render_mode.into());
     }
 
     fn show_toolbar(&mut self, ui: &mut Ui) {
@@ -958,8 +952,6 @@ impl Scene {
 
         ui.separator();
 
-        ui.checkbox(&mut self.enable_hdri, "Enable HDRI");
-
         // ui.checkbox(&mut view_settings.vertex_ao, "Vertex AO")
         //     .setting_description_tooltip(
         //         "Enables ambient occlusion based on mesh vertex data.\nCan highly impact the look \
@@ -1202,7 +1194,7 @@ impl RenderMode {
 impl From<RenderMode> for Option<DebugPipeline> {
     fn from(val: RenderMode) -> Self {
         match val {
-            RenderMode::Lookdev => Some(DebugPipeline::GlobalLightingShading),
+            RenderMode::Lookdev => Some(DebugPipeline::LookDev),
             RenderMode::Shaded => Some(DebugPipeline::GlobalLightingShading),
             RenderMode::ShadedNoSun => Some(DebugPipeline::DeferredShading),
             RenderMode::ShadingOnly => Some(DebugPipeline::DeferredShadingNoAtm),

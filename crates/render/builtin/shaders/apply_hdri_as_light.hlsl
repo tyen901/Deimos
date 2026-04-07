@@ -11,6 +11,43 @@ SamplerState samplerState : register(s0);
 static const float PI = 3.14159265359f;
 static const float MAX_MIP = 10.0f;
 
+static const float3 SH[9] = {
+  float3(7.183077767f, 7.754664474f, 9.071860993f),
+  float3(2.242091441f, 2.352030814f, 2.41075356f),
+  float3(4.197033062f, 4.343360751f, 4.452158063f),
+  float3(3.326343672f, 3.522275553f, 3.690136237f),
+  float3(0.9821130764f, 1.013653188f, 1.011707367f),
+  float3(1.168266813f, 1.187513731f, 1.126587214f),
+  float3(0.7326557854f, 0.717592467f, 0.6322692946f),
+  float3(1.715464074f, 1.752283709f, 1.68030064f),
+  float3(0.3366667255f, 0.3572046372f, 0.3679988666f),
+};
+
+float3 EvaluateSH(float3 n) {
+  float x = n.x;
+  float y = n.y;
+  float z = n.z;
+
+  float basis[9] = { 0.282095f,
+                     0.488603f * y,
+                     0.488603f * z,
+                     0.488603f * x,
+                     1.092548f * x * y,
+                     1.092548f * y * z,
+                     0.315392f * (3.0f * z * z - 1.0f),
+                     1.092548f * x * z,
+                     0.546274f * (x * x - y * y) };
+
+  float3 result = 0.0f;
+
+  [unroll]
+  for (int i = 0; i < 9; i++) {
+    result += SH[i] * basis[i];
+  }
+
+  return max(result, 0.0f);
+}
+
 float2 DirToEquirect(float3 dir) {
   float phi = atan2(dir.y, dir.x);
   float theta = asin(clamp(dir.z, -1.0f, 1.0f));
@@ -73,7 +110,7 @@ void mainPS(VSOutput input, out float4 light_diffuse: SV_TARGET0,
   float3 F0 =
       lerp(float3(0.04f, 0.04f, 0.04f), float3(1.0f, 1.0f, 1.0f), metallic);
 
-  float3 irradiance = SampleHDRI(N, MAX_MIP);
+  float3 irradiance = EvaluateSH(N) * 0.4f;
 
   float3 kS = F_SchlickRoughness(NoV, F0, roughness);
   float3 kD = (1.0f - kS) * (1.0f - metallic);

@@ -53,9 +53,7 @@ impl MapTab {
             tag,
             name,
             scene: Box::new(
-                Scene::new(renderer, camera)?
-                    .with_controller(CameraController::new_first_person())
-                    .with_render_mode(RenderMode::Shaded),
+                Scene::new(renderer, camera)?.with_controller(CameraController::new_first_person()),
             ),
             errored: false,
         })

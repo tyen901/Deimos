@@ -75,8 +75,7 @@ impl ActivityTab {
             name,
             scene: Box::new(
                 Scene::new(&state.renderer.clone(), Camera::default())?
-                    .with_controller(CameraController::new_first_person())
-                    .with_render_mode(RenderMode::Shaded),
+                    .with_controller(CameraController::new_first_person()),
             ),
         })
     }

@@ -69,12 +69,8 @@ impl SceneRenderer {
         cmd: &mut CommandList,
         visibility: &ViewVisibility,
         debug_pipeline: Option<DebugPipeline>,
-        use_hdri: bool,
     ) {
-        let use_hdri = matches!(
-            debug_pipeline,
-            Some(DebugPipeline::GlobalLightingShading | DebugPipeline::DeferredShading),
-        ) && use_hdri;
+        let use_hdri = debug_pipeline == Some(DebugPipeline::LookDev);
         self.parent.externs.reset_global_channel_frequencies();
         let gpu = cmd.gpu().clone();
         let stream = &gpu.frame().stream;
@@ -258,6 +254,7 @@ impl SceneRenderer {
 
                     let p = &self.parent.globals.pipelines;
                     let technique = match debug_pipeline {
+                        DebugPipeline::LookDev => &p.deferred_shading,
                         DebugPipeline::GlobalLightingShading => &p.global_lighting_and_shading,
                         DebugPipeline::DeferredShading => &p.deferred_shading,
                         DebugPipeline::DeferredShadingNoAtm => &p.deferred_shading_no_atm,
@@ -481,6 +478,7 @@ unsafe impl Send for TempSubmitContext {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DebugPipeline {
+    LookDev,
     GlobalLightingShading,
     DeferredShading,
     DeferredShadingNoAtm,
