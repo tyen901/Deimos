@@ -802,6 +802,20 @@ impl Scene {
         });
 
         ui.spacing_mut().item_spacing = vec2(8.0, 4.0);
+        ui.horizontal(|ui| {
+            ui.spacing_mut().button_padding = vec2(4.0, 1.0);
+            ui.spacing_mut().interact_size = egui::vec2(100.0, 32.0);
+            let ext = self.renderer.externs.get_mut();
+            egui::DragValue::new(&mut ext.decal.unk20.x)
+                .fixed_decimals(4)
+                .speed(0.01)
+                .ui(ui);
+            egui::DragValue::new(&mut ext.decal.unk20.y)
+                .fixed_decimals(4)
+                .speed(0.01)
+                .ui(ui);
+        });
+
         // ui.checkbox(&mut view_settings.autoexposure, "Auto-exposure")
         //     .setting_description_tooltip(
         //         "Enables automatic exposure adjustment based on scene brightness.",

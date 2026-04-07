@@ -149,7 +149,8 @@ local_extern_container! {
     rigid_model: RigidModel,
     speedtree_placements: SpeedtreePlacements,
     simple_geometry: SimpleGeometry,
-    deferred_light: DeferredLight
+    deferred_light: DeferredLight,
+    decal: Decal
 }
 
 const GLOBAL_CHANNEL_NAMES: &[&str] = &[

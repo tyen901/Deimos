@@ -4,6 +4,7 @@ use deimos_data::tfx::{
     features::{decals::SDecalCollection, dynamic::RenderStageSubscription},
     geometry::AxisAlignedBBox,
 };
+use glam::vec4;
 
 use crate::{
     asset::{Handle, vertex_buffer::VertexBuffer},
@@ -13,7 +14,7 @@ use crate::{
         Renderer,
         packet::{RenderPerFrameNode, RenderPerViewNode, SubmitNode},
     },
-    tfx::technique::Technique,
+    tfx::{externs, technique::Technique},
 };
 
 pub struct DecalCollectionRenderer {
@@ -25,6 +26,7 @@ pub struct DecalCollectionRenderer {
 
 pub struct DecalSet {
     pub bounds: AxisAlignedBBox,
+    pub thickness: f32,
     pub technique: Handle<Technique>,
     pub start: u16,
     pub count: u16,
@@ -41,6 +43,14 @@ impl DecalCollectionRenderer {
             .into_iter()
             .map(|set| {
                 let r = (set.start as usize)..((set.start + set.count) as usize);
+                let first_bounds = collection
+                    .decal_bounds
+                    .bounds
+                    .get(set.start as usize)
+                    .context("decal set bounds out of bounds")?;
+
+                let thickness = first_bounds.bb.extents().min_element();
+
                 Ok(DecalSet {
                     bounds: collection
                         .decal_bounds
@@ -50,6 +60,7 @@ impl DecalCollectionRenderer {
                         .iter()
                         .map(|b| b.bb)
                         .sum(),
+                    thickness,
                     technique: renderer.asset_manager.load(set.technique),
                     start: set.start,
                     count: set.count,
@@ -124,6 +135,18 @@ impl FeatureRenderer for DecalCollectionRenderer {
         cmd.set_input_layout(17);
         cmd.set_input_topology(PrimitiveType::Triangles);
         let set = &self.sets[key.model_index as usize];
+
+        let decal_extern_base = match cmd.externs.base() {
+            externs::BaseExternSource::None => None,
+            externs::BaseExternSource::Renderer(renderer) => Some(renderer.externs.decal.clone()),
+        };
+        if let Some(decal_extern_base) = decal_extern_base {
+            cmd.externs.decal = Some(Box::new(externs::Decal {
+                unk20: vec4(set.thickness, 0.0, 0.0, 0.0),
+                ..*decal_extern_base
+            }));
+        }
+
         let Some(t) = set.technique.get() else {
             return;
         };
