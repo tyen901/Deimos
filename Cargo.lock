@@ -777,7 +777,7 @@ dependencies = [
  "egui_extras",
  "ehttp",
  "embed-resource",
- "glam 0.29.3",
+ "glam",
  "google_material_symbols",
  "hecs",
  "image",
@@ -827,7 +827,7 @@ dependencies = [
  "bitflags 2.11.0",
  "d3d12",
  "deimos-core",
- "glam 0.29.3",
+ "glam",
  "int-enum",
  "paste",
  "rayon",
@@ -842,7 +842,7 @@ dependencies = [
  "anyhow",
  "deimos-core",
  "deimos-data",
- "glam 0.29.3",
+ "glam",
  "hecs",
  "itertools 0.14.0",
  "serde",
@@ -895,7 +895,7 @@ dependencies = [
  "deimos-core",
  "deimos-data",
  "deimos-ecs",
- "glam 0.29.3",
+ "glam",
  "gpu-allocator",
  "hecs",
  "image",
@@ -1477,12 +1477,6 @@ dependencies = [
  "bytemuck",
  "serde",
 ]
-
-[[package]]
-name = "glam"
-version = "0.32.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f70749695b063ecbf6b62949ccccde2e733ec3ecbbd71d467dca4e5c6c97cca0"
 
 [[package]]
 name = "glob"
@@ -2976,7 +2970,7 @@ version = "0.7.2"
 source = "git+https://github.com/v4nguard/tiger-parse.git#0125318a611bb11d21dbfc05f34e7f0b98554555"
 dependencies = [
  "disqualified",
- "glam 0.29.3",
+ "glam",
  "paste",
  "thiserror 1.0.69",
  "tiger-parse-derive",
@@ -3225,7 +3219,7 @@ name = "umbra"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "glam 0.32.1",
+ "glam",
  "profiling",
  "rayon",
  "umbra3-sys",

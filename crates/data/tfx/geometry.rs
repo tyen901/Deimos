@@ -75,6 +75,13 @@ impl AxisAlignedBBox {
         Self::from_points(&transformed_points)
     }
 
+    pub fn expand(&self, amount: f32) -> Self {
+        Self {
+            min: self.min - Vec4::splat(amount),
+            max: self.max + Vec4::splat(amount),
+        }
+    }
+
     pub fn extents(&self) -> Vec3 {
         (self.max - self.min).xyz()
     }
@@ -119,6 +126,15 @@ impl AxisAlignedBBox {
             && point.y <= self.max.y
             && point.z >= self.min.z
             && point.z <= self.max.z
+    }
+
+    pub fn intersects_aabb(&self, other: &Self) -> bool {
+        self.max.x >= other.min.x
+            && self.min.x <= other.max.x
+            && self.max.y >= other.min.y
+            && self.min.y <= other.max.y
+            && self.max.z >= other.min.z
+            && self.min.z <= other.max.z
     }
 
     pub fn is_valid(&self) -> bool {

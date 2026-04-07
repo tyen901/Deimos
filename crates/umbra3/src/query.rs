@@ -2,7 +2,7 @@ use std::{marker::PhantomData, ptr::null_mut};
 
 use umbra3_sys::{
     Umbra_CameraTransform, Umbra_CameraTransform_DepthRange_DEPTHRANGE_ZERO_TO_ONE,
-    Umbra_Matrix4x4, Umbra_MatrixFormat_MF_COLUMN_MAJOR, Umbra_OcclusionBuffer,
+    Umbra_IndexList, Umbra_Matrix4x4, Umbra_MatrixFormat_MF_COLUMN_MAJOR, Umbra_OcclusionBuffer,
     Umbra_OcclusionBuffer_BufferDesc, Umbra_OcclusionBuffer_Format_FORMAT_HISTOGRAM_8BPP,
     Umbra_OcclusionBuffer_Format_FORMAT_NDC_FLOAT,
     Umbra_OcclusionBuffer_VisibilityTestResult_OCCLUDED, Umbra_Query, Umbra_Vector3,
@@ -86,9 +86,15 @@ impl<'a> Query<'a> {
 pub struct Visibility(Umbra_Visibility);
 
 impl Visibility {
-    pub fn set_output_buffer<'a>(&'a mut self, output_buffer: &'a mut OcclusionBuffer) {
+    pub fn set_output_buffer(&mut self, output_buffer: &mut OcclusionBuffer) {
         unsafe {
             self.0.setOutputBuffer(&mut *output_buffer.0);
+        }
+    }
+
+    pub fn set_output_clusters(&mut self, output_clusters: &mut IndexList<'_>) {
+        unsafe {
+            self.0.setOutputClusters(&mut *output_clusters.0);
         }
     }
 }
@@ -175,3 +181,25 @@ impl CameraTransform {
 }
 
 impl CameraTransform {}
+
+pub struct IndexList<'a>(Box<Umbra_IndexList>, PhantomData<&'a [i32]>);
+
+impl<'a> IndexList<'a> {
+    pub fn new(slice: &'a mut [i32]) -> Self {
+        let mut boxed = Box::<Umbra_IndexList>::new_uninit();
+        unsafe {
+            umbra3_sys::Umbra_IndexList_IndexList(
+                boxed.as_mut_ptr(),
+                slice.as_mut_ptr(),
+                slice.len() as i32,
+                0,
+            );
+        }
+
+        Self(unsafe { boxed.assume_init() }, PhantomData)
+    }
+
+    pub fn size(&self) -> i32 {
+        unsafe { (*self.0).getSize() }
+    }
+}

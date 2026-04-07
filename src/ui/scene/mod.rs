@@ -10,6 +10,7 @@ use deimos_render::{
     gpu::{alloc::descriptors::ResourceView, render_target::RenderTarget},
     renderer::{
         Renderer,
+        immediate::{IMMEDIATE_SHAPES, ImmediatePrimitive, ImmediateShape},
         scene::{DebugPipeline, SceneRenderer},
     },
     tfx::{
@@ -25,6 +26,7 @@ use egui::{
 use glam::{Vec3, Vec4, vec4};
 use google_material_symbols::GoogleMaterialSymbols;
 use hecs::World;
+use itertools::Itertools;
 use umbra::QueryErrorCode;
 
 use crate::ui::{
@@ -466,16 +468,21 @@ impl Scene {
         let _event = cmd.event_scope("Scene::render", (255, 255, 255));
 
         let mut occlusion_buffer = None;
+        let mut visible_cluster_bounds = None;
         if let Some((_, tome)) = self.world.query::<&umbra::Tome>().iter().next() {
             profiling::scope!("umbra_visibility");
             let _scope = self
                 .renderer
                 .gpu
                 .profiler_scope(stream, "Scene::umbra_visibility");
-            let mut query = umbra::Query::new(tome);
 
+            let mut query = umbra::Query::new(tome);
             let mut vis = umbra::Visibility::default();
             let mut ob = umbra::OcclusionBuffer::default();
+
+            let mut cluster_storage = vec![0i32; tome.get_cluster_count() as usize];
+            let mut clusters = umbra::IndexList::new(&mut cluster_storage);
+            vis.set_output_clusters(&mut clusters);
             vis.set_output_buffer(&mut ob);
 
             self.umbra_result = query.query_portal_visibility(
@@ -493,8 +500,24 @@ impl Scene {
                 0,
             );
 
+            let num_clusters = clusters.size() as usize;
+            cluster_storage.truncate(num_clusters);
+
             if self.umbra_result == QueryErrorCode::Ok {
                 occlusion_buffer = Some(ob);
+                visible_cluster_bounds = Some(
+                    cluster_storage
+                        .into_iter()
+                        .map(|i| {
+                            let (min, max) = tome.get_cluster_bounds(i);
+                            AxisAlignedBBox {
+                                min: min.extend(1.0),
+                                max: max.extend(1.0),
+                            }
+                            .expand(4.0)
+                        })
+                        .collect_vec(),
+                );
             }
         }
 
@@ -656,6 +679,7 @@ impl Scene {
             position: self.camera.position,
             world_to_projective: self.camera.world_to_projective,
             occlusion_buffer,
+            visible_cluster_bounds,
         };
 
         {

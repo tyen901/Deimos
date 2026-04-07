@@ -12,21 +12,43 @@ pub struct ViewVisibility {
     pub culling_frustum: frustum::Frustum,
     pub world_to_projective: glam::Mat4,
     pub occlusion_buffer: Option<umbra::OcclusionBuffer>,
+    pub visible_cluster_bounds: Option<Vec<AxisAlignedBBox>>,
 }
 
 impl ViewVisibility {
     #[profiling::function]
-    pub fn is_visible_quick(&self, aabb: &AxisAlignedBBox) -> bool {
-        if !self.enabled {
-            return true;
-        }
-
+    pub fn is_visible_umbra_occlusion(&self, aabb: &AxisAlignedBBox) -> bool {
         if let Some(occlusion_buffer) = &self.occlusion_buffer
             && !occlusion_buffer.is_aabb_visible(
                 aabb.min.truncate().to_array(),
                 aabb.max.truncate().to_array(),
             )
         {
+            return false;
+        }
+
+        true
+    }
+
+    #[profiling::function]
+    pub fn is_visible_quick(&self, aabb: &AxisAlignedBBox) -> bool {
+        if !self.enabled {
+            return true;
+        }
+
+        if let Some(visible_cluster_bounds) = &self.visible_cluster_bounds
+            && visible_cluster_bounds.len() < 64
+        {
+            profiling::scope!("visible_cluster_bounds");
+            for cluster_aabb in visible_cluster_bounds {
+                if cluster_aabb.intersects_aabb(aabb) {
+                    return self.is_visible_umbra_occlusion(aabb);
+                }
+            }
+            return false;
+        }
+
+        if !self.is_visible_umbra_occlusion(aabb) {
             return false;
         }
 

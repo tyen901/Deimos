@@ -4,6 +4,7 @@ use anyhow::Context;
 use app::App;
 use clap::Parser;
 use cli::AppArgs;
+use deimos_core::job::SCHEDULER;
 use itertools::Itertools;
 use tracing_subscriber::{
     filter::{EnvFilter, LevelFilter},
@@ -41,7 +42,7 @@ extern crate tracing;
 fn main() -> anyhow::Result<()> {
     rayon::ThreadPoolBuilder::new()
         .thread_name(|i| format!("rayon-pool-{i}"))
-        // .num_threads(SCHEDULER.num_workers())
+        .num_threads(SCHEDULER.num_workers())
         .build_global()?;
 
     fix_windows_console();
