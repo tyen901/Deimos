@@ -7,7 +7,8 @@ use cli::AppArgs;
 use deimos_core::job::SCHEDULER;
 use itertools::Itertools;
 use tracing_subscriber::{
-    filter::{EnvFilter, LevelFilter},
+    Layer,
+    filter::{EnvFilter, FilterExt, LevelFilter, Targets, filter_fn},
     fmt,
     layer::SubscriberExt,
     util::SubscriberInitExt,
@@ -39,6 +40,8 @@ extern crate tracing;
 // static GLOBAL: tracy_client::ProfiledAllocator<std::alloc::System> =
 //     tracy_client::ProfiledAllocator::new(std::alloc::System, 100);
 
+const TRACING_DISABLED_TARGETS: &[&str] = &["ehttp", "ureq", "rustls"];
+
 fn main() -> anyhow::Result<()> {
     rayon::ThreadPoolBuilder::new()
         .thread_name(|i| format!("rayon-pool-{i}"))
@@ -54,19 +57,33 @@ fn main() -> anyhow::Result<()> {
     log_file.write_all(system_info.as_bytes())?;
     writeln!(&mut log_file)?;
 
-    let filter = EnvFilter::builder()
+    let env_filter = EnvFilter::builder()
         .with_default_directive(LevelFilter::INFO.into())
         .from_env_lossy();
+
+    let mut file_filter = Targets::new().with_default(LevelFilter::DEBUG);
+    for target in TRACING_DISABLED_TARGETS {
+        file_filter = file_filter.with_target(*target, LevelFilter::OFF);
+    }
 
     let file_layer = fmt::layer()
         .with_file(false)
         .with_ansi(false)
-        .with_writer(Mutex::new(log_file));
+        .with_writer(Mutex::new(log_file))
+        .with_filter(file_filter);
 
-    let stderr_layer = fmt::layer().with_file(false).with_writer(std::io::stderr);
+    let stderr_filter = env_filter.and(filter_fn(|meta| {
+        !TRACING_DISABLED_TARGETS
+            .iter()
+            .any(|t| meta.target().starts_with(t))
+    }));
+
+    let stderr_layer = fmt::layer()
+        .with_file(false)
+        .with_writer(std::io::stderr)
+        .with_filter(stderr_filter);
 
     tracing_subscriber::registry()
-        .with(filter)
         .with(file_layer)
         .with(stderr_layer)
         .init();
