@@ -120,6 +120,7 @@ ehttp = { version = "0.7.1", features = ["json"] }
 semver = "1.0.28"
 egui_commonmark = { version = "0.22.0", default-features = false }
 regex = "1.12.3"
+fastrand = "2.4.1"
 
 [build-dependencies]
 embed-resource = "3.0.1"

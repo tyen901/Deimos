@@ -9,12 +9,15 @@ use tiger_pkg::TagHash;
 
 use crate::{
     tag::{OptionalTagRef, TagRef, WideHash, WideTag},
-    tfx::features::{
-        cubemap::SCubemapComponent,
-        decals::SDecalCollection,
-        decorators::SDecorator,
-        light::{SLightCollection, SShadowingLight},
-        sky_objects::SSkyObjectCollection,
+    tfx::{
+        features::{
+            cubemap::SCubemapComponent,
+            decals::SDecalCollection,
+            decorators::SDecorator,
+            light::{SLightCollection, SShadowingLight},
+            sky_objects::SSkyObjectCollection,
+        },
+        geometry::AxisAlignedBBox,
     },
     umbra::SUmbraTomes,
 };
@@ -97,7 +100,8 @@ tiger_variant_enum! {
         SShadowingLightComponent,
         SLightCollectionComponent,
         SCubemapComponent,
-        SUmbraTomeComponent
+        SUmbraTomeComponent,
+        SWaterPlaneComponent
     }
 }
 
@@ -158,6 +162,18 @@ pub struct SDecoratorsComponent {
 #[tiger_type(id = 0x808085DE)]
 pub struct SUmbraTomeComponent {
     pub tag: OptionalTagRef<SUmbraTomes>,
+}
+
+#[tiger_type(id = 0x8080819C)]
+pub struct SWaterPlaneComponent {
+    pub model: TagHash,
+    pub unk4: u32,
+    pub unk8: u32,
+    pub unkc: u32,
+    pub bounds: AxisAlignedBBox,
+    pub collision_volume_hkx: TagHash,
+    pub unk34: u32,
+    pub unk38: TagHash,
 }
 
 #[derive(Debug)]

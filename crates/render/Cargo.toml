@@ -47,6 +47,7 @@ tracing.workspace = true
 uuid = "1.21.0"
 windows.workspace = true
 zstd = "0.13.3"
+fastrand = "2.4.1"
 
 [features]
 tracy = []

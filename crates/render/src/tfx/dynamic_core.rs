@@ -242,7 +242,7 @@ impl DynamicCore {
 const fn extern_filler(index: ExternIndex, offset: u32) -> Option<[u8; 4]> {
     match (index, offset) {
         (ExternIndex::ShadowMask, _) => Some([255, 255, 255, 255]),
-        (ExternIndex::Atmosphere, _) => Some([0; 4]),
+        (ExternIndex::Atmosphere, _) => Some([0x00, 0x00, 0x00, 0xFF]),
         (ExternIndex::Transparent, 0) => Some([0x00, 0x00, 0x00, 0x00]),
         (ExternIndex::Transparent, 0x50) => Some([0xFF, 0xFF, 0xFF, 0xFF]),
         (ExternIndex::Transparent, _) => Some([0x00, 0x00, 0x00, 0xFF]),

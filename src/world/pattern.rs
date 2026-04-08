@@ -99,6 +99,16 @@ pub fn load_component(
             obj_component.permutation = default_permutation;
             world.insert_one(entity, obj_component)?;
         }
+        0x808081A1 => {
+            let data = get_component_data!(SWaterPlaneComponent);
+
+            let model = DynamicModel::load(renderer, data.model, vec![], vec![])?;
+            world.insert_one(entity, data.bounds)?;
+
+            let obj = renderer.add_object(RenderObject::new(TfxFeatureRenderer::Water, model));
+            let obj_component = DynamicRenderObject::new(renderer, obj);
+            world.insert_one(entity, obj_component)?;
+        }
         // 0x80808412 => {
         //     let mut cur = Cursor::new(package_manager().read_tag(component.taghash())?);
         //     cur.seek(SeekFrom::Start(component.unk18.offset + 0x88))?;

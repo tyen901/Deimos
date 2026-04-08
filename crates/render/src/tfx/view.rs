@@ -16,6 +16,7 @@ pub struct ShadedView {
 
     pub gbuffer: Gbuffer,
     pub light: LightBuffer,
+    pub shaded_read: RenderTarget,
 
     pub output: RenderTarget,
 
@@ -29,6 +30,13 @@ impl ShadedView {
             culling_frustum: Frustum::default(),
             gbuffer: Gbuffer::new(gpu, resolution)?,
             light: LightBuffer::new(gpu, resolution)?,
+            shaded_read: RenderTarget::new(
+                gpu,
+                "shaded_read",
+                d3d12::Format::R11g11b10Float,
+                d3d12::Format::R11g11b10Float,
+                resolution,
+            )?,
             output: RenderTarget::new(
                 gpu,
                 "result",

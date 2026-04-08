@@ -23,10 +23,11 @@ use egui::{
     Color32, FontId, Image, ImageSource, Rect, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2,
     Widget, containers::menu::MenuConfig, load::SizedTexture, vec2,
 };
-use glam::{Vec3, Vec4, vec3, vec4};
+use glam::{Mat4, Quat, Vec3, Vec4, vec3, vec4};
 use google_material_symbols::GoogleMaterialSymbols;
 use hecs::World;
 use itertools::Itertools;
+use sdl3::libc::rand;
 use umbra::QueryErrorCode;
 
 use crate::ui::{
@@ -612,6 +613,28 @@ impl Scene {
                 1.0 / resolution.0 as f32,
                 1.0 / resolution.1 as f32,
             );
+
+            ext.water.unk00 = view.shaded_read.srv().into();
+            // ext.water.unk40 = Vec4::splat(fastrand::f32_inclusive());
+            // ext.water.unk50 = Vec4::splat(fastrand::f32_inclusive());
+            // ext.atmosphere.unk130 = Vec4::splat(fastrand::f32_inclusive());
+            // ext.atmosphere.unk170 = fastrand::f32_inclusive();
+            // ext.atmosphere.unk174 = fastrand::f32_inclusive();
+            // ext.atmosphere.unk18c = fastrand::f32_inclusive();
+            // ext.atmosphere.unk1a4 = fastrand::f32_inclusive();
+            // ext.atmosphere.unk1a8 = fastrand::f32_inclusive();
+            // ext.atmosphere.unk1ac = fastrand::f32_inclusive();
+            // ext.atmosphere.unk188 = fastrand::f32_inclusive();
+            // ext.shadow_mask.unk30 = fastrand::f32_inclusive();
+
+            // ext.soft_deform.unk10 = Mat4::from_scale_rotation_translation(
+            //     Vec3::splat(fastrand::f32_inclusive()),
+            //     Quat::from_rotation_arc(
+            //         Vec3::splat(fastrand::f32_inclusive()),
+            //         Vec3::splat(fastrand::f32_inclusive()),
+            //     ),
+            //     Vec3::splat(fastrand::f32_inclusive()),
+            // );
 
             *ext.global_lighting = externs::GlobalLighting {
                 // unk08: self.renderer.gpu.placeholder_white.view.clone().into(),
