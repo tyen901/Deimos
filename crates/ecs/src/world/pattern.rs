@@ -185,31 +185,32 @@ where
                         .collect(),
                 );
 
-                channels.set_by_name("cool_down", Vec4::splat(0.0));
-                channels.set_by_name("charge_progress", Vec4::splat(0.0));
+                channels.set_by_name("cool_down", Vec4::ZERO);
+                channels.set_by_name("charge_progress", Vec4::ZERO);
+                channels.set_by_name("unique_id", Vec4::splat(fastrand::f32_inclusive()));
 
                 // Fixes darkened clearance code icons on terminals
-                channels.set_by_name("deposit_1", Vec4::splat(0.0));
-                channels.set_by_name("deposit_2", Vec4::splat(0.0));
-                channels.set_by_name("deposit_3", Vec4::splat(0.0));
+                channels.set_by_name("deposit_1", Vec4::ZERO);
+                channels.set_by_name("deposit_2", Vec4::ZERO);
+                channels.set_by_name("deposit_3", Vec4::ZERO);
                 channels.set_by_id(0xDEF47AFA, Vec4::splat(3.5));
                 channels.set_by_id(0xDEF47AFB, Vec4::splat(1.0));
                 channels.set_by_id(0xDEF47AF8, Vec4::splat(0.5));
 
                 channels.set_by_name("hack_progress", Vec4::splat(0.5));
                 channels.set_by_name("device_power", Vec4::splat(0.1));
-                channels.set_by_name("spawn_in", Vec4::splat(0.0));
-                channels.set_by_id(0x0FBEEF72, Vec4::splat(0.0));
-                // channels.set_by_id(0x262F908A, Vec4::splat(0.0));
+                channels.set_by_name("spawn_in", Vec4::ZERO);
+                channels.set_by_id(0x0FBEEF72, Vec4::ZERO);
+                // channels.set_by_id(0x262F908A, Vec4::ZERO);
 
-                channels.set_by_id(0xEE1D8D50, Vec4::splat(0.0)); // Makes flight control roomba happy :D
+                channels.set_by_id(0xEE1D8D50, Vec4::ZERO); // Makes flight control roomba happy :D
 
-                channels.set_by_id(0x2EC4BC4E, Vec4::splat(0.0)); // Makes compiler/sptsh bullets more recognisable
-                channels.set_by_id(0x6057A3B9, Vec4::splat(0.0)); // Makes compiler core green
-                channels.set_by_id(0x0EDC1DFF, Vec4::splat(0.0)); // Makes compiler cape visible
-                channels.set_by_id(0xEE29282E, Vec4::splat(0.0));
-                channels.set_by_id(0x5B7CD2A2, Vec4::splat(0.0));
-                channels.set_by_id(0x8694B692, Vec4::splat(0.0)); // Makes big compiler cape visible
+                channels.set_by_id(0x2EC4BC4E, Vec4::ZERO); // Makes compiler/sptsh bullets more recognisable
+                channels.set_by_id(0x6057A3B9, Vec4::ZERO); // Makes compiler core green
+                channels.set_by_id(0x0EDC1DFF, Vec4::ZERO); // Makes compiler cape visible
+                channels.set_by_id(0xEE29282E, Vec4::ZERO);
+                channels.set_by_id(0x5B7CD2A2, Vec4::ZERO);
+                channels.set_by_id(0x8694B692, Vec4::ZERO); // Makes big compiler cape visible
 
                 channels.set_by_id(0x3969B148, Vec4::ZERO); // Hides exfil bubble/flash
                 channels.set_by_id(0xDEB2E0B2, Vec4::splat(0.1)); // Shows exfil circle a bit better

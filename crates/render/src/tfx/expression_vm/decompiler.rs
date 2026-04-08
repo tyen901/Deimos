@@ -318,8 +318,8 @@ impl<'a> DecompilerState<'a> {
                         (constant_start + 1) < constants.len() as u8,
                         "Invalid constant index"
                     );
-                    let a = get_constant(constant_start as usize)?;
-                    let b = get_constant((constant_start + 1) as usize)?;
+                    let a = get_constant(constant_start as usize).context("lerp_const")?;
+                    let b = get_constant((constant_start + 1) as usize).context("lerp_const")?;
                     let t = cached_top;
 
                     cached_top = format!("<fun>lerp<reset>({a}, {b}, {t})");
@@ -332,7 +332,8 @@ impl<'a> DecompilerState<'a> {
                         "Invalid constant index"
                     );
 
-                    let cl = get_constants(constant_start as usize..constant_start as usize + 5)?;
+                    let cl = get_constants(constant_start as usize..constant_start as usize + 5)
+                        .context("spline4_const")?;
                     cached_top = format!(
                         "<fun>spline4<reset>({}, {}, {}, {}, {}, {})",
                         cached_top, cl[0], cl[1], cl[2], cl[3], cl[4]
@@ -345,7 +346,8 @@ impl<'a> DecompilerState<'a> {
                         "Invalid constant index"
                     );
 
-                    let cl = get_constants(constant_start as usize..constant_start as usize + 10)?;
+                    let cl = get_constants(constant_start as usize..constant_start as usize + 10)
+                        .context("spline8_const")?;
                     cached_top = format!(
                         "<fun>spline8<reset>({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})",
                         cached_top,
@@ -368,10 +370,8 @@ impl<'a> DecompilerState<'a> {
                         "Invalid constant index"
                     );
 
-                    let cl = get_constants(constant_start as usize..constant_start as usize + 60)?;
-                    // cached_top = super::helpers::bytecode_op_gradient4_const(
-                    //     cached_top, cl[0], cl[1], cl[2], cl[3], cl[4], cl[5],
-                    // );
+                    let cl = get_constants(constant_start as usize..constant_start as usize + 6)
+                        .context("gradient4_const")?;
                     cached_top = format!(
                         "<fun>gradient4<reset>({}, {}, {}, {}, {}, {}, {})",
                         cached_top, cl[0], cl[1], cl[2], cl[3], cl[4], cl[5]
@@ -482,7 +482,7 @@ impl<'a> DecompilerState<'a> {
                 Opcode::PushConstVec4 => {
                     let index = ptr[1];
                     anyhow::ensure!(index < constants.len() as u8, "Invalid constant index");
-                    let c = get_constant(index as usize)?;
+                    let c = get_constant(index as usize).context("push_const_vec4")?;
                     cached_top = self.push(c)?;
                 }
                 // Push a temporary value onto the stack
@@ -634,7 +634,8 @@ impl<'a> DecompilerState<'a> {
                         "Invalid constant index"
                     );
 
-                    let cl = get_constants(constant_start as usize..constant_start as usize + 11)?;
+                    let cl = get_constants(constant_start as usize..constant_start as usize + 11)
+                        .context("unk49_const")?;
                     cached_top = format!(
                         "<fun>unk49<reset>({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})",
                         cached_top,

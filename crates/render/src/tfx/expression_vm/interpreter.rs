@@ -605,16 +605,13 @@ impl<'a> InterpreterState<'a> {
                 Opcode::PushObjectChannelVector => {
                     let channel_hash = u32::from_be_bytes([ptr[1], ptr[2], ptr[3], ptr[4]]);
 
-                    let v = match channel_hash {
-                        0xD3583E54 => Vec4::ZERO, // unique_id
-                        _ => self
-                            .object_channels
-                            .and_then(|channels| channels.get(&channel_hash))
-                            .map_or(Vec4::ONE, |c| {
-                                c.usage.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                                c.value
-                            }),
-                    };
+                    let v = self
+                        .object_channels
+                        .and_then(|channels| channels.get(&channel_hash))
+                        .map_or(Vec4::ONE, |c| {
+                            c.usage.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                            c.value
+                        });
 
                     cached_top = self.push(v)?;
                 }

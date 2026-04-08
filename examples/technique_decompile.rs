@@ -18,6 +18,8 @@ fn main() -> anyhow::Result<()> {
 
     deimos_core::initialize_package_manager(None)?;
 
+    let no_ansi = std::env::args().any(|arg| arg == "--no-ansi");
+
     let tech: STechnique = package_manager()
         .read_tag_struct(hash)
         .context("Failed to read/parse tag")?;
@@ -39,13 +41,13 @@ fn main() -> anyhow::Result<()> {
 
         println!("\t// Decompiled assignments:");
         match DecompilerState::new(&shader.core.bytecode)
-            .with_ansi(true)
+            .with_ansi(!no_ansi)
             .evaluate(&shader.core.bytecode_constants)
         {
             Ok(o) => {
                 println!("\t{}", o.pretty_print().split("\n").join("\n\t"));
             }
-            Err(e) => println!("\t// Failed to decompile expression: {e}"),
+            Err(e) => println!("Failed to decompile expression: {e:?}"),
         };
     }
 

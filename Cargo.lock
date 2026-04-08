@@ -843,6 +843,7 @@ dependencies = [
  "anyhow",
  "deimos-core",
  "deimos-data",
+ "fastrand",
  "glam",
  "hecs",
  "itertools 0.14.0",
