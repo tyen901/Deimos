@@ -105,7 +105,7 @@ chroma-dbg = "0.2.1"
 clap = { version = "4.5.37", features = ["derive"] }
 egui.workspace = true
 egui_dock.workspace = true
-egui_extras = { version = "0.33", features = ["image"] }
+egui_extras = { version = "0.33", features = ["image", "svg"] }
 google_material_symbols = "0.2.9"
 hecs.workspace = true
 image = { version = "0.25", default-features = false, features = ["png"] }

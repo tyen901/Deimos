@@ -12,6 +12,13 @@ pub trait UiExt {
     fn section_separator(&mut self, text: impl Into<RichText>);
 
     fn capacity_bar(&mut self, capacity: usize, used: usize) -> Response;
+
+    fn image_link<'a>(
+        &mut self,
+        image_source: impl Into<ImageSource<'a>>,
+        size: Vec2,
+        link: &str,
+    ) -> Response;
 }
 
 impl UiExt for Ui {
@@ -63,6 +70,31 @@ impl UiExt for Ui {
             0.0,
             color,
         );
+
+        response
+    }
+
+    fn image_link<'a>(
+        &mut self,
+        image_source: impl Into<ImageSource<'a>>,
+        size: Vec2,
+        link: &str,
+    ) -> Response {
+        let response = self
+            .allocate_response(size, Sense::click())
+            .on_hover_cursor(egui::CursorIcon::PointingHand);
+
+        egui::Image::new(image_source)
+            .tint(if response.hovered() {
+                egui::Color32::LIGHT_GRAY
+            } else {
+                egui::Color32::DARK_GRAY
+            })
+            .paint_at(self, response.rect);
+
+        if response.clicked() {
+            self.ctx().open_url(egui::OpenUrl::new_tab(link));
+        }
 
         response
     }
