@@ -216,6 +216,8 @@ where
                 channels.set_by_id(0xDEB2E0B2, Vec4::splat(0.1)); // Shows exfil circle a bit better
                 channels.set_by_id(0x25784EE5, vec4(0.0, 0.0, 2.0, 1.0)); // Positions exfil bubble/flash correctly
 
+                channels.set_by_id(0xF7202BBC, Vec4::splat(0.0)); // If not zero then rook's material varieties are static
+
                 world.insert_one(entity, channels)?;
             }
             0x8080A317 => {
