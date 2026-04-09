@@ -1,3 +1,6 @@
+pub mod discord;
+pub mod session;
+
 use std::{collections::HashSet, sync::LazyLock};
 
 use tiger_pkg::TagHash;

@@ -4,10 +4,17 @@ version = "0.0.0"
 edition = "2024"
 
 [dependencies]
+d3d12 = { path = "../d3d12" }
 deimos-core = { path = "../core" }
 deimos-data = { path = "../data" }
 
 anyhow.workspace = true
 bytemuck = "1.22.0"
-tiger-pkg.workspace = true
+serde.workspace = true
+serde_json = "1.0.149"
+sha256 = { version = "1.6.0", default-features = false }
+sysinfo = { version = "0.38.4", default-features = false, features = ["system"] }
 tiger-parse.workspace = true
+tiger-pkg.workspace = true
+uuid = { version = "1.23.0", features = ["serde", "v4"] }
+windows-registry = "0.6.1"

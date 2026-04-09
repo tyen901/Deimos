@@ -95,8 +95,9 @@ pub fn write_system_info<R: std::fmt::Write>(out: &mut R) {
     if let Some(cpu) = s.cpus().first() {
         writeln!(
             out,
-            "  CPU: {}, {} MHz, {} cores, {} threads",
-            cpu.name().trim(),
+            "  CPU: {} ({}), {} MHz, {} cores, {} threads",
+            cpu.brand(),
+            cpu.vendor_id(),
             cpu.frequency(),
             System::physical_core_count().unwrap_or(0),
             s.cpus().len()
