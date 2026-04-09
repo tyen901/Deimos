@@ -49,9 +49,6 @@ fn main() -> anyhow::Result<()> {
         .num_threads(SCHEDULER.num_workers())
         .build_global()?;
 
-    let session = get_session_info(DEIMOS_VERSION.to_string());
-    println!("{:#?}", session);
-
     fix_windows_console();
     print_banner();
     std::panic::set_hook(Box::new(panic_hook::hook));
