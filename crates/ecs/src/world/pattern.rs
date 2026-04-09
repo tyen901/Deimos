@@ -71,7 +71,7 @@ where
 {
     let header = package_manager()
         .read_tag_struct::<SPattern>(pattern_tag)
-        .context("Failed to read SEntity")?;
+        .context("Failed to read SPattern")?;
     spawn_pattern_from_header(world, &header, map_data_list, transform, callback)
 }
 
@@ -217,6 +217,7 @@ where
                 channels.set_by_id(0x25784EE5, vec4(0.0, 0.0, 2.0, 1.0)); // Positions exfil bubble/flash correctly
 
                 channels.set_by_id(0xF7202BBC, Vec4::splat(0.0)); // If not zero then rook's material varieties are static
+                channels.set_by_id(0x7EC60CCB, Vec4::splat(0.0)); // same as above, but for the decals
 
                 world.insert_one(entity, channels)?;
             }
