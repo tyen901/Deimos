@@ -18,7 +18,7 @@ use crate::{
     app::SharedState,
     task::Task,
     ui::{
-        scene::{RenderMode, Scene, controller::CameraController},
+        scene::{Scene, controller::CameraController},
         util::{DButton, UiExt},
     },
     world::pattern::load_component,

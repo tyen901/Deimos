@@ -342,9 +342,9 @@ pub fn generate_hdri_mips_rgbaf32(data: &[f32], width: usize, height: usize) -> 
                                 src_mip,
                             );
 
-                            accum[0] += s[0] * n_o_l;
-                            accum[1] += s[1] * n_o_l;
-                            accum[2] += s[2] * n_o_l;
+                            accum[0] = s[0].mul_add(n_o_l, accum[0]);
+                            accum[1] = s[1].mul_add(n_o_l, accum[1]);
+                            accum[2] = s[2].mul_add(n_o_l, accum[2]);
                             total_weight += n_o_l;
                         }
                     }

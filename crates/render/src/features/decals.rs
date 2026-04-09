@@ -142,7 +142,7 @@ impl FeatureRenderer for DecalCollectionRenderer {
         };
         if let Some(decal_extern_base) = decal_extern_base {
             cmd.externs.decal = Some(Box::new(externs::Decal {
-                unk20: vec4(set.thickness, 0.0, 0.0, 0.0),
+                unk20: vec4(set.thickness / 2., 0.0, 0.0, 0.0),
                 ..*decal_extern_base
             }));
         }

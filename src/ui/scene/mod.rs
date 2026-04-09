@@ -10,7 +10,6 @@ use deimos_render::{
     gpu::{alloc::descriptors::ResourceView, render_target::RenderTarget},
     renderer::{
         Renderer,
-        immediate::{IMMEDIATE_SHAPES, ImmediatePrimitive, ImmediateShape},
         scene::{DebugPipeline, SceneRenderer},
     },
     tfx::{
@@ -23,11 +22,10 @@ use egui::{
     Color32, FontId, Image, ImageSource, Rect, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2,
     Widget, containers::menu::MenuConfig, load::SizedTexture, vec2,
 };
-use glam::{Mat4, Quat, Vec3, Vec4, vec3, vec4};
+use glam::{Vec3, Vec4, vec3, vec4};
 use google_material_symbols::GoogleMaterialSymbols;
 use hecs::World;
 use itertools::Itertools;
-use sdl3::libc::rand;
 use umbra::QueryErrorCode;
 
 use crate::ui::{

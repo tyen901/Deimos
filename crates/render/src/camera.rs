@@ -129,7 +129,7 @@ impl Camera {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum CameraProjection {
     Perspective,
     Orthographic,

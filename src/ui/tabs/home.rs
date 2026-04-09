@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use egui::{Sense, Ui, Vec2, Widget, vec2};
+use egui::{Ui, vec2};
 use google_material_symbols::GoogleMaterialSymbols;
 
 use crate::{

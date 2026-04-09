@@ -10,7 +10,7 @@ use tiger_pkg::TagHash;
 use crate::{
     task::Task,
     ui::{
-        scene::{RenderMode, Scene, controller::CameraController},
+        scene::{Scene, controller::CameraController},
         util::UiExt,
     },
     world::pattern::load_component,
