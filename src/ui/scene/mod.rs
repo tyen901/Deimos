@@ -791,6 +791,7 @@ impl Scene {
                 &mut self.scene_renderer,
                 &vis,
                 self.subscribed_features,
+                self.draw_sun_shadows,
             );
         }
 

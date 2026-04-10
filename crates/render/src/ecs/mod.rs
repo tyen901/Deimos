@@ -68,6 +68,7 @@ pub fn s_extract_frame_packet(
     scene: &mut SceneRenderer,
     visibility: &ViewVisibility,
     features: FeatureRendererSubscription,
+    sun_shadows: bool,
 ) {
     let SceneRenderer {
         frame_packet,
@@ -79,9 +80,11 @@ pub fn s_extract_frame_packet(
     let mut render_objects = renderer.objects.write();
 
     frame_packet.insert_view(0);
-    for (i, shadow_view) in main_view.shadow_views.iter_mut().enumerate() {
-        shadow_view.id = 1 + i;
-        frame_packet.insert_view(shadow_view.id);
+    if sun_shadows {
+        for (i, shadow_view) in main_view.shadow_views.iter_mut().enumerate() {
+            shadow_view.id = 1 + i;
+            frame_packet.insert_view(shadow_view.id);
+        }
     }
     let views = [&main_view];
 
@@ -102,11 +105,13 @@ pub fn s_extract_frame_packet(
             }
         }
 
-        for v in main_view.shadow_views.iter() {
-            // TODO(cohae): Fix culling for shadow views
-            // if v.frustum.aabb_intersecting(&bounds) {
-            frame_packet.push_view_node::<()>(v.id, frame_node, None);
-            // }
+        if sun_shadows {
+            for v in main_view.shadow_views.iter() {
+                // TODO(cohae): Fix culling for shadow views
+                // if v.frustum.aabb_intersecting(&bounds) {
+                frame_packet.push_view_node::<()>(v.id, frame_node, None);
+                // }
+            }
         }
     }
 
@@ -149,18 +154,11 @@ pub fn s_extract_frame_packet(
         );
 
         for (view_id, _v) in views.iter().enumerate() {
-            if !visible.map_or(true, |v| v.0) {
+            if !visible.is_none_or(|v| v.0) {
                 continue;
             }
 
             frame_packet.push_view_node::<()>(view_id, frame_node, None);
-        }
-
-        for v in main_view.shadow_views.iter() {
-            // TODO(cohae): Fix culling for shadow views
-            if v.frustum.aabb_intersecting(&bounds) {
-                frame_packet.push_view_node::<()>(v.id, frame_node, None);
-            }
         }
     }
 }

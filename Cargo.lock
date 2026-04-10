@@ -877,7 +877,7 @@ checksum = "ac6b926516df9c60bfa16e107b21086399f8285a44ca9711344b9e553c5146e2"
 
 [[package]]
 name = "deimos"
-version = "0.1.1"
+version = "0.1.2-rc1"
 dependencies = [
  "ahash",
  "anyhow",
@@ -991,7 +991,7 @@ dependencies = [
 
 [[package]]
 name = "deimos-polonium"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "aes-gcm",
  "anyhow",
