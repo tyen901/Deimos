@@ -255,7 +255,16 @@ impl SceneRenderer {
 
                 if use_hdri {
                     self.main_view.light.bind_for_cubemaps(cmd);
-                    self.parent.apply_hdri_light(cmd);
+                    let sv = &self.main_view.shadow_views;
+                    self.parent.apply_hdri_light(
+                        cmd,
+                        &[
+                            (sv[0].world_to_projective(), sv[0].depth.srv()),
+                            (sv[1].world_to_projective(), sv[1].depth.srv()),
+                            (sv[2].world_to_projective(), sv[2].depth.srv()),
+                            (sv[3].world_to_projective(), sv[3].depth.srv()),
+                        ],
+                    );
                 }
 
                 self.main_view.light.bind_for_lights(cmd);

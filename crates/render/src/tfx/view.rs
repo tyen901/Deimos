@@ -114,4 +114,8 @@ impl ShadowCascade {
             frustum: Frustum::default(),
         })
     }
+
+    pub fn world_to_projective(&self) -> glam::Mat4 {
+        self.camera_to_projective * self.world_to_camera
+    }
 }

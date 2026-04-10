@@ -89,27 +89,31 @@ impl InternalResources {
 
         let root_signature_raw = RootSignatureBuilder::default()
             .with_param(
-                d3d12::RootParameter::DescriptorTable(&[DescriptorRange {
-                    base_shader_register: 0,
-                    register_space: 0,
-                    num_descriptors: 4,
-                    range_type: d3d12::DescriptorRangeType::Srv,
-                    offset_in_descriptors_from_table_start: 0,
-                }]),
+                d3d12::RootParameter::DescriptorTable(&[
+                    DescriptorRange {
+                        base_shader_register: 0,
+                        register_space: 0,
+                        num_descriptors: 4,
+                        range_type: d3d12::DescriptorRangeType::Srv,
+                        offset_in_descriptors_from_table_start: 0,
+                    },
+                    DescriptorRange {
+                        base_shader_register: 10,
+                        register_space: 0,
+                        num_descriptors: 4,
+                        range_type: d3d12::DescriptorRangeType::Srv,
+                        offset_in_descriptors_from_table_start: 4,
+                    },
+                ]),
                 d3d12::ShaderVisibility::Pixel,
             )
-            .with_param(
-                d3d12::RootParameter::CbvDescriptor {
-                    shader_register: 12,
-                    register_space: 0,
-                },
-                d3d12::ShaderVisibility::All,
-            )
+            .with_cbv(0, 0, d3d12::ShaderVisibility::All)
+            .with_cbv(12, 0, d3d12::ShaderVisibility::All)
             .with_sampler(d3d12::StaticSamplerDesc {
                 filter: d3d12::Filter::MinMagMipLinear,
-                address_u: d3d12::TextureAddressMode::Wrap,
-                address_v: d3d12::TextureAddressMode::Wrap,
-                address_w: d3d12::TextureAddressMode::Wrap,
+                address_u: d3d12::TextureAddressMode::Clamp,
+                address_v: d3d12::TextureAddressMode::Clamp,
+                address_w: d3d12::TextureAddressMode::Clamp,
                 mip_lod_bias: 0.0,
                 max_anisotropy: 1,
                 comparison_func: d3d12::ComparisonFunc::Always,

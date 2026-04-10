@@ -29,6 +29,22 @@ impl<'a> RootSignatureBuilder<'a> {
         self
     }
 
+    pub fn with_cbv(
+        mut self,
+        shader_register: u32,
+        register_space: u32,
+        visibility: ShaderVisibility,
+    ) -> Self {
+        self.add_param(
+            RootParameter::CbvDescriptor {
+                shader_register,
+                register_space,
+            },
+            visibility,
+        );
+        self
+    }
+
     pub fn add_param(&mut self, param: RootParameter<'a>, visibility: ShaderVisibility) -> u32 {
         let index = self.parameters.len();
         let param_ffi = match param {

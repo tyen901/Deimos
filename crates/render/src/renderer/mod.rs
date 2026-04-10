@@ -9,12 +9,13 @@ pub mod scene;
 use std::sync::Arc;
 
 use deimos_data::tfx::{PrimitiveType, ShaderStage};
+use glam::Mat4;
 use parking_lot::RwLock;
 use slotmap::SlotMap;
 
 use crate::{
     asset::AssetManager,
-    gpu::{Gpu, command_list::CommandList},
+    gpu::{Gpu, alloc::descriptors::ResourceView, command_list::CommandList},
     renderer::{
         globals::RenderGlobals,
         immediate::ImmediateRenderer,
@@ -108,7 +109,8 @@ impl Renderer {
         cmd.draw_instanced(0..4, 0..1);
     }
 
-    pub fn apply_hdri_light(&self, cmd: &mut CommandList) {
+    pub fn apply_hdri_light(&self, cmd: &mut CommandList, cascades: &[(Mat4, ResourceView)]) {
+        assert_eq!(cascades.len(), 4);
         cmd.set_input_topology(PrimitiveType::TriangleStrip);
         cmd.set_input_layout(0);
         cmd.flush_states();
@@ -116,7 +118,7 @@ impl Renderer {
         cmd.set_root_signature(&self.internal.rs_hdri_lighting);
         cmd.set_pipeline_state(&self.internal.pso_hdri_lighting);
 
-        let descriptor_range = cmd.gpu().frame().descriptors.allocate(4);
+        let descriptor_range = cmd.gpu().frame().descriptors.allocate(8);
         let Some(gbuffer_normal) = self.externs.deferred.deferred_rt1.get_srv() else {
             return;
         };
@@ -150,14 +152,32 @@ impl Renderer {
             descriptor_range.cpu_handle(3),
             d3d12::DescriptorHeapType::CbvSrvUav,
         );
+        for (i, (_, srv)) in cascades.iter().enumerate() {
+            cmd.gpu().copy_descriptors_simple(
+                1,
+                srv.cpu_handle(),
+                descriptor_range.cpu_handle(4 + i),
+                d3d12::DescriptorHeapType::CbvSrvUav,
+            );
+        }
 
         let Some(view_scope_cbv) = cmd.get_shader_constant_buffer_view(ShaderStage::Pixel, 12)
         else {
             return;
         };
 
+        let cascade_matrices: Vec<Mat4> = cascades.iter().map(|(m, _)| *m).collect();
+        let Ok(cascade_scope_cbv) = cmd
+            .upload_ring()
+            .upload_bytes(bytemuck::cast_slice(&cascade_matrices))
+        else {
+            error!("Failed to upload shadow cascade matrices");
+            return;
+        };
+
         cmd.set_graphics_root_descriptor_table(0, descriptor_range.gpu_handle(0));
-        cmd.set_graphics_root_constant_buffer_view(1, view_scope_cbv);
+        cmd.set_graphics_root_constant_buffer_view(1, cascade_scope_cbv);
+        cmd.set_graphics_root_constant_buffer_view(2, view_scope_cbv);
 
         cmd.draw_instanced(0..4, 0..1);
     }
