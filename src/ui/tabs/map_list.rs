@@ -129,8 +129,12 @@ impl MapListTab {
                                         .ui(ui)
                                         .clicked()
                                     {
-                                        match MapTab::new(&self.state.renderer, *tag, name.clone())
-                                        {
+                                        match MapTab::new(
+                                            &self.state.renderer,
+                                            &self.state,
+                                            *tag,
+                                            name.clone(),
+                                        ) {
                                             Ok(map) => {
                                                 result = TabResult::Open(Tab::Map(map));
                                             }

@@ -32,9 +32,12 @@ use hecs::World;
 use itertools::Itertools;
 use umbra::QueryErrorCode;
 
-use crate::ui::{
-    scene::controller::CameraController,
-    util::{ExternalDataWidgetExt, UiExt, format_bytes},
+use crate::{
+    app::SharedState,
+    ui::{
+        scene::{self, controller::CameraController},
+        util::{ExternalDataWidgetExt, UiExt, format_bytes},
+    },
 };
 
 pub mod controller;
@@ -72,9 +75,18 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub fn new(renderer: &Arc<Renderer>, camera: Camera) -> anyhow::Result<Self> {
+    pub fn new(
+        renderer: &Arc<Renderer>,
+        shared: &SharedState,
+        camera: Camera,
+    ) -> anyhow::Result<Self> {
+        let mut scene_renderer = SceneRenderer::new(renderer.clone())?;
+        scene_renderer
+            .main_view
+            .set_resolution_scale(shared.config.read().resolution_scale);
+
         Ok(Self {
-            scene_renderer: SceneRenderer::new(renderer.clone())?,
+            scene_renderer,
             renderer: renderer.clone(),
             start_time: Instant::now(),
             camera,

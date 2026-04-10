@@ -8,6 +8,7 @@ use google_material_symbols::GoogleMaterialSymbols;
 use tiger_pkg::TagHash;
 
 use crate::{
+    app::SharedState,
     task::Task,
     ui::{
         scene::{Scene, controller::CameraController},
@@ -26,7 +27,12 @@ pub struct MapTab {
 }
 
 impl MapTab {
-    pub fn new(renderer: &Arc<Renderer>, tag: TagHash, name: String) -> anyhow::Result<Self> {
+    pub fn new(
+        renderer: &Arc<Renderer>,
+        state: &Arc<SharedState>,
+        tag: TagHash,
+        name: String,
+    ) -> anyhow::Result<Self> {
         if !deimos_polonium::check_tag(tag) {
             return Err(anyhow::anyhow!("Invalid tag"));
         }
@@ -53,7 +59,8 @@ impl MapTab {
             tag,
             name,
             scene: Box::new(
-                Scene::new(renderer, camera)?.with_controller(CameraController::new_first_person()),
+                Scene::new(renderer, &state, camera)?
+                    .with_controller(CameraController::new_first_person()),
             ),
             errored: false,
         })

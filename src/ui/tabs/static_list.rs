@@ -19,16 +19,19 @@ use tiger_parse::{PackageManagerExt, TigerReadable};
 use tiger_pkg::{TagHash, package_manager};
 
 use super::TabResult;
-use crate::ui::tabs::model_list::{ModelEntry, ModelListBase, ModelProvider};
+use crate::{
+    app::SharedState,
+    ui::tabs::model_list::{ModelEntry, ModelListBase, ModelProvider},
+};
 
 pub struct StaticListTab {
     base: ModelListBase<StaticModelProvider>,
 }
 
 impl StaticListTab {
-    pub fn new(renderer: &Arc<Renderer>) -> Self {
+    pub fn new(renderer: &Arc<Renderer>, state: &Arc<SharedState>) -> Self {
         Self {
-            base: ModelListBase::new(renderer, StaticModelProvider::new(renderer)),
+            base: ModelListBase::new(renderer, state, StaticModelProvider::new(renderer)),
         }
     }
 

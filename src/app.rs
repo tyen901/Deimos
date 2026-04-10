@@ -54,12 +54,14 @@ impl App {
         let renderer = Arc::new(Renderer::new(gpu.clone()));
         *gpu.extern_source.write() =
             deimos_render::tfx::externs::BaseExternSource::Renderer(renderer.clone());
-        // Renderer::set_instance(renderer.clone());
 
+        let shared_state = SharedState::new(renderer.clone())
+            .context("Failed to create shared state")?
+            .into();
         let mut gui = Gui::new(&gpu, sdl.clone(), window.clone())?;
         if let Some(map_hash) = args.open_map.as_ref() {
             match TagHash::from_str(map_hash) {
-                Ok(tag) => match MapTab::new(&renderer, tag, String::new()) {
+                Ok(tag) => match MapTab::new(&renderer, &shared_state, tag, String::new()) {
                     Ok(tab) => gui.add_tab(Tab::Map(tab)),
                     Err(e) => error!("Failed to open map tab for {}: {:?}", map_hash, e),
                 },
@@ -70,7 +72,7 @@ impl App {
         }
         if let Some(pattern_hash) = args.open_pattern.as_ref() {
             match TagHash::from_str(pattern_hash) {
-                Ok(tag) => match ModelViewTab::new_pattern(&renderer, tag) {
+                Ok(tag) => match ModelViewTab::new_pattern(&renderer, &shared_state, tag) {
                     Ok(tab) => gui.add_tab(Tab::ModelView(Box::new(tab))),
                     Err(e) => error!(
                         "Failed to open model view tab for {}: {:?}",
@@ -85,9 +87,7 @@ impl App {
 
         Ok(Self {
             // _spinner: FullscreenSpinner::create(&renderer.gpu)?,
-            shared_state: SharedState::new(renderer.clone())
-                .context("Failed to create shared state")?
-                .into(),
+            shared_state,
             renderer,
             gui,
             sdl,

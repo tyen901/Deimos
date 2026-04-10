@@ -8,6 +8,7 @@ use google_material_symbols::GoogleMaterialSymbols;
 use tiger_pkg::TagHash;
 
 use crate::{
+    app::SharedState,
     task::Task,
     ui::{
         scene::{Scene, controller::CameraController},
@@ -25,7 +26,11 @@ pub struct ModelViewTab {
 }
 
 impl ModelViewTab {
-    pub fn new_pattern(renderer: &Arc<Renderer>, tag: TagHash) -> anyhow::Result<Self> {
+    pub fn new_pattern(
+        renderer: &Arc<Renderer>,
+        shared: &Arc<SharedState>,
+        tag: TagHash,
+    ) -> anyhow::Result<Self> {
         let renderer_clone = renderer.clone();
 
         Ok(Self {
@@ -45,7 +50,7 @@ impl ModelViewTab {
             }),
             tag,
             scene: Box::new(
-                Scene::new(renderer, Camera::default())?
+                Scene::new(renderer, &shared, Camera::default())?
                     .with_controller(CameraController::new_orbit(Vec3::ZERO, 2.5)),
             ),
             errored: false,

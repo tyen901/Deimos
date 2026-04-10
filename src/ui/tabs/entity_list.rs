@@ -16,6 +16,7 @@ use tiger_pkg::{TagHash, package_manager};
 
 use super::TabResult;
 use crate::{
+    app::SharedState,
     ui::tabs::model_list::{ModelEntry, ModelListBase, ModelProvider},
     world::pattern::load_component,
 };
@@ -25,9 +26,9 @@ pub struct EntityListTab {
 }
 
 impl EntityListTab {
-    pub fn new(renderer: &Arc<Renderer>) -> Self {
+    pub fn new(renderer: &Arc<Renderer>, state: &Arc<SharedState>) -> Self {
         Self {
-            base: ModelListBase::new(renderer, EntityModelProvider::new(renderer.clone())),
+            base: ModelListBase::new(renderer, state, EntityModelProvider::new(renderer.clone())),
         }
     }
 

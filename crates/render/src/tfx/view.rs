@@ -77,7 +77,9 @@ impl ShadedView {
             return Ok(());
         }
 
+        let resolution_scale = self.resolution_scale;
         *self = Self::new(gpu, new_resolution)?;
+        self.resolution_scale = resolution_scale;
         Ok(())
     }
 

@@ -20,13 +20,16 @@ use hecs::Entity;
 use tiger_pkg::{TagHash, package_manager};
 
 use super::TabResult;
-use crate::ui::{
-    scene::{
-        Scene,
-        controller::{CameraController, egui_to_glam_vec2},
+use crate::{
+    app::SharedState,
+    ui::{
+        scene::{
+            Scene,
+            controller::{CameraController, egui_to_glam_vec2},
+        },
+        tabs::model_view::ModelViewTab,
+        util::UiExt,
     },
-    tabs::model_view::ModelViewTab,
-    util::UiExt,
 };
 
 pub struct ModelListBase<P: ModelProvider> {
@@ -51,12 +54,14 @@ pub struct ModelListBase<P: ModelProvider> {
     only_show_used_channels: bool,
 
     provider: P,
+    shared: Arc<SharedState>,
 }
 
 impl<P: ModelProvider> ModelListBase<P> {
-    pub fn new(renderer: &Arc<Renderer>, provider: P) -> Self {
+    pub fn new(renderer: &Arc<Renderer>, shared: &Arc<SharedState>, provider: P) -> Self {
         let mut thumbnail_scene = Scene::new(
             renderer,
+            shared,
             Camera {
                 max_ortho_width: 1.0,
                 projection: CameraProjection::Orthographic,
@@ -75,7 +80,7 @@ impl<P: ModelProvider> ModelListBase<P> {
         //     view_settings.bloom = false;
         // }
 
-        let mut scene = Scene::new(renderer, Camera::default())
+        let mut scene = Scene::new(renderer, shared, Camera::default())
             .unwrap()
             .with_controller(CameraController::new_orbit(Vec3::ZERO, 2.5));
         // *scene.view.settings_mut() = thumbnail_scene.view.settings().clone();
@@ -107,6 +112,7 @@ impl<P: ModelProvider> ModelListBase<P> {
             filter: String::new(),
             config_tab: EntityConfigTab::Permutations,
             only_show_used_channels: true,
+            shared: shared.clone(),
 
             provider,
         }
@@ -740,7 +746,11 @@ impl<P: ModelProvider> ModelListBase<P> {
                                     .text_styles
                                     .insert(TextStyle::Button, FontId::proportional(16.0));
                                 if ui.button("Open in new tab").clicked() {
-                                    match ModelViewTab::new_pattern(&self.renderer, model.hash) {
+                                    match ModelViewTab::new_pattern(
+                                        &self.renderer,
+                                        &self.shared,
+                                        model.hash,
+                                    ) {
                                         Ok(o) => {
                                             result = TabResult::Open(
                                                 crate::ui::tabs::Tab::ModelView(Box::new(o)),
