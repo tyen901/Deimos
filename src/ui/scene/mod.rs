@@ -79,9 +79,7 @@ impl Scene {
             camera,
             controller: CameraController::new_first_person(),
             subscribed_features: FeatureRendererSubscription::all()
-                .difference(FeatureRendererSubscription::SPEEDTREE_TREES)
-                .difference(FeatureRendererSubscription::DEFERRED_LIGHTS)
-                .difference(FeatureRendererSubscription::CHUNKED_LIGHTS),
+                .difference(FeatureRendererSubscription::SPEEDTREE_TREES),
             render_mode: RenderMode::Lookdev,
 
             world: World::new(),
