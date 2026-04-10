@@ -48,5 +48,6 @@ imgui.ini
 **/.vs/
 *.DotSettings.user
 *.code-workspace
+.zed/settings.json
 
 dhat-heap.json
