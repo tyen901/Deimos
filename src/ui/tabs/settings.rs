@@ -18,8 +18,8 @@ impl SettingsTab {
 
         if config.framelimiter_enabled {
             ui.add(
-                egui::Slider::new(&mut config.framerate_limit, 15..=240)
-                    .step_by(5.0)
+                egui::Slider::new(&mut config.framerate_limit, 20..=240)
+                    .step_by(10.0)
                     .text("Framerate Limit")
                     .custom_formatter(|value, _| format!("{} FPS", value)),
             );
