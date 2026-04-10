@@ -522,9 +522,6 @@ impl Scene {
             }
         }
 
-        self.scene_renderer.main_view.world_to_camera = self.camera.world_to_camera;
-        self.scene_renderer.main_view.camera_to_projective = self.camera.camera_to_projective;
-
         {
             let ext = self.renderer.externs.get_mut();
             ext.globals = self.scene_renderer.global_channels;
@@ -581,6 +578,8 @@ impl Scene {
             self.camera.update();
             ext.view.world_to_camera = self.camera.world_to_camera;
             ext.view.camera_to_projective = self.camera.camera_to_projective;
+            self.scene_renderer.main_view.world_to_camera = self.camera.world_to_camera;
+            self.scene_renderer.main_view.camera_to_projective = self.camera.camera_to_projective;
             ext.view.derive_matrices(resolution);
             self.scene_renderer.main_view.culling_frustum = self.camera.culling_frustum.clone();
 
