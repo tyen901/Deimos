@@ -184,7 +184,6 @@ bitflags::bitflags! {
             Self::LIGHT_SHAFT_OCCLUSION.bits() |
             Self::SKIN_PREPASS.bits() |
             Self::LENS_FLARES.bits() |
-            Self::DEPTH_PREPASS.bits() |
             Self::WATER_REFLECTION.bits() |
             Self::POSTPROCESS_TRANSPARENT_STENCIL.bits() |
             Self::RETICLE.bits() |

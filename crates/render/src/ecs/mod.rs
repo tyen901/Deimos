@@ -110,7 +110,7 @@ pub fn s_extract_frame_packet(
         }
     }
 
-    for (_entity, (transform, render_object, permutations, object_channels, _visible)) in world
+    for (_entity, (transform, render_object, permutations, object_channels, visible)) in world
         .query::<(
             Option<&Transform>,
             &DynamicRenderObject,
@@ -119,12 +119,7 @@ pub fn s_extract_frame_packet(
             Option<&Visible>,
         )>()
         .iter()
-        .filter(|(_, (_, _, _, _, visible))| visible.is_none_or(|v| v.0))
     {
-        if !features.is_subscribed(render_objects[render_object.handle()].feature_type) {
-            continue;
-        }
-
         let transform = transform.copied().unwrap_or_default();
         let permutation = if let Some(permutation) = permutations {
             permutation
@@ -154,7 +149,18 @@ pub fn s_extract_frame_packet(
         );
 
         for (view_id, _v) in views.iter().enumerate() {
+            if !visible.map_or(true, |v| v.0) {
+                continue;
+            }
+
             frame_packet.push_view_node::<()>(view_id, frame_node, None);
+        }
+
+        for v in main_view.shadow_views.iter() {
+            // TODO(cohae): Fix culling for shadow views
+            if v.frustum.aabb_intersecting(&bounds) {
+                frame_packet.push_view_node::<()>(v.id, frame_node, None);
+            }
         }
     }
 }
