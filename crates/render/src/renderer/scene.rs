@@ -9,23 +9,20 @@ use deimos_data::{
     hash::fnv1,
     tfx::{FixedFunctionState, RenderStage, features::dynamic::RenderStageSubscription},
 };
-use deimos_ecs::visibility;
-use glam::{Mat4, Vec3, Vec4};
+use glam::{Vec3, Vec4};
 
 use crate::{
     ecs::{node_visibility_test, populate_submit_nodes},
     gpu::{
         Gpu,
         command_list::{CommandList, DepthMode},
-        frame,
         stream::{FrameCommandStream, ParallelCommandBlock},
     },
     renderer::{
         Renderer,
-        cascades::CascadeCalculator,
         packet::{FramePacket, ViewPacket},
     },
-    tfx::view::{self, ShadedView},
+    tfx::view::ShadedView,
     util::range::RangeChunks,
     visibility::ViewVisibility,
 };
@@ -73,6 +70,7 @@ impl SceneRenderer {
         cmd: &mut CommandList,
         visibility: &ViewVisibility,
         debug_pipeline: Option<DebugPipeline>,
+        draw_sun_shadows: bool,
     ) {
         self.parent.externs.reset_global_channel_frequencies();
         let gpu = cmd.gpu().clone();
@@ -93,7 +91,18 @@ impl SceneRenderer {
             }
         }
 
-        self.render_shadow_views(&gpu, cmd, stream);
+        if draw_sun_shadows && matches!(debug_pipeline, None | Some(DebugPipeline::LookDev)) {
+            self.render_shadow_views(&gpu, cmd, stream);
+        } else {
+            for view in &self.main_view.shadow_views {
+                cmd.clear_depth_stencil_view(
+                    view.depth.cpu_handle(),
+                    d3d12::ClearFlags::DEPTH,
+                    1.0,
+                    0,
+                );
+            }
+        }
 
         self.render_main_view(&gpu, cmd, stream, visibility, debug_pipeline);
     }

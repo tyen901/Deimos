@@ -223,7 +223,7 @@ void mainPS(VSOutput input, out float4 light_diffuse: SV_TARGET0,
     shadow *= SampleShadow(worldPos, input.pos.xy, i);
   }
 
-  float shadowFactor = 0.9f;
+  float shadowFactor = 0.93f;
   shadow = lerp(1.0f, shadow, shadowFactor);
 
   light_diffuse = float4(diffuse * shadow, 1.0f);

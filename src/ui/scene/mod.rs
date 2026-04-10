@@ -23,8 +23,8 @@ use deimos_render::{
     visibility::{ViewVisibility, frustum::Frustum},
 };
 use egui::{
-    Color32, FontId, Image, ImageSource, Rect, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2,
-    Widget, containers::menu::MenuConfig, load::SizedTexture, vec2,
+    Color32, FontId, Image, ImageSource, Rect, Response, RichText, Sense, TextStyle, Ui, UiBuilder,
+    Vec2, Widget, containers::menu::MenuConfig, load::SizedTexture, vec2,
 };
 use glam::{Vec3, Vec4, Vec4Swizzles, vec3, vec4};
 use google_material_symbols::GoogleMaterialSymbols;
@@ -49,6 +49,7 @@ pub struct Scene {
     pub controller: CameraController,
     subscribed_features: FeatureRendererSubscription,
     pub render_mode: RenderMode,
+    draw_sun_shadows: bool,
 
     // World
     pub world: World,
@@ -81,6 +82,7 @@ impl Scene {
             subscribed_features: FeatureRendererSubscription::all()
                 .difference(FeatureRendererSubscription::SPEEDTREE_TREES),
             render_mode: RenderMode::Lookdev,
+            draw_sun_shadows: false,
 
             world: World::new(),
             raininess: 0.0,
@@ -794,7 +796,7 @@ impl Scene {
         }
 
         self.scene_renderer
-            .render(cmd, &vis, self.render_mode.into());
+            .render(cmd, &vis, self.render_mode.into(), self.draw_sun_shadows);
     }
 
     fn show_toolbar(&mut self, ui: &mut Ui) {
@@ -1077,11 +1079,11 @@ impl Scene {
         //         PerformanceImpact::Medium,
         //     );
 
-        // ui.checkbox(&mut view_settings.sun_shadows, "Sun Shadows")
-        //     .setting_description_tooltip(
-        //         "Enables (dynamic) shadows for the sun light.",
-        //         PerformanceImpact::High,
-        //     );
+        ui.checkbox(&mut self.draw_sun_shadows, "Sun Shadows")
+            .setting_description_tooltip(
+                "Enables shadows for the sun light.",
+                PerformanceImpact::High,
+            );
 
         // ui.checkbox(&mut view_settings.anti_aliasing, "Anti-Aliasing")
         //     .setting_description_tooltip(
@@ -1389,4 +1391,52 @@ fn compass_heading(forward: Vec3) -> (f32, &'static str) {
 
     let index = ((bearing_deg + 22.5) / 45.0) as usize % 8;
     (bearing_deg, DIRS[index])
+}
+
+trait SettingDescriptionTooltipExt {
+    fn setting_description_tooltip(
+        self,
+        description: &str,
+        performance_impact: PerformanceImpact,
+    ) -> Self;
+}
+
+impl SettingDescriptionTooltipExt for Response {
+    fn setting_description_tooltip(
+        self,
+        description: &str,
+        performance_impact: PerformanceImpact,
+    ) -> Self {
+        self.on_hover_ui(|ui| {
+            ui.style_mut()
+                .text_styles
+                .insert(TextStyle::Body, FontId::proportional(16.0));
+
+            let perf_color = match performance_impact {
+                PerformanceImpact::None => egui::Color32::GRAY,
+                PerformanceImpact::Low => egui::Color32::GREEN,
+                PerformanceImpact::Medium => egui::Color32::YELLOW,
+                PerformanceImpact::High => egui::Color32::RED,
+            };
+
+            ui.label(description);
+            ui.separator();
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing = Vec2::splat(0.0);
+                ui.label("Performance Impact: ");
+                ui.label(
+                    RichText::new(format!("{:?}", performance_impact))
+                        .color(perf_color)
+                        .strong(),
+                );
+            });
+        })
+    }
+}
+#[derive(Debug)]
+enum PerformanceImpact {
+    None,
+    Low,
+    Medium,
+    High,
 }
