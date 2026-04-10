@@ -261,11 +261,11 @@ impl FeatureRenderer for DecoratorRenderer {
         _renderer: &Renderer,
         (view_node, _): (usize, &RenderPerViewNode),
         _frame_node: &RenderPerFrameNode,
-        _visibility: &crate::visibility::ViewVisibility,
+        visibility: &crate::visibility::ViewVisibility,
         submit_node_blocks: &mut crate::renderer::packet::SubmitNodeContainer,
     ) {
         submit_node_blocks.broadcast(
-            self.subscribed_stages(),
+            self.subscribed_stages() & visibility.render_stages,
             crate::renderer::packet::SubmitNode { view_node, key: 0 },
         );
     }

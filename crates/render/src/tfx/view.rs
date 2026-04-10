@@ -5,29 +5,42 @@
 
 use std::sync::Arc;
 
+use glam::Mat4;
+
 use crate::{
-    gpu::{Gpu, render_target::RenderTarget},
+    gpu::{
+        Gpu,
+        render_target::{DepthBuffer, RenderTarget},
+    },
+    renderer::cascades::CascadeCalculator,
     tfx::buffers::{Gbuffer, LightBuffer},
     visibility::frustum::Frustum,
 };
 
 pub struct ShadedView {
     pub culling_frustum: Frustum,
+    pub world_to_camera: Mat4,
+    pub camera_to_projective: Mat4,
 
     pub gbuffer: Gbuffer,
     pub light: LightBuffer,
     pub shaded_read: RenderTarget,
 
     pub output: RenderTarget,
+    pub shadow_views: [ShadowCascade; CascadeCalculator::MAX_CASCADES],
 
     resolution: (u32, u32),
     resolution_scale: f32,
 }
 
 impl ShadedView {
+    pub const MAIN_VIEW_ID: usize = 0;
+
     pub fn new(gpu: &Arc<Gpu>, resolution: (u32, u32)) -> anyhow::Result<Self> {
         Ok(Self {
             culling_frustum: Frustum::default(),
+            world_to_camera: Mat4::default(),
+            camera_to_projective: Mat4::default(),
             gbuffer: Gbuffer::new(gpu, resolution)?,
             light: LightBuffer::new(gpu, resolution)?,
             shaded_read: RenderTarget::new(
@@ -44,6 +57,12 @@ impl ShadedView {
                 d3d12::Format::R11g11b10Float,
                 resolution,
             )?,
+            shadow_views: [
+                ShadowCascade::new(gpu)?,
+                ShadowCascade::new(gpu)?,
+                ShadowCascade::new(gpu)?,
+                ShadowCascade::new(gpu)?,
+            ],
             resolution,
             resolution_scale: 1.0,
         })
@@ -75,4 +94,24 @@ impl ShadedView {
     }
 }
 
-// pub struct ShadowView {}
+pub struct ShadowCascade {
+    pub id: usize,
+    pub depth: DepthBuffer,
+
+    pub world_to_camera: glam::Mat4,
+    pub camera_to_projective: glam::Mat4,
+
+    pub frustum: Frustum,
+}
+
+impl ShadowCascade {
+    pub fn new(gpu: &Arc<Gpu>) -> anyhow::Result<Self> {
+        Ok(Self {
+            id: 0,
+            depth: DepthBuffer::new(gpu, (4096, 4096))?,
+            camera_to_projective: glam::Mat4::IDENTITY,
+            world_to_camera: glam::Mat4::IDENTITY,
+            frustum: Frustum::default(),
+        })
+    }
+}

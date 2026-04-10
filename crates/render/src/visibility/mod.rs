@@ -1,4 +1,4 @@
-use deimos_data::tfx::geometry::AxisAlignedBBox;
+use deimos_data::tfx::{features::dynamic::RenderStageSubscription, geometry::AxisAlignedBBox};
 use glam::Vec3;
 
 pub mod bvh;
@@ -11,6 +11,7 @@ pub struct ViewVisibility {
     pub far_plane: f32,
     pub culling_frustum: frustum::Frustum,
     pub world_to_projective: glam::Mat4,
+    pub render_stages: RenderStageSubscription,
     pub occlusion_buffer: Option<umbra::OcclusionBuffer>,
     pub visible_cluster_bounds: Option<Vec<AxisAlignedBBox>>,
 }

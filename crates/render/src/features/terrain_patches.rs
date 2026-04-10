@@ -219,7 +219,7 @@ impl FeatureRenderer for TerrainPatchesRenderer {
         _renderer: &Renderer,
         (view_node, _): (usize, &RenderPerViewNode),
         _frame_node: &RenderPerFrameNode,
-        _visibility: &ViewVisibility,
+        visibility: &ViewVisibility,
         submit_node_blocks: &mut SubmitNodeContainer,
     ) {
         for (i, _part) in self
@@ -230,7 +230,7 @@ impl FeatureRenderer for TerrainPatchesRenderer {
             .filter(|(_, u)| u.detail_level == self.detail_level)
         {
             submit_node_blocks.broadcast(
-                self.subscribed_stages(),
+                self.subscribed_stages() & visibility.render_stages,
                 SubmitNode {
                     view_node,
                     key: i as u64,

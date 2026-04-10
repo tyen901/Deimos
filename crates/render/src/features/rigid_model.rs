@@ -425,7 +425,7 @@ impl FeatureRenderer for DynamicModel {
         let distance_u32 = (distance_normalized.clamp(0.0, 1.0) * u32::MAX as f64) as u32;
 
         submit_node_blocks.broadcast(
-            self.subscribed_stages,
+            self.subscribed_stages & visibility.render_stages,
             SubmitNode {
                 view_node,
                 key: distance_u32 as u64,

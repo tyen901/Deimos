@@ -21,6 +21,11 @@ impl AxisAlignedBBox {
         max: Vec4::new(f32::MAX, f32::MAX, f32::MAX, f32::MAX),
     };
 
+    pub const CUBE: Self = Self {
+        min: Vec4::new(-1.0, -1.0, -1.0, 1.0),
+        max: Vec4::new(1.0, 1.0, 1.0, 1.0),
+    };
+
     pub fn from_center_extents(center: Vec3, extents: Vec3) -> Self {
         Self {
             min: vec3(

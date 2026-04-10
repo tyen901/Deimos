@@ -3,26 +3,30 @@ use std::{
     time::Instant,
 };
 
-use deimos_data::tfx::{FeatureRendererSubscription, geometry::AxisAlignedBBox};
+use deimos_data::tfx::{
+    FeatureRendererSubscription, features::dynamic::RenderStageSubscription,
+    geometry::AxisAlignedBBox,
+};
 use deimos_render::{
     camera::{Camera, CameraProjection},
     ecs::{s_extract_frame_packet, s_update_object_channels, s_visibility_test},
     gpu::{alloc::descriptors::ResourceView, render_target::RenderTarget},
     renderer::{
         Renderer,
+        cascades::CascadeCalculator,
         scene::{DebugPipeline, SceneRenderer},
     },
     tfx::{
         externs::{self, get_global_channel_name},
         scope::FrameScope,
     },
-    visibility::ViewVisibility,
+    visibility::{ViewVisibility, frustum::Frustum},
 };
 use egui::{
     Color32, FontId, Image, ImageSource, Rect, RichText, Sense, TextStyle, Ui, UiBuilder, Vec2,
     Widget, containers::menu::MenuConfig, load::SizedTexture, vec2,
 };
-use glam::{Vec3, Vec4, vec3, vec4};
+use glam::{Vec3, Vec4, Vec4Swizzles, vec3, vec4};
 use google_material_symbols::GoogleMaterialSymbols;
 use hecs::World;
 use itertools::Itertools;
@@ -518,6 +522,9 @@ impl Scene {
             }
         }
 
+        self.scene_renderer.main_view.world_to_camera = self.camera.world_to_camera;
+        self.scene_renderer.main_view.camera_to_projective = self.camera.camera_to_projective;
+
         {
             let ext = self.renderer.externs.get_mut();
             ext.globals = self.scene_renderer.global_channels;
@@ -736,6 +743,30 @@ impl Scene {
                 .expect("Failed to write transparent_advanced initial constants");
         }
 
+        let mut sun_dir = self
+            .scene_renderer
+            .get_global_channel_by_name("sun_light_direction")
+            .unwrap_or_default()
+            .xyz();
+        if sun_dir.length() < 0.01 {
+            sun_dir = Vec3::Z;
+        }
+        let sun_dir = -sun_dir.normalize();
+
+        for i in 0..CascadeCalculator::MAX_CASCADES {
+            let view = &mut self.scene_renderer.main_view.shadow_views[i];
+            let (near, far) = CascadeCalculator::get_depth_range(i)
+                .expect("invalid cascade index for cascade calculation");
+
+            let (world_to_camera, camera_to_projective) =
+                self.camera.build_shadow_cascade(sun_dir, near, far);
+
+            view.world_to_camera = world_to_camera;
+            view.camera_to_projective = camera_to_projective;
+            view.frustum =
+                Frustum::from_view_and_projection(view.world_to_camera, view.camera_to_projective);
+        }
+
         let vis = ViewVisibility {
             enabled: self.camera.projection != CameraProjection::Orthographic,
             culling_frustum: self.camera.culling_frustum.clone(),
@@ -744,6 +775,7 @@ impl Scene {
             world_to_projective: self.camera.world_to_projective,
             occlusion_buffer,
             visible_cluster_bounds,
+            render_stages: RenderStageSubscription::STANDARD_VIEW,
         };
 
         {

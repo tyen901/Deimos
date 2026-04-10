@@ -509,7 +509,7 @@ impl FeatureRenderer for StaticInstancesRenderer {
         renderer: &Renderer,
         (view_node, _): (usize, &RenderPerViewNode),
         _frame_node: &RenderPerFrameNode,
-        _visibility: &ViewVisibility,
+        visibility: &ViewVisibility,
         submit_node_blocks: &mut SubmitNodeContainer,
     ) {
         for (model, _) in self
@@ -521,7 +521,11 @@ impl FeatureRenderer for StaticInstancesRenderer {
                 .gpu
                 .num_static_instances
                 .fetch_add(model.transforms.len(), Ordering::Relaxed);
-            for &(stage, mut node) in &model.precomputed_submit_nodes {
+            for &(stage, mut node) in model
+                .precomputed_submit_nodes
+                .iter()
+                .filter(|(stage, _)| visibility.render_stages.is_subscribed(*stage))
+            {
                 node.view_node = view_node;
                 submit_node_blocks.push(stage, node);
             }

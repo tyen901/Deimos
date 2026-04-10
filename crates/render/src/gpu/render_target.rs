@@ -261,4 +261,8 @@ impl DepthBuffer {
 
         Ok(())
     }
+
+    pub const fn resolution(&self) -> (u32, u32) {
+        self.size
+    }
 }

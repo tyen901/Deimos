@@ -282,6 +282,17 @@ impl CommandList {
                 .top(0)
                 .left(0)
                 .build()]);
+        } else if let Some(dsv) = depth_stencil_descriptor {
+            self.set_viewports(&[d3d12::Viewport::builder()
+                .width(dsv.resolution().0 as f32)
+                .height(dsv.resolution().1 as f32)
+                .build()]);
+            self.set_scissor_rects(&[d3d12::Rect::builder()
+                .right(dsv.resolution().0 as i32)
+                .bottom(dsv.resolution().1 as i32)
+                .top(0)
+                .left(0)
+                .build()]);
         }
     }
 

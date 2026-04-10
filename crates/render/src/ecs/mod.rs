@@ -78,8 +78,12 @@ pub fn s_extract_frame_packet(
 
     let mut render_objects = renderer.objects.write();
 
+    frame_packet.insert_view(0);
+    for (i, shadow_view) in main_view.shadow_views.iter_mut().enumerate() {
+        shadow_view.id = 1 + i;
+        frame_packet.insert_view(shadow_view.id);
+    }
     let views = [&main_view];
-    frame_packet.insert_view(0, main_view.culling_frustum.clone());
 
     for (_entity, (static_render_object, bounds)) in world
         .query::<(&StaticRenderObject, Option<&AxisAlignedBBox>)>()
@@ -96,6 +100,13 @@ pub fn s_extract_frame_packet(
             if visibility.is_visible(&bounds) {
                 frame_packet.push_view_node::<()>(view_id, frame_node, None);
             }
+        }
+
+        for v in main_view.shadow_views.iter() {
+            // TODO(cohae): Fix culling for shadow views
+            // if v.frustum.aabb_intersecting(&bounds) {
+            frame_packet.push_view_node::<()>(v.id, frame_node, None);
+            // }
         }
     }
 
@@ -149,7 +160,11 @@ pub fn s_extract_frame_packet(
 }
 
 #[profiling::function]
-pub fn node_visibility_test(scene: &mut SceneRenderer, visibility: &ViewVisibility) {
+pub fn node_visibility_test(
+    scene: &mut SceneRenderer,
+    visibility: &ViewVisibility,
+    view_id: usize,
+) {
     let SceneRenderer {
         parent: renderer,
         frame_packet,
@@ -157,19 +172,26 @@ pub fn node_visibility_test(scene: &mut SceneRenderer, visibility: &ViewVisibili
     } = scene;
 
     let mut render_objects = renderer.objects.write();
-    for ViewPacket { view_nodes, .. } in frame_packet.views.iter_mut() {
-        for (_view_node, per_frame_node) in view_nodes
-            .iter()
-            .enumerate()
-            .map(|(view_node, v)| (view_node, &frame_packet.per_frame_nodes[v.frame_node]))
-        {
-            let render_object = &mut render_objects[per_frame_node.object];
-            render_object.renderer.visibility_test(visibility);
-        }
+    let Some(ViewPacket { view_nodes, .. }) = frame_packet.views.get(view_id) else {
+        error!("Invalid view id {view_id}");
+        return;
+    };
+
+    for (_view_node, per_frame_node) in view_nodes
+        .iter()
+        .enumerate()
+        .map(|(view_node, v)| (view_node, &frame_packet.per_frame_nodes[v.frame_node]))
+    {
+        let render_object = &mut render_objects[per_frame_node.object];
+        render_object.renderer.visibility_test(visibility);
     }
 }
 
-pub fn populate_submit_nodes(scene: &mut SceneRenderer, visibility: &ViewVisibility) {
+pub fn populate_submit_nodes(
+    scene: &mut SceneRenderer,
+    visibility: &ViewVisibility,
+    view_id: usize,
+) {
     let SceneRenderer {
         parent: renderer,
         frame_packet,
@@ -177,32 +199,35 @@ pub fn populate_submit_nodes(scene: &mut SceneRenderer, visibility: &ViewVisibil
     } = scene;
 
     let render_objects = renderer.objects.read();
-    for ViewPacket {
+    let Some(ViewPacket {
         view_nodes,
         submit_node_blocks,
         ..
-    } in frame_packet.views.iter_mut()
-    {
-        for (view_node_index, view_node, frame_node, render_object) in view_nodes
-            .iter()
-            .enumerate()
-            .map(|(view_node, v)| (view_node, v, &frame_packet.per_frame_nodes[v.frame_node]))
-            .map(|(view_node, v, o)| (view_node, v, o, &render_objects[o.object]))
-        {
-            render_object.renderer.populate_submit_node_blocks(
-                renderer,
-                (view_node_index, view_node),
-                frame_node,
-                visibility,
-                submit_node_blocks,
-            );
-        }
+    }) = frame_packet.views.get_mut(view_id)
+    else {
+        error!("invalid view id {view_id}");
+        return;
+    };
 
-        {
-            profiling::scope!("sort stages");
-            for stage in submit_node_blocks.blocks_mut() {
-                stage.sort_by_key(|a| a.key);
-            }
+    for (view_node_index, view_node, frame_node, render_object) in view_nodes
+        .iter()
+        .enumerate()
+        .map(|(view_node, v)| (view_node, v, &frame_packet.per_frame_nodes[v.frame_node]))
+        .map(|(view_node, v, o)| (view_node, v, o, &render_objects[o.object]))
+    {
+        render_object.renderer.populate_submit_node_blocks(
+            renderer,
+            (view_node_index, view_node),
+            frame_node,
+            visibility,
+            submit_node_blocks,
+        );
+    }
+
+    {
+        profiling::scope!("sort stages");
+        for stage in submit_node_blocks.blocks_mut() {
+            stage.sort_by_key(|a| a.key);
         }
     }
 }

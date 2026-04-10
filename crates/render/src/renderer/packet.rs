@@ -4,7 +4,7 @@ use bytemuck::Pod;
 use deimos_data::tfx::{RenderStage, features::dynamic::RenderStageSubscription};
 use static_assertions::assert_eq_size;
 
-use crate::{renderer::object::RenderObjectHandle, visibility::frustum::Frustum};
+use crate::renderer::object::RenderObjectHandle;
 
 #[derive(Default)]
 pub struct FramePacket {
@@ -35,9 +35,9 @@ impl FramePacket {
         index
     }
 
-    pub fn insert_view(&mut self, view_id: usize, culling_frustum: Frustum) {
+    pub fn insert_view(&mut self, view_id: usize) {
         self.views.resize_with(view_id + 1, ViewPacket::default);
-        self.views[view_id].culling_frustum = culling_frustum;
+        self.views[view_id].id = view_id;
     }
 
     pub fn push_view_node<T: Pod>(
@@ -75,7 +75,7 @@ impl FramePacket {
 }
 
 pub struct ViewPacket {
-    pub culling_frustum: Frustum,
+    pub id: usize,
     pub view_nodes: Vec<RenderPerViewNode>,
     pub submit_node_blocks: SubmitNodeContainer,
 }
@@ -83,7 +83,7 @@ pub struct ViewPacket {
 impl Default for ViewPacket {
     fn default() -> Self {
         Self {
-            culling_frustum: Frustum::default(),
+            id: 0,
             view_nodes: Vec::with_capacity(4096),
             submit_node_blocks: SubmitNodeContainer::default(),
         }

@@ -90,7 +90,7 @@ impl FeatureRenderer for DecalCollectionRenderer {
         for (i, set) in self.sets.iter().enumerate() {
             if visibility.is_visible(&set.bounds) {
                 submit_node_blocks.broadcast(
-                    self.subscribed_stages(),
+                    self.subscribed_stages() & visibility.render_stages,
                     SubmitNode {
                         view_node,
                         key: StaticSubmitKey {

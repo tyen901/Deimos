@@ -173,6 +173,27 @@ bitflags::bitflags! {
         const POSTPROCESS_SCREEN                = 1 << RenderStage::PostprocessScreen as u32;
         const WORLD_FORCES                      = 1 << RenderStage::WorldForces as u32;
         const COMPUTE_SKINNING                  = 1 << RenderStage::ComputeSkinning as u32;
+
+        const STANDARD_VIEW = Self::GENERATE_GBUFFER.bits() |
+            Self::DECALS.bits() |
+            Self::INVESTMENT_DECALS.bits() |
+            Self::LIGHTING_APPLY.bits() |
+            Self::DECALS_ADDITIVE.bits() |
+            Self::TRANSPARENTS.bits() |
+            Self::DISTORTION.bits() |
+            Self::LIGHT_SHAFT_OCCLUSION.bits() |
+            Self::SKIN_PREPASS.bits() |
+            Self::LENS_FLARES.bits() |
+            Self::DEPTH_PREPASS.bits() |
+            Self::WATER_REFLECTION.bits() |
+            Self::POSTPROCESS_TRANSPARENT_STENCIL.bits() |
+            Self::RETICLE.bits() |
+            Self::WATER_RIPPLES.bits() |
+            Self::MASK_SUN_LIGHT.bits() |
+            Self::VOLUMETRICS.bits() |
+            Self::CUBEMAPS.bits();
+
+        const SHADOW_VIEW = Self::SHADOW_GENERATE.bits();
     }
 }
 
