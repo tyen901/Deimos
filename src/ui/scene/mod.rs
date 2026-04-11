@@ -764,9 +764,25 @@ impl Scene {
         }
         let sun_dir = -sun_dir.normalize();
 
+        let sdsm_far_plane =
+            visible_cluster_bounds
+                .as_ref()
+                .map_or(CascadeCalculator::MAX_FAR_PLANE, |c| {
+                    let mut far_plane = 0f32;
+
+                    for cluster in c {
+                        far_plane = far_plane
+                            .max(cluster.transformed(self.camera.world_to_camera).max.z.abs());
+                    }
+
+                    far_plane
+                });
+
+        println!("sdsm far plane: {}", sdsm_far_plane);
+
         for i in 0..CascadeCalculator::MAX_CASCADES {
             let view = &mut self.scene_renderer.main_view.shadow_views[i];
-            let (near, far) = CascadeCalculator::get_depth_range(i)
+            let (near, far) = CascadeCalculator::get_depth_range(i, sdsm_far_plane)
                 .expect("invalid cascade index for cascade calculation");
 
             let (world_to_camera, camera_to_projective) =
