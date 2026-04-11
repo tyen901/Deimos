@@ -28,6 +28,7 @@ pub struct ShadedView {
 
     pub output: RenderTarget,
     pub shadow_views: [ShadowCascade; CascadeCalculator::MAX_CASCADES],
+    pub shadow_mask: RenderTarget,
 
     resolution: (u32, u32),
     resolution_scale: f32,
@@ -63,6 +64,13 @@ impl ShadedView {
                 ShadowCascade::new(gpu)?,
                 ShadowCascade::new(gpu)?,
             ],
+            shadow_mask: RenderTarget::new(
+                gpu,
+                "shadow_mask",
+                d3d12::Format::R8g8Unorm,
+                d3d12::Format::R8g8Unorm,
+                resolution,
+            )?,
             resolution,
             resolution_scale: 1.0,
         })

@@ -49,7 +49,7 @@ impl SceneRenderer {
         r.set_global_channel_by_name("cubemap_sky_intensity", Vec4::splat(0.4));
         r.set_global_channel_by_name("global_cubemap_intensity", Vec4::splat(0.4));
 
-        r.set_global_channel_by_name("global_ambient_intensity", Vec4::splat(0.0));
+        r.set_global_channel_by_name("global_ambient_intensity", Vec4::splat(5.0));
         r.set_global_channel_by_name("sun_direct_intensity", Vec4::splat(1.3));
         r.set_global_channel_by_id(0xE16B6B6B, Vec4::splat(1000000.0));
         r.set_global_channel_by_id(0x462A7037, Vec4::splat(0.0)); // >0 causes moss to glow?
@@ -91,7 +91,12 @@ impl SceneRenderer {
             }
         }
 
-        if draw_sun_shadows && matches!(debug_pipeline, None | Some(DebugPipeline::LookDev)) {
+        if draw_sun_shadows
+            && matches!(
+                debug_pipeline,
+                None | Some(DebugPipeline::LookDev | DebugPipeline::GlobalLightingShading)
+            )
+        {
             self.render_shadow_views(&gpu, cmd, stream);
         } else {
             for view in &self.main_view.shadow_views {
@@ -180,6 +185,26 @@ impl SceneRenderer {
                 cmd.set_ffstate(FixedFunctionState::new(Some(0), Some(2), Some(2), Some(0)));
                 cmd.flush_states();
                 self.submit_stage(cmd, stream, view, RenderStage::GenerateGbuffer);
+            }
+
+            {
+                self.main_view
+                    .gbuffer
+                    .uber_depth_half
+                    .transition(cmd, d3d12::ResourceStates::RENDER_TARGET);
+                // TODO(cohae): Uber depth generation uses compute shaders
+                // cmd.set_render_targets(&[&self.main_view.gbuffer.uber_depth_half], None);
+                cmd.clear_render_target_view(
+                    self.main_view.gbuffer.uber_depth_half.cpu_handle(),
+                    &[0.0, 0.0, 0.0, 0.0],
+                );
+
+                self.parent.externs.get_mut().shadow_mask.unk10 =
+                    self.main_view.gbuffer.uber_depth_half.srv().into();
+                self.main_view
+                    .gbuffer
+                    .uber_depth_half
+                    .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
             }
 
             // Copy normals/depth buffer
@@ -280,6 +305,28 @@ impl SceneRenderer {
                 cmd.set_ffstate(FixedFunctionState::new(Some(2), None, Some(2), Some(2)));
                 cmd.flush_states();
                 self.submit_stage(cmd, stream, view, RenderStage::LightingApply);
+            }
+
+            {
+                self.main_view
+                    .shadow_mask
+                    .transition(cmd, d3d12::ResourceStates::RENDER_TARGET);
+                cmd.set_render_targets(&[&self.main_view.shadow_mask], None);
+                let sv = &self.main_view.shadow_views;
+                self.parent.generate_shadow_mask(
+                    cmd,
+                    &[
+                        (sv[0].world_to_projective(), sv[0].depth.srv()),
+                        (sv[1].world_to_projective(), sv[1].depth.srv()),
+                        (sv[2].world_to_projective(), sv[2].depth.srv()),
+                        (sv[3].world_to_projective(), sv[3].depth.srv()),
+                    ],
+                );
+                self.parent.externs.get_mut().shadow_mask.unk00 =
+                    self.main_view.shadow_mask.srv().into();
+                self.main_view
+                    .shadow_mask
+                    .transition(cmd, d3d12::ResourceStates::PIXEL_SHADER_RESOURCE);
             }
 
             self.main_view

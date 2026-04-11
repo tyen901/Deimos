@@ -18,6 +18,8 @@ pub struct Gbuffer {
     pub depth: DepthBuffer,
     pub depth_read: DepthBuffer,
 
+    pub uber_depth_half: RenderTarget,
+
     current_rtv_state: d3d12::ResourceStates,
 
     _resolution: (u32, u32),
@@ -68,6 +70,14 @@ impl Gbuffer {
             .context("allocating render target")?,
             depth: DepthBuffer::new(gpu, resolution).context("allocating depth buffer")?,
             depth_read: DepthBuffer::new(gpu, resolution).context("allocating depth buffer")?,
+            uber_depth_half: RenderTarget::new(
+                gpu,
+                "uber_depth_half",
+                d3d12::Format::R16g16Typeless,
+                d3d12::Format::R16g16Float,
+                ((resolution.0 / 2).min(1), (resolution.1 / 2).min(1)),
+            )
+            .context("allocating render target")?,
             current_rtv_state: d3d12::ResourceStates::RENDER_TARGET,
 
             _resolution: resolution,

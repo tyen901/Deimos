@@ -13,6 +13,8 @@ pub struct InternalResources {
     pub pso_hdri_lighting: d3d12::PipelineState,
     pub rs_hdri_background: d3d12::RootSignature,
     pub pso_hdri_background: d3d12::PipelineState,
+    pub rs_generate_shadow_mask: d3d12::RootSignature,
+    pub pso_generate_shadow_mask: d3d12::PipelineState,
 
     pub hdri: Texture,
     pub default_hemisphere: Texture,
@@ -143,6 +145,61 @@ impl InternalResources {
             )
             .context("pso_hdri_lighting")?;
 
+        let root_signature_raw = RootSignatureBuilder::default()
+            .with_param(
+                d3d12::RootParameter::DescriptorTable(&[
+                    DescriptorRange {
+                        base_shader_register: 0,
+                        register_space: 0,
+                        num_descriptors: 1,
+                        range_type: d3d12::DescriptorRangeType::Srv,
+                        offset_in_descriptors_from_table_start: 0,
+                    },
+                    DescriptorRange {
+                        base_shader_register: 10,
+                        register_space: 0,
+                        num_descriptors: 4,
+                        range_type: d3d12::DescriptorRangeType::Srv,
+                        offset_in_descriptors_from_table_start: 1,
+                    },
+                ]),
+                d3d12::ShaderVisibility::Pixel,
+            )
+            .with_cbv(0, 0, d3d12::ShaderVisibility::All)
+            .with_cbv(12, 0, d3d12::ShaderVisibility::All)
+            .with_sampler(d3d12::StaticSamplerDesc {
+                filter: d3d12::Filter::MinMagMipLinear,
+                address_u: d3d12::TextureAddressMode::Clamp,
+                address_v: d3d12::TextureAddressMode::Clamp,
+                address_w: d3d12::TextureAddressMode::Clamp,
+                mip_lod_bias: 0.0,
+                max_anisotropy: 1,
+                comparison_func: d3d12::ComparisonFunc::Always,
+                border_color: d3d12::D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK,
+                min_lod: 0.0,
+                max_lod: f32::MAX,
+                shader_register: 0,
+                register_space: 0,
+                shader_visibility: d3d12::ShaderVisibility::Pixel,
+            })
+            .serialize()?;
+
+        let rs_generate_shadow_mask = gpu
+            .create_root_signature(&root_signature_raw)
+            .context("rs_generate_shadow_mask")?;
+        let pso_generate_shadow_mask = gpu
+            .create_graphics_pipeline_state(
+                &GraphicsPipelineStateDesc::new(&rs_generate_shadow_mask)
+                    .with_vs(include_bytes!(
+                        "../../builtin/shaders/generate_shadow_mask.vs.dxil"
+                    ))
+                    .with_ps(include_bytes!(
+                        "../../builtin/shaders/generate_shadow_mask.ps.dxil"
+                    ))
+                    .with_rtv_formats(&[Format::R8g8Unorm]),
+            )
+            .context("pso_generate_shadow_mask")?;
+
         const HDRI_DATA_ZSTD: &[u8] = include_bytes!("../../builtin/textures/hdri_mips.data.zst");
         let hdri_mips = zstd::decode_all(HDRI_DATA_ZSTD)?;
         let num_mips = 512u16.ilog2() as u16 + 1;
@@ -179,6 +236,9 @@ impl InternalResources {
 
             rs_hdri_background,
             pso_hdri_background,
+
+            rs_generate_shadow_mask,
+            pso_generate_shadow_mask,
 
             hdri,
             default_hemisphere,
