@@ -148,6 +148,12 @@ impl RenderTarget {
     }
 }
 
+impl Drop for RenderTarget {
+    fn drop(&mut self) {
+        self.gpu.resource_heap.lock().free_srv(self.srv);
+    }
+}
+
 pub struct DepthBuffer {
     pub resource: OwnedResource,
     size: (u32, u32),
@@ -264,5 +270,11 @@ impl DepthBuffer {
 
     pub const fn resolution(&self) -> (u32, u32) {
         self.size
+    }
+}
+
+impl Drop for DepthBuffer {
+    fn drop(&mut self) {
+        self.gpu.resource_heap.lock().free_srv(self.srv);
     }
 }
