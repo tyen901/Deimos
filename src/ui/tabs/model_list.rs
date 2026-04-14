@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc, time::Instant};
 
 use deimos_data::tfx::geometry::AxisAlignedBBox;
 use deimos_ecs::object::{self, OPTION_KEY_INVALID, ObjectChannels, PermutationConfig};
@@ -41,6 +41,7 @@ pub struct ModelListBase<P: ModelProvider> {
     current_tag: TagHash,
     scene: Scene,
     zoom: f32,
+    time: Instant,
 
     /// Scene used for rendering thumbnails
     thumbnail_scene: Scene,
@@ -106,6 +107,7 @@ impl<P: ModelProvider> ModelListBase<P> {
             zoom: 1.0,
             scene,
             thumbnail_scene,
+            time: Instant::now(),
             hide_empty: true,
             hovered_tag: TagHash::NONE,
             hover_vector: Vec2::ZERO,
@@ -129,7 +131,7 @@ impl<P: ModelProvider> ModelListBase<P> {
             .iter_mut()
             .filter(|e| e.thumbnail.is_none() || e.rerender_needed)
         {
-            if let Some(world) = entry.thumbnail_world.take() {
+            if let Some(mut world) = entry.thumbnail_world.take() {
                 if s_are_all_objects_loaded(&world, &self.scene.scene_renderer.parent) {
                     let mut bb: AxisAlignedBBox = world
                         .query::<&AxisAlignedBBox>()
@@ -140,6 +142,18 @@ impl<P: ModelProvider> ModelListBase<P> {
                     if !bb.is_valid() {
                         bb = AxisAlignedBBox::from_center_extents(Vec3::ZERO, Vec3::ONE);
                     }
+
+                    world
+                        .query::<&mut PermutationConfig>()
+                        .iter()
+                        .for_each(|(_, config)| {
+                            config.permutation_index_override =
+                                Some(if config.permutation_count > 2 {
+                                    config.permutation_count - 1
+                                } else {
+                                    0
+                                })
+                        });
 
                     self.thumbnail_scene.set_world(world);
                     self.thumbnail_scene.controller = CameraController::new_orbit(Vec3::ZERO, 25.0);
@@ -194,7 +208,7 @@ impl<P: ModelProvider> ModelListBase<P> {
         let Some(entry) = entries.iter_mut().find(|e| e.hash == hash) else {
             return;
         };
-        if let Some(world) = entry.thumbnail_world.take() {
+        if let Some(mut world) = entry.thumbnail_world.take() {
             let mut bb: AxisAlignedBBox = world
                 .query::<&AxisAlignedBBox>()
                 .iter()
@@ -204,6 +218,16 @@ impl<P: ModelProvider> ModelListBase<P> {
             if !bb.is_valid() {
                 bb = AxisAlignedBBox::from_center_extents(Vec3::ZERO, Vec3::ONE);
             }
+
+            world
+                .query::<&mut PermutationConfig>()
+                .iter()
+                .for_each(|(_, config)| {
+                    config.permutation_index_override = Some(
+                        ((self.time.elapsed().as_secs_f32() * 4.0)
+                            % config.permutation_count as f32) as usize,
+                    )
+                });
 
             self.thumbnail_scene.set_world(world);
             self.thumbnail_scene.focus_fit_ortho(&bb);

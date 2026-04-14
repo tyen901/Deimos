@@ -156,9 +156,9 @@ impl DynamicModel {
 
         Ok(Box::new(Self {
             default_permutation: if permutation_count > 2 {
-                0
-            } else {
                 permutation_count - 1
+            } else {
+                0
             },
             permutation_count,
             // selected_mesh: 0,

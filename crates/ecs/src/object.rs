@@ -40,10 +40,10 @@ impl PermutationConfig {
             .unwrap_or(1);
 
         if model.unk408.is_empty() && !model.unk418.is_empty() {
-            warn!(
-                "TODO: Handle dynamic model permutations without unk408, dont know what to do \
-                 with these yet"
-            );
+            // warn!(
+            //     "TODO: Handle dynamic model permutations without unk408, dont know what to do \
+            //      with these yet"
+            // );
             return Some(Self {
                 permutation_index_override: Some(0),
                 permutation_count,
