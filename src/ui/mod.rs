@@ -324,11 +324,15 @@ impl Gui {
                         update.version
                     ));
                     ui.separator();
-                    egui_commonmark::CommonMarkViewer::new().show(
-                        ui,
-                        &mut self.commonmark_cache,
-                        update.changelog.as_str(),
-                    );
+                    egui::ScrollArea::vertical()
+                        .max_height(ui.ctx().viewport_rect().height() * 0.6)
+                        .show(ui, |ui| {
+                            egui_commonmark::CommonMarkViewer::new().show(
+                                ui,
+                                &mut self.commonmark_cache,
+                                update.changelog.as_str(),
+                            );
+                        });
 
                     ui.add_space(32.0);
                     ui.horizontal(|ui| {

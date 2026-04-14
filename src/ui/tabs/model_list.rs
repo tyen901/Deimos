@@ -182,12 +182,12 @@ impl<P: ModelProvider> ModelListBase<P> {
         }
         egui_ctx.request_repaint();
 
-        let all_entries_rendered = entries.iter().all(|e| !e.rerender_needed);
-        if let Some(e) = entries.first_mut()
-            && all_entries_rendered
-        {
-            e.rerender_needed = true;
-        }
+        // let all_entries_rendered = entries.iter().all(|e| !e.rerender_needed);
+        // if let Some(e) = entries.first_mut()
+        //     && all_entries_rendered
+        // {
+        //     e.rerender_needed = true;
+        // }
     }
 
     fn clear_thumbnails(&mut self) {
