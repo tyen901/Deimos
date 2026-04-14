@@ -778,8 +778,6 @@ impl Scene {
                     far_plane
                 });
 
-        println!("sdsm far plane: {}", sdsm_far_plane);
-
         for i in 0..CascadeCalculator::MAX_CASCADES {
             let view = &mut self.scene_renderer.main_view.shadow_views[i];
             let (near, far) = CascadeCalculator::get_depth_range(i, sdsm_far_plane)

@@ -85,7 +85,7 @@ pub struct SUnk80808926 {
 }
 
 #[derive(Debug)]
-#[tiger_type(id = 0x8080AB26)]
+#[tiger_type(id = 0x8080B463)]
 pub struct SUnk80808948 {
     pub location_name: FnvHash,
     pub activity_name: FnvHash,

@@ -26,13 +26,31 @@ pub struct PermutationConfig {
 }
 
 impl PermutationConfig {
+    pub fn is_configurable(&self) -> bool {
+        !self.keys.is_empty()
+    }
+
     pub fn from_model(model: &SDynamicModelComponent) -> Option<Self> {
+        let permutation_count = model
+            .technique_map
+            .iter()
+            .filter(|m| m.unk8 == 0)
+            .map(|m| m.technique_count as usize)
+            .next()
+            .unwrap_or(1);
+
         if model.unk408.is_empty() && !model.unk418.is_empty() {
             warn!(
                 "TODO: Handle dynamic model permutations without unk408, dont know what to do \
                  with these yet"
             );
-            return None;
+            return Some(Self {
+                permutation_index_override: Some(0),
+                permutation_count,
+                configuration: Default::default(),
+                keys: Default::default(),
+                pairs_to_permutation: Default::default(),
+            });
         }
         let mut configuration = HashMap::new();
         for keys1 in &model.unk38 {
@@ -84,14 +102,6 @@ impl PermutationConfig {
             pair.sort_by_key(|(k, _)| *k);
             pairs_to_permutation.insert(pair, i);
         }
-
-        let permutation_count = model
-            .technique_map
-            .iter()
-            .filter(|m| m.unk8 == 0)
-            .map(|m| m.technique_count as usize)
-            .next()
-            .unwrap_or(1);
 
         Some(Self {
             permutation_index_override: None,

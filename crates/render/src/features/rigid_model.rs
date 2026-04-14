@@ -40,7 +40,7 @@ pub struct DynamicModel {
 
     // pub selected_mesh: usize,
     pub default_permutation: usize,
-    permutation_count: usize,
+    pub permutation_count: usize,
 
     identifier_count: usize,
 
@@ -155,7 +155,11 @@ impl DynamicModel {
             + 1;
 
         Ok(Box::new(Self {
-            default_permutation: permutation_count - 1,
+            default_permutation: if permutation_count > 2 {
+                0
+            } else {
+                permutation_count - 1
+            },
             permutation_count,
             // selected_mesh: 0,
             identifier_count,

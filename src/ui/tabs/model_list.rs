@@ -338,7 +338,7 @@ impl<P: ModelProvider> ModelListBase<P> {
                     .world
                     .query::<&PermutationConfig>()
                     .iter()
-                    .any(|(_, config)| config.permutation_count > 1);
+                    .any(|(_, config)| config.permutation_count > 1 || config.is_configurable());
 
                 let object_channels_available = self
                     .scene
@@ -392,18 +392,23 @@ impl<P: ModelProvider> ModelListBase<P> {
                                         let manual_mode =
                                             config.permutation_index_override.is_some();
                                         ui.horizontal(|ui| {
-                                            if ui
-                                                .selectable_label(
-                                                    !manual_mode,
-                                                    "Calculate Permutation",
-                                                )
-                                                .clicked()
-                                            {
-                                                config.permutation_index_override = None;
+                                            if config.is_configurable() {
+                                                if ui
+                                                    .selectable_label(
+                                                        !manual_mode,
+                                                        "Calculate Permutation",
+                                                    )
+                                                    .clicked()
+                                                {
+                                                    config.permutation_index_override = None;
+                                                }
+                                            } else if config.permutation_index_override.is_none() {
+                                                config.permutation_index_override = Some(0);
                                             }
+
                                             if ui
                                                 .selectable_label(manual_mode, "Manual Index")
-                                                .clicked()
+                                                .clicked() && config.permutation_index_override.is_none()
                                             {
                                                 config.permutation_index_override = Some(0);
                                             }
@@ -658,14 +663,23 @@ impl<P: ModelProvider> ModelListBase<P> {
                             }
 
                             let option_count = model.option_count();
-                            if option_count >= 1 {
+                            let permutation_count = model.permutation_count();
+                            if option_count >= 1 || permutation_count >= 2 {
                                 card_painter.text(
                                     card_rect.right_bottom() + vec2(-8.0, -5.0),
                                     egui::Align2::RIGHT_BOTTOM,
                                     if self.zoom >= 0.70 {
-                                        format!("{option_count} options")
+                                        if option_count == 0 {
+                                            format!("{permutation_count} variants")
+                                        } else {
+                                            format!("{option_count} options")
+                                        }
                                     } else {
-                                        option_count.to_string()
+                                        if option_count == 0 {
+                                            permutation_count.to_string()
+                                        } else {
+                                            option_count.to_string()
+                                        }
                                     },
                                     FontId::proportional(16.0),
                                     ui.visuals().text_color().gamma_multiply(0.8),
@@ -837,6 +851,19 @@ impl ModelEntry {
             .iter()
             .map(|(_, config)| config.iter_keys().count())
             .sum()
+    }
+
+    fn permutation_count(&self) -> usize {
+        let Some(world) = &self.thumbnail_world else {
+            return 0;
+        };
+
+        world
+            .query::<&PermutationConfig>()
+            .iter()
+            .map(|(_, config)| config.permutation_count)
+            .max()
+            .unwrap_or(0)
     }
 
     fn is_empty(&self) -> bool {
