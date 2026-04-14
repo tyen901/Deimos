@@ -29,6 +29,10 @@ fn github_get<P: AsRef<str>>(path: P) -> ehttp::Request {
 }
 
 pub fn check_stable_release() -> anyhow::Result<Option<AvailableUpdate>> {
+    if DEIMOS_VERSION.contains("-dev") || DEIMOS_VERSION.contains("-rc") {
+        return Ok(None);
+    }
+
     #[derive(Deserialize, Debug)]
     struct ReleasePartial {
         pub tag_name: String,
