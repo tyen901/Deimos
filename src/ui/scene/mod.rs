@@ -71,6 +71,7 @@ pub struct Scene {
     show_channel_editor: bool,
     only_show_used_channels: bool,
 
+    umbra_enabled: bool,
     umbra_result: QueryErrorCode,
 }
 
@@ -109,6 +110,7 @@ impl Scene {
             show_channel_editor: false,
             only_show_used_channels: true,
             umbra_result: QueryErrorCode::Ok,
+            umbra_enabled: true,
         })
     }
 
@@ -482,7 +484,9 @@ impl Scene {
 
         let mut occlusion_buffer = None;
         let mut visible_cluster_bounds = None;
-        if let Some((_, tome)) = self.world.query::<&umbra::Tome>().iter().next() {
+        if let Some((_, tome)) = self.world.query::<&umbra::Tome>().iter().next()
+            && self.umbra_enabled
+        {
             profiling::scope!("umbra_visibility");
             let _scope = self
                 .renderer
@@ -1108,6 +1112,12 @@ impl Scene {
         ui.checkbox(&mut self.draw_sun_shadows, "Sun Shadows")
             .setting_description_tooltip(
                 "Enables shadows for the sun light.",
+                PerformanceImpact::High,
+            );
+
+        ui.checkbox(&mut self.umbra_enabled, "Umbra Culling")
+            .setting_description_tooltip(
+                "Enables Umbra3 occlusion culling for geometry.",
                 PerformanceImpact::High,
             );
 
