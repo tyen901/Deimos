@@ -39,7 +39,8 @@ pub struct SActivity {
     #[tiger(offset = 0x40)]
     pub unk40: Vec<SUnk80808926>,
     pub unk50: Vec<SUnk80808924>,
-    pub unk60: [u32; 4],
+    pub unk60: TagHash,
+    pub unk64: TagHash,
     pub ambient_activity: WideHash,
 }
 
