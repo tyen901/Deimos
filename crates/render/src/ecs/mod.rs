@@ -125,6 +125,10 @@ pub fn s_extract_frame_packet(
         )>()
         .iter()
     {
+        if !features.is_subscribed(render_objects[render_object.handle()].feature_type) {
+            continue;
+        }
+
         let transform = transform.copied().unwrap_or_default();
         let permutation = if let Some(permutation) = permutations {
             permutation
