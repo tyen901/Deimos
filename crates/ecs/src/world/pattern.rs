@@ -219,6 +219,8 @@ where
                 channels.set_by_id(0xF7202BBC, Vec4::splat(0.0)); // If not zero then rook's material varieties are static
                 channels.set_by_id(0x7EC60CCB, Vec4::splat(0.0)); // same as above, but for the decals
 
+                channels.set_by_id(0x2B9D1F06, Vec4::splat(0.0)); // Fixes invisible weapon mods
+
                 world.insert_one(entity, channels)?;
             }
             0x8080A317 => {
