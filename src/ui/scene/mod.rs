@@ -7,6 +7,7 @@ use deimos_data::tfx::{
     FeatureRendererSubscription, features::dynamic::RenderStageSubscription,
     geometry::AxisAlignedBBox,
 };
+use deimos_ecs::{PatternSource, TempAudioMarker, transform::Transform};
 use deimos_render::{
     camera::{Camera, CameraProjection},
     ecs::{s_extract_frame_packet, s_update_object_channels, s_visibility_test},
@@ -28,7 +29,7 @@ use egui::{
 };
 use glam::{Vec3, Vec4, Vec4Swizzles, vec3, vec4};
 use google_material_symbols::GoogleMaterialSymbols;
-use hecs::World;
+use hecs::{With, World};
 use itertools::Itertools;
 use umbra::QueryErrorCode;
 
@@ -439,6 +440,17 @@ impl Scene {
                 .set_global_channel_by_id(0x2C53817A, Vec4::splat(1.0 - self.raininess));
             self.scene_renderer
                 .set_global_channel_by_id(0xFDCC7BAA, Vec4::splat(self.heat_cascade));
+
+            // for (e, (transform, source)) in self
+            //     .world
+            //     .query::<With<(&Transform, &PatternSource), &TempAudioMarker>>()
+            //     .iter()
+            // {
+            //     if transform.translation.distance(self.camera.position) < 16.0 {
+            //         println!("Near audio pattern {}", source.tag);
+            //     }
+            // }
+            // println!("---------------------------------------");
 
             self.render(delta_time, resolution);
 

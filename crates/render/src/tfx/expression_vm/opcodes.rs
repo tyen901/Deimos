@@ -71,6 +71,7 @@ pub enum Opcode {
     Unknown0x3B = 0x3B,
     Unknown0x3D = 0x3D,
     Unknown0x3F = 0x3F,
+    Unknown0x40 = 0x40,
     Unknown0x41 = 0x41,
 
     PushConstVec4 = 0x42,
@@ -89,16 +90,22 @@ pub enum Opcode {
     PushExternInputUav,
     Unknown0x50,
     PushFromOutput,
-    PopOutput,
+
+    PopOutput = 0x53,
+    PopOutputUnk,
     PopOutputMat4,
     PushTemp,
     PopTemp,
-    PopTextureView,
+
+    Unknown0x55 = 0x58,
+    PopTextureView = 0x59,
     Unknown0x57,
-    PopSamplerState,
+
+    PopSamplerState = 0x5D,
     PopUav,
     Unknown0x5a,
-    PushSamplerState,
+
+    PushSamplerState = 0x61,
     PushObjectChannelVector,
     PushGlobalChannelVector,
     Unknown0x5e,
@@ -185,6 +192,7 @@ impl Opcode {
             | Self::Unknown0x3B
             | Self::Unknown0x3D
             | Self::Unknown0x3F
+            | Self::Unknown0x40
             | Self::Unknown0x41
             => 1,
 
@@ -195,6 +203,7 @@ impl Opcode {
             | Self::PushSamplerState
             | Self::PushFromOutput
             | Self::PopOutputMat4
+            | Self::PopOutputUnk
             | Self::PopTextureView
             | Self::PushGlobalChannelVector
             | Self::PushConstVec4
@@ -231,7 +240,7 @@ impl Opcode {
             | Self::Unknown0x66
             | Self::Unknown0x67 => 1,
 
-            Self::Unknown0x49 | Self::Unknown0x57 | Self::Unknown0x5a | Self::Unknown0x5e => 2,
+            Self::Unknown0x49 | Self::Unknown0x55 | Self::Unknown0x57 | Self::Unknown0x5a | Self::Unknown0x5e => 2,
         }
     }
 
@@ -297,10 +306,12 @@ impl Opcode {
             | Self::Unknown0x3B
             | Self::Unknown0x3D
             | Self::Unknown0x3F
+            | Self::Unknown0x40
             | Self::Unknown0x41
             | Self::Permute
             | Self::PopSamplerState
             | Self::PopOutputMat4
+            | Self::PopOutputUnk
             | Self::PopTextureView
             | Self::PopUav
             => ExpressionDataSource::STACK,
@@ -346,7 +357,7 @@ impl Opcode {
             | Self::Unknown0x65
             | Self::Unknown0x66
             | Self::Unknown0x67
-            | Self::Unknown0x49 | Self::Unknown0x57 | Self::Unknown0x5a | Self::Unknown0x5e
+            | Self::Unknown0x49 | Self::Unknown0x55 | Self::Unknown0x57  | Self::Unknown0x5a | Self::Unknown0x5e
             => ExpressionDataSource::UNKNOWN,
 
         }
@@ -375,7 +386,7 @@ impl<'a> Iterator for OpcodeIterator<'a> {
         let byte = self.data[self.position];
         let opcode = match Opcode::try_from(byte) {
             Ok(op) => op,
-            Err(_) => return Some(Err(anyhow::anyhow!("Unknown opcode: {:02X}", byte))),
+            Err(_) => return Some(Err(anyhow::anyhow!("Unknown opcode: 0x{:02X}", byte))),
         };
 
         let args_start = self.position + 1;

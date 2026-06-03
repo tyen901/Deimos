@@ -277,7 +277,7 @@ where
             Some(transform),
             callback,
         ) {
-            error!("Failed to load entity: {:?}", e);
+            error!("Failed to load entity {}: {:?}", node.entity, e);
         }
     }
 

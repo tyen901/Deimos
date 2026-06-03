@@ -32,9 +32,9 @@ pub struct SComponent {
 
 #[tiger_type(id = 0x8080AF75, size = 0x1A8)]
 pub struct SObjectChannelComponent {
-    #[tiger(offset = 0x120)]
+    #[tiger(offset = 0x110)]
     pub m_providers: Vec<()>,
-    #[tiger(offset = 0x130)]
+    #[tiger(offset = 0x120)]
     pub m_channels: Vec<SObjectChannel>,
 }
 

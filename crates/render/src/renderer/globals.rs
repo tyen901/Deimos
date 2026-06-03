@@ -125,7 +125,7 @@ macro_rules! tfx_global_scopes {
                             *scopes.get(stringify!($name))
                                 .expect(&format!("Scope {} does not exist", stringify!($name))),
                         )
-                        .expect("Failed to load scope")),
+                        .expect(&format!("Failed to load scope {}", stringify!($name)))),
                     )*
                 }
             }

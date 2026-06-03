@@ -13,3 +13,9 @@ pub struct UnimplementedTigerComponent {
 }
 
 pub struct UnimplementedTigerComponents(pub Vec<UnimplementedTigerComponent>);
+
+pub struct PatternSource {
+    pub tag: TagHash,
+}
+
+pub struct TempAudioMarker;

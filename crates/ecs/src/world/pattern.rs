@@ -19,7 +19,7 @@ use tiger_pkg::{TagHash, package_manager};
 use tracing::{debug, error, info};
 
 use crate::{
-    UnimplementedTigerComponent, UnimplementedTigerComponents,
+    PatternSource, TempAudioMarker, UnimplementedTigerComponent, UnimplementedTigerComponents,
     interactibles::Pingable,
     object::{ObjectChannel, ObjectChannels},
     transform::Transform,
@@ -72,7 +72,11 @@ where
     let header = package_manager()
         .read_tag_struct::<SPattern>(pattern_tag)
         .context("Failed to read SPattern")?;
-    spawn_pattern_from_header(world, &header, map_data_list, transform, callback)
+    let e = spawn_pattern_from_header(world, &header, map_data_list, transform, callback)?;
+
+    world.insert_one(e, PatternSource { tag: pattern_tag });
+
+    Ok(e)
 }
 
 pub fn spawn_pattern_from_header<F>(
@@ -147,7 +151,7 @@ where
         // }
 
         match callback(world, entity, header, data, &component)
-            .context("component load callback")?
+            .with_context(|| format!("while loading component {}", component.taghash()))?
         {
             ComponentLoadResult::Loaded => {
                 continue;
@@ -263,6 +267,9 @@ where
                     "Loaded {} node tables from component",
                     loaded_patterns.len()
                 );
+            }
+            0x8080B69A => {
+                world.insert_one(entity, TempAudioMarker);
             }
             u => {
                 debug!(

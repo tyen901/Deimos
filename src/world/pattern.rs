@@ -136,7 +136,7 @@ pub fn load_component(
 
             if let Ok(mut config) = world.get::<&mut PermutationConfig>(entity) {
                 let mut cur = Cursor::new(package_manager().read_tag(component.taghash())?);
-                cur.seek(SeekFrom::Start(component.definition.offset + 0xE8))?;
+                cur.seek(SeekFrom::Start(component.definition.offset + 0xD8))?;
                 let default_keys_order: Vec<S808085E3> = TigerReadable::read_ds(&mut cur)?;
 
                 for (key, value) in &data.config {
@@ -485,6 +485,11 @@ pub fn load_component(
                 tracing::error!("Missing tag for SUmbraTomeComponent");
                 return Ok(ComponentLoadResult::Skipped);
             };
+
+            if tomes.tome0.is_none() {
+                // Orbit has a tome component with no tomes(?)
+                return Ok(ComponentLoadResult::Loaded);
+            }
 
             let tome0_data = package_manager()
                 .read_tag(tomes.tome0)

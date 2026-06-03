@@ -125,11 +125,11 @@ impl AxisAlignedBBox {
     }
 
     pub fn contains_point(&self, point: Vec3) -> bool {
-        point.x >= self.min.x
+        self.min.x <= point.x
             && point.x <= self.max.x
-            && point.y >= self.min.y
+            && self.min.y <= point.y
             && point.y <= self.max.y
-            && point.z >= self.min.z
+            && self.min.z <= point.z
             && point.z <= self.max.z
     }
 
