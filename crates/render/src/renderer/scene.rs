@@ -365,20 +365,6 @@ impl SceneRenderer {
 
                 self.parent
                     .execute_global_pipeline(cmd, technique, &format!("{debug_pipeline:?}"));
-
-                {
-                    self.main_view
-                        .shaded_read
-                        .transition(cmd, d3d12::ResourceStates::COPY_SOURCE);
-                    self.main_view
-                        .output
-                        .transition(cmd, d3d12::ResourceStates::COPY_DEST);
-
-                    cmd.copy_resource(
-                        self.main_view.output.resource.resource(),
-                        self.main_view.shaded_read.resource.resource(),
-                    );
-                }
             } else {
                 self.main_view
                     .gbuffer
@@ -400,6 +386,7 @@ impl SceneRenderer {
 
             if use_hdri {
                 cmd.set_render_targets(&[&self.main_view.output], None);
+                self.parent.draw_hdri_background(cmd);
                 self.parent.draw_hdri_background(cmd);
             }
 

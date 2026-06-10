@@ -18,7 +18,7 @@ use crate::{
 };
 
 pub struct Scope {
-    _data: SScope,
+    data: SScope,
     // root_signature: d3d12::RootSignature,
     stage_vertex: ScopeStage,
     stage_pixel: ScopeStage,
@@ -43,11 +43,12 @@ impl Scope {
                 ShaderStage::Pixel,
             )
             .context("while loading pixel stage")?,
-            _data: data,
+            data,
         })
     }
 
     pub fn bind(&self, cmd: &mut CommandList) {
+        let _span = info_span!("Scope::bind", name = %&self.data.name.to_string()).entered();
         for stage in self.all_stages() {
             stage.bind(cmd);
         }

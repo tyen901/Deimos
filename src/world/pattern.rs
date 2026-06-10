@@ -72,7 +72,8 @@ pub fn load_component(
         0x80808673 => {
             let mut cur = Cursor::new(package_manager().read_tag(component.taghash())?);
             cur.seek(SeekFrom::Start(component.definition.offset))?;
-            let model: SDynamicModelComponent = TigerReadable::read_ds(&mut cur)?;
+            let model: SDynamicModelComponent = TigerReadable::read_ds(&mut cur)
+                .context("while reading dynamic model component")?;
 
             if let Some(permutations) = PermutationConfig::from_model(&model) {
                 world.insert_one(entity, permutations)?;
@@ -83,7 +84,8 @@ pub fn load_component(
                 model.model_hash,
                 model.technique_map,
                 model.techniques,
-            )?;
+            )
+            .context("while loading dynamic model")?;
             world.insert_one(
                 entity,
                 AxisAlignedBBox::from_center_extents(

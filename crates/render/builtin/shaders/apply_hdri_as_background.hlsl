@@ -19,8 +19,7 @@ float3 SampleHDRI(float3 dir, float mip) {
 }
 
 float4 mainPS(VSOutput input) : SV_TARGET {
-
-  float depth = deferred_depth.Sample(samplerState, input.uv);
+  float depth = deferred_depth.Load(int3(int2(input.pos.xy), 0));
 
   if (depth != 0)
     discard;

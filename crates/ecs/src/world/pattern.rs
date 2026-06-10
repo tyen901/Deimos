@@ -16,7 +16,7 @@ use glam::{Vec4, vec4};
 use itertools::Itertools;
 use tiger_parse::{FnvHash, PackageManagerExt, TigerReadable};
 use tiger_pkg::{TagHash, package_manager};
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 use crate::{
     PatternSource, TempAudioMarker, UnimplementedTigerComponent, UnimplementedTigerComponents,
@@ -166,9 +166,15 @@ where
                 cur.seek(SeekFrom::Start(component.definition.offset + 0x78))?;
                 let string_table = WideHash::read_ds(&mut cur)?;
 
-                let container = StringContainer::load(string_table)?;
-                let name = container.0.get(&hash).cloned();
-                world.insert_one(entity, Pingable { name })?;
+                match StringContainer::load(string_table) {
+                    Ok(container) => {
+                        let name = container.0.get(&hash).cloned();
+                        world.insert_one(entity, Pingable { name })?;
+                    }
+                    Err(e) => {
+                        warn!("Failed to load string container for pingable component: {e:?}");
+                    }
+                }
             }
             0x8080AF8E => {
                 let data = SObjectChannelComponent::read_ds(&mut cur)?;

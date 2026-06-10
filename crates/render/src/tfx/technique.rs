@@ -117,6 +117,7 @@ impl Technique {
         cmd: &mut CommandList,
         object_channels: Option<&AHashMap<u32, ObjectChannel>>,
     ) {
+        let _span = info_span!("Technique::bind", tag = %self.tag).entered();
         let full_rebind = !cmd.is_technique_smart_bound(self.tag);
 
         if !matches!(
