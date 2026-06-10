@@ -161,9 +161,9 @@ where
 
         match component.default_instance.resource_type {
             0x80802976 => {
-                cur.seek(SeekFrom::Start(component.definition.offset + 0x68))?;
+                cur.seek(SeekFrom::Start(component.definition.offset + 0x58))?;
                 let hash = FnvHash::read_ds(&mut cur)?;
-                cur.seek(SeekFrom::Start(component.definition.offset + 0x78))?;
+                cur.seek(SeekFrom::Start(component.definition.offset + 0x68))?;
                 let string_table = WideHash::read_ds(&mut cur)?;
 
                 match StringContainer::load(string_table) {
@@ -172,7 +172,7 @@ where
                         world.insert_one(entity, Pingable { name })?;
                     }
                     Err(e) => {
-                        warn!("Failed to load string container for pingable component: {e:?}");
+                        error!("Failed to load string container for pingable component: {e:?}");
                     }
                 }
             }

@@ -7,10 +7,10 @@ use deimos_data::tfx::{
     FeatureRendererSubscription, features::dynamic::RenderStageSubscription,
     geometry::AxisAlignedBBox,
 };
-use deimos_ecs::{PatternSource, TempAudioMarker, transform::Transform};
 use deimos_render::{
     camera::{Camera, CameraProjection},
     ecs::{s_extract_frame_packet, s_update_object_channels, s_visibility_test},
+    features::decorators::DECORATOR_QUALITY,
     gpu::{alloc::descriptors::ResourceView, render_target::RenderTarget},
     renderer::{
         Renderer,
@@ -29,7 +29,7 @@ use egui::{
 };
 use glam::{Vec3, Vec4, Vec4Swizzles, vec3, vec4};
 use google_material_symbols::GoogleMaterialSymbols;
-use hecs::{With, World};
+use hecs::World;
 use itertools::Itertools;
 use umbra::QueryErrorCode;
 
@@ -1120,6 +1120,23 @@ impl Scene {
         //         "Enables (static) shadows for local lights.",
         //         PerformanceImpact::Medium,
         //     );
+
+        let mut decorator_quality = DECORATOR_QUALITY.load(Ordering::Relaxed) as usize;
+        egui::Slider::new(&mut decorator_quality, 0..=2)
+            .text("Decorator Quality").custom_formatter(|n, _| match n as u8 {
+                0 => "High".to_string(),
+                1 => "Medium".to_string(),
+                2 => "Low".to_string(),
+                _ => n.to_string(),
+            })
+            .show_value(true).ui(ui)
+            .setting_description_tooltip(
+                "Sets the quality level for decorator rendering, which affects the visual fidelity of \
+                 small details like grass and debris. Higher quality levels may significantly \
+                 reduce performance on lower-end hardware.",
+                PerformanceImpact::High,
+            );
+        DECORATOR_QUALITY.store(decorator_quality as u8, Ordering::Relaxed);
 
         ui.checkbox(&mut self.draw_sun_shadows, "Sun Shadows")
             .setting_description_tooltip(

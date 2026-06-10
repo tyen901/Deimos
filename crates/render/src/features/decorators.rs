@@ -1,3 +1,5 @@
+use std::sync::atomic::AtomicU8;
+
 use bytemuck::cast_slice;
 use deimos_data::tfx::{
     ShaderStage,
@@ -16,6 +18,10 @@ use crate::{
     },
     tfx::externs,
 };
+
+lazy_static::lazy_static! {
+    pub static ref DECORATOR_QUALITY: AtomicU8 = AtomicU8::new(1);
+}
 
 pub struct DecoratorRenderer {
     pub data: SDecorator,
@@ -134,128 +140,6 @@ impl DecoratorRenderer {
 }
 
 impl FeatureRenderer for DecoratorRenderer {
-    // fn visibility_test(&mut self, camera: &crate::camera::Camera) -> bool {
-    //     camera.culling_frustum.aabb_intersecting(&self.data.bounds)
-    // }
-
-    // fn extract_and_prepare(&mut self, renderer: &Renderer, extracted_data: &dyn std::any::Any) {
-    //     _ = renderer;
-    //     _ = extracted_data;
-
-    //     // for (m, _, _) in &mut self.models {
-    //     //     m.update_cbuffer(&renderer.gpu, Mat4::IDENTITY, None)
-    //     //         .expect("Failed to update cbuffer for decorator model");
-    //     // }
-    // }
-
-    // fn submit(
-    //     &self,
-    //     cmd: &mut crate::gpu::command_list::CommandList,
-    //     stage: deimos_data::tfx::RenderStage,
-    // ) {
-    //     // cmd_event_span!(cmd, format!("<decorator {} ({} models)>", self.hash, self.models.len()));
-
-    //     let renderer = Renderer::instance();
-    //     let speedtree_vertex_slot = renderer.globals.scopes.speedtree.vertex_slot() as u32;
-
-    //     {
-    //         let consts = &self.data.unk48.unk14;
-    //         cmd.externs.speedtree_placements = Box::new(externs::SpeedtreePlacements {
-    //             unk10: Vec4::W,
-    //             unk20: consts.instances_scale,
-    //             unk30: consts.instances_offset,
-    //             unk40: consts.unk20,
-    //             unk50: consts.unk30,
-    //             unk60: consts.unk40,
-    //             unk70: consts.unk50,
-    //             // unk40: Default::default(),
-    //             // unk50: Default::default(),
-    //             // unk60: Default::default(),
-    //             ..(cmd
-    //                 .externs
-    //                 .speedtree_placements
-    //                 .as_deref()
-    //                 .cloned()
-    //                 .unwrap_or_default())
-    //         })
-    //         .into();
-    //     }
-
-    //     for id in 0..(self.data.unk18.len() - 1) {
-    //         let instance_start = self.data.unk18[id];
-    //         let instance_end = self.data.unk18[id + 1];
-    //         let instance_count = instance_end - instance_start;
-
-    //         // let group_mask = if self.models.len() == 1 {
-    //         //     1 << id
-    //         // } else {
-    //         //     // cohae: Multi-models (usually trees) seem to use the ID as a LOD level?
-    //         //     u64::MAX
-    //         // };
-
-    //         let model_id = if self.models.len() == 1 { 0 } else { id };
-    //         // cmd_event_span!(cmd, format!("<id {}, model {}>", id, model_id));
-
-    //         let Some((model, ext, cb)) = self.models.get(model_id) else {
-    //             warn!(
-    //                 decorator_set = %self.hash,
-    //                 mesh_count = self.models[0].0.model.meshes.len(),
-    //                 variant_count = self.models[0].0.variant_count(),
-    //                 identifier_count = self.models[0].0.identifier_count(),
-    //                 "Decorator model index {id} out of bounds for models list of length {}",
-    //                 self.models.len(),
-    //             );
-    //             continue;
-    //         };
-
-    //         if let Some(cb) = cb {
-    //             cb.bind(cmd, ShaderStage::Vertex, speedtree_vertex_slot);
-    //         } else {
-    //             cmd.vertex_set_constant_buffers(speedtree_vertex_slot, &[None]);
-    //         }
-
-    //         cmd.externs.rigid_model = Box::clone(ext).into();
-
-    //         let dyn_id = if self.models.len() == 1 {
-    //             id as u16
-    //         } else {
-    //             // cohae: Multi-models (usually trees) seem to use the ID as a LOD level?
-    //             0
-    //         };
-
-    //         // println!(
-    //         //     "Drawing ID {id} (max {}, {} identifiers for model {} in set {})",
-    //         //     self.models.len(),
-    //         //     model.identifier_count(),
-    //         //     model_index,
-    //         //     self.hash
-    //         // );
-
-    //         self.instance_blend_indices_vb.bind_single(cmd, 3);
-    //         model.draw_wrapped(cmd, stage, dyn_id, move |_model, cmd, _mesh, part| {
-    //             // Seems to be the LOD selector. 0=high, 1=medium, 2=low
-    //             if part.unk17 != 2 {
-    //                 return;
-    //             }
-
-    //             let Some(cb) = self.instance_buffer.get() else {
-    //                 return;
-    //             };
-    //             cb.bind_single(cmd, 1);
-
-    //             cmd.draw_indexed_instanced(
-    //                 part.index_count,
-    //                 // self.data.unk48.instance_data.data.len() as _,
-    //                 // instance_count.min(4096),
-    //                 instance_count,
-    //                 part.index_start,
-    //                 0,
-    //                 instance_start,
-    //             );
-    //         });
-    //     }
-    // }
-
     fn populate_submit_node_blocks(
         &self,
         _renderer: &Renderer,
@@ -351,7 +235,7 @@ impl FeatureRenderer for DecoratorRenderer {
             self.instance_blend_indices_vb.bind_single(cmd, 3);
             model.draw_wrapped(cmd, stage, dyn_id, None, move |_model, cmd, _mesh, part| {
                 // LOD selector. 0=high, 1=medium, 2=low
-                if part.unk17 != 0 {
+                if part.unk17 != DECORATOR_QUALITY.load(std::sync::atomic::Ordering::Relaxed) {
                     return;
                 }
 

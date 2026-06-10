@@ -283,7 +283,7 @@ pub fn load_component(
                 let light = OptionalTagRef::<SShadowingLight>::read_ds(&mut cur)?;
 
                 let Some(light) = light.0 else {
-                    return Ok(ComponentLoadResult::Skipped);
+                    return Ok(ComponentLoadResult::Loaded);
                 };
                 light
             };
@@ -378,109 +378,6 @@ pub fn load_component(
             //         DynamicRenderObject::new(renderer.add_object(render_obj)),
             //     )?;
         }
-        // 0x80806A3F => {
-        //     let data = get_component_data!(SStaticAmbientOcclusionComponent);
-        //     if let Some(ao) = data.ao.0.clone() {
-        //         world.insert_one(entity, StaticAmbientOcclusion::new(ao))?;
-        //     }
-        // }
-        // 0x808068E6 => {
-        //     let data = get_component_data!(SRoadDecalCollectionComponent);
-        //     let Some(_) = data.tag.as_ref() else {
-        //         continue;
-        //     };
-
-        //     world.insert_one(
-        //         entity,
-        //         StaticRenderObject::new(
-        //             renderer.add_object(RenderObject::new(
-        //                 TfxFeatureRenderer::RoadDecals,
-        //                 RoadDecalCollectionRenderer::load(data.tag.taghash())
-        //                     .context("Failed to load road decal collection")?,
-        //             )),
-        //         ),
-        //     )?;
-        // }
-        // 0x808068D9 => {
-        //     let data = get_component_data!(SWaterPlaneComponent);
-
-        //     let model = DynamicModel::load(data.model, vec![], vec![])?;
-        //     let obj = renderer
-        //         .add_object(RenderObject::new(TfxFeatureRenderer::Water, model));
-        //     world.insert_one(entity, DynamicRenderObject::new(obj))?;
-        // }
-        // 0x80806BBF => {
-        //     let data = get_component_data!(SAtmosphereDataComponent);
-
-        //     let am = &renderer.asset_manager;
-        //     let atmosphere = AtmosphereData {
-        //         atmosphere_lookup_near_0: am.load(data.unk80_tex),
-        //         atmosphere_lookup_far_0: am.load(data.unk90_tex),
-        //         atmosphere_lookup_near_1: am.load(data.unka0_tex),
-        //         atmosphere_lookup_far_1: am.load(data.unkb0_tex),
-        //         atmosphere_lookup_vertical: am.load(data.unkc0_tex),
-        //     };
-
-        //     world.insert_one(entity, atmosphere)?;
-        // }
-        // 0x80806A6F => {
-        //     if let Some(ref sun) = *get_component_data!(SSunDataComponent).unk0 {
-        //         let SUnk80808ac8Variant::SSunAngles(a0) = &*sun.unk10.unk10;
-        //         // let SUnk80808ac8Variant::SSunAngles(_a1) = &*sun.unk14.unk10;
-        //         let SUnk80808ac8Variant::SSunAngles(a2) = &*sun.unk18.unk10;
-        //         // let SUnk80808ac8Variant::SSunAngles(_a3) = &*sun.unk1c.unk10;
-
-        //         world.insert_one(
-        //             entity,
-        //             SunDirections {
-        //                 sun_directions: a0.angles.clone(),
-        //                 atmosphere_directions: a2.angles.clone(),
-        //             },
-        //         )?;
-        //     }
-        // }
-        // 0x80809479 => {
-        //     let mut f = Cursor::new(package_manager().read_tag(component.taghash())?);
-        //     f.seek(SeekFrom::Start(component.unk18.offset))?;
-
-        //     let globals = SUnk80808179::read_ds(&mut f)?;
-        //     for g in globals.unk1c8.iter().chain(globals.unk1d8.iter()) {
-        //         match &*g.unk18 {
-        //             SUnk808091f1Variant::SSequenceGlobalChannel(c) => {
-        //                 let r = &globals.unk1f8[c.other_index as usize];
-        //                 world.spawn((GlobalChannelExpression {
-        //                     channel_id: r.unk30,
-        //                     bytecode: c.bytecode.clone(),
-        //                     bytecode_constants: c.bytecode_constants.clone(),
-        //                 },));
-        //             }
-        //             SUnk808091f1Variant::Unknown {
-        //                 class: _,
-        //                 offset: _,
-        //             } => {
-        //                 // warn!(
-        //                 //     "Unknown sequence class: {:08X} at offset: {:#X} in {}",
-        //                 //     class,
-        //                 //     offset,
-        //                 //     component.taghash()
-        //                 // );
-        //             }
-        //             _ => {
-        //                 debug!("Unimplemented SUnk808091f1Variant: {g:?}");
-        //             }
-        //         }
-        //     }
-
-        //     // for (i, v) in globals.unk1f8.iter().enumerate() {
-        //     //     println!(
-        //     //         "{i}: 0x{:08X} ({:?})",
-        //     //         v.unk30,
-        //     //         get_global_channel_name(v.unk30)
-        //     //     );
-        //     // }
-
-        //     add_unknown_component!("Sequence");
-        // }
         0x808085DD => {
             let data = get_component_data!(SUmbraTomeComponent);
             let Some(tomes) = &*data.tag else {
