@@ -665,9 +665,9 @@ impl<'a> InterpreterState<'a> {
                 }
                 u => {
                     anyhow::bail!(
-                        "Unimplemented opcode: {u:?} / 0x{:02X} (ip=0x{:X})",
+                        "Unimplemented opcode: {u:?} / 0x{:X} (ip=0x{:X})",
                         ptr[0],
-                        self.ip
+                        self.ip,
                     );
                 }
             }

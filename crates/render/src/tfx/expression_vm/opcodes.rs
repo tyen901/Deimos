@@ -94,10 +94,10 @@ pub enum Opcode {
     PopOutput = 0x53,
     PopOutputUnk,
     PopOutputMat4,
-    PushTemp,
+
+    PushTemp = 0x57,
     PopTemp,
 
-    Unknown0x55 = 0x58,
     PopTextureView = 0x59,
     Unknown0x57,
 
@@ -240,7 +240,7 @@ impl Opcode {
             | Self::Unknown0x66
             | Self::Unknown0x67 => 1,
 
-            Self::Unknown0x49 | Self::Unknown0x55 | Self::Unknown0x57 | Self::Unknown0x5a | Self::Unknown0x5e => 2,
+            Self::Unknown0x49 |  Self::Unknown0x57 | Self::Unknown0x5a | Self::Unknown0x5e => 2,
         }
     }
 
@@ -357,7 +357,7 @@ impl Opcode {
             | Self::Unknown0x65
             | Self::Unknown0x66
             | Self::Unknown0x67
-            | Self::Unknown0x49 | Self::Unknown0x55 | Self::Unknown0x57  | Self::Unknown0x5a | Self::Unknown0x5e
+            | Self::Unknown0x49 |  Self::Unknown0x57  | Self::Unknown0x5a | Self::Unknown0x5e
             => ExpressionDataSource::UNKNOWN,
 
         }

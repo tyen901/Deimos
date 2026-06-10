@@ -662,7 +662,7 @@ impl<'a> DecompilerState<'a> {
                     cached_top = self.push(format!("tex_tiling_params(0x{unk1:X}, 0x{unk2:X})"))?;
                 }
                 u => {
-                    anyhow::bail!("Unimplemented opcode: {u:?} / 0x{:02X}", ptr[0]);
+                    anyhow::bail!("Unimplemented opcode: {u:?} / 0x{:X}", ptr[0]);
                 }
             }
 
