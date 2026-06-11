@@ -26,6 +26,9 @@ pub use descriptor_heap::*;
 mod device;
 pub use device::*;
 
+mod device_factory;
+pub use device_factory::*;
+
 mod device_child;
 pub use device_child::*;
 

@@ -18,6 +18,7 @@ pub mod swapchain;
 
 use std::{
     any::Any,
+    path::Path,
     rc::Rc,
     sync::{Arc, atomic::AtomicUsize},
     time::Duration,
@@ -25,7 +26,8 @@ use std::{
 
 use anyhow::Context;
 use d3d12::{
-    CommandQueueDesc, D3D12GetDebugInterface, DxgiUsage, ID3D12Debug, SwapChainDesc, SwapEffect,
+    CommandQueueDesc, D3D12GetDebugInterface, DeviceFactory, DxgiUsage, ID3D12Debug, SwapChainDesc,
+    SwapEffect,
     error::D3DResultExt,
     ext::{GpuFence, GpuFenceWaiter},
 };
@@ -39,10 +41,13 @@ use swapchain::Swapchain;
 use windows::{
     Win32::{
         Foundation::HWND,
-        Graphics::Dxgi::{
-            CreateDXGIFactory2, DXGI_CREATE_FACTORY_DEBUG, DXGI_CREATE_FACTORY_FLAGS,
-            DXGI_MEMORY_SEGMENT_GROUP_LOCAL, DXGI_QUERY_VIDEO_MEMORY_INFO, IDXGIAdapter3,
-            IDXGIFactory4,
+        Graphics::{
+            Direct3D::D3D_FEATURE_LEVEL_11_0,
+            Dxgi::{
+                CreateDXGIFactory2, DXGI_CREATE_FACTORY_DEBUG, DXGI_CREATE_FACTORY_FLAGS,
+                DXGI_MEMORY_SEGMENT_GROUP_LOCAL, DXGI_QUERY_VIDEO_MEMORY_INFO, IDXGIAdapter3,
+                IDXGIFactory4,
+            },
         },
     },
     core::Interface,
@@ -149,7 +154,14 @@ impl Gpu {
             }
         };
 
-        let device = d3d12::Device::create(Some(adapter)).context("Failed to create device")?;
+        let device_factory = DeviceFactory::new(Some(d3d12::AgilitySdk {
+            version: 619,
+            path: "./".to_string(),
+        }))?;
+
+        let device = device_factory
+            .create_device(&adapter, D3D_FEATURE_LEVEL_11_0)
+            .context("Failed to create device")?;
 
         let queue = device
             .create_command_queue(

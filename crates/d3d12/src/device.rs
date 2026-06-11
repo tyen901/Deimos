@@ -17,6 +17,7 @@ use crate::{
 pub struct Device(pub(crate) ID3D12Device);
 
 impl Device {
+    #[deprecated(note = "Use DeviceFactory instead")]
     pub fn create(adapter: Option<IDXGIAdapter>) -> Result<Self> {
         let mut device = None;
         unsafe {
