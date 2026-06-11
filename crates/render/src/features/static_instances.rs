@@ -395,11 +395,6 @@ pub struct StaticInstancesRenderer {
 impl StaticInstancesRenderer {
     pub fn load_from_tag(renderer: &Renderer, instances_hash: TagHash) -> anyhow::Result<Self> {
         let instances: SStaticMeshInstances = package_manager().read_tag_struct(instances_hash)?;
-        println!(
-            "Instance collection {instances_hash} has {} occlusion bounds, {} models",
-            instances.occlusion_bounds.bounds.len(),
-            instances.instance_groups.len()
-        );
         let transforms_upload = ImmutableStaging::new(instances.instance_groups.len() * 0x50 * 2);
         let mut models = instances
             .instance_groups

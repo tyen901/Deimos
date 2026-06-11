@@ -59,8 +59,8 @@ impl SceneRenderer {
         r.set_global_channel_by_id(0x2C538179, Vec4::splat(0.1)); // dims some very bright sky objects
         r.set_global_channel_by_id(0x2E538443, Vec4::splat(1.0)); // fixes marathon/planet rings not appearing
 
-        r.set_global_channel_by_id(0xCF70AC7C, Vec4::splat(1.0)); // something about reflectivity
-        r.set_global_channel_by_id(0x471E28F2, Vec4::splat(1.0)); // something about reflectivity
+        r.set_global_channel_by_id(0xCF70AC7C, Vec4::splat(0.0)); // something about reflectivity (zero fixes "reflection acne")
+        r.set_global_channel_by_id(0x471E28F2, Vec4::splat(0.0)); // something about reflectivity (zero fixes "reflection acne")
 
         Ok(r)
     }

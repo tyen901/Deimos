@@ -36,7 +36,7 @@ use umbra::QueryErrorCode;
 use crate::{
     app::SharedState,
     ui::{
-        scene::{self, controller::CameraController},
+        scene::controller::CameraController,
         util::{ExternalDataWidgetExt, UiExt, format_bytes},
     },
 };
@@ -436,6 +436,11 @@ impl Scene {
                 .set_global_channel_by_id(0x156C2B22, Vec4::splat(self.raininess));
             self.scene_renderer
                 .set_global_channel_by_id(0xD8281393, Vec4::splat(self.raininess));
+            self.scene_renderer
+                .set_global_channel_by_id(0xCF70AC7C, Vec4::splat(self.raininess));
+            self.scene_renderer
+                .set_global_channel_by_id(0x471E28F2, Vec4::splat(self.raininess));
+
             self.scene_renderer
                 .set_global_channel_by_id(0x2C53817A, Vec4::splat(1.0 - self.raininess));
             self.scene_renderer
