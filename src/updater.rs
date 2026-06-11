@@ -87,6 +87,8 @@ pub fn execute_update(zip_data: Vec<u8>) -> anyhow::Result<()> {
     move_to_old_if_exists(&exe_path.with_extension("pdb")).context("failed to move deimos.pdb")?;
     move_to_old_if_exists(&exe_path.with_file_name("SDL3.dll"))
         .context("failed to move SDL3.dll")?;
+    let _e = move_to_old_if_exists(&exe_path.with_file_name("D3D12Core.dll"));
+    let _e = move_to_old_if_exists(&exe_path.with_file_name("d3d12SDKLayers.dll"));
 
     let mut zip_reader = Cursor::new(zip_data);
     let exe_dir = exe_path
