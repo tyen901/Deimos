@@ -33,10 +33,6 @@ impl MapTab {
         tag: TagHash,
         name: String,
     ) -> anyhow::Result<Self> {
-        if !deimos_polonium::check_tag(tag) {
-            return Err(anyhow::anyhow!("Invalid tag"));
-        }
-
         let renderer_clone = renderer.clone();
         let camera = Camera {
             position: Vec3::Z * 5.0,

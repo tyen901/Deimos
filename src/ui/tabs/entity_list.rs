@@ -127,9 +127,6 @@ impl ModelProvider for EntityModelProvider {
             .filter(|(_, e)| e.reference == SPattern::ID.unwrap())
             .filter_map(|(i, _)| {
                 let hash = TagHash::new(pkg_id, i as u16);
-                if !deimos_polonium::check_tag(hash) {
-                    return None;
-                }
 
                 match package_manager().read_tag_struct::<SPattern>(hash) {
                     Ok(pattern) => {

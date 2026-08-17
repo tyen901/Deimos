@@ -37,10 +37,6 @@ impl ActivityListTab {
         for (activity_string, tag) in
             package_manager().get_named_tags_by_class(SActivity::ID.unwrap())
         {
-            if !deimos_polonium::check_tag(tag) {
-                continue;
-            }
-
             let Some((destination, activity)) = activity_string.split_once(".") else {
                 continue;
             };

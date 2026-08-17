@@ -38,10 +38,6 @@ pub struct ActivityTab {
 
 impl ActivityTab {
     pub fn new(state: &Arc<SharedState>, tag: TagHash, name: String) -> anyhow::Result<Self> {
-        if !deimos_polonium::check_tag(tag) {
-            return Err(anyhow::anyhow!("Invalid tag"));
-        }
-
         let activity: SActivity = package_manager()
             .read_tag_struct(tag)
             .context("Failed to read SActivity")?;

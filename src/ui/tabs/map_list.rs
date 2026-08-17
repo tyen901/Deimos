@@ -33,9 +33,6 @@ impl MapListTab {
         let map_tags_by_package = {
             let mut map = HashMap::default();
             for (tag, name) in map_tags {
-                if !deimos_polonium::check_tag(tag) {
-                    continue;
-                }
                 let pkg_path = &package_manager().package_paths[&tag.pkg_id()];
                 map.entry(pkg_path.name.clone())
                     .or_insert_with(Vec::new)

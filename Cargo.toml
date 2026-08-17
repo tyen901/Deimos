@@ -1,6 +1,6 @@
 [package]
 name = "deimos"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 default-run = "deimos"
 
@@ -19,7 +19,6 @@ members = [
     "crates/render",
     "crates/umbra3",
     "crates/investment",
-    "crates/polonium",
 ]
 
 [workspace.dependencies]
@@ -35,9 +34,7 @@ potassium = "0.4.3"
 profiling = "1"
 rayon = "1.11.0"
 serde = { version = "1", features = ["derive"] }
-sdl3 = { version = "0.16", features = [
-    "raw-window-handle",
-] }
+sdl3 = { version = "0.16", features = ["raw-window-handle"] }
 tiger-parse = { version = "0.7.2", git = "https://github.com/v4nguard/tiger-parse.git", features = [
     "check_types",
     "check_types_strict",
@@ -66,7 +63,6 @@ features = [
 deimos-core = { path = "./crates/core" }
 deimos-data = { path = "./crates/data" }
 deimos-ecs = { path = "./crates/ecs" }
-deimos-polonium = { path = "./crates/polonium" }
 deimos-render = { path = "./crates/render" }
 d3d12 = { path = "./crates/d3d12" }
 egui-sdl3-platform = { path = "./crates/egui-sdl3-platform" }
@@ -114,7 +110,9 @@ nu-ansi-term = "0.50.1"
 rayon.workspace = true
 windows-registry = "0.6.1"
 
-sysinfo = { version = "0.38.4", default-features = false, features = ["system"] }
+sysinfo = { version = "0.38.4", default-features = false, features = [
+    "system",
+] }
 zip = "8.5.0"
 ehttp = { version = "0.7.1", features = ["json"] }
 semver = "1.0.28"

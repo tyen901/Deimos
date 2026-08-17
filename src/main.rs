@@ -5,7 +5,6 @@ use app::App;
 use clap::Parser;
 use cli::AppArgs;
 use deimos_core::job::SCHEDULER;
-use deimos_polonium::session::{get_session_info, upload_session};
 use itertools::Itertools;
 use tracing_subscriber::{
     Layer,
@@ -48,15 +47,6 @@ fn main() -> anyhow::Result<()> {
         .thread_name(|i| format!("rayon-pool-{i}"))
         .num_threads(SCHEDULER.num_workers())
         .build_global()?;
-
-    thread::spawn(|| {
-        let session = get_session_info(DEIMOS_VERSION.to_string());
-        if let Err(e) = upload_session(session) {
-            error!("failed to create session: {e}");
-        } else {
-            info!("session created successfully");
-        }
-    });
 
     fix_windows_console();
     print_banner();

@@ -118,9 +118,6 @@ impl ModelProvider for StaticModelProvider {
             .filter(|(_, e)| e.reference == SStaticMesh::ID.unwrap())
             .filter_map(|(i, _)| {
                 let hash = TagHash::new(pkg_id, i as u16);
-                if !deimos_polonium::check_tag(hash) {
-                    return None;
-                }
                 let mut world = hecs::World::new();
                 match load_static_mesh(&self.renderer, hash, &mut world) {
                     Ok(_entity) => Some(ModelEntry {
