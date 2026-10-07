@@ -410,6 +410,7 @@ pub fn read_character(manager: &PackageManager, tag: TagHash) -> anyhow::Result<
     let mut attachments = Vec::new();
     let mut runtime_rig = None;
     let mut animation_library = None;
+    let mut model_children = Vec::new();
     for offset in array(&bytes, 8, 12, 0x8080BAA2)? {
         let component = TagHash(word(&bytes, offset)?);
         ensure!(manager.get_entry(component).context("component missing")?.reference == 0x8080BADB, "component class mismatch {component}");
@@ -418,19 +419,32 @@ pub fn read_character(manager: &PackageManager, tag: TagHash) -> anyhow::Result<
         components.push(serde_json::json!({"tag":component.to_string(), "definition_class":definition.map(|(_,c)|format!("{c:08X}"))}));
         if let Some((base,class)) = definition {
             match class {
+                0x808032B3 => {
+                    // Installed 032B3 places this table at +118. The MIDA
+                    // reference's +128 layout does not describe these bytes.
+                    for p in array(&data,base+0x118,0x40,0x808032BA)? {
+                        let child=source_identity(manager,&data,p+0x10)?;
+                        model_children.push((child,(0..16).map(|i|word(&data,p+i*4)).collect::<anyhow::Result<Vec<_>>>()?));
+                    }
+                }
                 0x80803936 => {
                     ensure!(animation_library.is_none(), "multiple animation libraries in {tag}");
                     let library = TagHash(word(&data,base+0x12C)?);
                     let bank = TagHash(word(&data,base+0xE8)?);
-                    ensure!(manager.get_entry(library).context("animation library missing")?.reference==0x80803942,"animation library class mismatch");
-                    let source=manager.read_tag(library)?;
                     let mut clips=Vec::new();
-                    for p in array(&source,8,48,0x80803877)? {
+                    // The source weapon component explicitly has no primary motion
+                    // table. Its separate clip bank still owns its native clips.
+                    let library_present=library.0!=0 && library.0!=u32::MAX;
+                    if library_present {
+                     ensure!(manager.get_entry(library).context("animation library missing")?.reference==0x80803942,"animation library class mismatch");
+                     let source=manager.read_tag(library)?;
+                     for p in array(&source,8,48,0x80803877)? {
                         let identity=wide(&source,p+16)? as u64;
                         let resolved=manager.lookup.tag64_entries.get(&identity).context("unresolved animation clip identity")?.hash32;
                         ensure!(manager.get_entry(resolved).context("animation clip missing")?.reference==0x8080AE01,"animation library clip class mismatch");
                         let fields=(0..12).map(|i|word(&source,p+i*4)).collect::<anyhow::Result<Vec<_>>>()?;
                         clips.push(serde_json::json!({"source_id":fields[0],"wide_identity":format!("{identity:016X}"),"tag":resolved.to_string(),"source_fields":fields}));
+                     }
                     }
                     ensure!(manager.get_entry(bank).context("clip bank missing")?.reference==0x80803BE9,"clip bank class mismatch");
                     let bank_source=manager.read_tag(bank)?;
@@ -446,7 +460,7 @@ pub fn read_character(manager: &PackageManager, tag: TagHash) -> anyhow::Result<
                     ).collect::<anyhow::Result<Vec<_>>>()?;
                     let index_table=array(&bank_source,0x48,4,0x8080ACF6)?.into_iter()
                         .map(|p|word(&bank_source,p)).collect::<anyhow::Result<Vec<_>>>()?;
-                    animation_library=Some(serde_json::json!({"component":component.to_string(),"tag":library.to_string(),"clips":clips,
+                    animation_library=Some(serde_json::json!({"component":component.to_string(),"tag":library_present.then(||library.to_string()),"clips":clips,
                         "clip_bank":{"tag":bank.to_string(),"entries":bank_entries,"index_table":index_table,"variant_fields":variant_fields}}));
                 }
                 0x8080AD7E => {
@@ -478,9 +492,44 @@ pub fn read_character(manager: &PackageManager, tag: TagHash) -> anyhow::Result<
     if let Some(rig) = &runtime_rig {
         ensure!(rig.bone_to_control.len() == skeleton.bones.len(), "rig/skeleton bone count mismatch");
     }
-    let model = render_model.context("entity has no render model")?;
-    let geometry = decode_geometry(manager,model,Some(skeleton.bones.len()))?;
-    Ok(serde_json::to_vec(&serde_json::json!({"entity":tag.to_string(),"components":components,"skeleton":skeleton,"geometry":geometry,"attachments":attachments,"runtime_rig":runtime_rig,"animation_library":animation_library}))?)
+    let geometry = render_model.map(|model|decode_geometry(manager,model,Some(skeleton.bones.len()))).transpose()?;
+    let children=model_children.into_iter().map(|(child,fields)| {
+        ensure!(child!=tag,"self-referential model child {tag}");
+        Ok(serde_json::json!({"source_fields":fields,"part":read_model_part(manager,child,tag,skeleton.bones.len())?}))
+    }).collect::<anyhow::Result<Vec<_>>>()?;
+    ensure!(geometry.is_some() || !children.is_empty(),"entity {tag} has no source render model or model children");
+    Ok(serde_json::to_vec(&serde_json::json!({"entity":tag.to_string(),"components":components,"skeleton_entity":tag.to_string(),"skeleton":skeleton,"geometry":geometry,"model_children":children,"attachments":attachments,"runtime_rig":runtime_rig,"animation_library":animation_library}))?)
+}
+
+/// 032B3 children supply render parts for the owning entity's source skeleton.
+/// They remain separate source nodes; their vertices are not flattened into the parent.
+fn read_model_part(manager:&PackageManager,tag:TagHash,skeleton_entity:TagHash,bones:usize)->anyhow::Result<serde_json::Value> {
+    ensure!(manager.get_entry(tag).context("model child missing")?.reference==0x8080BAAD,"model child entity class mismatch {tag}");
+    let bytes=manager.read_tag(tag)?;let mut model=None;let mut components=Vec::new();
+    for p in array(&bytes,8,12,0x8080BAA2)? {
+        let component=TagHash(word(&bytes,p)?);
+        ensure!(manager.get_entry(component).context("model child component missing")?.reference==0x8080BADB,"model child component class mismatch {component}");
+        let data=manager.read_tag(component)?;
+        if let Some((base,class))=resource(&data,0x18)? {
+            components.push(serde_json::json!({"tag":component.to_string(),"definition_class":format!("{class:08X}")}));
+            match class {
+                0x80808678=>{ensure!(model.is_none(),"multiple child render models {tag}");model=Some(TagHash(word(&data,base+0x234)?));},
+                0x80809FB7|0x80809FAF|0x808032B3=>anyhow::bail!("model child {tag} has independent skeleton or nested assembly; binding requires decoding"),
+                _=>{}
+            }
+        }
+    }
+    let model=model.with_context(||format!("model child {tag} has no render model"))?;
+    Ok(serde_json::json!({"entity":tag.to_string(),"skeleton_entity":skeleton_entity.to_string(),"components":components,
+        "geometry":decode_geometry(manager,model,Some(bones))?}))
+}
+
+pub(crate) fn source_identity(manager:&PackageManager,data:&[u8],field:usize)->anyhow::Result<TagHash> {
+    let tag=if word(data,field+4)?!=0 {TagHash(word(data,field)?)} else {
+        let id=wide(data,field+8)? as u64;
+        manager.lookup.tag64_entries.get(&id).with_context(||format!("unresolved source identity {id:016X}"))?.hash32
+    };
+    ensure!(manager.get_entry(tag).is_some(),"source identity missing {tag}");Ok(tag)
 }
 
 #[derive(Serialize)]
@@ -701,21 +750,21 @@ fn skeleton(data: &[u8], component: TagHash, base: usize, class: u32) -> anyhow:
     })
 }
 
-fn word(data: &[u8], offset: usize) -> anyhow::Result<u32> {
+pub(crate) fn word(data: &[u8], offset: usize) -> anyhow::Result<u32> {
     let bytes = data
         .get(offset..offset.checked_add(4).context("word offset overflow")?)
         .context("word outside payload")?;
     Ok(u32::from_le_bytes(bytes.try_into()?))
 }
 
-fn wide(data: &[u8], offset: usize) -> anyhow::Result<i64> {
+pub(crate) fn wide(data: &[u8], offset: usize) -> anyhow::Result<i64> {
     let bytes = data
         .get(offset..offset.checked_add(8).context("wide offset overflow")?)
         .context("wide outside payload")?;
     Ok(i64::from_le_bytes(bytes.try_into()?))
 }
 
-fn relative(data: &[u8], field: usize) -> anyhow::Result<Option<usize>> {
+pub(crate) fn relative(data: &[u8], field: usize) -> anyhow::Result<Option<usize>> {
     let delta = wide(data, field)?;
     if delta == 0 || delta == -1 {
         return Ok(None);
@@ -729,7 +778,7 @@ fn relative(data: &[u8], field: usize) -> anyhow::Result<Option<usize>> {
     Ok(Some(target))
 }
 
-fn array(data: &[u8], field: usize, stride: usize, class: u32) -> anyhow::Result<Vec<usize>> {
+pub(crate) fn array(data: &[u8], field: usize, stride: usize, class: u32) -> anyhow::Result<Vec<usize>> {
     let count = usize::try_from(wide(data, field)?)?;
     if count == 0 {
         return Ok(Vec::new());
@@ -752,7 +801,7 @@ fn array(data: &[u8], field: usize, stride: usize, class: u32) -> anyhow::Result
     Ok((0..count).map(|i| start + i * stride).collect())
 }
 
-fn resource(data: &[u8], field: usize) -> anyhow::Result<Option<(usize, u32)>> {
+pub(crate) fn resource(data: &[u8], field: usize) -> anyhow::Result<Option<(usize, u32)>> {
     relative(data, field)?
         .map(|offset| {
             let class_offset = offset.checked_sub(4).context("resource class underflow")?;
