@@ -27,13 +27,36 @@ pub fn read_equipment(manager:&PackageManager,table:TagHash,node_index:usize)->a
     }
     ensure!(!config.is_empty(),"node {table}:{node_index} has no source configuration");
     let root=manager.read_tag(entity)?;let mut selected=Vec::new();let mut equipment_components=0;
+    let mut attachment_names=BTreeMap::new();
     for p in array(&root,8,12,0x8080BAA2)? {
         let component=TagHash(word(&root,p)?);
         ensure!(manager.get_entry(component).context("equipment component missing")?.reference==0x8080BADB,"equipment component class mismatch {component}");
         let source=manager.read_tag(component)?;
         let Some((base,class))=resource(&source,0x18)? else {continue};
+        if class==0x80809F76 {
+            for row in array(&source,base+0xA8,48,0x80809F82)? {
+                *attachment_names.entry(word(&source,row+0x28)?).or_insert(0usize)+=1;
+            }
+        }
         if class!=0x80804656 {continue;}
         equipment_components+=1;
+        // The equipment transform input is a source attachment expression.
+        // Verify its reciprocal instance/definition references and typed value;
+        // do not guess a socket from mesh shape or hand-bone names.
+        let (instance,instance_class)=resource(&source,0x10)?.context("equipment instance absent")?;
+        ensure!(instance_class==0x80804655,"unsupported equipment instance class {component}");
+        let binding=base+0x1B0;
+        ensure!(word(&source,binding)?==component.0 && word(&source,binding+4)?==0x8080BA6E && word(&source,binding+8)? as usize==instance+0x50,
+            "equipment transform definition reference mismatch {component}");
+        ensure!(word(&source,instance+0x50)?==component.0 && word(&source,instance+0x54)?==0x8080BA6F && word(&source,instance+0x58)? as usize==binding,
+            "equipment transform instance reference mismatch {component}");
+        let expression=binding+0x10;
+        ensure!(wide(&source,expression)?==0 && word(&source,expression+8)?==0x8080BA7A && word(&source,expression+0x10)?==0x26
+            && word(&source,expression+0x20)?==0x8080BA9E,"unsupported source equipment transform expression {component}:{expression:X}");
+        let attachment=word(&source,expression+0x24)?;
+        let expression_fields=(0..12).map(|i|word(&source,expression+i*4)).collect::<anyhow::Result<Vec<_>>>()?;
+        let expression_values=array(&source,expression+0x30,48,0x8080BA9E)?.into_iter()
+            .map(|row|(0..12).map(|i|word(&source,row+i*4)).collect::<anyhow::Result<Vec<_>>>()).collect::<anyhow::Result<Vec<_>>>()?;
         let mut conditions=Vec::new();
         for row in array(&source,base+0x28,24,0x8080BACC)? {
             let pairs=array(&source,row+8,8,0x8080BAD0)?.into_iter()
@@ -54,12 +77,18 @@ pub fn read_equipment(manager:&PackageManager,table:TagHash,node_index:usize)->a
                 let graph:serde_json::Value=serde_json::from_slice(&read_character(manager,child)?)?;
                 selected.push(serde_json::json!({"component":component.to_string(),"condition_index":condition_index,
                     "conditions":pairs,"source_fields":fields,"item_fields":[word(&source,item)?,word(&source,item+4)?],
+                    "attachment_hash":format!("{attachment:08X}"),"attachment_expression":{"offset":expression,"operation":0x26,"value_class":"8080BA9E",
+                        "source_fields":expression_fields,"source_values":expression_values},
                     "entity":child.to_string(),"assembly":graph}));
             }
         }
         ensure!(matched==1,"source equipment configuration matched {matched} options in {component}");
     }
     ensure!(equipment_components>0 && !selected.is_empty(),"node {table}:{node_index} selects no decoded source equipment");
+    for item in &selected {
+        let name=u32::from_str_radix(item["attachment_hash"].as_str().context("attachment hash absent")?,16)?;
+        ensure!(attachment_names.get(&name)==Some(&1),"equipment attachment {name:08X} does not resolve uniquely on {entity}");
+    }
     let config:Vec<_>=config.into_iter().collect();
     Ok(serde_json::to_vec(&serde_json::json!({"node_table":table.to_string(),"node_index":node_index,
         "entity":entity.to_string(),"configuration":config,"node_component_classes":classes,
