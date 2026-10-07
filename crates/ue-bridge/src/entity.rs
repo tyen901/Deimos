@@ -409,6 +409,7 @@ pub fn read_character(manager: &PackageManager, tag: TagHash) -> anyhow::Result<
     let mut components = Vec::new();
     let mut attachments = Vec::new();
     let mut runtime_rig = None;
+    let mut animation_library = None;
     for offset in array(&bytes, 8, 12, 0x8080BAA2)? {
         let component = TagHash(word(&bytes, offset)?);
         ensure!(manager.get_entry(component).context("component missing")?.reference == 0x8080BADB, "component class mismatch {component}");
@@ -417,6 +418,21 @@ pub fn read_character(manager: &PackageManager, tag: TagHash) -> anyhow::Result<
         components.push(serde_json::json!({"tag":component.to_string(), "definition_class":definition.map(|(_,c)|format!("{c:08X}"))}));
         if let Some((base,class)) = definition {
             match class {
+                0x80803936 => {
+                    ensure!(animation_library.is_none(), "multiple animation libraries in {tag}");
+                    let library = TagHash(word(&data,base+0x12C)?);
+                    ensure!(manager.get_entry(library).context("animation library missing")?.reference==0x80803942,"animation library class mismatch");
+                    let source=manager.read_tag(library)?;
+                    let mut clips=Vec::new();
+                    for p in array(&source,8,48,0x80803877)? {
+                        let identity=wide(&source,p+16)? as u64;
+                        let resolved=manager.lookup.tag64_entries.get(&identity).context("unresolved animation clip identity")?.hash32;
+                        ensure!(manager.get_entry(resolved).context("animation clip missing")?.reference==0x8080AE01,"animation library clip class mismatch");
+                        let fields=(0..12).map(|i|word(&source,p+i*4)).collect::<anyhow::Result<Vec<_>>>()?;
+                        clips.push(serde_json::json!({"source_id":fields[0],"wide_identity":format!("{identity:016X}"),"tag":resolved.to_string(),"source_fields":fields}));
+                    }
+                    animation_library=Some(serde_json::json!({"component":component.to_string(),"tag":library.to_string(),"clips":clips}));
+                }
                 0x8080AD7E => {
                     ensure!(runtime_rig.is_none(), "multiple runtime rigs in {tag}");
                     runtime_rig = Some(read_runtime_rig(&data, component, base)?);
@@ -448,7 +464,7 @@ pub fn read_character(manager: &PackageManager, tag: TagHash) -> anyhow::Result<
     }
     let model = render_model.context("entity has no render model")?;
     let geometry = decode_geometry(manager,model,Some(skeleton.bones.len()))?;
-    Ok(serde_json::to_vec(&serde_json::json!({"entity":tag.to_string(),"components":components,"skeleton":skeleton,"geometry":geometry,"attachments":attachments,"runtime_rig":runtime_rig}))?)
+    Ok(serde_json::to_vec(&serde_json::json!({"entity":tag.to_string(),"components":components,"skeleton":skeleton,"geometry":geometry,"attachments":attachments,"runtime_rig":runtime_rig,"animation_library":animation_library}))?)
 }
 
 #[derive(Serialize)]

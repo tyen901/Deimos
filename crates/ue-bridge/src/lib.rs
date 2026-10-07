@@ -1,5 +1,6 @@
 //! Package-only C boundary. Caller owns scheduling; no UE or GPU objects cross it.
 pub mod entity;
+pub mod animation;
 use std::{ffi::{c_char,CStr}, panic::{catch_unwind,AssertUnwindSafe},ptr};
 use tiger_pkg::{PackageManager,GameVersion,MarathonVersion,TagHash};
 #[repr(C)]
@@ -24,6 +25,9 @@ pub unsafe extern "C" fn mara_open(path:*const c_char, context:*mut *mut Package
 }
 pub unsafe extern "C" fn mara_character(context:*const PackageManager,tag:u32,out:*mut MaraBytes)->i32 {
     boundary(||{anyhow::ensure!(!context.is_null(),"null reader");entity::read_character(unsafe{&*context},TagHash(tag))},out)
+}
+pub unsafe extern "C" fn mara_clip(context:*const PackageManager,tag:u32,out:*mut MaraBytes)->i32 {
+    boundary(||{anyhow::ensure!(!context.is_null(),"null reader");animation::read_clip(unsafe{&*context},TagHash(tag))},out)
 }
 /// No reads may be active when close is called.
 pub unsafe extern "C" fn mara_close(context:*mut PackageManager){if !context.is_null(){drop(unsafe{Box::from_raw(context)});}}
