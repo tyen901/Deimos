@@ -10,6 +10,7 @@ path = "src/main.rs"
 
 [workspace]
 members = [
+    "crates/ue-bridge",
     "crates/core",
     "crates/d3d12",
     "crates/data",
