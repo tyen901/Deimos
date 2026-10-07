@@ -61,9 +61,13 @@ fn sample(raw:&[u16], kind:usize, quant:[f32;2])->Result<Vec<f32>> {
         0=>Ok(vec![snorm(*raw.first().context("missing scale sample")?)]),
         1=>{
             ensure!(raw.len()==3,"invalid quaternion sample");
-            let w=snorm(raw[0]);let x=snorm(raw[1]);let y=snorm(raw[2]);
+            // Preserve precision near a zero missing component: subtracting
+            // rounded f32 squares before sqrt loses measurable orientation.
+            let w=(raw[0] as i16) as f64/32767.0;
+            let x=(raw[1] as i16) as f64/32767.0;
+            let y=(raw[2] as i16) as f64/32767.0;
             let z=(1.0-w*w-x*x-y*y).max(0.0).sqrt()*if raw[1]&1==0{1.0}else{-1.0};
-            Ok(vec![x,y,z,w])
+            Ok(vec![x as f32,y as f32,z as f32,w as f32])
         }
         2=>Ok(raw.iter().map(|&v|snorm(v)*quant[0]+quant[1]).collect()),
         _=>bail!("invalid channel kind"),
@@ -82,6 +86,27 @@ fn codec(v:&View, p:usize, frames:usize, maps:[Vec<u16>;3], constant:bool)->Resu
     let mut channels=Vec::new();
     let names=["scale","rotation","translation"];
     match v.h(p)? {
+        2=>{
+            ensure!(!constant && v.q(p+16)? as usize==frames,"codec-2 frame count mismatch");
+            let raw=half_array(v.array(p+24,2)?);
+            let factors=float_array(v.array(p+40,4)?)?;
+            let biases=float_array(v.array(p+56,4)?)?;
+            let widths=[1,4,3];let mut cursor=0;let mut quant=0;
+            for k in 0..3 {for &control in &maps[k] {
+                let width=widths[k];
+                let factor=factors.get(quant..quant+width).context("codec-2 quantization truncated")?;
+                let bias=biases.get(quant..quant+width).context("codec-2 quantization truncated")?;
+                let mut samples=Vec::with_capacity(frames);
+                for _ in 0..frames {
+                    let data=raw.get(cursor..cursor+width).context("codec-2 samples truncated")?;
+                    samples.push(data.iter().enumerate().map(|(i,&u)|u as f32/65535.0*factor[i]+bias[i]).collect());
+                    cursor+=width;
+                }
+                quant+=width;
+                channels.push(Channel{control,kind:names[k],constant:false,samples});
+            }}
+            ensure!(cursor==raw.len() && quant==factors.len() && quant==biases.len(),"unconsumed codec-2 stream");
+        }
         3=>{
             let count=v.w(p+16)? as usize;
             ensure!(count==if constant{1}else{frames},"codec-3 frame count mismatch");

@@ -421,6 +421,7 @@ pub fn read_character(manager: &PackageManager, tag: TagHash) -> anyhow::Result<
                 0x80803936 => {
                     ensure!(animation_library.is_none(), "multiple animation libraries in {tag}");
                     let library = TagHash(word(&data,base+0x12C)?);
+                    let bank = TagHash(word(&data,base+0xE8)?);
                     ensure!(manager.get_entry(library).context("animation library missing")?.reference==0x80803942,"animation library class mismatch");
                     let source=manager.read_tag(library)?;
                     let mut clips=Vec::new();
@@ -431,7 +432,22 @@ pub fn read_character(manager: &PackageManager, tag: TagHash) -> anyhow::Result<
                         let fields=(0..12).map(|i|word(&source,p+i*4)).collect::<anyhow::Result<Vec<_>>>()?;
                         clips.push(serde_json::json!({"source_id":fields[0],"wide_identity":format!("{identity:016X}"),"tag":resolved.to_string(),"source_fields":fields}));
                     }
-                    animation_library=Some(serde_json::json!({"component":component.to_string(),"tag":library.to_string(),"clips":clips}));
+                    ensure!(manager.get_entry(bank).context("clip bank missing")?.reference==0x80803BE9,"clip bank class mismatch");
+                    let bank_source=manager.read_tag(bank)?;
+                    let mut bank_entries=Vec::new();
+                    for (index,p) in array(&bank_source,8,16,0x8080AE00)?.into_iter().enumerate() {
+                        let identity=wide(&bank_source,p+8)? as u64;
+                        let resolved=manager.lookup.tag64_entries.get(&identity).context("unresolved bank clip identity")?.hash32;
+                        ensure!(manager.get_entry(resolved).context("bank clip missing")?.reference==0x8080AE01,"bank clip class mismatch");
+                        bank_entries.push(serde_json::json!({"bank_index":index,"source_fields":[word(&bank_source,p)?,word(&bank_source,p+4)?],"wide_identity":format!("{identity:016X}"),"tag":resolved.to_string()}));
+                    }
+                    let variant_fields=array(&bank_source,0x58,48,0x8080ADFF)?.into_iter().map(|p|
+                        (0..12).map(|i|word(&bank_source,p+i*4)).collect::<anyhow::Result<Vec<_>>>()
+                    ).collect::<anyhow::Result<Vec<_>>>()?;
+                    let index_table=array(&bank_source,0x48,4,0x8080ACF6)?.into_iter()
+                        .map(|p|word(&bank_source,p)).collect::<anyhow::Result<Vec<_>>>()?;
+                    animation_library=Some(serde_json::json!({"component":component.to_string(),"tag":library.to_string(),"clips":clips,
+                        "clip_bank":{"tag":bank.to_string(),"entries":bank_entries,"index_table":index_table,"variant_fields":variant_fields}}));
                 }
                 0x8080AD7E => {
                     ensure!(runtime_rig.is_none(), "multiple runtime rigs in {tag}");
@@ -471,21 +487,50 @@ pub fn read_character(manager: &PackageManager, tag: TagHash) -> anyhow::Result<
 struct RuntimeRig {
     component: String,
     subsets: Vec<[u32; 2]>,
-    control_relations: Vec<Vec<u16>>,
+    control_relations: Vec<RigRelation>,
     control_transforms: Vec<Transform>,
     bone_to_control: Vec<i16>,
     control_to_bone: Vec<i16>,
     control_names: Vec<[u32; 2]>,
 }
 
-// Current retail AD7E definition: exact array classes and strides checked
-// against installed package data. Relations remain raw until every execution
-// field has verified semantics; they are not render-bone indices.
+#[derive(Serialize)]
+struct RigRelation {
+    name_hash: String,
+    rotation_sources: [i16;6],
+    rotation_influence: f32,
+    rotation_flags: u32,
+    translation_sources: [i16;6],
+    translation_influence: f32,
+    translation_flags: u32,
+    bone: i16,
+    chain_start: i16,
+    constraint: i8,
+    ik_function: i8,
+    operation_flags: [u8;2],
+    extension: [u32;5],
+}
+fn rig_relation(data:&[u8],p:usize)->anyhow::Result<RigRelation> {
+    let mut rotation_sources=[0;6];let mut translation_sources=[0;6];let mut extension=[0;5];
+    for i in 0..6 {rotation_sources[i]=half(data,p+4+i*2)? as i16;translation_sources[i]=half(data,p+24+i*2)? as i16;}
+    for i in 0..5 {extension[i]=word(data,p+52+i*4)?;}
+    let rotation_influence=f32::from_bits(word(data,p+16)?);
+    let translation_influence=f32::from_bits(word(data,p+36)?);
+    ensure!(rotation_influence.is_finite() && translation_influence.is_finite(),"nonfinite rig influence");
+    let operations=word(data,p+48)?.to_le_bytes();
+    Ok(RigRelation{name_hash:format!("{:08X}",word(data,p)?),rotation_sources,rotation_influence,rotation_flags:word(data,p+20)?,
+        translation_sources,translation_influence,translation_flags:word(data,p+40)?,bone:half(data,p+44)? as i16,
+        chain_start:half(data,p+46)? as i16,constraint:operations[0] as i8,ik_function:operations[1] as i8,
+        operation_flags:[operations[2],operations[3]],extension})
+}
+// Installed retail AD7E/AE76 uses 72-byte control rows, not the 52-byte
+// Destiny layout. Keep the additional execution fields, without guessing
+// their semantics or silently dropping them from the eventual evaluator.
 fn read_runtime_rig(data: &[u8], component: TagHash, base: usize) -> anyhow::Result<RuntimeRig> {
     let subsets = array(data, base + 0x98, 8, 0x8080AE7F)?.into_iter()
         .map(|p| Ok([word(data,p)?,word(data,p+4)?])).collect::<anyhow::Result<Vec<_>>>()?;
     let control_relations = array(data, base + 0xA8, 72, 0x8080AE76)?.into_iter()
-        .map(|p| (0..36).map(|i| half(data,p+i*2)).collect::<anyhow::Result<Vec<_>>>())
+        .map(|p| rig_relation(data,p))
         .collect::<anyhow::Result<Vec<_>>>()?;
     let control_transforms = array(data, base + 0xB8, 32, 0x8080BF47)?.into_iter()
         .map(|p| transform(data,p)).collect::<anyhow::Result<Vec<_>>>()?;
@@ -496,6 +541,9 @@ fn read_runtime_rig(data: &[u8], component: TagHash, base: usize) -> anyhow::Res
     let control_names = array(data, base + 0x118, 8, 0x8080ADFB)?.into_iter()
         .map(|p| Ok([word(data,p)?,word(data,p+4)?])).collect::<anyhow::Result<Vec<_>>>()?;
     ensure!(control_transforms.len() == control_relations.len() && control_to_bone.len() == control_relations.len(), "runtime rig control table count mismatch");
+    for (control,relation) in control_relations.iter().enumerate() {
+        ensure!(relation.bone==control_to_bone[control],"runtime rig relation target disagrees with control mapping");
+    }
     for (bone, &control) in bone_to_control.iter().enumerate() {
         ensure!(control == -1 || (control >= 0 && control_to_bone.get(control as usize) == Some(&(bone as i16))), "runtime rig inverse mapping mismatch");
     }
