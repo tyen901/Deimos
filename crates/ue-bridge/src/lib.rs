@@ -2,6 +2,7 @@
 pub mod entity;
 pub mod animation;
 pub mod equipment;
+pub mod material;
 use std::{ffi::{c_char,CStr}, panic::{catch_unwind,AssertUnwindSafe},ptr};
 use tiger_pkg::{PackageManager,GameVersion,MarathonVersion,TagHash};
 #[repr(C)]
@@ -61,4 +62,8 @@ pub unsafe extern "C" fn mara_resolve64(context:*const PackageManager,wide:u64,t
         Some(entry)=>{unsafe{*tag=entry.hash32.0};0}
         None=>1
     }
+}
+
+pub unsafe extern "C" fn mara_technique(context:*const PackageManager,tag:u32,out:*mut MaraBytes)->i32 {
+ boundary(||{anyhow::ensure!(!context.is_null(),"null reader");material::read_technique(unsafe{&*context},TagHash(tag))},out)
 }
