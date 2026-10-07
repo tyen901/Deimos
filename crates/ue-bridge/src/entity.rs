@@ -408,6 +408,7 @@ pub fn read_character(manager: &PackageManager, tag: TagHash) -> anyhow::Result<
     let mut render_model = None;
     let mut components = Vec::new();
     let mut attachments = Vec::new();
+    let mut runtime_rig = None;
     for offset in array(&bytes, 8, 12, 0x8080BAA2)? {
         let component = TagHash(word(&bytes, offset)?);
         ensure!(manager.get_entry(component).context("component missing")?.reference == 0x8080BADB, "component class mismatch {component}");
@@ -416,6 +417,10 @@ pub fn read_character(manager: &PackageManager, tag: TagHash) -> anyhow::Result<
         components.push(serde_json::json!({"tag":component.to_string(), "definition_class":definition.map(|(_,c)|format!("{c:08X}"))}));
         if let Some((base,class)) = definition {
             match class {
+                0x8080AD7E => {
+                    ensure!(runtime_rig.is_none(), "multiple runtime rigs in {tag}");
+                    runtime_rig = Some(read_runtime_rig(&data, component, base)?);
+                }
                 0x80809FB7 | 0x80809FAF => {
                     ensure!(bones.is_none(), "multiple skeletons in {tag}");
                     bones = Some(skeleton(&data,component,base,class)?);
@@ -438,9 +443,47 @@ pub fn read_character(manager: &PackageManager, tag: TagHash) -> anyhow::Result<
         }
     }
     let skeleton = bones.context("entity has no decoded skeleton")?;
+    if let Some(rig) = &runtime_rig {
+        ensure!(rig.bone_to_control.len() == skeleton.bones.len(), "rig/skeleton bone count mismatch");
+    }
     let model = render_model.context("entity has no render model")?;
     let geometry = decode_geometry(manager,model,Some(skeleton.bones.len()))?;
-    Ok(serde_json::to_vec(&serde_json::json!({"entity":tag.to_string(),"components":components,"skeleton":skeleton,"geometry":geometry,"attachments":attachments}))?)
+    Ok(serde_json::to_vec(&serde_json::json!({"entity":tag.to_string(),"components":components,"skeleton":skeleton,"geometry":geometry,"attachments":attachments,"runtime_rig":runtime_rig}))?)
+}
+
+#[derive(Serialize)]
+struct RuntimeRig {
+    component: String,
+    subsets: Vec<[u32; 2]>,
+    control_relations: Vec<Vec<u16>>,
+    control_transforms: Vec<Transform>,
+    bone_to_control: Vec<i16>,
+    control_to_bone: Vec<i16>,
+    control_names: Vec<[u32; 2]>,
+}
+
+// Current retail AD7E definition: exact array classes and strides checked
+// against installed package data. Relations remain raw until every execution
+// field has verified semantics; they are not render-bone indices.
+fn read_runtime_rig(data: &[u8], component: TagHash, base: usize) -> anyhow::Result<RuntimeRig> {
+    let subsets = array(data, base + 0x98, 8, 0x8080AE7F)?.into_iter()
+        .map(|p| Ok([word(data,p)?,word(data,p+4)?])).collect::<anyhow::Result<Vec<_>>>()?;
+    let control_relations = array(data, base + 0xA8, 72, 0x8080AE76)?.into_iter()
+        .map(|p| (0..36).map(|i| half(data,p+i*2)).collect::<anyhow::Result<Vec<_>>>())
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    let control_transforms = array(data, base + 0xB8, 32, 0x8080BF47)?.into_iter()
+        .map(|p| transform(data,p)).collect::<anyhow::Result<Vec<_>>>()?;
+    let bone_to_control = array(data, base + 0xE0, 2, 0x80800006)?.into_iter()
+        .map(|p| half(data,p).map(|v| v as i16)).collect::<anyhow::Result<Vec<_>>>()?;
+    let control_to_bone = array(data, base + 0xF0, 2, 0x80800006)?.into_iter()
+        .map(|p| half(data,p).map(|v| v as i16)).collect::<anyhow::Result<Vec<_>>>()?;
+    let control_names = array(data, base + 0x118, 8, 0x8080ADFB)?.into_iter()
+        .map(|p| Ok([word(data,p)?,word(data,p+4)?])).collect::<anyhow::Result<Vec<_>>>()?;
+    ensure!(control_transforms.len() == control_relations.len() && control_to_bone.len() == control_relations.len(), "runtime rig control table count mismatch");
+    for (bone, &control) in bone_to_control.iter().enumerate() {
+        ensure!(control == -1 || (control >= 0 && control_to_bone.get(control as usize) == Some(&(bone as i16))), "runtime rig inverse mapping mismatch");
+    }
+    Ok(RuntimeRig {component:component.to_string(),subsets,control_relations,control_transforms,bone_to_control,control_to_bone,control_names})
 }
 
 fn half(data: &[u8], offset: usize) -> anyhow::Result<u16> {
