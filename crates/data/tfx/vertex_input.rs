@@ -57,3 +57,23 @@ pub const INPUT_FORMATS: [InputElementFormat; 34] = [
     InputElementFormat { hlsl_type: "float3", stride: 4, format: d3d12::Format::R11g11b10Float }, // 32
     InputElementFormat { hlsl_type: "float4", stride: 8, format: d3d12::Format::R16g16b16a16Snorm }, // 33
 ];
+
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum VertexSemantic {
+    Position,
+    BlendWeight,
+    BlendIndices,
+    Normal,
+    PointSize,
+    TexCoord,
+    Tangent,
+    Binormal,
+    Color,
+}
+/// Source input-layout identity, kept distinct from format and stream indices.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct InputLayoutIndex(pub u8);
+impl InputLayoutIndex {
+    pub const TERRAIN: Self = Self(22);
+}

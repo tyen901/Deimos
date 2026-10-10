@@ -46,3 +46,12 @@ pub struct SSkyObjectModelRef {
     pub file_size: u64,
     pub entity_model: TagHash,
 }
+
+impl SUnk80806f97 {
+    /// The source renderer excludes this class from game sky submissions.
+    /// Other numeric classes are not assigned invented lighting meanings.
+    pub fn is_game_sky(&self) -> bool {
+        const EXCLUDED_SKY_CLASS: u32 = 5;
+        self.unk70 != EXCLUDED_SKY_CLASS
+    }
+}

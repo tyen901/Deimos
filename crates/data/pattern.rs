@@ -67,3 +67,11 @@ pub struct S8080A322 {
     pub unk4: u32,
     pub pattern: WideHash,
 }
+
+/// Component definition identities used by the source renderer's dispatch.
+#[repr(u32)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ComponentKind {
+    RigidModel = 0x80808673,
+    AttachedPatterns = 0x8080A317,
+}

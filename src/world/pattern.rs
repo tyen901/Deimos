@@ -255,7 +255,7 @@ pub fn load_component(
             };
             for obj in &objects.unk8 {
                 // cohae: Objects with unk70 set to 5 are a solid red? These don't show up in-game
-                if obj.unk70 == 5 {
+                if !obj.is_game_sky() {
                     continue;
                 }
 

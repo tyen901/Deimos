@@ -7,7 +7,7 @@ use tiger_parse::{tiger_type, TigerReadable};
 use super::features::dynamic::RenderStageSubscription;
 
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq, IntEnum, Hash, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Ord, IntEnum, Hash, Eq)]
 pub enum RenderStage {
     GenerateGbuffer = 0,
     RoadDecals,
@@ -95,7 +95,7 @@ impl TigerReadable for RenderStage {
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, IntEnum)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, IntEnum)]
 pub enum TfxFeatureRenderer {
     StaticObjects = 0,
     DynamicObjects = 1,

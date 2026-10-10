@@ -6,7 +6,7 @@ pub use geometry::{Layouts, Mesh, MeshKey};
 mod scene;
 pub use deimos_data;
 pub use glam;
-pub use scene::Scene;
+pub use scene::{RenderObjectKey, Scene};
 pub use world::{World, WorldEntry};
 
 use anyhow::{Context, Result, ensure};

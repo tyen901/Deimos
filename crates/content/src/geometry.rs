@@ -2,15 +2,17 @@
 //! quantization and input channels come from Deimos; no source materials load.
 use crate::Installation;
 use anyhow::{Context, Result, bail, ensure};
+use deimos_data::dxgi::Format;
 use deimos_data::tfx::{
     PrimitiveType, RenderStage,
     buffers::{IndexBufferHeader, VertexBufferHeader},
     features::{
+        decorators::DecoratorQuality,
         dynamic::SDynamicModel,
         statics::{SStaticMesh, SStaticMeshData},
     },
     render_globals::{SRenderGlobals, SVertexInputElementSets, SVertexInputLayoutMapping},
-    vertex_input::INPUT_FORMATS,
+    vertex_input::{INPUT_FORMATS, InputLayoutIndex, VertexSemantic},
 };
 use glam::Vec3;
 use std::collections::HashSet;
@@ -19,7 +21,8 @@ use tiger_pkg::TagHash;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum MeshKey {
     Static(u32),
-    Dynamic(u32),
+    Dynamic(u32, RenderStage),
+    StaticSpecial(u32, u16),
     Terrain(u32),
     Decorator(u32, u16),
 }
@@ -32,7 +35,8 @@ pub struct Mesh {
 struct PositionInput {
     slot: usize,
     offset: usize,
-    format: u8,
+    format: Format,
+    size: usize,
 }
 pub struct Layouts {
     mapping: SVertexInputLayoutMapping,
@@ -76,11 +80,16 @@ impl Layouts {
                 .elements;
             let mut offset = 0;
             for element in elements {
-                if element.semantic == 0 && element.semantic_index == 0 {
+                if element.semantic == VertexSemantic::Position as u8 && element.semantic_index == 0
+                {
                     return Ok(PositionInput {
                         slot,
                         offset,
-                        format: element.format,
+                        format: INPUT_FORMATS
+                            .get(element.format as usize)
+                            .context("Unknown vertex format")?
+                            .format,
+                        size: INPUT_FORMATS[element.format as usize].stride as usize,
                     });
                 }
                 offset += INPUT_FORMATS
@@ -112,10 +121,7 @@ impl Buffer {
         })
     }
     fn positions(&self, input: &PositionInput, scale: Vec3, offset: Vec3) -> Result<Vec<Vec3>> {
-        let size = INPUT_FORMATS
-            .get(input.format as usize)
-            .context("Unknown POSITION format")?
-            .stride as usize;
+        let size = input.size;
         ensure!(
             input.offset + size <= self.stride,
             "POSITION channel exceeds vertex stride"
@@ -125,20 +131,20 @@ impl Buffer {
             .map(|vertex| {
                 let data = &vertex[input.offset..input.offset + size];
                 let p = match input.format {
-                    3 | 4 => Vec3::new(
+                    Format::R32g32b32Float | Format::R32g32b32a32Float => Vec3::new(
                         f32::from_le_bytes(data[0..4].try_into()?),
                         f32::from_le_bytes(data[4..8].try_into()?),
                         f32::from_le_bytes(data[8..12].try_into()?),
                     ),
-                    11 | 33 => Vec3::new(
+                    Format::R16g16b16a16Snorm => Vec3::new(
                         i16::from_le_bytes(data[0..2].try_into()?) as f32,
                         i16::from_le_bytes(data[2..4].try_into()?) as f32,
                         i16::from_le_bytes(data[4..6].try_into()?) as f32,
                     ),
-                    format => bail!("Unsupported model POSITION format {format}"),
+                    format => bail!("Unsupported model POSITION format {format:?}"),
                 };
-                let p = if matches!(input.format, 11 | 33) {
-                    (p / 32767.0).max(Vec3::splat(-1.0))
+                let p = if input.format == Format::R16g16b16a16Snorm {
+                    (p / i16::MAX as f32).max(Vec3::splat(-1.0))
                 } else {
                     p
                 };
@@ -245,8 +251,7 @@ pub(crate) fn load(installation: &Installation, key: MeshKey, layouts: &Layouts)
     let mut mesh = Mesh::new();
     match key {
         MeshKey::Static(tag) => {
-            let model: SStaticMesh = installation.read_type(tag)?;
-            let data: SStaticMeshData = installation.follow(&model.opaque_meshes)?;
+            let data: SStaticMeshData = installation.read_type(tag)?;
             let mut drawn = HashSet::new();
             let mut draws = std::collections::BTreeMap::<(u8, u8), Vec<usize>>::new();
             for group in &data.mesh_groups {
@@ -265,29 +270,6 @@ pub(crate) fn load(installation: &Installation, key: MeshKey, layouts: &Layouts)
                         .or_default()
                         .push(group.part_index as usize);
                 }
-            }
-            for special in model.special_meshes.iter().filter(|p| {
-                p.render_stage == RenderStage::Transparents && p.lod.is_highest_detail()
-            }) {
-                let input = layouts.position(special.input_layout_index)?;
-                let hash = *[
-                    special.vertex0_buffer,
-                    special.vertex1_buffer,
-                    special.color_buffer,
-                ]
-                .get(input.slot)
-                .context("Special position stream")?;
-                let positions = Buffer::load(installation, hash)?.positions(
-                    &input,
-                    Vec3::splat(data.mesh_scale),
-                    data.mesh_offset,
-                )?;
-                let indices = Indices::load(installation, special.index_buffer)?.triangles(
-                    special.index_start,
-                    special.index_count,
-                    special.primitive_type,
-                )?;
-                mesh.append(positions, indices)?;
             }
             for ((buffer, layout), parts) in draws {
                 let &(index, v0, v1, color) = data
@@ -316,10 +298,42 @@ pub(crate) fn load(installation: &Installation, key: MeshKey, layouts: &Layouts)
                 mesh.append(positions, triangles)?;
             }
         }
-        MeshKey::Dynamic(tag) | MeshKey::Decorator(tag, _) => {
+        MeshKey::StaticSpecial(tag, part) => {
+            let model: SStaticMesh = installation.read_type(tag)?;
+            let data = installation.follow(&model.opaque_meshes)?;
+            let special = model
+                .special_meshes
+                .get(part as usize)
+                .context("Static special part")?;
+            let input = layouts.position(special.input_layout_index)?;
+            let hash = *[
+                special.vertex0_buffer,
+                special.vertex1_buffer,
+                special.color_buffer,
+            ]
+            .get(input.slot)
+            .context("Special position stream")?;
+            let positions = Buffer::load(installation, hash)?.positions(
+                &input,
+                Vec3::splat(data.mesh_scale),
+                data.mesh_offset,
+            )?;
+            let indices = Indices::load(installation, special.index_buffer)?.triangles(
+                special.index_start,
+                special.index_count,
+                special.primitive_type,
+            )?;
+            mesh.append(positions, indices)?;
+        }
+        MeshKey::Dynamic(tag, _) | MeshKey::Decorator(tag, _) => {
             let model: SDynamicModel = installation.read_type(tag)?;
             for source in &model.meshes {
-                for stage in [RenderStage::GenerateGbuffer, RenderStage::Transparents] {
+                let stages: &[RenderStage] = match key {
+                    MeshKey::Dynamic(_, ref stage) => std::slice::from_ref(stage),
+                    MeshKey::Decorator(..) => &[RenderStage::GenerateGbuffer],
+                    _ => unreachable!(),
+                };
+                for &stage in stages {
                     let parts = source
                         .parts
                         .get(source.get_range_for_stage(stage))
@@ -328,12 +342,13 @@ pub(crate) fn load(installation: &Installation, key: MeshKey, layouts: &Layouts)
                         p.lod_category.is_highest_detail()
                             && match key {
                                 MeshKey::Decorator(_, identifier) => {
-                                    p.external_identifier == identifier && p.unk17 == 0
+                                    p.external_identifier == identifier
+                                        && p.unk17 == DecoratorQuality::High as u8
                                 }
                                 _ => true,
                             }
                     };
-                    if !parts.iter().filter(selected).next().is_some() {
+                    if parts.iter().filter(selected).next().is_none() {
                         continue;
                     }
                     let input = layouts.position(source.get_input_layout_for_stage(stage))?;
@@ -366,27 +381,34 @@ pub(crate) fn load(installation: &Installation, key: MeshKey, layouts: &Layouts)
         MeshKey::Terrain(tag) => {
             use deimos_data::tfx::features::terrain::{STerrain, TerrainDetailLevel};
             let terrain: STerrain = installation.read_type(tag)?;
-            let input = layouts.position(22)?;
+            let input = layouts.position(InputLayoutIndex::TERRAIN.0)?;
             ensure!(
-                input.slot == 0 && input.offset == 0 && input.format == 8,
+                input.slot == 0 && input.offset == 0 && input.format == Format::R16g16b16a16Sint,
                 "Terrain POSITION contract changed"
             );
             let buffer = Buffer::load(installation, terrain.vertex0_buffer)?;
-            ensure!(buffer.stride == 8, "Terrain position stride changed");
+            ensure!(
+                buffer.stride == input.size,
+                "Terrain position stride changed"
+            );
             // Original terrain vertex reconstruction documented in INTEGRATION.md.
             // All four signed lanes participate; positions are already world-space.
+            const HORIZONTAL_UNITS_PER_METRE: f32 = 64.0;
+            const VERTICAL_UNITS_PER_METRE: f32 = 8192.0;
+            const HIGH_LANE_WEIGHT: f32 = (u16::MAX as u32 + 1) as f32;
             let offset = terrain.unk30;
             let positions = buffer
                 .bytes
-                .chunks_exact(8)
+                .chunks_exact(input.size)
                 .map(|b| {
                     let lanes = std::array::from_fn::<_, 4, _>(|i| {
                         i16::from_le_bytes([b[i * 2], b[i * 2 + 1]]) as f32
                     });
                     Vec3::new(
-                        (lanes[0] + offset.x) / 64.0,
-                        (lanes[1] + offset.y) / 64.0,
-                        ((lanes[2] + offset.z) + (lanes[3] + offset.w) * 65536.0) / 8192.0,
+                        (lanes[0] + offset.x) / HORIZONTAL_UNITS_PER_METRE,
+                        (lanes[1] + offset.y) / HORIZONTAL_UNITS_PER_METRE,
+                        ((lanes[2] + offset.z) + (lanes[3] + offset.w) * HIGH_LANE_WEIGHT)
+                            / VERTICAL_UNITS_PER_METRE,
                     )
                 })
                 .collect::<Vec<_>>();

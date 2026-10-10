@@ -3,10 +3,14 @@ use crate::{Installation, MeshKey, World, read_at};
 use anyhow::{Context, Result, ensure};
 use deimos_data::{
     map::ComponentData,
-    pattern::{S8080A313, SComponent, SPattern},
-    tfx::features::{
-        dynamic::SDynamicModelComponent,
-        statics::{SStaticMeshInstances, SUnk808082D5},
+    pattern::{ComponentKind, S8080A313, SComponent, SPattern},
+    tfx::{
+        RenderStage, TfxFeatureRenderer,
+        features::{
+            decorators::DecoratorGpuInstance,
+            dynamic::SDynamicModelComponent,
+            statics::{SStaticMesh, SStaticMeshInstances, SUnk808082D5},
+        },
     },
 };
 use glam::{Mat4, Vec3};
@@ -15,8 +19,13 @@ use std::{
     sync::Arc,
 };
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct RenderObjectKey {
+    pub mesh: MeshKey,
+    pub feature: TfxFeatureRenderer,
+}
 pub struct Scene {
-    pub groups: BTreeMap<MeshKey, Vec<Mat4>>,
+    pub groups: BTreeMap<RenderObjectKey, Vec<Mat4>>,
     pub issues: Vec<String>,
 }
 struct Component {
@@ -31,6 +40,7 @@ struct Builder<'a> {
     patterns: HashMap<u32, Arc<Vec<Component>>>,
     absolute_collections: HashSet<(u32, u32)>,
     visiting: HashSet<u32>,
+    statics: HashMap<u32, Vec<MeshKey>>,
 }
 
 pub(crate) fn load(installation: &Installation, world: &World) -> Result<Scene> {
@@ -43,6 +53,7 @@ pub(crate) fn load(installation: &Installation, world: &World) -> Result<Scene> 
         patterns: HashMap::new(),
         absolute_collections: HashSet::new(),
         visiting: HashSet::new(),
+        statics: HashMap::new(),
     };
     for (table, source) in &world.tables {
         for node in &source.nodes {
@@ -66,6 +77,33 @@ pub(crate) fn load(installation: &Installation, world: &World) -> Result<Scene> 
 }
 
 impl Builder<'_> {
+    fn model(&mut self, tag: u32, feature: TfxFeatureRenderer, transform: Mat4) {
+        for stage in [RenderStage::GenerateGbuffer, RenderStage::Transparents] {
+            self.scene
+                .groups
+                .entry(RenderObjectKey {
+                    mesh: MeshKey::Dynamic(tag, stage),
+                    feature,
+                })
+                .or_default()
+                .push(transform);
+        }
+    }
+    fn static_meshes(&mut self, tag: u32) -> Result<Vec<MeshKey>> {
+        if let Some(keys) = self.statics.get(&tag) {
+            return Ok(keys.clone());
+        }
+        let model: SStaticMesh = self.installation.read_type(tag)?;
+        let mut keys = vec![MeshKey::Static(model.opaque_meshes.taghash().0)];
+        for (index, part) in model.special_meshes.iter().enumerate() {
+            if part.render_stage == RenderStage::Transparents && part.lod.is_highest_detail() {
+                keys.push(MeshKey::StaticSpecial(tag, u16::try_from(index)?));
+            }
+        }
+        self.statics.insert(tag, keys.clone());
+        Ok(keys)
+    }
+
     fn pattern(
         &mut self,
         tag: u32,
@@ -105,17 +143,17 @@ impl Builder<'_> {
             let Some(default) = header.dynamic_data.first() else {
                 continue;
             };
-            if header.default_instance.resource_type == 0x80808673 {
+            if header.default_instance.resource_type == ComponentKind::RigidModel as u32 {
                 let model: SDynamicModelComponent =
                     read_at(&component.bytes, header.definition.offset)?;
-                self.scene
-                    .groups
-                    .entry(MeshKey::Dynamic(model.model_hash.0))
-                    .or_default()
-                    .push(transform);
+                self.model(
+                    model.model_hash.0,
+                    TfxFeatureRenderer::RigidObject,
+                    transform,
+                );
                 continue;
             }
-            if header.default_instance.resource_type == 0x8080A317 {
+            if header.default_instance.resource_type == ComponentKind::AttachedPatterns as u32 {
                 let attached: S8080A313 = read_at(&component.bytes, header.definition.offset)?;
                 for item in attached.unka8.into_iter().flat_map(|a| a.unk8) {
                     if item.pattern.is_some() {
@@ -152,17 +190,23 @@ impl Builder<'_> {
                             .transforms
                             .get(group.instance_start as usize..end as usize)
                             .context("Static instance range")?;
-                        self.scene
-                            .groups
-                            .entry(MeshKey::Static(model.0))
-                            .or_default()
-                            .extend(transforms.iter().map(|t| {
-                                Mat4::from_scale_rotation_translation(
-                                    Vec3::splat(t.scale),
-                                    t.rotation,
-                                    t.translation,
-                                )
-                            }));
+                        let keys = self.static_meshes(model.0)?;
+                        for key in keys {
+                            self.scene
+                                .groups
+                                .entry(RenderObjectKey {
+                                    mesh: key,
+                                    feature: TfxFeatureRenderer::ChunkedInstanceObjects,
+                                })
+                                .or_default()
+                                .extend(transforms.iter().map(|t| {
+                                    Mat4::from_scale_rotation_translation(
+                                        Vec3::splat(t.scale),
+                                        t.rotation,
+                                        t.translation,
+                                    )
+                                }));
+                        }
                     }
                 }
                 ComponentData::SStaticTerrainPatchesComponent(source) => {
@@ -172,7 +216,10 @@ impl Builder<'_> {
                     {
                         self.scene
                             .groups
-                            .entry(MeshKey::Terrain(source.terrain.0))
+                            .entry(RenderObjectKey {
+                                mesh: MeshKey::Terrain(source.terrain.0),
+                                feature: TfxFeatureRenderer::TerrainPatch,
+                            })
                             .or_default()
                             .push(Mat4::IDENTITY);
                     }
@@ -187,21 +234,17 @@ impl Builder<'_> {
                     }
                     let objects: deimos_data::tfx::features::sky_objects::SSkyObjectCollection =
                         self.installation.read_type(tag)?;
-                    for object in objects.unk8.iter().filter(|o| o.unk70 != 5) {
+                    for object in objects.unk8.iter().filter(|o| o.is_game_sky()) {
                         let model = self.installation.follow(&object.model_ref)?;
-                        self.scene
-                            .groups
-                            .entry(MeshKey::Dynamic(model.entity_model.0))
-                            .or_default()
-                            .push(object.transform);
+                        self.model(
+                            model.entity_model.0,
+                            TfxFeatureRenderer::SkyTransparent,
+                            object.transform,
+                        );
                     }
                 }
                 ComponentData::SWaterPlaneComponent(source) => {
-                    self.scene
-                        .groups
-                        .entry(MeshKey::Dynamic(source.model.0))
-                        .or_default()
-                        .push(transform);
+                    self.model(source.model.0, TfxFeatureRenderer::Water, transform);
                 }
                 ComponentData::SDecoratorsComponent(source) => {
                     let tag = source.decorators.taghash().0;
@@ -223,7 +266,10 @@ impl Builder<'_> {
                     let constants = self.installation.follow(&placement.unk14)?;
                     let header: deimos_data::tfx::buffers::VertexBufferHeader =
                         self.installation.read_type(placement.instance_buffer.0)?;
-                    ensure!(header.stride == 16, "Decorator GPU instance stride changed");
+                    ensure!(
+                        usize::from(header.stride) == DecoratorGpuInstance::SIZE,
+                        "Decorator GPU instance stride changed"
+                    );
                     let bytes = self
                         .installation
                         .read(self.installation.reference(placement.instance_buffer.0)?)?;
@@ -232,32 +278,32 @@ impl Builder<'_> {
                         "Decorator instance payload size mismatch"
                     );
                     ensure!(
-                        decorator.unk18.last().copied() == Some((bytes.len() / 16) as u32),
+                        decorator.unk18.last().copied()
+                            == Some((bytes.len() / DecoratorGpuInstance::SIZE) as u32),
                         "Decorator ranges do not cover instance buffer"
                     );
                     for (identifier, range) in decorator.unk18.windows(2).enumerate() {
                         let records = bytes
-                            .get(range[0] as usize * 16..range[1] as usize * 16)
+                            .get(
+                                range[0] as usize * DecoratorGpuInstance::SIZE
+                                    ..range[1] as usize * DecoratorGpuInstance::SIZE,
+                            )
                             .context("Decorator instance range")?;
                         let group = self
                             .scene
                             .groups
-                            .entry(MeshKey::Decorator(
-                                model.entity_model.0,
-                                u16::try_from(identifier)?,
-                            ))
+                            .entry(RenderObjectKey {
+                                mesh: MeshKey::Decorator(
+                                    model.entity_model.0,
+                                    u16::try_from(identifier)?,
+                                ),
+                                feature: TfxFeatureRenderer::SpeedtreeTrees,
+                            })
                             .or_default();
-                        for record in records.chunks_exact(16) {
-                            let p = glam::Vec4::from_array(std::array::from_fn(|i| {
-                                (i16::from_le_bytes([record[i * 2], record[i * 2 + 1]]) as f32
-                                    / 32767.0)
-                                    .max(-1.0)
-                            }));
-                            let p = p * constants.instances_scale + constants.instances_offset;
-                            let q = glam::Vec4::from_array(std::array::from_fn(|i| {
-                                record[8 + i] as f32 / 255.0
-                            }));
-                            let q = q * constants.unk20 + constants.unk30;
+                        for record in records.chunks_exact(DecoratorGpuInstance::SIZE) {
+                            let instance = DecoratorGpuInstance::from_bytes(record);
+                            let p = instance.position_scale(&constants);
+                            let q = instance.rotation(&constants);
                             // Retail shader uses the reconstructed quaternion directly.
                             let u = q.truncate();
                             let rotate = |v: Vec3| {

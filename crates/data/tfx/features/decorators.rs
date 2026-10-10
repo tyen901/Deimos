@@ -90,3 +90,48 @@ pub struct SUnk80807184 {
 pub struct SUnk80807186 {
     pub unk0: [Vec4; 5],
 }
+
+/// GPU instance wire format consumed by the retail decorator vertex programs.
+/// This is distinct from the CPU-side SDecoratorInstanceElement schema.
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct DecoratorGpuInstance {
+    pub position_scale: [i16; 4],
+    pub rotation: [u8; 4],
+    pub variation: [u8; 4],
+}
+impl DecoratorGpuInstance {
+    pub const SIZE: usize = std::mem::size_of::<Self>();
+    pub fn from_bytes(bytes: &[u8]) -> Self {
+        assert_eq!(bytes.len(), Self::SIZE);
+        let rotation = std::mem::offset_of!(Self, rotation);
+        let variation = std::mem::offset_of!(Self, variation);
+        Self {
+            position_scale: std::array::from_fn(|i| {
+                let lane = i * std::mem::size_of::<i16>();
+                i16::from_le_bytes([bytes[lane], bytes[lane + 1]])
+            }),
+            rotation: bytes[rotation..variation].try_into().unwrap(),
+            variation: bytes[variation..Self::SIZE].try_into().unwrap(),
+        }
+    }
+    pub fn position_scale(&self, constants: &SUnk8080716B) -> Vec4 {
+        Vec4::from_array(
+            self.position_scale
+                .map(|lane| (f32::from(lane) / f32::from(i16::MAX)).max(-1.0)),
+        ) * constants.instances_scale
+            + constants.instances_offset
+    }
+    pub fn rotation(&self, constants: &SUnk8080716B) -> Vec4 {
+        Vec4::from_array(
+            self.rotation
+                .map(|lane| f32::from(lane) / f32::from(u8::MAX)),
+        ) * constants.unk20
+            + constants.unk30
+    }
+}
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DecoratorQuality {
+    High,
+}
