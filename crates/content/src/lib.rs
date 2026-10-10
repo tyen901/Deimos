@@ -1,14 +1,18 @@
 //! Session-owned access to retail content using Deimos's wire schemas.
 //! The embedding engine owns scheduling, resource caching and rendering.
+mod geometry;
 mod world;
+pub use geometry::{Layouts, Mesh, MeshKey};
+mod scene;
 pub use deimos_data;
 pub use glam;
+pub use scene::Scene;
 pub use world::{World, WorldEntry};
 
 use anyhow::{Context, Result, ensure};
 use deimos_data::tag::{TagRef, WideHash};
 use std::{io::Cursor, path::Path};
-use tiger_parse::TigerReadable;
+use tiger_parse::{PackageManagerExt, TigerReadable};
 use tiger_pkg::{GameVersion, MarathonVersion, PackageManager};
 
 /// The package library owns indexing, decompression and open-package reuse.
@@ -62,6 +66,18 @@ impl Installation {
 
     pub fn world(&self, tag: u32) -> Result<World> {
         world::load(self, tag)
+    }
+
+    pub fn mesh(&self, key: MeshKey, layouts: &Layouts) -> Result<Mesh> {
+        geometry::load(self, key, layouts)
+    }
+
+    pub fn scene(&self, world: &World) -> Result<Scene> {
+        scene::load(self, world)
+    }
+
+    pub fn named<T: TigerReadable>(&self, name: &str) -> Result<T> {
+        Ok(self.manager.read_named_tag_struct(name)?)
     }
 
     pub fn read(&self, tag: u32) -> Result<Vec<u8>> {
