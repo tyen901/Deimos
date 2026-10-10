@@ -18,6 +18,7 @@ members = [
     "crates/egui-d3d12",
     "crates/egui-sdl3-platform",
     "crates/render",
+    "crates/tfx",
     "crates/umbra3",
     "crates/investment",
 ]

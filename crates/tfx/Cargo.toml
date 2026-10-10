@@ -1,0 +1,10 @@
+[package]
+name = "deimos-tfx"
+version = "0.1.0"
+edition = "2024"
+publish = false
+[dependencies]
+anyhow = "1"
+bytemuck = "1"
+glam = "0.29"
+deimos-data = { path = "../data", default-features = false }

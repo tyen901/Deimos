@@ -98,7 +98,7 @@ impl DynamicCore {
         }
 
         core.data.bytecode =
-            filter_bytecode_assignments(&core.data.bytecode).context("filtering bytecode")?;
+            deimos_tfx::constant_bytecode(&core.data.bytecode).context("filtering bytecode")?;
 
         core.data_sources = get_data_access_from_bytecode(&core.data.bytecode)
             .context("getting data access from bytecode")?;
@@ -370,31 +370,4 @@ fn extract_textures_and_samplers(
     }
 
     Ok(())
-}
-
-fn filter_bytecode_assignments(original: &[u8]) -> anyhow::Result<Vec<u8>> {
-    let mut new = Vec::with_capacity(original.len());
-
-    let mut offset = 0;
-    let bytecode = OpcodeIterator::new(original);
-    for op in bytecode {
-        let (op, _) = op?;
-
-        if matches!(
-            op,
-            Opcode::PushSamplerState
-                | Opcode::PopSamplerState
-                | Opcode::PushExternInputTextureView
-                | Opcode::PopTextureView
-        ) {
-            offset += op.size();
-            continue;
-        }
-
-        new.extend_from_slice(&original[offset..offset + op.size()]);
-
-        offset += op.size();
-    }
-
-    Ok(new)
 }

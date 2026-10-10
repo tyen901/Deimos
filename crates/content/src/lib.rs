@@ -2,7 +2,10 @@
 //! The embedding engine owns scheduling, resource caching and rendering.
 mod geometry;
 mod materials;
+mod parameters;
+pub use deimos_tfx;
 pub use materials::{DrawMaterial, DrawSlot, MaterialSet};
+pub use parameters::ShaderParameters;
 mod world;
 pub use geometry::{Layouts, Mesh, MeshKey};
 mod scene;
