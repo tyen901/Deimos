@@ -101,6 +101,7 @@ pub fn independent_outputs(bytecode: &[u8], required: &[u8]) -> anyhow::Result<V
             | Opcode::LerpConstantSaturated
             | Opcode::Spline4Const
             | Opcode::Spline8Const
+            | Opcode::Unknown0x49
             | Opcode::Gradient4Const => (1, 1),
             Opcode::PopOutput => (1, 0),
             _ => anyhow::bail!("Independent output selection does not support {op:?}"),
