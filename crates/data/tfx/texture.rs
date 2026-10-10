@@ -4,6 +4,24 @@ use tiger_parse::tiger_type;
 use tiger_parse::TigerReadable;
 use tiger_pkg::TagHash;
 
+/// Shared source payload order for renderer and embedding engines.
+pub fn load_texture_payload(
+    header: &STextureHeader,
+    tail: TagHash,
+    full_mips: bool,
+    mut read: impl FnMut(TagHash) -> anyhow::Result<Vec<u8>>,
+) -> anyhow::Result<Vec<u8>> {
+    if header.large_buffer.is_some() {
+        let mut bytes = read(header.large_buffer)?;
+        if full_mips {
+            bytes.extend(read(tail)?);
+        }
+        Ok(bytes)
+    } else {
+        read(tail)
+    }
+}
+
 #[derive(Debug)]
 #[tiger_type(etype = 32, size = 0x40)]
 pub struct STextureHeader {

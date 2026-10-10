@@ -42,23 +42,12 @@ impl Texture {
             .reference;
 
         let texture: STextureHeader = package_manager().read_tag_struct(hash)?;
-        let mut texture_data = if texture.large_buffer.is_some() {
-            package_manager()
-                .read_tag(texture.large_buffer)
-                .context("Failed to read texture data")?
-        } else {
-            package_manager()
-                .read_tag(texture_header_ref)
-                .context("Failed to read texture data")?
-        };
-
-        if load_full_mip && texture.large_buffer.is_some() {
-            let ab = package_manager()
-                .read_tag(texture_header_ref)
-                .context("Failed to read large texture buffer")?;
-
-            texture_data.extend(ab);
-        }
+        let texture_data = deimos_data::tfx::texture::load_texture_payload(
+            &texture,
+            texture_header_ref.into(),
+            load_full_mip,
+            |tag| package_manager().read_tag(tag),
+        )?;
 
         Ok((texture, texture_data))
     }
