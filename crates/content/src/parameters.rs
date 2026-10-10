@@ -12,6 +12,26 @@ pub struct ShaderParameters {
     constants: Vec<Vec4>,
 }
 impl ShaderParameters {
+    pub fn uses_frame_inputs(&self) -> Result<bool> {
+        use deimos_data::tfx::{
+            ExternIndex,
+            opcodes::{Opcode, OpcodeIterator},
+        };
+        for instruction in OpcodeIterator::new(&self.bytecode) {
+            let (opcode, bytes) = instruction?;
+            if matches!(
+                opcode,
+                Opcode::PushExternInputFloat
+                    | Opcode::PushExternInputVec4
+                    | Opcode::PushExternInputMat4
+            ) && bytes[0] == ExternIndex::Frame as u8
+            {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
     pub fn evaluate(&self, inputs: &dyn Inputs) -> Result<Vec<Vec4>> {
         let mut output = self.initial.clone();
         InterpreterState::new(&self.bytecode)

@@ -35,6 +35,7 @@ pub struct RenderObjectKey {
     pub mesh: MeshKey,
     pub feature: TfxFeatureRenderer,
     pub materials: MaterialBinding,
+    pub technique: Option<u32>,
 }
 pub struct Scene {
     pub groups: BTreeMap<RenderObjectKey, Vec<Mat4>>,
@@ -67,6 +68,7 @@ struct Builder<'a> {
     absolute_collections: HashSet<(u32, u32)>,
     visiting: HashSet<u32>,
     statics: HashMap<u32, Vec<MeshKey>>,
+    sky_draws: HashMap<u32, Vec<RenderObjectKey>>,
 }
 
 pub(crate) fn load(installation: &Installation, world: &World) -> Result<Scene> {
@@ -81,6 +83,7 @@ pub(crate) fn load(installation: &Installation, world: &World) -> Result<Scene> 
         absolute_collections: HashSet::new(),
         visiting: HashSet::new(),
         statics: HashMap::new(),
+        sky_draws: HashMap::new(),
     };
     for (table, source) in &world.tables {
         for node in &source.nodes {
@@ -118,10 +121,44 @@ impl Builder<'_> {
                     mesh: MeshKey::Dynamic(tag, stage),
                     feature,
                     materials,
+                    technique: None,
                 })
                 .or_default()
                 .push(transform);
         }
+    }
+    fn sky_model(&mut self, tag: u32, transform: Mat4) -> Result<()> {
+        if !self.sky_draws.contains_key(&tag) {
+            let model: deimos_data::tfx::features::dynamic::SDynamicModel =
+                self.installation.read_type(tag)?;
+            let mut draws = Vec::new();
+            for (mesh_index, mesh) in model.meshes.iter().enumerate() {
+                for stage in [RenderStage::GenerateGbuffer, RenderStage::Transparents] {
+                    for part_index in mesh.get_range_for_stage(stage) {
+                        let part = &mesh.parts[part_index];
+                        if !part.lod_category.is_highest_detail() {
+                            continue;
+                        }
+                        draws.push(RenderObjectKey {
+                            mesh: MeshKey::DynamicDraw {
+                                tag,
+                                stage,
+                                mesh: u16::try_from(mesh_index)?,
+                                part: u16::try_from(part_index)?,
+                            },
+                            feature: TfxFeatureRenderer::SkyTransparent,
+                            materials: MaterialBinding::Model(tag),
+                            technique: Some(part.technique.0),
+                        });
+                    }
+                }
+            }
+            self.sky_draws.insert(tag, draws);
+        }
+        for draw in &self.sky_draws[&tag] {
+            self.scene.groups.entry(*draw).or_default().push(transform);
+        }
+        Ok(())
     }
     fn static_meshes(&mut self, tag: u32) -> Result<Vec<MeshKey>> {
         if let Some(keys) = self.statics.get(&tag) {
@@ -263,6 +300,7 @@ impl Builder<'_> {
                                     mesh: key,
                                     feature: TfxFeatureRenderer::ChunkedInstanceObjects,
                                     materials: MaterialBinding::StaticModel(model.0),
+                                    technique: None,
                                 })
                                 .or_default()
                                 .extend(transforms.iter().map(|t| {
@@ -286,6 +324,7 @@ impl Builder<'_> {
                                 mesh: MeshKey::Terrain(source.terrain.0),
                                 feature: TfxFeatureRenderer::TerrainPatch,
                                 materials: MaterialBinding::Terrain(source.terrain.0),
+                                technique: None,
                             })
                             .or_default()
                             .push(Mat4::IDENTITY);
@@ -303,12 +342,7 @@ impl Builder<'_> {
                         self.installation.read_type(tag)?;
                     for object in objects.unk8.iter().filter(|o| o.is_game_sky()) {
                         let model = self.installation.follow(&object.model_ref)?;
-                        self.model(
-                            model.entity_model.0,
-                            TfxFeatureRenderer::SkyTransparent,
-                            MaterialBinding::Model(model.entity_model.0),
-                            object.transform,
-                        );
+                        self.sky_model(model.entity_model.0, object.transform)?;
                     }
                 }
                 ComponentData::SWaterPlaneComponent(source) => {
@@ -373,6 +407,7 @@ impl Builder<'_> {
                                 ),
                                 feature: TfxFeatureRenderer::SpeedtreeTrees,
                                 materials: MaterialBinding::Model(model.entity_model.0),
+                                technique: None,
                             })
                             .or_default();
                         for record in records.chunks_exact(DecoratorGpuInstance::SIZE) {

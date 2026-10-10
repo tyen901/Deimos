@@ -1,5 +1,5 @@
-//! Geometry for an engine's neutral lit inspection pass. Source draw ranges,
-//! quantization and input channels come from Deimos; no source materials load.
+//! Engine-independent geometry. Source draw ranges, quantization and vertex
+//! channels come from Deimos; the embedding engine owns material resources.
 use crate::Installation;
 use anyhow::{Context, Result, bail, ensure};
 use deimos_data::dxgi::Format;
@@ -14,7 +14,7 @@ use deimos_data::tfx::{
     render_globals::{SRenderGlobals, SVertexInputElementSets, SVertexInputLayoutMapping},
     vertex_input::{INPUT_FORMATS, InputLayoutIndex, VertexSemantic},
 };
-use glam::Vec3;
+use glam::{Vec2, Vec3};
 use std::collections::HashSet;
 use tiger_pkg::TagHash;
 
@@ -22,6 +22,12 @@ use tiger_pkg::TagHash;
 pub enum MeshKey {
     Static(u32),
     Dynamic(u32, RenderStage),
+    DynamicDraw {
+        tag: u32,
+        stage: RenderStage,
+        mesh: u16,
+        part: u16,
+    },
     StaticSpecial(u32, u16),
     Terrain(u32),
     Decorator(u32, u16),
@@ -29,6 +35,7 @@ pub enum MeshKey {
 pub struct Mesh {
     pub positions: Vec<Vec3>,
     pub normals: Vec<Vec3>,
+    pub texcoords: Vec<Vec2>,
     pub indices: Vec<u32>,
 }
 
@@ -54,6 +61,9 @@ impl Layouts {
         })
     }
     fn position(&self, index: u8) -> Result<PositionInput> {
+        self.channel(index, VertexSemantic::Position)
+    }
+    fn channel(&self, index: u8, semantic: VertexSemantic) -> Result<PositionInput> {
         let layout = self
             .mapping
             .layouts
@@ -80,8 +90,7 @@ impl Layouts {
                 .elements;
             let mut offset = 0;
             for element in elements {
-                if element.semantic == VertexSemantic::Position as u8 && element.semantic_index == 0
-                {
+                if element.semantic == semantic as u8 && element.semantic_index == 0 {
                     return Ok(PositionInput {
                         slot,
                         offset,
@@ -98,7 +107,10 @@ impl Layouts {
                     .stride as usize;
             }
         }
-        bail!("Layout {index} has no per-vertex POSITION0")
+        bail!(
+            "Layout {index} has no per-vertex semantic {} index0",
+            semantic as u8
+        )
     }
 }
 
@@ -119,6 +131,39 @@ impl Buffer {
             bytes,
             stride: header.stride as usize,
         })
+    }
+    fn texcoords(&self, input: &PositionInput, scale: Vec2, offset: Vec2) -> Result<Vec<Vec2>> {
+        ensure!(
+            input.offset + input.size <= self.stride,
+            "UV channel exceeds vertex stride"
+        );
+        self.bytes
+            .chunks_exact(self.stride)
+            .map(|vertex| {
+                let data = &vertex[input.offset..input.offset + input.size];
+                let uv = match input.format {
+                    Format::R16g16Snorm => {
+                        Vec2::new(
+                            i16::from_le_bytes(data[0..2].try_into()?) as f32,
+                            i16::from_le_bytes(data[2..4].try_into()?) as f32,
+                        ) / i16::MAX as f32
+                    }
+                    Format::R32g32Float => Vec2::new(
+                        f32::from_le_bytes(data[0..4].try_into()?),
+                        f32::from_le_bytes(data[4..8].try_into()?),
+                    ),
+                    format => bail!("Unsupported TEXCOORD0 format {format:?}"),
+                };
+                let uv = if input.format == Format::R16g16Snorm {
+                    uv.max(Vec2::splat(-1.0))
+                } else {
+                    uv
+                };
+                let uv = uv * scale + offset;
+                ensure!(uv.is_finite(), "Non-finite decoded UV");
+                Ok(uv)
+            })
+            .collect()
     }
     fn positions(&self, input: &PositionInput, scale: Vec3, offset: Vec3) -> Result<Vec<Vec3>> {
         let size = input.size;
@@ -212,6 +257,7 @@ impl Mesh {
         Self {
             positions: Vec::new(),
             normals: Vec::new(),
+            texcoords: Vec::new(),
             indices: Vec::new(),
         }
     }
@@ -223,6 +269,39 @@ impl Mesh {
         let positions = meshopt::optimize_vertex_fetch(&mut indices, &positions);
         let base = u32::try_from(self.positions.len())?;
         self.positions.extend(positions);
+        self.indices.extend(indices.into_iter().map(|i| i + base));
+        Ok(())
+    }
+    fn append_textured(
+        &mut self,
+        positions: Vec<Vec3>,
+        texcoords: Vec<Vec2>,
+        mut indices: Vec<u32>,
+    ) -> Result<()> {
+        #[derive(Clone, Copy, Default)]
+        struct Vertex {
+            position: Vec3,
+            texcoord: Vec2,
+        }
+        ensure!(
+            positions.len() == texcoords.len(),
+            "Position/UV stream vertex count mismatch"
+        );
+        ensure!(
+            indices.iter().all(|&i| (i as usize) < positions.len()),
+            "Index outside textured vertex buffer"
+        );
+        let vertices: Vec<_> = positions
+            .into_iter()
+            .zip(texcoords)
+            .map(|(position, texcoord)| Vertex { position, texcoord })
+            .collect();
+        let vertices = meshopt::optimize_vertex_fetch(&mut indices, &vertices);
+        let base = u32::try_from(self.positions.len())?;
+        for vertex in vertices {
+            self.positions.push(vertex.position);
+            self.texcoords.push(vertex.texcoord);
+        }
         self.indices.extend(indices.into_iter().map(|i| i + base));
         Ok(())
     }
@@ -324,6 +403,57 @@ pub(crate) fn load(installation: &Installation, key: MeshKey, layouts: &Layouts)
                 special.primitive_type,
             )?;
             mesh.append(positions, indices)?;
+        }
+        MeshKey::DynamicDraw {
+            tag,
+            stage,
+            mesh: mesh_index,
+            part: part_index,
+        } => {
+            let model: SDynamicModel = installation.read_type(tag)?;
+            let source = model
+                .meshes
+                .get(mesh_index as usize)
+                .context("Dynamic draw mesh index")?;
+            ensure!(
+                source
+                    .get_range_for_stage(stage)
+                    .contains(&(part_index as usize)),
+                "Dynamic draw part outside stage"
+            );
+            let part = source
+                .parts
+                .get(part_index as usize)
+                .context("Dynamic draw part index")?;
+            ensure!(
+                part.lod_category.is_highest_detail(),
+                "Dynamic draw is not highest detail"
+            );
+            let layout = source.get_input_layout_for_stage(stage);
+            let position = layouts.position(layout)?;
+            let uv = layouts.channel(layout, VertexSemantic::TexCoord)?;
+            let buffers = [
+                source.vertex0_buffer,
+                source.vertex1_buffer,
+                source.buffer2,
+                source.buffer3,
+            ];
+            let positions = Buffer::load(installation, buffers[position.slot])?.positions(
+                &position,
+                model.model_scale.truncate(),
+                model.model_offset.truncate(),
+            )?;
+            let texcoords = Buffer::load(installation, buffers[uv.slot])?.texcoords(
+                &uv,
+                model.texcoord_scale,
+                model.texcoord_offset,
+            )?;
+            let indices = Indices::load(installation, source.index_buffer)?.triangles(
+                part.index_start,
+                part.index_count,
+                part.primitive_type,
+            )?;
+            mesh.append_textured(positions, texcoords, indices)?;
         }
         MeshKey::Dynamic(tag, _) | MeshKey::Decorator(tag, _) => {
             let model: SDynamicModel = installation.read_type(tag)?;
