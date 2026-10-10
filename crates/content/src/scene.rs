@@ -20,15 +20,27 @@ use std::{
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum MaterialBinding {
+    /// Techniques indexed by the shared geometry's mesh-group index.
+    StaticModel(u32),
+    /// Inline dynamic model definition, including its technique variant tables.
+    RigidComponent(u32),
+    /// Default techniques stored on dynamic mesh parts (sky, water, decorators).
+    Model(u32),
+    Terrain(u32),
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RenderObjectKey {
     pub mesh: MeshKey,
     pub feature: TfxFeatureRenderer,
+    pub materials: MaterialBinding,
 }
 pub struct Scene {
     pub groups: BTreeMap<RenderObjectKey, Vec<Mat4>>,
     pub issues: Vec<String>,
 }
 struct Component {
+    tag: u32,
     header: SComponent,
     bytes: Vec<u8>,
 }
@@ -77,13 +89,20 @@ pub(crate) fn load(installation: &Installation, world: &World) -> Result<Scene> 
 }
 
 impl Builder<'_> {
-    fn model(&mut self, tag: u32, feature: TfxFeatureRenderer, transform: Mat4) {
+    fn model(
+        &mut self,
+        tag: u32,
+        feature: TfxFeatureRenderer,
+        materials: MaterialBinding,
+        transform: Mat4,
+    ) {
         for stage in [RenderStage::GenerateGbuffer, RenderStage::Transparents] {
             self.scene
                 .groups
                 .entry(RenderObjectKey {
                     mesh: MeshKey::Dynamic(tag, stage),
                     feature,
+                    materials,
                 })
                 .or_default()
                 .push(transform);
@@ -132,7 +151,11 @@ impl Builder<'_> {
             for reference in pattern.components {
                 let bytes = self.installation.read(reference.component.0)?;
                 let header = read_at::<SComponent>(&bytes, 0)?;
-                components.push(Component { header, bytes });
+                components.push(Component {
+                    tag: reference.component.0,
+                    header,
+                    bytes,
+                });
             }
             let components = Arc::new(components);
             self.patterns.insert(tag, components.clone());
@@ -149,6 +172,7 @@ impl Builder<'_> {
                 self.model(
                     model.model_hash.0,
                     TfxFeatureRenderer::RigidObject,
+                    MaterialBinding::RigidComponent(component.tag),
                     transform,
                 );
                 continue;
@@ -197,6 +221,7 @@ impl Builder<'_> {
                                 .entry(RenderObjectKey {
                                     mesh: key,
                                     feature: TfxFeatureRenderer::ChunkedInstanceObjects,
+                                    materials: MaterialBinding::StaticModel(model.0),
                                 })
                                 .or_default()
                                 .extend(transforms.iter().map(|t| {
@@ -219,6 +244,7 @@ impl Builder<'_> {
                             .entry(RenderObjectKey {
                                 mesh: MeshKey::Terrain(source.terrain.0),
                                 feature: TfxFeatureRenderer::TerrainPatch,
+                                materials: MaterialBinding::Terrain(source.terrain.0),
                             })
                             .or_default()
                             .push(Mat4::IDENTITY);
@@ -239,12 +265,18 @@ impl Builder<'_> {
                         self.model(
                             model.entity_model.0,
                             TfxFeatureRenderer::SkyTransparent,
+                            MaterialBinding::Model(model.entity_model.0),
                             object.transform,
                         );
                     }
                 }
                 ComponentData::SWaterPlaneComponent(source) => {
-                    self.model(source.model.0, TfxFeatureRenderer::Water, transform);
+                    self.model(
+                        source.model.0,
+                        TfxFeatureRenderer::Water,
+                        MaterialBinding::Model(source.model.0),
+                        transform,
+                    );
                 }
                 ComponentData::SDecoratorsComponent(source) => {
                     let tag = source.decorators.taghash().0;
@@ -298,6 +330,7 @@ impl Builder<'_> {
                                     u16::try_from(identifier)?,
                                 ),
                                 feature: TfxFeatureRenderer::SpeedtreeTrees,
+                                materials: MaterialBinding::Model(model.entity_model.0),
                             })
                             .or_default();
                         for record in records.chunks_exact(DecoratorGpuInstance::SIZE) {
