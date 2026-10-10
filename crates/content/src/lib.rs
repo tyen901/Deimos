@@ -9,7 +9,7 @@ pub use materials::{DrawMaterial, DrawSlot, MaterialSet};
 pub use parameters::{ShaderDependencies, ShaderParameters};
 pub use texture::Texture;
 mod world;
-pub use geometry::{Layouts, Mesh, MeshKey};
+pub use geometry::{Layouts, Mesh, MeshKey, StaticDrawKey, StaticGeometry};
 mod scene;
 pub use deimos_data;
 pub use glam;
@@ -77,6 +77,9 @@ impl Installation {
 
     pub fn mesh(&self, key: MeshKey, layouts: &Layouts) -> Result<Mesh> {
         geometry::load(self, key, layouts)
+    }
+    pub fn static_geometry(&self, tag: u32, layouts: &Layouts) -> Result<StaticGeometry> {
+        geometry::load_static(self, tag, layouts)
     }
 
     pub fn materials(&self, owner: MaterialBinding) -> Result<MaterialSet> {

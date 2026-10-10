@@ -15,12 +15,14 @@ use deimos_data::tfx::{
     vertex_input::{INPUT_FORMATS, InputLayoutIndex, VertexSemantic},
 };
 use glam::{Vec2, Vec3, Vec4};
-use std::collections::HashSet;
 use tiger_pkg::TagHash;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum MeshKey {
-    Static(u32),
+    StaticDraw {
+        tag: u32,
+        draw: StaticDrawKey,
+    },
     Dynamic(u32, RenderStage),
     DynamicDraw {
         tag: u32,
@@ -32,11 +34,20 @@ pub enum MeshKey {
     Terrain(u32),
     Decorator(u32, u16),
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct StaticDrawKey {
+    pub part: u16,
+    pub layout: u8,
+}
+pub struct StaticGeometry {
+    pub draws: Vec<(StaticDrawKey, Mesh)>,
+}
 pub struct Mesh {
     pub positions: Vec<Vec3>,
     pub normals: Vec<Vec3>,
     pub texcoords: Vec<Vec2>,
     pub colors: Vec<Vec4>,
+    pub tangents: Vec<Vec4>,
     pub indices: Vec<u32>,
 }
 
@@ -120,6 +131,43 @@ struct Buffer {
     stride: usize,
 }
 impl Buffer {
+    fn tangent_frames(&self, input: &PositionInput) -> Result<(Vec<Vec3>, Vec<Vec4>)> {
+        ensure!(
+            input.offset + input.size <= self.stride,
+            "Tangent channel exceeds stride"
+        );
+        let mut normals = Vec::with_capacity(self.bytes.len() / self.stride);
+        let mut tangents = Vec::with_capacity(normals.capacity());
+        for vertex in self.bytes.chunks_exact(self.stride) {
+            let data = &vertex[input.offset..input.offset + input.size];
+            let q = match input.format {
+                Format::R16g16b16a16Snorm => Vec4::from_array(std::array::from_fn(|i| {
+                    (i16::from_le_bytes([data[i * 2], data[i * 2 + 1]]) as f32 / i16::MAX as f32)
+                        .max(-1.0)
+                })),
+                Format::R8g8b8a8Snorm => Vec4::from_array(std::array::from_fn(|i| {
+                    (data[i] as i8 as f32 / i8::MAX as f32).max(-1.0)
+                })),
+                format => bail!("Unsupported tangent quaternion format {format:?}"),
+            };
+            // Original static VS: quaternion column0 is NORMAL, column1 TANGENT.
+            // Keep the quantized components and W sign rather than normalizing Q.
+            normals.push(Vec3::new(
+                1.0 - 2.0 * q.z * q.z - 2.0 * q.y * q.y,
+                2.0 * q.x * q.y + 2.0 * q.z * q.w,
+                2.0 * q.x * q.z - 2.0 * q.y * q.w,
+            ));
+            tangents.push(
+                Vec3::new(
+                    2.0 * q.x * q.y - 2.0 * q.z * q.w,
+                    1.0 - 2.0 * q.z * q.z - 2.0 * q.x * q.x,
+                    2.0 * q.y * q.z + 2.0 * q.x * q.w,
+                )
+                .extend(if q.w >= 0.0 { 1.0 } else { -1.0 }),
+            );
+        }
+        Ok((normals, tangents))
+    }
     fn load(installation: &Installation, hash: TagHash) -> Result<Self> {
         let header: VertexBufferHeader = installation.read_type(hash.0)?;
         ensure!(header.stride > 0, "Zero vertex stride in {hash}");
@@ -260,6 +308,7 @@ impl Mesh {
             normals: Vec::new(),
             texcoords: Vec::new(),
             colors: Vec::new(),
+            tangents: Vec::new(),
             indices: Vec::new(),
         }
     }
@@ -347,56 +396,155 @@ impl Mesh {
     }
 }
 
+/// Decode each original static stream once, then compact each color draw without
+/// copying complete vertex streams. The engine owns the resulting resource lifetime.
+pub(crate) fn load_static(
+    installation: &Installation,
+    tag: u32,
+    layouts: &Layouts,
+) -> Result<StaticGeometry> {
+    let data: SStaticMeshData = installation.read_type(tag)?;
+    let mut groups = std::collections::BTreeMap::<(u8, u8), std::collections::BTreeSet<u16>>::new();
+    for group in &data.mesh_groups {
+        let part = data
+            .parts
+            .get(group.part_index as usize)
+            .context("Static group part")?;
+        if group.render_stage == RenderStage::GenerateGbuffer
+            && part.lod_category.is_highest_detail()
+        {
+            groups
+                .entry((part.buffer_index, group.input_layout_index))
+                .or_default()
+                .insert(group.part_index);
+        }
+    }
+    let mut draws = Vec::new();
+    for ((buffer_index, layout), parts) in groups {
+        let &(index, v0, v1, color) = data
+            .buffers
+            .get(buffer_index as usize)
+            .context("Static buffer index")?;
+        let buffers = [
+            Buffer::load(installation, v0)?,
+            Buffer::load(installation, v1)?,
+        ];
+        let position = layouts.position(layout)?;
+        let uv = layouts.channel(layout, VertexSemantic::TexCoord)?;
+        let tangent = layouts.channel(layout, VertexSemantic::Tangent)?;
+        let positions = buffers
+            .get(position.slot)
+            .context("Static position stream")?
+            .positions(&position, Vec3::splat(data.mesh_scale), data.mesh_offset)?;
+        let texcoords = buffers
+            .get(uv.slot)
+            .context("Static UV stream")?
+            .texcoords(
+                &uv,
+                Vec2::splat(data.texture_coordinate_scale),
+                data.texture_coordinate_offset,
+            )?;
+        let (normals, tangents) = buffers
+            .get(tangent.slot)
+            .context("Static tangent stream")?
+            .tangent_frames(&tangent)?;
+        ensure!(
+            positions.len() == texcoords.len() && positions.len() == normals.len(),
+            "Static vertex channel count mismatch"
+        );
+        let colors = if color.is_some() {
+            let buffer = Buffer::load(installation, color)?;
+            ensure!(
+                buffer.stride == 4 && !buffer.bytes.is_empty(),
+                "Static color buffer must contain RGBA8 vertices"
+            );
+            Some(
+                buffer
+                    .bytes
+                    .chunks_exact(4)
+                    .map(|v| {
+                        Vec4::new(v[0] as f32, v[1] as f32, v[2] as f32, v[3] as f32)
+                            / u8::MAX as f32
+                    })
+                    .collect::<Vec<_>>(),
+            )
+        } else {
+            None
+        };
+        let index = Indices::load(installation, index)?;
+        for part_index in parts {
+            let part = &data.parts[part_index as usize];
+            let indices =
+                index.triangles(part.index_start, part.index_count, part.primitive_type)?;
+            ensure!(
+                indices.iter().all(|&i| (i as usize) < positions.len()),
+                "Static index outside vertex buffer"
+            );
+            // meshopt0.6.2's Rust helper truncates the old-index remap to the new
+            // vertex count. Keep the full table required for sparse source indices.
+            let mut remap = vec![u32::MAX; positions.len()];
+            // SAFETY: indices were range-checked above; destination has one entry
+            // per original vertex, as required by meshoptimizer's public C API.
+            let count = unsafe {
+                meshopt::ffi::meshopt_optimizeVertexFetchRemap(
+                    remap.as_mut_ptr(),
+                    indices.as_ptr(),
+                    indices.len(),
+                    positions.len(),
+                )
+            };
+            let mut mesh = Mesh::new();
+            mesh.positions.resize(count, Vec3::ZERO);
+            mesh.normals.resize(count, Vec3::ZERO);
+            mesh.texcoords.resize(count, Vec2::ZERO);
+            mesh.tangents.resize(count, Vec4::ZERO);
+            if colors.is_some() {
+                mesh.colors.resize(count, Vec4::ZERO);
+            }
+            for (source, &target) in remap
+                .iter()
+                .enumerate()
+                .filter(|(_, target)| **target != u32::MAX)
+            {
+                let target = target as usize;
+                mesh.positions[target] = positions[source];
+                mesh.normals[target] = normals[source];
+                mesh.texcoords[target] = texcoords[source];
+                mesh.tangents[target] = tangents[source];
+                if let Some(colors) = &colors {
+                    let index = source.min(data.max_color_index as usize);
+                    mesh.colors[target] = *colors.get(index).with_context(|| {
+                        format!(
+                            "Static color index {index} outside {} values (source maximum {})",
+                            colors.len(),
+                            data.max_color_index
+                        )
+                    })?;
+                }
+            }
+            mesh.indices = indices.into_iter().map(|i| remap[i as usize]).collect();
+            draws.push((
+                StaticDrawKey {
+                    part: part_index,
+                    layout,
+                },
+                mesh,
+            ));
+        }
+    }
+    Ok(StaticGeometry { draws })
+}
+
 pub(crate) fn load(installation: &Installation, key: MeshKey, layouts: &Layouts) -> Result<Mesh> {
     let mut mesh = Mesh::new();
     match key {
-        MeshKey::Static(tag) => {
-            let data: SStaticMeshData = installation.read_type(tag)?;
-            let mut drawn = HashSet::new();
-            let mut draws = std::collections::BTreeMap::<(u8, u8), Vec<usize>>::new();
-            for group in &data.mesh_groups {
-                if group.render_stage != RenderStage::GenerateGbuffer
-                    || !drawn.insert(group.part_index)
-                {
-                    continue;
-                }
-                let part = data
-                    .parts
-                    .get(group.part_index as usize)
-                    .context("Static part index")?;
-                if part.lod_category.is_highest_detail() {
-                    draws
-                        .entry((part.buffer_index, group.input_layout_index))
-                        .or_default()
-                        .push(group.part_index as usize);
-                }
-            }
-            for ((buffer, layout), parts) in draws {
-                let &(index, v0, v1, color) = data
-                    .buffers
-                    .get(buffer as usize)
-                    .context("Static buffer index")?;
-                let input = layouts.position(layout)?;
-                let hash = *[v0, v1, color]
-                    .get(input.slot)
-                    .context("Static position stream")?;
-                let positions = Buffer::load(installation, hash)?.positions(
-                    &input,
-                    Vec3::splat(data.mesh_scale),
-                    data.mesh_offset,
-                )?;
-                let index = Indices::load(installation, index)?;
-                let mut triangles = Vec::new();
-                for part in parts {
-                    let part = &data.parts[part];
-                    triangles.extend(index.triangles(
-                        part.index_start,
-                        part.index_count,
-                        part.primitive_type,
-                    )?);
-                }
-                mesh.append(positions, triangles)?;
-            }
+        MeshKey::StaticDraw { tag, draw } => {
+            return load_static(installation, tag, layouts)?
+                .draws
+                .into_iter()
+                .find(|(key, _)| *key == draw)
+                .map(|(_, mesh)| mesh)
+                .context("Static draw not found");
         }
         MeshKey::StaticSpecial(tag, part) => {
             let model: SStaticMesh = installation.read_type(tag)?;

@@ -9,7 +9,7 @@ use deimos_data::{
         features::{
             decorators::DecoratorGpuInstance,
             dynamic::SDynamicModelComponent,
-            statics::{SStaticMesh, SStaticMeshInstances, SUnk808082D5},
+            statics::{SStaticMesh, SStaticMeshData, SStaticMeshInstances, SUnk808082D5},
         },
     },
 };
@@ -67,7 +67,8 @@ struct Builder<'a> {
     patterns: HashMap<u32, Arc<Vec<Component>>>,
     absolute_collections: HashSet<(u32, u32)>,
     visiting: HashSet<u32>,
-    statics: HashMap<u32, Vec<MeshKey>>,
+    statics: HashMap<u32, Vec<RenderObjectKey>>,
+    static_geometry: HashMap<u32, Arc<SStaticMeshData>>,
     sky_draws: HashMap<u32, Vec<RenderObjectKey>>,
 }
 
@@ -83,6 +84,7 @@ pub(crate) fn load(installation: &Installation, world: &World) -> Result<Scene> 
         absolute_collections: HashSet::new(),
         visiting: HashSet::new(),
         statics: HashMap::new(),
+        static_geometry: HashMap::new(),
         sky_draws: HashMap::new(),
     };
     for (table, source) in &world.tables {
@@ -160,19 +162,64 @@ impl Builder<'_> {
         }
         Ok(())
     }
-    fn static_meshes(&mut self, tag: u32) -> Result<Vec<MeshKey>> {
+    fn static_meshes(&mut self, tag: u32) -> Result<Vec<RenderObjectKey>> {
         if let Some(keys) = self.statics.get(&tag) {
             return Ok(keys.clone());
         }
         let started = Instant::now();
         let model: SStaticMesh = self.installation.read_type(tag)?;
-        self.scene.compilation.static_decode += started.elapsed();
-        let mut keys = vec![MeshKey::Static(model.opaque_meshes.taghash().0)];
+        let geometry_tag = model.opaque_meshes.taghash().0;
+        let geometry = if let Some(geometry) = self.static_geometry.get(&geometry_tag) {
+            geometry.clone()
+        } else {
+            let geometry = Arc::new(self.installation.follow(&model.opaque_meshes)?);
+            self.static_geometry.insert(geometry_tag, geometry.clone());
+            geometry
+        };
+        let mut keys = Vec::new();
+        for (index, group) in geometry.mesh_groups.iter().enumerate() {
+            let part = geometry
+                .parts
+                .get(group.part_index as usize)
+                .context("Static draw part")?;
+            if group.render_stage != RenderStage::GenerateGbuffer
+                || !part.lod_category.is_highest_detail()
+            {
+                continue;
+            }
+            let technique = *model
+                .techniques
+                .get(index)
+                .context("Static group technique")?;
+            ensure!(technique.is_some(), "Static color draw has no technique");
+            keys.push(RenderObjectKey {
+                mesh: MeshKey::StaticDraw {
+                    tag: model.opaque_meshes.taghash().0,
+                    draw: crate::StaticDrawKey {
+                        part: group.part_index,
+                        layout: group.input_layout_index,
+                    },
+                },
+                feature: TfxFeatureRenderer::ChunkedInstanceObjects,
+                materials: MaterialBinding::StaticModel(tag),
+                technique: Some(technique.0),
+            });
+        }
         for (index, part) in model.special_meshes.iter().enumerate() {
             if part.render_stage == RenderStage::Transparents && part.lod.is_highest_detail() {
-                keys.push(MeshKey::StaticSpecial(tag, u16::try_from(index)?));
+                ensure!(
+                    part.technique.is_some(),
+                    "Static special draw has no technique"
+                );
+                keys.push(RenderObjectKey {
+                    mesh: MeshKey::StaticSpecial(tag, u16::try_from(index)?),
+                    feature: TfxFeatureRenderer::ChunkedInstanceObjects,
+                    materials: MaterialBinding::StaticModel(tag),
+                    technique: Some(part.technique.0),
+                });
             }
         }
+        self.scene.compilation.static_decode += started.elapsed();
         self.statics.insert(tag, keys.clone());
         Ok(keys)
     }
@@ -294,22 +341,15 @@ impl Builder<'_> {
                             .context("Static instance range")?;
                         let keys = self.static_meshes(model.0)?;
                         for key in keys {
-                            self.scene
-                                .groups
-                                .entry(RenderObjectKey {
-                                    mesh: key,
-                                    feature: TfxFeatureRenderer::ChunkedInstanceObjects,
-                                    materials: MaterialBinding::StaticModel(model.0),
-                                    technique: None,
-                                })
-                                .or_default()
-                                .extend(transforms.iter().map(|t| {
+                            self.scene.groups.entry(key).or_default().extend(
+                                transforms.iter().map(|t| {
                                     Mat4::from_scale_rotation_translation(
                                         Vec3::splat(t.scale),
                                         t.rotation,
                                         t.translation,
                                     )
-                                }));
+                                }),
+                            );
                         }
                     }
                 }
