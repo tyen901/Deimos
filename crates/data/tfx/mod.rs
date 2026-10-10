@@ -4,6 +4,7 @@ pub mod enums;
 pub mod features; // Feature renderers
 pub mod geometry;
 pub mod render_globals;
+pub mod runtime_inputs;
 pub mod scope;
 pub mod sequencer;
 pub mod technique;

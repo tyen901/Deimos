@@ -6,7 +6,7 @@ mod parameters;
 mod texture;
 pub use deimos_tfx;
 pub use materials::{DrawMaterial, DrawSlot, MaterialSet};
-pub use parameters::ShaderParameters;
+pub use parameters::{ShaderDependencies, ShaderParameters};
 pub use texture::Texture;
 mod world;
 pub use geometry::{Layouts, Mesh, MeshKey};

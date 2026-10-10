@@ -278,6 +278,7 @@ impl Mesh {
         &mut self,
         positions: Vec<Vec3>,
         texcoords: Vec<Vec2>,
+        normals: Vec<Vec3>,
         colors: Option<Vec<Vec4>>,
         mut indices: Vec<u32>,
     ) -> Result<()> {
@@ -285,10 +286,11 @@ impl Mesh {
         struct Vertex {
             position: Vec3,
             texcoord: Vec2,
+            normal: Vec3,
             color: Option<Vec4>,
         }
         ensure!(
-            positions.len() == texcoords.len(),
+            positions.len() == texcoords.len() && positions.len() == normals.len(),
             "Position/UV stream vertex count mismatch"
         );
         ensure!(
@@ -302,6 +304,7 @@ impl Mesh {
             .map(|(index, (position, texcoord))| Vertex {
                 position,
                 texcoord,
+                normal: normals[index],
                 color: colors
                     .as_ref()
                     .map(|values| values[index.min(values.len() - 1)]),
@@ -312,6 +315,7 @@ impl Mesh {
         for vertex in vertices {
             self.positions.push(vertex.position);
             self.texcoords.push(vertex.texcoord);
+            self.normals.push(vertex.normal);
             if let Some(color) = vertex.color {
                 self.colors.push(color);
             }
@@ -320,6 +324,9 @@ impl Mesh {
         Ok(())
     }
     fn finish(mut self) -> Result<Self> {
+        if !self.normals.is_empty() {
+            return Ok(self);
+        }
         self.normals.resize(self.positions.len(), Vec3::ZERO);
         for triangle in self.indices.chunks_exact(3) {
             let [a, b, c] = [
@@ -452,11 +459,30 @@ pub(crate) fn load(installation: &Installation, key: MeshKey, layouts: &Layouts)
                 source.buffer2,
                 source.buffer3,
             ];
-            let positions = Buffer::load(installation, buffers[position.slot])?.positions(
+            let buffer = Buffer::load(installation, buffers[position.slot])?;
+            let positions = buffer.positions(
                 &position,
                 model.model_scale.truncate(),
                 model.model_offset.truncate(),
             )?;
+            let normal = layouts.channel(layout, VertexSemantic::Normal)?;
+            let other_buffer = if normal.slot != position.slot {
+                Some(Buffer::load(installation, buffers[normal.slot])?)
+            } else {
+                None
+            };
+            let normal_buffer = match &other_buffer {
+                Some(buffer) => buffer,
+                None => &buffer,
+            };
+            let normals = normal_buffer
+                .positions(&normal, Vec3::ONE, Vec3::ZERO)?
+                .into_iter()
+                .map(|normal| {
+                    ensure!(normal.is_finite(), "Invalid authored normal");
+                    Ok(normal)
+                })
+                .collect::<Result<Vec<_>>>()?;
             let texcoords = Buffer::load(installation, buffers[uv.slot])?.texcoords(
                 &uv,
                 model.texcoord_scale,
@@ -486,7 +512,7 @@ pub(crate) fn load(installation: &Installation, key: MeshKey, layouts: &Layouts)
             } else {
                 None
             };
-            mesh.append_textured(positions, texcoords, colors, indices)?;
+            mesh.append_textured(positions, texcoords, normals, colors, indices)?;
         }
         MeshKey::Dynamic(tag, _) | MeshKey::Decorator(tag, _) => {
             let model: SDynamicModel = installation.read_type(tag)?;

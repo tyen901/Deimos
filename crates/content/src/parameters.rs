@@ -5,6 +5,11 @@ use deimos_data::tfx::{STechnique, ShaderStage};
 use deimos_tfx::{Inputs, InterpreterState, constant_bytecode};
 use glam::Vec4;
 
+#[derive(Clone, Copy, Default)]
+pub struct ShaderDependencies {
+    pub time: bool,
+    pub viewport: bool,
+}
 pub struct ShaderParameters {
     pub slot: i32,
     pub initial: Vec<Vec4>,
@@ -12,24 +17,33 @@ pub struct ShaderParameters {
     constants: Vec<Vec4>,
 }
 impl ShaderParameters {
-    pub fn uses_frame_inputs(&self) -> Result<bool> {
+    pub fn dependencies(&self) -> Result<ShaderDependencies> {
         use deimos_data::tfx::{
             ExternIndex,
             opcodes::{Opcode, OpcodeIterator},
+            runtime_inputs::{DeferredVector, FrameFloat},
         };
+        let mut dependencies = ShaderDependencies::default();
         for instruction in OpcodeIterator::new(&self.bytecode) {
-            let (opcode, bytes) = instruction?;
-            if matches!(
-                opcode,
+            let (opcode, args) = instruction?;
+            match opcode {
                 Opcode::PushExternInputFloat
-                    | Opcode::PushExternInputVec4
-                    | Opcode::PushExternInputMat4
-            ) && bytes[0] == ExternIndex::Frame as u8
-            {
-                return Ok(true);
+                    if args[0] == ExternIndex::Frame as u8
+                        && args[1] as usize * size_of::<f32>() == FrameFloat::GameTime as usize =>
+                {
+                    dependencies.time = true
+                }
+                Opcode::PushExternInputVec4
+                    if args[0] == ExternIndex::Deferred as u8
+                        && args[1] as usize * size_of::<Vec4>()
+                            == DeferredVector::GbufferResolutionScaleOffset as usize =>
+                {
+                    dependencies.viewport = true
+                }
+                _ => {}
             }
         }
-        Ok(false)
+        Ok(dependencies)
     }
 
     pub fn evaluate(&self, inputs: &dyn Inputs) -> Result<Vec<Vec4>> {
