@@ -17,6 +17,7 @@ use glam::{Mat4, Vec3};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
+    time::{Duration, Instant},
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -38,11 +39,24 @@ pub struct RenderObjectKey {
 pub struct Scene {
     pub groups: BTreeMap<RenderObjectKey, Vec<Mat4>>,
     pub issues: Vec<String>,
+    pub compilation: SceneCompilation,
+}
+#[derive(Default, Debug)]
+pub struct SceneCompilation {
+    pub pattern_decode: Duration,
+    pub static_decode: Duration,
+    pub rigid_decode: Duration,
+    pub decorator_decode: Duration,
 }
 struct Component {
     tag: u32,
     header: SComponent,
-    bytes: Vec<u8>,
+    definition: Definition,
+}
+enum Definition {
+    Rigid(u32),
+    Attached(Vec<u32>),
+    Instance,
 }
 struct Builder<'a> {
     installation: &'a Installation,
@@ -61,6 +75,7 @@ pub(crate) fn load(installation: &Installation, world: &World) -> Result<Scene> 
         scene: Scene {
             groups: BTreeMap::new(),
             issues: Vec::new(),
+            compilation: SceneCompilation::default(),
         },
         patterns: HashMap::new(),
         absolute_collections: HashSet::new(),
@@ -112,7 +127,9 @@ impl Builder<'_> {
         if let Some(keys) = self.statics.get(&tag) {
             return Ok(keys.clone());
         }
+        let started = Instant::now();
         let model: SStaticMesh = self.installation.read_type(tag)?;
+        self.scene.compilation.static_decode += started.elapsed();
         let mut keys = vec![MeshKey::Static(model.opaque_meshes.taghash().0)];
         for (index, part) in model.special_meshes.iter().enumerate() {
             if part.render_stage == RenderStage::Transparents && part.lod.is_highest_detail() {
@@ -146,15 +163,44 @@ impl Builder<'_> {
         let components = if let Some(components) = self.patterns.get(&tag) {
             components.clone()
         } else {
+            let started = Instant::now();
             let pattern: SPattern = self.installation.read_type(tag)?;
+            self.scene.compilation.pattern_decode += started.elapsed();
             let mut components = Vec::with_capacity(pattern.components.len());
             for reference in pattern.components {
+                let started = Instant::now();
                 let bytes = self.installation.read(reference.component.0)?;
                 let header = read_at::<SComponent>(&bytes, 0)?;
+                self.scene.compilation.pattern_decode += started.elapsed();
+                // Definitions belong to the source component, not its placement.
+                // Decode once; material owners still retain the component tag so
+                // independent material resources resolve the full variant tables.
+                let definition = if header.dynamic_data.first().is_none() {
+                    Definition::Instance
+                } else if header.default_instance.resource_type == ComponentKind::RigidModel as u32
+                {
+                    let started = Instant::now();
+                    let model: SDynamicModelComponent = read_at(&bytes, header.definition.offset)?;
+                    self.scene.compilation.rigid_decode += started.elapsed();
+                    Definition::Rigid(model.model_hash.0)
+                } else if header.default_instance.resource_type
+                    == ComponentKind::AttachedPatterns as u32
+                {
+                    let attached: S8080A313 = read_at(&bytes, header.definition.offset)?;
+                    let mut patterns = Vec::new();
+                    for item in attached.unka8.into_iter().flat_map(|a| a.unk8) {
+                        if item.pattern.is_some() {
+                            patterns.push(self.installation.resolve(item.pattern)?);
+                        }
+                    }
+                    Definition::Attached(patterns)
+                } else {
+                    Definition::Instance
+                };
                 components.push(Component {
                     tag: reference.component.0,
                     header,
-                    bytes,
+                    definition,
                 });
             }
             let components = Arc::new(components);
@@ -166,23 +212,18 @@ impl Builder<'_> {
             let Some(default) = header.dynamic_data.first() else {
                 continue;
             };
-            if header.default_instance.resource_type == ComponentKind::RigidModel as u32 {
-                let model: SDynamicModelComponent =
-                    read_at(&component.bytes, header.definition.offset)?;
+            if let Definition::Rigid(model) = component.definition {
                 self.model(
-                    model.model_hash.0,
+                    model,
                     TfxFeatureRenderer::RigidObject,
                     MaterialBinding::RigidComponent(component.tag),
                     transform,
                 );
                 continue;
             }
-            if header.default_instance.resource_type == ComponentKind::AttachedPatterns as u32 {
-                let attached: S8080A313 = read_at(&component.bytes, header.definition.offset)?;
-                for item in attached.unka8.into_iter().flat_map(|a| a.unk8) {
-                    if item.pattern.is_some() {
-                        self.pattern(self.installation.resolve(item.pattern)?, None, transform)?;
-                    }
+            if let Definition::Attached(patterns) = &component.definition {
+                for &pattern in patterns {
+                    self.pattern(pattern, None, transform)?;
                 }
                 continue;
             }
@@ -279,6 +320,7 @@ impl Builder<'_> {
                     );
                 }
                 ComponentData::SDecoratorsComponent(source) => {
+                    let started = Instant::now();
                     let tag = source.decorators.taghash().0;
                     if !self.absolute_collections.insert((data.class_id(), tag)) {
                         continue;
@@ -352,6 +394,7 @@ impl Builder<'_> {
                             ));
                         }
                     }
+                    self.scene.compilation.decorator_decode += started.elapsed();
                 }
                 _ => {}
             }

@@ -8,7 +8,7 @@ pub use geometry::{Layouts, Mesh, MeshKey};
 mod scene;
 pub use deimos_data;
 pub use glam;
-pub use scene::{MaterialBinding, RenderObjectKey, Scene};
+pub use scene::{MaterialBinding, RenderObjectKey, Scene, SceneCompilation};
 pub use world::{World, WorldEntry};
 
 use anyhow::{Context, Result, ensure};
