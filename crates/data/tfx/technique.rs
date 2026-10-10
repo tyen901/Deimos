@@ -351,3 +351,14 @@ pub struct SSamplerData {
 impl SSamplerData {
     pub const MIN_MAG_MIP_LINEAR: u32 = 0x15;
 }
+
+/// Texture-address wire values used by the original D3D sampler payload.
+#[repr(u32)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SamplerAddressMode {
+    Wrap = 1,
+    Mirror = 2,
+    Clamp = 3,
+    Border = 4,
+    MirrorOnce = 5,
+}
