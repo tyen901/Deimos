@@ -31,7 +31,10 @@ pub enum MeshKey {
         part: u16,
     },
     StaticSpecial(u32, u16),
-    Terrain(u32),
+    TerrainDraw {
+        tag: u32,
+        part: u16,
+    },
     Decorator(u32, u16),
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -41,6 +44,20 @@ pub struct StaticDrawKey {
 }
 pub struct StaticGeometry {
     pub draws: Vec<(StaticDrawKey, Mesh)>,
+}
+pub struct TerrainGeometry {
+    pub draws: Vec<TerrainDraw>,
+}
+pub struct TerrainDraw {
+    pub part: u16,
+    pub mesh: Mesh,
+    pub material: TerrainMaterial,
+}
+#[derive(Clone, Copy, Debug)]
+pub struct TerrainMaterial {
+    pub technique: u32,
+    pub dyemap: Option<u32>,
+    pub texcoord_transform: Vec4,
 }
 pub struct Mesh {
     pub positions: Vec<Vec3>,
@@ -727,116 +744,154 @@ pub(crate) fn load(installation: &Installation, key: MeshKey, layouts: &Layouts)
                 }
             }
         }
-        MeshKey::Terrain(tag) => {
-            use deimos_data::tfx::features::terrain::{STerrain, TerrainDetailLevel};
-            let terrain: STerrain = installation.read_type(tag)?;
-            let input = layouts.position(InputLayoutIndex::TERRAIN.0)?;
-            ensure!(
-                input.slot == 0 && input.offset == 0 && input.format == Format::R16g16b16a16Sint,
-                "Terrain POSITION contract changed"
-            );
-            let buffer = Buffer::load(installation, terrain.vertex0_buffer)?;
-            ensure!(
-                buffer.stride == input.size,
-                "Terrain position stride changed"
-            );
-            // Original terrain vertex reconstruction documented in INTEGRATION.md.
-            // All four signed lanes participate; positions are already world-space.
-            const HORIZONTAL_UNITS_PER_METRE: f32 = 64.0;
-            const VERTICAL_UNITS_PER_METRE: f32 = 8192.0;
-            const HIGH_LANE_WEIGHT: f32 = (u16::MAX as u32 + 1) as f32;
-            let offset = terrain.unk30;
-            let positions = buffer
-                .bytes
-                .chunks_exact(input.size)
-                .map(|b| {
-                    let lanes = std::array::from_fn::<_, 4, _>(|i| {
-                        i16::from_le_bytes([b[i * 2], b[i * 2 + 1]]) as f32
-                    });
-                    Vec3::new(
-                        (lanes[0] + offset.x) / HORIZONTAL_UNITS_PER_METRE,
-                        (lanes[1] + offset.y) / HORIZONTAL_UNITS_PER_METRE,
-                        ((lanes[2] + offset.z) + (lanes[3] + offset.w) * HIGH_LANE_WEIGHT)
-                            / VERTICAL_UNITS_PER_METRE,
-                    )
-                })
-                .collect::<Vec<_>>();
-            let index = Indices::load(installation, terrain.index_buffer)?;
-            let mut triangles = Vec::new();
-            for part in terrain
-                .mesh_parts
-                .iter()
-                .filter(|p| p.detail_level == TerrainDetailLevel::High)
-            {
-                triangles.extend(index.triangles(
-                    part.index_start,
-                    part.index_count as u32,
-                    PrimitiveType::TriangleStrip,
-                )?);
-            }
-            let normal_input =
-                layouts.channel(InputLayoutIndex::TERRAIN.0, VertexSemantic::Normal)?;
-            let uv_input =
-                layouts.channel_index(InputLayoutIndex::TERRAIN.0, VertexSemantic::TexCoord, 1)?;
-            let attributes = Buffer::load(installation, terrain.vertex1_buffer)?;
-            ensure!(
-                normal_input.slot == 1
-                    && normal_input.format == Format::R16g16b16a16Snorm
-                    && normal_input.offset + normal_input.size <= attributes.stride
-                    && uv_input.slot == 1,
-                "Terrain normal/UV stream contract changed"
-            );
-            let texcoords = attributes.texcoords(&uv_input, Vec2::ONE, Vec2::ZERO)?;
-            ensure!(
-                positions.len() == texcoords.len(),
-                "Terrain vertex channel count mismatch"
-            );
-            #[derive(Clone, Copy, Default)]
-            struct Vertex {
-                position: Vec3,
-                normal: Vec3,
-                uv: Vec2,
-            }
-            let vertices: Vec<_> = positions
+        MeshKey::TerrainDraw { tag, part } => {
+            return load_terrain(installation, tag, layouts)?
+                .draws
                 .into_iter()
-                .zip(texcoords)
-                .zip(attributes.bytes.chunks_exact(attributes.stride))
-                .map(|((position, uv), data)| {
-                    let data = &data[normal_input.offset..normal_input.offset + normal_input.size];
-                    let normal = Vec3::from_array(std::array::from_fn(|i| {
-                        (i16::from_le_bytes([data[i * 2], data[i * 2 + 1]]) as f32
-                            / i16::MAX as f32)
-                            .max(-1.0)
-                    }));
-                    Vertex {
-                        position,
-                        normal,
-                        uv,
-                    }
-                })
-                .collect();
-            ensure!(
-                triangles.iter().all(|&i| (i as usize) < vertices.len()),
-                "Terrain index outside vertex buffer"
-            );
-            let vertices = meshopt::optimize_vertex_fetch(&mut triangles, &vertices);
-            for vertex in vertices {
-                // Retail VS80A8B88C/80A8B894 consume NORMAL.xyz directly.
-                // Their bitangent is normalize(0,-N.z,N.y), tangent N cross B.
-                // W is unused: this stream is not a static tangent quaternion.
-                let bitangent = Vec3::new(0.0, -vertex.normal.z, vertex.normal.y).normalize();
-                let tangent = vertex.normal.cross(bitangent).normalize();
-                ensure!(
-                    vertex.normal.is_finite() && tangent.is_finite() && vertex.uv.is_finite(),
-                    "Invalid referenced terrain vertex frame/UV"
-                );
-                mesh.positions.push(vertex.position);
-                mesh.normals.push(vertex.normal);
-                mesh.texcoords.push(vertex.uv);
-                mesh.tangents.push(tangent.extend(-1.0));
-            }
-            mesh.indices = triangles;
+                .find(|draw| draw.part == part)
+                .map(|draw| draw.mesh)
+                .context("Missing terrain color draw");
         }
     }
     mesh.finish()
+}
+
+pub(crate) fn load_terrain(
+    installation: &Installation,
+    tag: u32,
+    layouts: &Layouts,
+) -> Result<TerrainGeometry> {
+    use deimos_data::tfx::features::terrain::{STerrain, TerrainDetailLevel};
+    let terrain: STerrain = installation.read_type(tag)?;
+    let input = layouts.position(InputLayoutIndex::TERRAIN.0)?;
+    ensure!(
+        input.slot == 0 && input.offset == 0 && input.format == Format::R16g16b16a16Sint,
+        "Terrain POSITION contract changed"
+    );
+    let buffer = Buffer::load(installation, terrain.vertex0_buffer)?;
+    ensure!(
+        buffer.stride == input.size,
+        "Terrain position stride changed"
+    );
+    // Original terrain vertex reconstruction documented in INTEGRATION.md.
+    // All four signed lanes participate; positions are already world-space.
+    const HORIZONTAL_UNITS_PER_METRE: f32 = 64.0;
+    const VERTICAL_UNITS_PER_METRE: f32 = 8192.0;
+    const HIGH_LANE_WEIGHT: f32 = (u16::MAX as u32 + 1) as f32;
+    let offset = terrain.unk30;
+    let positions = buffer
+        .bytes
+        .chunks_exact(input.size)
+        .map(|b| {
+            let lanes = std::array::from_fn::<_, 4, _>(|i| {
+                i16::from_le_bytes([b[i * 2], b[i * 2 + 1]]) as f32
+            });
+            Vec3::new(
+                (lanes[0] + offset.x) / HORIZONTAL_UNITS_PER_METRE,
+                (lanes[1] + offset.y) / HORIZONTAL_UNITS_PER_METRE,
+                ((lanes[2] + offset.z) + (lanes[3] + offset.w) * HIGH_LANE_WEIGHT)
+                    / VERTICAL_UNITS_PER_METRE,
+            )
+        })
+        .collect::<Vec<_>>();
+    let index = Indices::load(installation, terrain.index_buffer)?;
+    let normal_input = layouts.channel(InputLayoutIndex::TERRAIN.0, VertexSemantic::Normal)?;
+    let uv_input =
+        layouts.channel_index(InputLayoutIndex::TERRAIN.0, VertexSemantic::TexCoord, 1)?;
+    let attributes = Buffer::load(installation, terrain.vertex1_buffer)?;
+    ensure!(
+        normal_input.slot == 1
+            && normal_input.format == Format::R16g16b16a16Snorm
+            && normal_input.offset + normal_input.size <= attributes.stride
+            && uv_input.slot == 1,
+        "Terrain normal/UV stream contract changed"
+    );
+    let texcoords = attributes.texcoords(&uv_input, Vec2::ONE, Vec2::ZERO)?;
+    ensure!(
+        positions.len() == texcoords.len(),
+        "Terrain vertex channel count mismatch"
+    );
+    #[derive(Clone, Copy, Default)]
+    struct Vertex {
+        position: Vec3,
+        normal: Vec3,
+        tangent: Vec4,
+        uv: Vec2,
+    }
+    let source_vertices: Vec<_> = positions
+        .into_iter()
+        .zip(texcoords)
+        .zip(attributes.bytes.chunks_exact(attributes.stride))
+        .map(|((position, uv), data)| {
+            let data = &data[normal_input.offset..normal_input.offset + normal_input.size];
+            let normal = Vec3::from_array(std::array::from_fn(|i| {
+                (i16::from_le_bytes([data[i * 2], data[i * 2 + 1]]) as f32 / i16::MAX as f32)
+                    .max(-1.0)
+            }));
+            // Retail terrain VS derives this frame once per source vertex.
+            // Its NORMAL.xyz is direct SNORM; W is not a quaternion component.
+            let bitangent = Vec3::new(0.0, -normal.z, normal.y).normalize();
+            let tangent = normal.cross(bitangent).normalize().extend(-1.0);
+            Vertex {
+                position,
+                normal,
+                tangent,
+                uv,
+            }
+        })
+        .collect();
+    let mut draws = Vec::new();
+    for (part_index, part) in terrain
+        .mesh_parts
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.detail_level == TerrainDetailLevel::High)
+    {
+        let mut mesh = Mesh::new();
+        let mut triangles = index.triangles(
+            part.index_start,
+            part.index_count as u32,
+            PrimitiveType::TriangleStrip,
+        )?;
+        ensure!(
+            triangles
+                .iter()
+                .all(|&i| (i as usize) < source_vertices.len()),
+            "Terrain index outside vertex buffer"
+        );
+        let vertices = meshopt::optimize_vertex_fetch(&mut triangles, &source_vertices);
+        mesh.positions.reserve(vertices.len());
+        mesh.normals.reserve(vertices.len());
+        mesh.texcoords.reserve(vertices.len());
+        mesh.tangents.reserve(vertices.len());
+        for vertex in vertices {
+            ensure!(
+                vertex.normal.is_finite() && vertex.tangent.is_finite() && vertex.uv.is_finite(),
+                "Invalid referenced terrain vertex frame/UV"
+            );
+            mesh.positions.push(vertex.position);
+            mesh.normals.push(vertex.normal);
+            mesh.texcoords.push(vertex.uv);
+            mesh.tangents.push(vertex.tangent);
+        }
+        mesh.indices = triangles;
+        let group = terrain
+            .mesh_groups
+            .get(part.group_index as usize)
+            .context("Terrain part group index")?;
+        ensure!(
+            part.technique.is_some(),
+            "Terrain color draw has no technique"
+        );
+        draws.push(TerrainDraw {
+            part: u16::try_from(part_index)?,
+            mesh,
+            material: TerrainMaterial {
+                technique: part.technique.0,
+                dyemap: group.dyemap.is_some().then_some(group.dyemap.0),
+                texcoord_transform: group.unk20,
+            },
+        });
+    }
+    Ok(TerrainGeometry { draws })
 }

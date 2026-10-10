@@ -358,16 +358,36 @@ impl Builder<'_> {
                         .absolute_collections
                         .insert((data.class_id(), source.terrain.0))
                     {
-                        self.scene
-                            .groups
-                            .entry(RenderObjectKey {
-                                mesh: MeshKey::Terrain(source.terrain.0),
-                                feature: TfxFeatureRenderer::TerrainPatch,
-                                materials: MaterialBinding::Terrain(source.terrain.0),
-                                technique: None,
+                        let terrain: deimos_data::tfx::features::terrain::STerrain =
+                            self.installation.read_type(source.terrain.0)?;
+                        for (part_index, part) in
+                            terrain.mesh_parts.iter().enumerate().filter(|(_, p)| {
+                                p.detail_level
+                                    == deimos_data::tfx::features::terrain::TerrainDetailLevel::High
                             })
-                            .or_default()
-                            .push(Mat4::IDENTITY);
+                        {
+                            ensure!(
+                                part.technique.is_some(),
+                                "Terrain color part has no technique"
+                            );
+                            ensure!(
+                                (part.group_index as usize) < terrain.mesh_groups.len(),
+                                "Terrain part group index"
+                            );
+                            self.scene
+                                .groups
+                                .entry(RenderObjectKey {
+                                    mesh: MeshKey::TerrainDraw {
+                                        tag: source.terrain.0,
+                                        part: u16::try_from(part_index)?,
+                                    },
+                                    feature: TfxFeatureRenderer::TerrainPatch,
+                                    materials: MaterialBinding::Terrain(source.terrain.0),
+                                    technique: Some(part.technique.0),
+                                })
+                                .or_default()
+                                .push(Mat4::IDENTITY);
+                        }
                     }
                 }
                 ComponentData::SSkyObjectCollectionComponent(source) => {
