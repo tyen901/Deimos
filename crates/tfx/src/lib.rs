@@ -36,15 +36,30 @@ pub fn constant_bytecode(original: &[u8]) -> anyhow::Result<Vec<u8>> {
     Ok(output)
 }
 
-/// Select independent constant assignments for a renderer's consumed rows.
-/// Programs with shared stack state, temporaries or output reads require a
-/// dependency graph and are rejected rather than silently losing dependencies.
+/// Select consumed, independent assignments without evaluating unused source inputs.
+/// Each retained expression must build its own stack value; output reads and
+/// temporary dependencies remain explicit errors inside a consumed expression.
 pub fn independent_outputs(bytecode: &[u8], required: &[u8]) -> anyhow::Result<Vec<u8>> {
     use deimos_data::tfx::opcodes::{Opcode, OpcodeIterator};
-    let mut output = Vec::new();
-    let (mut offset, mut start, mut depth) = (0, 0, 0usize);
+    let mut instructions = Vec::new();
+    let mut offset = 0;
     for instruction in OpcodeIterator::new(bytecode) {
         let (op, args) = instruction?;
+        let end = offset + op.size();
+        instructions.push((offset, end, op, args));
+        offset = end;
+    }
+    let mut retained = vec![false; instructions.len()];
+    for (index, (_, _, op, args)) in instructions.iter().enumerate() {
+        if *op != Opcode::PopOutput || !required.contains(&args[0]) { continue; }
+        retained[index] = true;
+        let mut needed = 1usize;
+        let mut cursor = index;
+        while needed != 0 {
+            anyhow::ensure!(cursor != 0, "Consumed constant expression stack underflow");
+            cursor -= 1;
+            let op = instructions[cursor].2;
+            anyhow::ensure!(op != Opcode::PopOutput, "Consumed constant expression crosses an assignment");
         let (consumed, produced) = match op {
             Opcode::PushConstVec4
             | Opcode::PushExternInputFloat
@@ -90,20 +105,14 @@ pub fn independent_outputs(bytecode: &[u8], required: &[u8]) -> anyhow::Result<V
             Opcode::PopOutput => (1, 0),
             _ => anyhow::bail!("Independent output selection does not support {op:?}"),
         };
-        anyhow::ensure!(depth >= consumed, "Constant expression stack underflow");
-        depth = depth - consumed + produced;
-        offset += op.size();
-        if op == Opcode::PopOutput {
-            anyhow::ensure!(depth == 0, "Constant assignments share stack state");
-            if required.contains(&args[0]) {
-                output.extend_from_slice(&bytecode[start..offset]);
-            }
-            start = offset;
+            anyhow::ensure!(produced <= needed, "Consumed constant expression shares stack state");
+            needed = needed - produced + consumed;
+            retained[cursor] = true;
         }
     }
-    anyhow::ensure!(
-        depth == 0 && start == offset,
-        "Unterminated constant assignment"
-    );
+    let mut output = Vec::new();
+    for ((start, end, _, _), keep) in instructions.iter().zip(retained) {
+        if keep { output.extend_from_slice(&bytecode[*start..*end]); }
+    }
     Ok(output)
 }
