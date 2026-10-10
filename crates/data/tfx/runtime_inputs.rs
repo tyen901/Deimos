@@ -2,6 +2,9 @@
 #[repr(usize)]
 pub enum FrameFloat {
     GameTime = 0x00,
+    /// Viewer-owned normalized day phase; original scene producer divides its
+    /// 0..3600 environment clock by 3600 (src/ui/scene/mod.rs).
+    DayPhase = 0x10,
 }
 #[repr(usize)]
 pub enum FrameVector {

@@ -55,8 +55,9 @@ struct Component {
     definition: Definition,
 }
 enum Definition {
-    Rigid(u32),
+    Rigid(Arc<SDynamicModelComponent>),
     Attached(Vec<u32>),
+    MaterialPermutations(deimos_data::pattern::MaterialPermutationDefinition),
     Instance,
 }
 struct Builder<'a> {
@@ -70,6 +71,7 @@ struct Builder<'a> {
     statics: HashMap<u32, Vec<RenderObjectKey>>,
     static_geometry: HashMap<u32, Arc<SStaticMeshData>>,
     sky_draws: HashMap<u32, Vec<RenderObjectKey>>,
+    dynamic_draws: HashMap<(MaterialBinding, Vec<usize>), Vec<RenderObjectKey>>,
 }
 
 pub(crate) fn load(installation: &Installation, world: &World) -> Result<Scene> {
@@ -86,6 +88,7 @@ pub(crate) fn load(installation: &Installation, world: &World) -> Result<Scene> 
         statics: HashMap::new(),
         static_geometry: HashMap::new(),
         sky_draws: HashMap::new(),
+        dynamic_draws: HashMap::new(),
     };
     for (table, source) in &world.tables {
         for node in &source.nodes {
@@ -114,20 +117,40 @@ impl Builder<'_> {
         tag: u32,
         feature: TfxFeatureRenderer,
         materials: MaterialBinding,
+        permutations: Vec<usize>,
         transform: Mat4,
-    ) {
-        for stage in [RenderStage::GenerateGbuffer, RenderStage::Transparents] {
-            self.scene
-                .groups
-                .entry(RenderObjectKey {
-                    mesh: MeshKey::Dynamic(tag, stage),
-                    feature,
-                    materials,
-                    technique: None,
-                })
-                .or_default()
-                .push(transform);
+    ) -> Result<()> {
+        let cache_key = (materials, permutations);
+        if !self.dynamic_draws.contains_key(&cache_key) {
+            let mut draws = Vec::new();
+            for material in self.installation.materials(materials)?.draws {
+                if !matches!(material.stage, RenderStage::GenerateGbuffer | RenderStage::Transparents) { continue; }
+                let crate::DrawSlot::DynamicPart { mesh, part } = material.slot else { unreachable!() };
+                let technique = if material.variants.is_empty() {
+                    material.base.context("Dynamic color draw has no technique")?
+                } else {
+                    // Perimeter's variant records own full VS+PS; validate
+                    // composition rather than silently dropping a base stage.
+                    ensure!(material.base.is_none(), "Dynamic base/variant composition requires explicit stage resolution");
+                    let technique = material.variants[*cache_key.1.get(material.variant_table.context("Missing part variant table")? as usize).context("Missing part permutation")?]
+                        .context("Selected dynamic material variant is null")?;
+                    let source: deimos_data::tfx::STechnique = self.installation.read_type(technique)?;
+                    ensure!(source.bind_mode == deimos_data::tfx::TechniqueBindMode::VertexPixel
+                        && source.shader_vertex.shader.is_some() && source.shader_pixel.shader.is_some(),
+                        "Dynamic variant is not a complete color technique");
+                    technique
+                };
+                draws.push(RenderObjectKey {
+                    mesh: MeshKey::DynamicDraw { tag, stage: material.stage, mesh, part },
+                    feature, materials, technique: Some(technique),
+                });
+            }
+            self.dynamic_draws.insert(cache_key.clone(), draws);
         }
+        for &draw in &self.dynamic_draws[&cache_key] {
+            self.scene.groups.entry(draw).or_default().push(transform);
+        }
+        Ok(())
     }
     fn sky_model(&mut self, tag: u32, transform: Mat4) -> Result<()> {
         if !self.sky_draws.contains_key(&tag) {
@@ -266,7 +289,7 @@ impl Builder<'_> {
                     let started = Instant::now();
                     let model: SDynamicModelComponent = read_at(&bytes, header.definition.offset)?;
                     self.scene.compilation.rigid_decode += started.elapsed();
-                    Definition::Rigid(model.model_hash.0)
+                    Definition::Rigid(Arc::new(model))
                 } else if header.default_instance.resource_type
                     == ComponentKind::AttachedPatterns as u32
                 {
@@ -278,6 +301,8 @@ impl Builder<'_> {
                         }
                     }
                     Definition::Attached(patterns)
+                } else if header.default_instance.resource_type == ComponentKind::MaterialPermutations as u32 {
+                    Definition::MaterialPermutations(read_at(&bytes, header.definition.offset)?)
                 } else {
                     Definition::Instance
                 };
@@ -291,18 +316,39 @@ impl Builder<'_> {
             self.patterns.insert(tag, components.clone());
             components
         };
+        let mut material_configuration = BTreeMap::new();
+        let mut material_default_order = Vec::new();
+        for component in components.iter() {
+            if let Definition::MaterialPermutations(definition) = &component.definition {
+                material_default_order.extend(definition.default_order.iter());
+            }
+            for data in component.header.dynamic_data.iter() {
+                if let ComponentData::SMaterialPermutationsComponent(source) = data {
+                    material_configuration.extend(source.config.iter().copied());
+                }
+            }
+        }
+        if let Some(overrides) = overrides {
+            for data in overrides.iter() {
+                if let ComponentData::SMaterialPermutationsComponent(source) = data {
+                    material_configuration.extend(source.config.iter().copied());
+                }
+            }
+        }
+        let material_configuration: Vec<_> = material_configuration.into_iter().collect();
         for component in components.iter() {
             let header = &component.header;
             let Some(default) = header.dynamic_data.first() else {
                 continue;
             };
-            if let Definition::Rigid(model) = component.definition {
+            if let Definition::Rigid(model) = &component.definition {
                 self.model(
-                    model,
+                    model.model_hash.0,
                     TfxFeatureRenderer::RigidObject,
                     MaterialBinding::RigidComponent(component.tag),
+                    crate::materials::permutation(model, &material_configuration, &material_default_order)?,
                     transform,
-                );
+                )?;
                 continue;
             }
             if let Definition::Attached(patterns) = &component.definition {
@@ -410,8 +456,9 @@ impl Builder<'_> {
                         source.model.0,
                         TfxFeatureRenderer::Water,
                         MaterialBinding::Model(source.model.0),
+                        Vec::new(),
                         transform,
-                    );
+                    )?;
                 }
                 ComponentData::SDecoratorsComponent(source) => {
                     let started = Instant::now();
@@ -450,6 +497,8 @@ impl Builder<'_> {
                             == Some((bytes.len() / DecoratorGpuInstance::SIZE) as u32),
                         "Decorator ranges do not cover instance buffer"
                     );
+                    let geometry: deimos_data::tfx::features::dynamic::SDynamicModel =
+                        self.installation.read_type(model.entity_model.0)?;
                     for (identifier, range) in decorator.unk18.windows(2).enumerate() {
                         let records = bytes
                             .get(
@@ -457,19 +506,7 @@ impl Builder<'_> {
                                     ..range[1] as usize * DecoratorGpuInstance::SIZE,
                             )
                             .context("Decorator instance range")?;
-                        let group = self
-                            .scene
-                            .groups
-                            .entry(RenderObjectKey {
-                                mesh: MeshKey::Decorator(
-                                    model.entity_model.0,
-                                    u16::try_from(identifier)?,
-                                ),
-                                feature: TfxFeatureRenderer::SpeedtreeTrees,
-                                materials: MaterialBinding::Model(model.entity_model.0),
-                                technique: None,
-                            })
-                            .or_default();
+                        let mut transforms = Vec::with_capacity(records.len() / DecoratorGpuInstance::SIZE);
                         for record in records.chunks_exact(DecoratorGpuInstance::SIZE) {
                             let instance = DecoratorGpuInstance::from_bytes(record);
                             let p = instance.position_scale(&constants);
@@ -481,12 +518,33 @@ impl Builder<'_> {
                                     + 2.0 * u * u.dot(v)
                                     + 2.0 * q.w * u.cross(v)
                             };
-                            group.push(Mat4::from_cols(
+                            transforms.push(Mat4::from_cols(
                                 (rotate(Vec3::X) * p.w).extend(0.0),
                                 (rotate(Vec3::Y) * p.w).extend(0.0),
                                 (rotate(Vec3::Z) * p.w).extend(0.0),
                                 p.truncate().extend(1.0),
                             ));
+                        }
+                        for (mesh_index, mesh) in geometry.meshes.iter().enumerate() {
+                            for part_index in mesh.get_range_for_stage(RenderStage::GenerateGbuffer) {
+                                let part = &mesh.parts[part_index];
+                                if !part.lod_category.is_highest_detail()
+                                    || part.external_identifier != u16::try_from(identifier)?
+                                    || part.unk17 != deimos_data::tfx::features::decorators::DecoratorQuality::High as u8
+                                { continue; }
+                                ensure!(part.technique.is_some(), "Decorator color part has no technique");
+                                self.scene.groups.entry(RenderObjectKey {
+                                    mesh: MeshKey::DynamicDraw {
+                                        tag: model.entity_model.0,
+                                        stage: RenderStage::GenerateGbuffer,
+                                        mesh: u16::try_from(mesh_index)?,
+                                        part: u16::try_from(part_index)?,
+                                    },
+                                    feature: TfxFeatureRenderer::SpeedtreeTrees,
+                                    materials: MaterialBinding::Model(model.entity_model.0),
+                                    technique: Some(part.technique.0),
+                                }).or_default().extend(transforms.iter().copied());
+                            }
                         }
                     }
                     self.scene.compilation.decorator_decode += started.elapsed();

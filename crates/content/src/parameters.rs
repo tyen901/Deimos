@@ -9,6 +9,7 @@ use glam::Vec4;
 pub struct ShaderDependencies {
     pub time: bool,
     pub viewport: bool,
+    pub day_phase: bool,
 }
 pub struct ShaderParameters {
     pub slot: i32,
@@ -43,6 +44,12 @@ impl ShaderParameters {
                         && args[1] as usize * size_of::<f32>() == FrameFloat::GameTime as usize =>
                 {
                     dependencies.time = true
+                }
+                Opcode::PushExternInputFloat
+                    if args[0] == ExternIndex::Frame as u8
+                        && args[1] as usize * size_of::<f32>() == FrameFloat::DayPhase as usize =>
+                {
+                    dependencies.day_phase = true
                 }
                 Opcode::PushExternInputVec4
                     if args[0] == ExternIndex::Deferred as u8

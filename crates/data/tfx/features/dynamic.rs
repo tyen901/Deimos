@@ -5,6 +5,8 @@ use tiger_pkg::TagHash;
 
 use crate::tfx::{LodCategory, PrimitiveType, RenderStage};
 
+pub const MATERIAL_OPTION_INVALID: u32 = 0x871AC0EA;
+
 #[derive(Debug, Clone)]
 #[tiger_type(id = 0x8080881C, size = 0xD0)]
 pub struct SDynamicModel {

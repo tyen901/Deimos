@@ -10,7 +10,7 @@ pub use parameters::{ShaderDependencies, ShaderParameters};
 pub use texture::Texture;
 mod world;
 pub use geometry::{
-    Layouts, Mesh, MeshKey, StaticDrawKey, StaticGeometry, TerrainDraw, TerrainGeometry,
+    DynamicDrawKey, DynamicGeometry, Layouts, Mesh, MeshKey, StaticDrawKey, StaticGeometry, TerrainDraw, TerrainGeometry,
     TerrainMaterial,
 };
 mod scene;
@@ -85,6 +85,9 @@ impl Installation {
         geometry::load_static(self, tag, layouts)
     }
 
+    pub fn dynamic_geometry(&self, tag: u32, layouts: &Layouts) -> Result<DynamicGeometry> {
+        geometry::load_dynamic(self, tag, layouts)
+    }
     pub fn terrain_geometry(&self, tag: u32, layouts: &Layouts) -> Result<TerrainGeometry> {
         geometry::load_terrain(self, tag, layouts)
     }

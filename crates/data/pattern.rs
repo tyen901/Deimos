@@ -74,4 +74,11 @@ pub struct S8080A322 {
 pub enum ComponentKind {
     RigidModel = 0x80808673,
     AttachedPatterns = 0x8080A317,
+    MaterialPermutations = 0x80804030,
+}
+
+#[tiger_type(id = 0x80804030, size = 0xE8)]
+pub struct MaterialPermutationDefinition {
+    #[tiger(offset = 0xD8)]
+    pub default_order: Vec<crate::map::S808085E3>,
 }
