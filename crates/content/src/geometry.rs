@@ -76,6 +76,14 @@ impl Layouts {
         self.channel(index, VertexSemantic::Position)
     }
     fn channel(&self, index: u8, semantic: VertexSemantic) -> Result<PositionInput> {
+        self.channel_index(index, semantic, 0)
+    }
+    fn channel_index(
+        &self,
+        index: u8,
+        semantic: VertexSemantic,
+        semantic_index: u8,
+    ) -> Result<PositionInput> {
         let layout = self
             .mapping
             .layouts
@@ -102,7 +110,7 @@ impl Layouts {
                 .elements;
             let mut offset = 0;
             for element in elements {
-                if element.semantic == semantic as u8 && element.semantic_index == 0 {
+                if element.semantic == semantic as u8 && element.semantic_index == semantic_index {
                     return Ok(PositionInput {
                         slot,
                         offset,
@@ -120,7 +128,7 @@ impl Layouts {
             }
         }
         bail!(
-            "Layout {index} has no per-vertex semantic {} index0",
+            "Layout {index} has no per-vertex semantic {} index{semantic_index}",
             semantic as u8
         )
     }
@@ -201,7 +209,11 @@ impl Buffer {
                         f32::from_le_bytes(data[0..4].try_into()?),
                         f32::from_le_bytes(data[4..8].try_into()?),
                     ),
-                    format => bail!("Unsupported TEXCOORD0 format {format:?}"),
+                    Format::R16g16Float => Vec2::new(
+                        half::f16::from_le_bytes(data[0..2].try_into()?).to_f32(),
+                        half::f16::from_le_bytes(data[2..4].try_into()?).to_f32(),
+                    ),
+                    format => bail!("Unsupported TEXCOORD format {format:?}"),
                 };
                 let uv = if input.format == Format::R16g16Snorm {
                     uv.max(Vec2::splat(-1.0))
@@ -762,7 +774,68 @@ pub(crate) fn load(installation: &Installation, key: MeshKey, layouts: &Layouts)
                     PrimitiveType::TriangleStrip,
                 )?);
             }
-            mesh.append(positions, triangles)?;
+            let normal_input =
+                layouts.channel(InputLayoutIndex::TERRAIN.0, VertexSemantic::Normal)?;
+            let uv_input =
+                layouts.channel_index(InputLayoutIndex::TERRAIN.0, VertexSemantic::TexCoord, 1)?;
+            let attributes = Buffer::load(installation, terrain.vertex1_buffer)?;
+            ensure!(
+                normal_input.slot == 1
+                    && normal_input.format == Format::R16g16b16a16Snorm
+                    && normal_input.offset + normal_input.size <= attributes.stride
+                    && uv_input.slot == 1,
+                "Terrain normal/UV stream contract changed"
+            );
+            let texcoords = attributes.texcoords(&uv_input, Vec2::ONE, Vec2::ZERO)?;
+            ensure!(
+                positions.len() == texcoords.len(),
+                "Terrain vertex channel count mismatch"
+            );
+            #[derive(Clone, Copy, Default)]
+            struct Vertex {
+                position: Vec3,
+                normal: Vec3,
+                uv: Vec2,
+            }
+            let vertices: Vec<_> = positions
+                .into_iter()
+                .zip(texcoords)
+                .zip(attributes.bytes.chunks_exact(attributes.stride))
+                .map(|((position, uv), data)| {
+                    let data = &data[normal_input.offset..normal_input.offset + normal_input.size];
+                    let normal = Vec3::from_array(std::array::from_fn(|i| {
+                        (i16::from_le_bytes([data[i * 2], data[i * 2 + 1]]) as f32
+                            / i16::MAX as f32)
+                            .max(-1.0)
+                    }));
+                    Vertex {
+                        position,
+                        normal,
+                        uv,
+                    }
+                })
+                .collect();
+            ensure!(
+                triangles.iter().all(|&i| (i as usize) < vertices.len()),
+                "Terrain index outside vertex buffer"
+            );
+            let vertices = meshopt::optimize_vertex_fetch(&mut triangles, &vertices);
+            for vertex in vertices {
+                // Retail VS80A8B88C/80A8B894 consume NORMAL.xyz directly.
+                // Their bitangent is normalize(0,-N.z,N.y), tangent N cross B.
+                // W is unused: this stream is not a static tangent quaternion.
+                let bitangent = Vec3::new(0.0, -vertex.normal.z, vertex.normal.y).normalize();
+                let tangent = vertex.normal.cross(bitangent).normalize();
+                ensure!(
+                    vertex.normal.is_finite() && tangent.is_finite() && vertex.uv.is_finite(),
+                    "Invalid referenced terrain vertex frame/UV"
+                );
+                mesh.positions.push(vertex.position);
+                mesh.normals.push(vertex.normal);
+                mesh.texcoords.push(vertex.uv);
+                mesh.tangents.push(tangent.extend(-1.0));
+            }
+            mesh.indices = triangles;
         }
     }
     mesh.finish()

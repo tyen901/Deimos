@@ -10,4 +10,5 @@ tiger-pkg = "=0.20.0"
 tiger-parse = { git = "https://github.com/v4nguard/tiger-parse.git", rev = "0125318a611bb11d21dbfc05f34e7f0b98554555", features = ["tiger_pkg"] }
 glam = "0.29"
 meshopt = "=0.6.2"
+half = "=2.7.1"
 deimos-tfx = { path = "../tfx" }
