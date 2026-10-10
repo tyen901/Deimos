@@ -14,7 +14,7 @@ use deimos_data::tfx::{
     render_globals::{SRenderGlobals, SVertexInputElementSets, SVertexInputLayoutMapping},
     vertex_input::{INPUT_FORMATS, InputLayoutIndex, VertexSemantic},
 };
-use glam::{Vec2, Vec3};
+use glam::{Vec2, Vec3, Vec4};
 use std::collections::HashSet;
 use tiger_pkg::TagHash;
 
@@ -36,6 +36,7 @@ pub struct Mesh {
     pub positions: Vec<Vec3>,
     pub normals: Vec<Vec3>,
     pub texcoords: Vec<Vec2>,
+    pub colors: Vec<Vec4>,
     pub indices: Vec<u32>,
 }
 
@@ -258,6 +259,7 @@ impl Mesh {
             positions: Vec::new(),
             normals: Vec::new(),
             texcoords: Vec::new(),
+            colors: Vec::new(),
             indices: Vec::new(),
         }
     }
@@ -276,12 +278,14 @@ impl Mesh {
         &mut self,
         positions: Vec<Vec3>,
         texcoords: Vec<Vec2>,
+        colors: Option<Vec<Vec4>>,
         mut indices: Vec<u32>,
     ) -> Result<()> {
         #[derive(Clone, Copy, Default)]
         struct Vertex {
             position: Vec3,
             texcoord: Vec2,
+            color: Option<Vec4>,
         }
         ensure!(
             positions.len() == texcoords.len(),
@@ -294,13 +298,23 @@ impl Mesh {
         let vertices: Vec<_> = positions
             .into_iter()
             .zip(texcoords)
-            .map(|(position, texcoord)| Vertex { position, texcoord })
+            .enumerate()
+            .map(|(index, (position, texcoord))| Vertex {
+                position,
+                texcoord,
+                color: colors
+                    .as_ref()
+                    .map(|values| values[index.min(values.len() - 1)]),
+            })
             .collect();
         let vertices = meshopt::optimize_vertex_fetch(&mut indices, &vertices);
         let base = u32::try_from(self.positions.len())?;
         for vertex in vertices {
             self.positions.push(vertex.position);
             self.texcoords.push(vertex.texcoord);
+            if let Some(color) = vertex.color {
+                self.colors.push(color);
+            }
         }
         self.indices.extend(indices.into_iter().map(|i| i + base));
         Ok(())
@@ -453,7 +467,26 @@ pub(crate) fn load(installation: &Installation, key: MeshKey, layouts: &Layouts)
                 part.index_count,
                 part.primitive_type,
             )?;
-            mesh.append_textured(positions, texcoords, indices)?;
+            let colors = if source.color_buffer.is_some() {
+                let buffer = Buffer::load(installation, source.color_buffer)?;
+                ensure!(
+                    buffer.stride == 4 && !buffer.bytes.is_empty(),
+                    "Source color buffer must contain RGBA8 vertices"
+                );
+                Some(
+                    buffer
+                        .bytes
+                        .chunks_exact(4)
+                        .map(|v| {
+                            Vec4::new(v[0] as f32, v[1] as f32, v[2] as f32, v[3] as f32)
+                                / u8::MAX as f32
+                        })
+                        .collect(),
+                )
+            } else {
+                None
+            };
+            mesh.append_textured(positions, texcoords, colors, indices)?;
         }
         MeshKey::Dynamic(tag, _) | MeshKey::Decorator(tag, _) => {
             let model: SDynamicModel = installation.read_type(tag)?;

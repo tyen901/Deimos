@@ -4,12 +4,12 @@ use ahash::AHashMap;
 use anyhow::Context;
 use deimos_data::{
     tag::WideHash,
-    tfx::{ExternIndex, SDynamicCore, SSamplerReference, ShaderStage},
+    tfx::{ExternIndex, SDynamicCore, ShaderStage},
 };
 use deimos_ecs::object::ObjectChannel;
 use glam::Vec4;
 use itertools::Itertools;
-use tiger_pkg::{TagHash, package_manager};
+use tiger_pkg::package_manager;
 
 use crate::{
     asset::{AssetManager, Handle, texture::Texture},
@@ -278,14 +278,9 @@ impl DynamicCoreResources {
                 .map(|t| (t.slot, TextureSource::Static(t.texture))),
         );
 
-        let mut sampler_tags = Vec::new();
+        let sampler_tags = core.sampler_assignments()?;
 
-        extract_textures_and_samplers(
-            &core.bytecode,
-            &core.samplers,
-            &mut sampler_tags,
-            &mut res.textures,
-        )?;
+        extract_textures(&core.bytecode, &mut res.textures)?;
 
         for (slot, tag) in sampler_tags {
             let sampler_entry = package_manager()
@@ -317,13 +312,10 @@ impl DynamicCoreResources {
     }
 }
 
-fn extract_textures_and_samplers(
+fn extract_textures(
     bytecode: &[u8],
-    static_samplers: &[SSamplerReference],
-    samplers: &mut Vec<(u32, TagHash)>,
     textures: &mut Vec<(u32, TextureSource)>,
 ) -> anyhow::Result<()> {
-    let mut last_sampler = None;
     let mut last_texture = None;
 
     let bytecode = OpcodeIterator::new(bytecode);
@@ -331,20 +323,7 @@ fn extract_textures_and_samplers(
         let (op, ptr) = op?;
 
         match op {
-            Opcode::PushSamplerState => {
-                let index = ptr[0];
-                let sampler = static_samplers
-                    .get(index as usize)
-                    .context("Invalid sampler index")?;
-                last_sampler = Some(sampler.sampler);
-            }
-            Opcode::PopSamplerState => {
-                let slot = ptr[0] & 0x1F;
-                let sampler = last_sampler
-                    .take()
-                    .context("Sampler state was not pushed")?;
-                samplers.push((slot as u32, sampler));
-            }
+            Opcode::PushSamplerState | Opcode::PopSamplerState => {}
             Opcode::PushExternInputTextureView => {
                 let extern_id = ExternIndex::try_from(ptr[0])
                     .ok()
@@ -362,7 +341,7 @@ fn extract_textures_and_samplers(
             }
             _ => {
                 anyhow::ensure!(
-                    last_sampler.is_none() && last_texture.is_none(),
+                    last_texture.is_none(),
                     "Malformed bytecode. Sampler/texture was acquired but not assigned"
                 );
             }

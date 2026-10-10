@@ -41,6 +41,25 @@ impl ShaderParameters {
     }
 }
 impl Installation {
+    pub fn shader_samplers(
+        &self,
+        tag: u32,
+        stage: ShaderStage,
+    ) -> Result<Vec<(u32, deimos_data::tfx::SSamplerData)>> {
+        let technique: STechnique = self.read_type(tag)?;
+        let core = &technique
+            .all_valid_shaders()
+            .into_iter()
+            .find(|(kind, _)| *kind == stage)
+            .context("Technique has no requested shader stage")?
+            .1
+            .core;
+        core.sampler_assignments()?
+            .into_iter()
+            .map(|(slot, tag)| Ok((slot, self.read_type(self.reference(tag.0)?)?)))
+            .collect()
+    }
+
     pub fn shader_parameters(&self, tag: u32, stage: ShaderStage) -> Result<ShaderParameters> {
         let technique: STechnique = self.read_type(tag)?;
         let core = &technique

@@ -299,3 +299,55 @@ impl Debug for FixedFunctionState {
             .finish()
     }
 }
+
+impl SDynamicCore {
+    /// Original resource-assignment bytecode, shared by source and embedding renderers.
+    pub fn sampler_assignments(&self) -> anyhow::Result<Vec<(u32, TagHash)>> {
+        use crate::tfx::opcodes::{Opcode, OpcodeIterator};
+        use anyhow::Context;
+        let mut output = Vec::new();
+        let mut pending = None;
+        for instruction in OpcodeIterator::new(&self.bytecode) {
+            let (opcode, args) = instruction?;
+            match opcode {
+                Opcode::PushSamplerState => {
+                    anyhow::ensure!(pending.is_none(), "Unassigned sampler state");
+                    pending = Some(
+                        self.samplers
+                            .get(args[0] as usize)
+                            .context("Invalid sampler index")?
+                            .sampler,
+                    );
+                }
+                Opcode::PopSamplerState => output.push((
+                    u32::from(args[0] & 0x1F),
+                    pending.take().context("Sampler state was not pushed")?,
+                )),
+                _ => anyhow::ensure!(
+                    pending.is_none(),
+                    "Sampler state was acquired but not assigned"
+                ),
+            }
+        }
+        anyhow::ensure!(pending.is_none(), "Unassigned trailing sampler state");
+        Ok(output)
+    }
+}
+/// On-disk D3D sampler payload consumed by DynamicCore (52 bytes).
+#[derive(Debug)]
+#[tiger_type(size = 0x34)]
+pub struct SSamplerData {
+    pub filter: u32,
+    pub address_u: u32,
+    pub address_v: u32,
+    pub address_w: u32,
+    pub mip_lod_bias: f32,
+    pub max_anisotropy: u32,
+    pub comparison_func: u32,
+    pub border_color: glam::Vec4,
+    pub min_lod: f32,
+    pub max_lod: f32,
+}
+impl SSamplerData {
+    pub const MIN_MAG_MIP_LINEAR: u32 = 0x15;
+}
