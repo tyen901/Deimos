@@ -21,6 +21,7 @@ pub enum MeshKey {
     Static(u32),
     Dynamic(u32),
     Terrain(u32),
+    Decorator(u32, u16),
 }
 pub struct Mesh {
     pub positions: Vec<Vec3>,
@@ -220,7 +221,6 @@ impl Mesh {
         Ok(())
     }
     fn finish(mut self) -> Result<Self> {
-        ensure!(!self.indices.is_empty(), "No highest-detail solid geometry");
         self.normals.resize(self.positions.len(), Vec3::ZERO);
         for triangle in self.indices.chunks_exact(3) {
             let [a, b, c] = [
@@ -316,7 +316,7 @@ pub(crate) fn load(installation: &Installation, key: MeshKey, layouts: &Layouts)
                 mesh.append(positions, triangles)?;
             }
         }
-        MeshKey::Dynamic(tag) => {
+        MeshKey::Dynamic(tag) | MeshKey::Decorator(tag, _) => {
             let model: SDynamicModel = installation.read_type(tag)?;
             for source in &model.meshes {
                 for stage in [RenderStage::GenerateGbuffer, RenderStage::Transparents] {
@@ -324,7 +324,16 @@ pub(crate) fn load(installation: &Installation, key: MeshKey, layouts: &Layouts)
                         .parts
                         .get(source.get_range_for_stage(stage))
                         .context("Rigid part range")?;
-                    if !parts.iter().any(|p| p.lod_category.is_highest_detail()) {
+                    let selected = |p: &&deimos_data::tfx::features::dynamic::SDynamicMeshPart| {
+                        p.lod_category.is_highest_detail()
+                            && match key {
+                                MeshKey::Decorator(_, identifier) => {
+                                    p.external_identifier == identifier && p.unk17 == 0
+                                }
+                                _ => true,
+                            }
+                    };
+                    if !parts.iter().filter(selected).next().is_some() {
                         continue;
                     }
                     let input = layouts.position(source.get_input_layout_for_stage(stage))?;
@@ -343,7 +352,7 @@ pub(crate) fn load(installation: &Installation, key: MeshKey, layouts: &Layouts)
                     )?;
                     let index = Indices::load(installation, source.index_buffer)?;
                     let mut triangles = Vec::new();
-                    for part in parts.iter().filter(|p| p.lod_category.is_highest_detail()) {
+                    for part in parts.iter().filter(selected) {
                         triangles.extend(index.triangles(
                             part.index_start,
                             part.index_count,
