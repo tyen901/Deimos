@@ -1,6 +1,8 @@
 //! Session-owned access to retail content using Deimos's wire schemas.
 //! The embedding engine owns scheduling, resource caching and rendering.
 mod geometry;
+mod materials;
+pub use materials::{DrawMaterial, DrawSlot, MaterialSet};
 mod world;
 pub use geometry::{Layouts, Mesh, MeshKey};
 mod scene;
@@ -70,6 +72,10 @@ impl Installation {
 
     pub fn mesh(&self, key: MeshKey, layouts: &Layouts) -> Result<Mesh> {
         geometry::load(self, key, layouts)
+    }
+
+    pub fn materials(&self, owner: MaterialBinding) -> Result<MaterialSet> {
+        materials::load(self, owner)
     }
 
     pub fn scene(&self, world: &World) -> Result<Scene> {
