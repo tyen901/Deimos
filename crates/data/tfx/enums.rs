@@ -253,6 +253,7 @@ impl ShaderStage {
         }
     }
 
+    #[cfg(feature = "renderer")]
     pub const fn shader_visibility(&self) -> d3d12::ShaderVisibility {
         match self {
             Self::Pixel => d3d12::ShaderVisibility::Pixel,

@@ -1,3 +1,5 @@
+#[cfg(feature = "cpu")]
+use crate::dxgi as d3d12;
 use tiger_parse::tiger_type;
 use tiger_parse::TigerReadable;
 use tiger_pkg::TagHash;

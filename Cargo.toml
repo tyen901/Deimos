@@ -11,6 +11,7 @@ path = "src/main.rs"
 [workspace]
 members = [
     "crates/core",
+    "crates/content",
     "crates/d3d12",
     "crates/data",
     "crates/ecs",
@@ -35,7 +36,7 @@ profiling = "1"
 rayon = "1.11.0"
 serde = { version = "1", features = ["derive"] }
 sdl3 = { version = "0.16", features = ["raw-window-handle"] }
-tiger-parse = { version = "0.7.2", git = "https://github.com/v4nguard/tiger-parse.git", features = [
+tiger-parse = { version = "0.7.2", git = "https://github.com/v4nguard/tiger-parse.git", rev = "0125318a611bb11d21dbfc05f34e7f0b98554555", features = [
     "check_types",
     "check_types_strict",
     "tiger_pkg",

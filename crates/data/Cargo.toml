@@ -7,8 +7,8 @@ edition = "2021"
 path = "./lib.rs"
 
 [dependencies]
-d3d12 = { path = "../d3d12" }
-deimos-core = { path = "../core" }
+d3d12 = { path = "../d3d12", optional = true }
+deimos-core = { path = "../core", optional = true }
 
 anyhow.workspace = true
 assert-offset = "0.1"
@@ -20,3 +20,13 @@ tiger-parse.workspace = true
 int-enum = "1.2.0"
 ahash = "0.8"
 rayon.workspace = true
+
+[features]
+default = ["renderer"]
+renderer = ["dep:d3d12"]
+cpu = []
+examples = ["dep:deimos-core"]
+
+[[example]]
+name = "extract_dialogue"
+required-features = ["examples"]
