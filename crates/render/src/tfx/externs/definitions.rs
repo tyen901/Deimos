@@ -38,7 +38,7 @@ extern_struct! {
         // When not zero, causes a weird noise pattern on cutout textures
         0x1B0 => unk1b0: Vec4 > default(Vec4::W),
         0x1C0 => unk1c0: Vec4 > default(Vec4::Z),
-        0x1E0 => unk1d0: Vec4 > default(Vec4::ZERO),
+        0x1E0 => unk1d0: Vec4 > default(deimos_data::tfx::runtime_inputs::FRAME_UNK1E0_DEFAULT),
 
         0x1F0 => unk1f0: Vec4,
         0x210 => unk210: Vec4,

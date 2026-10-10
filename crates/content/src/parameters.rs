@@ -17,6 +17,17 @@ pub struct ShaderParameters {
     constants: Vec<Vec4>,
 }
 impl ShaderParameters {
+    /// Keep only independently assigned rows consumed by the native shader.
+    pub fn retain_independent_outputs(mut self, required: &[u8]) -> Result<Self> {
+        ensure!(
+            required
+                .iter()
+                .all(|&row| (row as usize) < self.initial.len()),
+            "Required material row is outside the source constant buffer"
+        );
+        self.bytecode = deimos_tfx::independent_outputs(&self.bytecode, required)?;
+        Ok(self)
+    }
     pub fn dependencies(&self) -> Result<ShaderDependencies> {
         use deimos_data::tfx::{
             ExternIndex,

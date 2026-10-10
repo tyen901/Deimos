@@ -349,7 +349,9 @@ pub struct SSamplerData {
     pub max_lod: f32,
 }
 impl SSamplerData {
+    pub const MIN_MAG_MIP_POINT: u32 = 0x00;
     pub const MIN_MAG_MIP_LINEAR: u32 = 0x15;
+    pub const ANISOTROPIC: u32 = 0x55;
 }
 
 /// Texture-address wire values used by the original D3D sampler payload.
